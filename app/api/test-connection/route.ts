@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
   try {
     await connectors[platform]()
     return NextResponse.json({ ok: true })
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e.message })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    return NextResponse.json({ ok: false, error: message })
   }
 }
