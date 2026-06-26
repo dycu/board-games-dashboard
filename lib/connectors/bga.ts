@@ -47,8 +47,8 @@ export async function fetchBGA(username: string, password: string): Promise<Game
     }
   }
 
-  // Step 2: POST login — no requestToken needed for the login endpoint itself
-  const loginRes = await fetch(`${loginBase}/account/account/login.html`, {
+  // Step 2: POST login — API lives on the main domain, not the locale subdomain
+  const loginRes = await fetch(`${BASE}/account/account/login.html`, {
     method: 'POST',
     headers: {
       ...BROWSER_HEADERS,
@@ -77,7 +77,7 @@ export async function fetchBGA(username: string, password: string): Promise<Game
   if (!postLoginToken) throw new Error(`BGA: no request token in login response cookies (keys: ${Object.keys(allCookies).join(', ')})`)
 
   // Step 3: fetch active tables
-  const tablesRes = await fetch(`${loginBase}/player/player/getactivetables.html?status=open`, {
+  const tablesRes = await fetch(`${BASE}/player/player/getactivetables.html?status=open`, {
     headers: {
       ...BROWSER_HEADERS,
       Accept: 'application/json, */*',
