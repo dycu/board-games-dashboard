@@ -9,19 +9,10 @@ const HEADERS = {
   'X-Requested-With': 'XMLHttpRequest',
 }
 
-export async function fetchBGA(session: string): Promise<Game[]> {
-  const cookie = `TournamentUserSession=${session}`
+export async function fetchBGA(session: string, playerId: string): Promise<Game[]> {
+  const cookie = `PHPSESSID=${session}`
 
-  // Get current player ID from profile endpoint
-  const meRes = await fetch(`${BASE}/player/player/getinfos.html`, {
-    headers: { ...HEADERS, Cookie: cookie },
-  })
-  const meData = await meRes.json()
-  const myId = String(meData.data?.id ?? '')
-  if (!myId) throw new Error('BGA: could not determine player ID — session cookie may be expired')
-
-  // Get all active tables
-  const tablesRes = await fetch(`${BASE}/player/player/getactivetables.html?status=open`, {
+  const tablesRes = await fetch(`${BASE}/player/player/getactivetables?status=open`, {
     headers: { ...HEADERS, Cookie: cookie },
   })
   const tablesData = await tablesRes.json()
@@ -29,7 +20,7 @@ export async function fetchBGA(session: string): Promise<Game[]> {
 
   return tables.map((t: any): Game => {
     const lastMoveAt = new Date(t.gameserver_updated * 1000)
-    const isMyTurn = String(t.active_player) === myId
+    const isMyTurn = String(t.active_player) === playerId
     return {
       id: `bga:${t.id}`,
       platform: 'bga',

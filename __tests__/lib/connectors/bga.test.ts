@@ -6,13 +6,6 @@ global.fetch = mockFetch
 
 const SESSION = 'test-session-cookie'
 
-function makeInfosMock(id: string) {
-  return {
-    ok: true,
-    json: async () => ({ status: 1, data: { id } }),
-  }
-}
-
 function makeTablesMock(data: object) {
   return {
     ok: true,
@@ -25,10 +18,9 @@ describe('fetchBGA', () => {
 
   it('returns Game[] from API response', async () => {
     mockFetch
-      .mockResolvedValueOnce(makeInfosMock('42'))
       .mockResolvedValueOnce(makeTablesMock(fixture))
 
-    const games = await fetchBGA(SESSION)
+    const games = await fetchBGA(SESSION, '42')
     expect(games.length).toBe(2)
     expect(games[0]).toMatchObject({
       platform: 'bga',
@@ -41,10 +33,9 @@ describe('fetchBGA', () => {
 
   it('correctly identifies whose turn it is', async () => {
     mockFetch
-      .mockResolvedValueOnce(makeInfosMock('42'))
       .mockResolvedValueOnce(makeTablesMock(fixture))
 
-    const games = await fetchBGA(SESSION)
+    const games = await fetchBGA(SESSION, '42')
     // Game 12345: active_player=99, me=42 → NOT my turn
     const wingspan = games.find(g => g.id === 'bga:12345')!
     expect(wingspan.myTurn).toBe(false)
@@ -55,11 +46,9 @@ describe('fetchBGA', () => {
     expect(agricola.myTurn).toBe(true)
   })
 
-  it('throws when session is expired (no player ID returned)', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ status: 1, data: {} }),
-    })
-    await expect(fetchBGA(SESSION)).rejects.toThrow('session cookie may be expired')
+  it('returns empty array when no tables exist', async () => {
+    mockFetch.mockResolvedValueOnce(makeTablesMock({ status: 1, data: { tables: [] } }))
+    const games = await fetchBGA(SESSION, '42')
+    expect(games).toHaveLength(0)
   })
 })

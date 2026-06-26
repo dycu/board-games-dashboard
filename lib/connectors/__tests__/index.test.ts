@@ -41,6 +41,7 @@ function makeGame(id: string, platform: Game['platform']): Game {
 
 const ALL_ENV_VARS: Record<string, string> = {
   BGA_SESSION: 'bga_session_cookie',
+  BGA_PLAYER_ID: '12345',
   EIGHTEENXX_USERNAME: '18xx_user',
   EIGHTEENXX_PASSWORD: '18xx_pass',
   OBG_USERNAME: 'obg_user',
