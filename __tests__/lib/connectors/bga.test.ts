@@ -4,29 +4,16 @@ import fixture from '@/__fixtures__/bga-games.json'
 const mockFetch = jest.fn()
 global.fetch = mockFetch
 
-function makeInitMock() {
+const SESSION = 'test-session-cookie'
+
+function makeInfosMock(id: string) {
   return {
     ok: true,
-    headers: {
-      get: () => 'bga_cookie=init; Path=/',
-      getSetCookie: () => ['bga_cookie=init; Path=/'],
-    },
-    text: async () => 'var bgaConfig = {requestToken: "deadbeef1234", someOther: true}',
+    json: async () => ({ status: 1, data: { id } }),
   }
 }
 
-function makeLoginMock(payload: object) {
-  return {
-    ok: true,
-    headers: {
-      get: () => 'PHPSESSID=abc123; Path=/',
-      getSetCookie: () => ['PHPSESSID=abc123; Path=/'],
-    },
-    text: async () => JSON.stringify(payload),
-  }
-}
-
-function makeGamesMock(data: object) {
+function makeTablesMock(data: object) {
   return {
     ok: true,
     json: async () => data,
@@ -38,11 +25,10 @@ describe('fetchBGA', () => {
 
   it('returns Game[] from API response', async () => {
     mockFetch
-      .mockResolvedValueOnce(makeInitMock())
-      .mockResolvedValueOnce(makeLoginMock({ status: 1, data: { id: '42' } }))
-      .mockResolvedValueOnce(makeGamesMock(fixture))
+      .mockResolvedValueOnce(makeInfosMock('42'))
+      .mockResolvedValueOnce(makeTablesMock(fixture))
 
-    const games = await fetchBGA('user@example.com', 'password')
+    const games = await fetchBGA(SESSION)
     expect(games.length).toBe(2)
     expect(games[0]).toMatchObject({
       platform: 'bga',
@@ -55,11 +41,10 @@ describe('fetchBGA', () => {
 
   it('correctly identifies whose turn it is', async () => {
     mockFetch
-      .mockResolvedValueOnce(makeInitMock())
-      .mockResolvedValueOnce(makeLoginMock({ status: 1, data: { id: '42' } }))
-      .mockResolvedValueOnce(makeGamesMock(fixture))
+      .mockResolvedValueOnce(makeInfosMock('42'))
+      .mockResolvedValueOnce(makeTablesMock(fixture))
 
-    const games = await fetchBGA('user@example.com', 'password')
+    const games = await fetchBGA(SESSION)
     // Game 12345: active_player=99, me=42 → NOT my turn
     const wingspan = games.find(g => g.id === 'bga:12345')!
     expect(wingspan.myTurn).toBe(false)
@@ -70,23 +55,11 @@ describe('fetchBGA', () => {
     expect(agricola.myTurn).toBe(true)
   })
 
-  it('throws when login fails', async () => {
-    mockFetch
-      .mockResolvedValueOnce(makeInitMock())
-      .mockResolvedValueOnce(makeLoginMock({ status: 0, error: 'Invalid credentials' }))
-
-    await expect(fetchBGA('bad', 'creds')).rejects.toThrow('BGA login failed')
-  })
-
-  it('throws a descriptive error when BGA returns HTML instead of JSON', async () => {
-    mockFetch
-      .mockResolvedValueOnce(makeInitMock())
-      .mockResolvedValueOnce({
-        ok: true,
-        headers: { get: () => '', getSetCookie: () => [] },
-        text: async () => '<html><body>Access denied</body></html>',
-      })
-
-    await expect(fetchBGA('user', 'pass')).rejects.toThrow('BGA login HTTP')
+  it('throws when session is expired (no player ID returned)', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ status: 1, data: {} }),
+    })
+    await expect(fetchBGA(SESSION)).rejects.toThrow('session cookie may be expired')
   })
 })

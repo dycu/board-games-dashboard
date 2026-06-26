@@ -14,7 +14,7 @@ function env(key: string): string {
 }
 
 export const connectors: Record<Platform, Fetcher> = {
-  bga: () => fetchBGA(env('BGA_USERNAME'), env('BGA_PASSWORD')),
+  bga: () => fetchBGA(env('BGA_SESSION')),
   eighteenxx: () => fetchEighteenXX(env('EIGHTEENXX_USERNAME'), env('EIGHTEENXX_PASSWORD')),
   obg: () => fetchOBG(env('OBG_USERNAME'), env('OBG_PASSWORD')),
   yucata: () => fetchYucata(env('YUCATA_USERNAME'), env('YUCATA_PASSWORD')),
@@ -24,6 +24,7 @@ export const connectors: Record<Platform, Fetcher> = {
 }
 
 function hasCreds(platform: Platform): boolean {
+  if (platform === 'bga') return !!process.env.BGA_SESSION
   const prefix = platform.toUpperCase()
   return !!(process.env[`${prefix}_USERNAME`] && process.env[`${prefix}_PASSWORD`])
 }

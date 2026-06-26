@@ -40,8 +40,7 @@ function makeGame(id: string, platform: Game['platform']): Game {
 }
 
 const ALL_ENV_VARS: Record<string, string> = {
-  BGA_USERNAME: 'bga_user',
-  BGA_PASSWORD: 'bga_pass',
+  BGA_SESSION: 'bga_session_cookie',
   EIGHTEENXX_USERNAME: '18xx_user',
   EIGHTEENXX_PASSWORD: '18xx_pass',
   OBG_USERNAME: 'obg_user',
@@ -182,9 +181,8 @@ describe('fetchAllPlatforms', () => {
     expect(new Date(result.fetchedAt).toISOString()).toBe(result.fetchedAt)
   })
 
-  it('skips platform when only username is set but password is missing', async () => {
-    process.env.BGA_USERNAME = 'bga_user'
-    // BGA_PASSWORD intentionally not set
+  it('skips BGA when BGA_SESSION is not set', async () => {
+    // BGA_SESSION intentionally not set
 
     const result = await fetchAllPlatforms()
 
