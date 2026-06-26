@@ -90,15 +90,24 @@ describe('fetchBGA', () => {
     expect(games).toHaveLength(0)
   })
 
-  it('throws if requestToken cookie is missing from initial response', async () => {
-    mockFetch.mockResolvedValueOnce({
+  it('throws when login response contains no request token cookie', async () => {
+    // Use an init response with only PHPSESSID (no TournoiEnLigneid) — matches real BGA behaviour
+    const initNoCsrf = {
       ok: true,
       status: 200,
       text: async () => '<html></html>',
-      headers: makeMockHeaders([]),
-    })
+      headers: makeMockHeaders(['PHPSESSID=session123; Path=/; HttpOnly']),
+    }
+    mockFetch
+      .mockResolvedValueOnce(initNoCsrf)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ status: 1, data: { id: '42' } }),
+        headers: makeMockHeaders([]), // no TournoiEnLigneidt
+      })
 
-    await expect(fetchBGA('user@example.com', 'password')).rejects.toThrow('BGA: failed to obtain requestToken')
+    await expect(fetchBGA('user@example.com', 'password')).rejects.toThrow('BGA: no request token in login response cookies')
   })
 
   it('throws when login returns non-JSON', async () => {

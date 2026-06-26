@@ -24,50 +24,41 @@ function cookieString(cookies: Record<string, string>): string {
 }
 
 export async function fetchBGA(username: string, password: string): Promise<Game[]> {
-  // Step 1: visit login page to get PHPSESSID + TournoiEnLigneid (= requestToken / CSRF token)
+  // Step 1: follow the redirect from boardgamearena.com to the locale subdomain (e.g. en.boardgamearena.com)
+  // to collect PHPSESSID. TournoiEnLigneid is JS-generated and not available server-side,
+  // so we skip it — the login endpoint doesn't require it.
   const initRes = await fetch(`${BASE}/account`, {
     redirect: 'manual',
     headers: { ...BROWSER_HEADERS, Accept: 'text/html,application/xhtml+xml,*/*' },
   })
   let cookies = parseCookies(initRes.headers)
+  let loginBase = BASE
 
-  // BGA redirects /account and sets TournoiEnLigneid on the redirect target.
-  // Follow manually so we can pass PHPSESSID along — auto-follow drops intermediate cookies.
-  let followStatus = 0
-  let followLocation = ''
-  let followCookieHeader = ''
   if (initRes.status >= 300 && initRes.status < 400) {
-    const location = initRes.headers.get('location') ?? '/account'
-    followLocation = location.startsWith('http') ? location : `${BASE}${location}`
-    const followRes = await fetch(followLocation, {
-      redirect: 'manual',
-      headers: { ...BROWSER_HEADERS, Accept: 'text/html,application/xhtml+xml,*/*', Cookie: cookieString(cookies) },
-    })
-    followStatus = followRes.status
-    followCookieHeader = followRes.headers.get('set-cookie') ?? '(none)'
-    cookies = { ...cookies, ...parseCookies(followRes.headers) }
+    const location = initRes.headers.get('location') ?? ''
+    if (location) {
+      const redirectUrl = new URL(location.startsWith('http') ? location : `${BASE}${location}`)
+      loginBase = redirectUrl.origin
+      const followRes = await fetch(redirectUrl.href, {
+        redirect: 'manual',
+        headers: { ...BROWSER_HEADERS, Accept: 'text/html,application/xhtml+xml,*/*', Cookie: cookieString(cookies) },
+      })
+      cookies = { ...cookies, ...parseCookies(followRes.headers) }
+    }
   }
 
-  const requestToken = cookies['TournoiEnLigneid'] ?? ''
-  if (!requestToken) {
-    throw new Error(
-      `BGA: no TournoiEnLigneid after init(${initRes.status}) + follow(${followStatus} ${followLocation.slice(-40)}, set-cookie: ${followCookieHeader.slice(0, 200)}, keys: ${Object.keys(cookies).join(', ')})`
-    )
-  }
-
-  // Step 2: POST login
-  const loginRes = await fetch(`${BASE}/account/account/login.html`, {
+  // Step 2: POST login — no requestToken needed for the login endpoint itself
+  const loginRes = await fetch(`${loginBase}/account/account/login.html`, {
     method: 'POST',
     headers: {
       ...BROWSER_HEADERS,
       'Content-Type': 'application/x-www-form-urlencoded',
       Accept: 'application/json, */*',
       'X-Requested-With': 'XMLHttpRequest',
-      'X-Request-Token': requestToken,
-      Referer: `${BASE}/account`,
+      Referer: `${loginBase}/account`,
       Cookie: cookieString(cookies),
     },
-    body: new URLSearchParams({ email: username, password, rememberme: 'on', redirect: 'studio', requestToken }),
+    body: new URLSearchParams({ email: username, password, rememberme: 'on', redirect: 'studio' }),
   })
 
   const loginText = await loginRes.text()
@@ -81,11 +72,12 @@ export async function fetchBGA(username: string, password: string): Promise<Game
 
   const allCookies = { ...cookies, ...parseCookies(loginRes.headers) }
   const myId = String(loginData.data?.id ?? '')
-  // After login BGA sets TournoiEnLigneidt (note trailing 't') — this is what X-Request-Token must use
-  const postLoginToken = allCookies['TournoiEnLigneidt'] ?? allCookies['TournoiEnLigneid'] ?? requestToken
+  // After login BGA sets TournoiEnLigneidt — this is what X-Request-Token must use for API calls
+  const postLoginToken = allCookies['TournoiEnLigneidt'] ?? allCookies['TournoiEnLigneid'] ?? ''
+  if (!postLoginToken) throw new Error(`BGA: no request token in login response cookies (keys: ${Object.keys(allCookies).join(', ')})`)
 
   // Step 3: fetch active tables
-  const tablesRes = await fetch(`${BASE}/player/player/getactivetables.html?status=open`, {
+  const tablesRes = await fetch(`${loginBase}/player/player/getactivetables.html?status=open`, {
     headers: {
       ...BROWSER_HEADERS,
       Accept: 'application/json, */*',
