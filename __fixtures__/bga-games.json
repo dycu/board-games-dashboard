@@ -1,0 +1,31 @@
+{
+  "status": 1,
+  "data": {
+    "tables": [
+      {
+        "id": "12345",
+        "game_name": "Wingspan",
+        "gameserver_updated": 1750000000,
+        "active_player": "99",
+        "me": "42",
+        "active_player_name": "alice",
+        "players": [
+          { "id": "42", "name": "testuser" },
+          { "id": "99", "name": "alice" }
+        ]
+      },
+      {
+        "id": "67890",
+        "game_name": "Agricola",
+        "gameserver_updated": 1749990000,
+        "active_player": "42",
+        "me": "42",
+        "active_player_name": "testuser",
+        "players": [
+          { "id": "42", "name": "testuser" },
+          { "id": "77", "name": "bob" }
+        ]
+      }
+    ]
+  }
+}
