@@ -3,20 +3,47 @@ import { formatTimeAgo } from './utils'
 
 const BASE = 'https://boardgamearena.com'
 
+const BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  'Accept': 'application/json, text/javascript, */*; q=0.01',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'X-Requested-With': 'XMLHttpRequest',
+}
+
 export async function fetchBGA(username: string, password: string): Promise<Game[]> {
+  // Get initial cookies from the login page before POST
+  const initRes = await fetch(`${BASE}/account`, {
+    headers: { ...BROWSER_HEADERS, 'Accept': 'text/html,application/xhtml+xml,*/*' },
+  })
+  const rawCookies = initRes.headers.getSetCookie?.() ?? [initRes.headers.get('set-cookie') ?? '']
+  const cookieHeader = rawCookies.map(c => c.split(';')[0]).filter(Boolean).join('; ')
+
   const loginRes = await fetch(`${BASE}/account/account/login.html`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: {
+      ...BROWSER_HEADERS,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Referer': `${BASE}/account`,
+      'Cookie': cookieHeader,
+    },
     body: new URLSearchParams({ email: username, password, rememberme: 'on', redirect: 'studio' }),
   })
-  const loginData = await loginRes.json()
-  if (loginData.status !== 1) throw new Error('BGA login failed')
 
-  const cookie = loginRes.headers.get('set-cookie') ?? ''
-  const sessionCookie = cookie.split(';')[0]
+  const text = await loginRes.text()
+  let loginData: any
+  try {
+    loginData = JSON.parse(text)
+  } catch {
+    throw new Error(`BGA login returned unexpected response (HTML instead of JSON — possible bot detection)`)
+  }
+  if (loginData.status !== 1) throw new Error('BGA login failed: ' + (loginData.error ?? 'unknown'))
+
+  const loginCookies = loginRes.headers.getSetCookie?.() ?? [loginRes.headers.get('set-cookie') ?? '']
+  const allCookies = [...rawCookies, ...loginCookies]
+  const sessionCookie = allCookies.map(c => c.split(';')[0]).filter(Boolean).join('; ')
 
   const gamesRes = await fetch(`${BASE}/player/player/getactivetables.html?status=open`, {
-    headers: { Cookie: sessionCookie },
+    headers: { ...BROWSER_HEADERS, Cookie: sessionCookie },
   })
   const data = await gamesRes.json()
 
