@@ -87,6 +87,6 @@ describe('fetchBGA', () => {
         text: async () => '<html><body>Access denied</body></html>',
       })
 
-    await expect(fetchBGA('user', 'pass')).rejects.toThrow('HTML instead of JSON')
+    await expect(fetchBGA('user', 'pass')).rejects.toThrow('BGA login HTTP')
   })
 })
