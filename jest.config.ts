@@ -10,6 +10,9 @@ const config: Config = {
     customExportConditions: ['node', 'require', 'default'],
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/$1',
+  },
 }
 
 export default createJestConfig(config)
