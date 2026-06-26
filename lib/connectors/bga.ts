@@ -45,9 +45,9 @@ export async function fetchBGA(username: string, password: string): Promise<Game
   try {
     loginData = JSON.parse(text)
   } catch {
-    throw new Error(`BGA login returned unexpected response (HTML instead of JSON — possible bot detection)`)
+    throw new Error(`BGA login HTTP ${loginRes.status}: ${text.slice(0, 300)}`)
   }
-  if (loginData.status !== 1) throw new Error('BGA login failed: ' + (loginData.error ?? 'unknown'))
+  if (loginData.status !== 1) throw new Error('BGA login failed: ' + (loginData.error ?? JSON.stringify(loginData)))
 
   const loginCookies = loginRes.headers.getSetCookie?.() ?? [loginRes.headers.get('set-cookie') ?? '']
   const allCookies = [...rawCookies, ...loginCookies]
