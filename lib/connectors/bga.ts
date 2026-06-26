@@ -10,13 +10,24 @@ const BROWSER_HEADERS = {
   'X-Requested-With': 'XMLHttpRequest',
 }
 
+function extractRequestToken(html: string): string {
+  // BGA embeds a CSRF token in the page JS: requestToken: "abc123"
+  const match = html.match(/requestToken['":\s]+['"]([a-f0-9]+)['"]/i)
+  return match?.[1] ?? ''
+}
+
 export async function fetchBGA(username: string, password: string): Promise<Game[]> {
-  // Get initial cookies from the login page before POST
+  // Load the login page to get session cookies + CSRF requestToken
   const initRes = await fetch(`${BASE}/account`, {
     headers: { ...BROWSER_HEADERS, 'Accept': 'text/html,application/xhtml+xml,*/*' },
   })
+  const initHtml = await initRes.text()
   const rawCookies = initRes.headers.getSetCookie?.() ?? [initRes.headers.get('set-cookie') ?? '']
   const cookieHeader = rawCookies.map(c => c.split(';')[0]).filter(Boolean).join('; ')
+  const requestToken = extractRequestToken(initHtml)
+
+  const loginBody = new URLSearchParams({ email: username, password, rememberme: 'on', redirect: 'studio' })
+  if (requestToken) loginBody.set('requestToken', requestToken)
 
   const loginRes = await fetch(`${BASE}/account/account/login.html`, {
     method: 'POST',
@@ -26,7 +37,7 @@ export async function fetchBGA(username: string, password: string): Promise<Game
       'Referer': `${BASE}/account`,
       'Cookie': cookieHeader,
     },
-    body: new URLSearchParams({ email: username, password, rememberme: 'on', redirect: 'studio' }),
+    body: loginBody,
   })
 
   const text = await loginRes.text()

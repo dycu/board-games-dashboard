@@ -11,6 +11,7 @@ function makeInitMock() {
       get: () => 'bga_cookie=init; Path=/',
       getSetCookie: () => ['bga_cookie=init; Path=/'],
     },
+    text: async () => 'var bgaConfig = {requestToken: "deadbeef1234", someOther: true}',
   }
 }
 
