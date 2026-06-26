@@ -11,15 +11,6 @@ export default function FilterToolbar({ prefs, onChange }: Props) {
   const setTurnStatus = (turnStatus: UserPrefs['filter']['turnStatus']) =>
     onChange({ ...prefs, filter: { ...prefs.filter, turnStatus } })
 
-  const btn = (label: string, active: boolean, onClick: () => void) => (
-    <button
-      onClick={onClick}
-      className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors
-        ${active ? 'bg-blue-700 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
-      {label}
-    </button>
-  )
-
   return (
     <div className="flex flex-wrap items-center gap-3 mb-5">
       <div className="flex items-center gap-2">
@@ -37,10 +28,18 @@ export default function FilterToolbar({ prefs, onChange }: Props) {
         </select>
       </div>
 
-      <div className="flex gap-1">
-        {btn('All', prefs.filter.turnStatus === 'all', () => setTurnStatus('all'))}
-        {btn('My turn', prefs.filter.turnStatus === 'my-turn', () => setTurnStatus('my-turn'))}
-        {btn('Waiting', prefs.filter.turnStatus === 'waiting', () => setTurnStatus('waiting'))}
+      <div role="group" aria-label="Turn status" className="flex gap-1">
+        {(['all', 'my-turn', 'waiting'] as const).map(status => (
+          <button
+            key={status}
+            onClick={() => setTurnStatus(status)}
+            className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors
+              ${prefs.filter.turnStatus === status
+                ? 'bg-blue-700 text-white'
+                : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+            {status === 'all' ? 'All' : status === 'my-turn' ? 'My turn' : 'Waiting'}
+          </button>
+        ))}
       </div>
     </div>
   )
