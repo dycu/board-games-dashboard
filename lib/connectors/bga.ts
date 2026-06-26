@@ -33,18 +33,27 @@ export async function fetchBGA(username: string, password: string): Promise<Game
 
   // BGA redirects /account and sets TournoiEnLigneid on the redirect target.
   // Follow manually so we can pass PHPSESSID along — auto-follow drops intermediate cookies.
+  let followStatus = 0
+  let followLocation = ''
+  let followCookieHeader = ''
   if (initRes.status >= 300 && initRes.status < 400) {
     const location = initRes.headers.get('location') ?? '/account'
-    const url = location.startsWith('http') ? location : `${BASE}${location}`
-    const followRes = await fetch(url, {
+    followLocation = location.startsWith('http') ? location : `${BASE}${location}`
+    const followRes = await fetch(followLocation, {
       redirect: 'manual',
       headers: { ...BROWSER_HEADERS, Accept: 'text/html,application/xhtml+xml,*/*', Cookie: cookieString(cookies) },
     })
+    followStatus = followRes.status
+    followCookieHeader = followRes.headers.get('set-cookie') ?? '(none)'
     cookies = { ...cookies, ...parseCookies(followRes.headers) }
   }
 
   const requestToken = cookies['TournoiEnLigneid'] ?? ''
-  if (!requestToken) throw new Error('BGA: failed to obtain requestToken from initial page load')
+  if (!requestToken) {
+    throw new Error(
+      `BGA: no TournoiEnLigneid after init(${initRes.status}) + follow(${followStatus} ${followLocation.slice(-40)}, set-cookie: ${followCookieHeader.slice(0, 200)}, keys: ${Object.keys(cookies).join(', ')})`
+    )
+  }
 
   // Step 2: POST login
   const loginRes = await fetch(`${BASE}/account/account/login.html`, {
