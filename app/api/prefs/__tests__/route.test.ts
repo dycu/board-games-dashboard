@@ -25,8 +25,7 @@ describe('GET /api/prefs', () => {
   it('returns prefs from getPrefs()', async () => {
     mockGetPrefs.mockResolvedValue(defaultPrefs)
 
-    const req = new NextRequest('http://localhost/api/prefs')
-    const res = await GET(req)
+    const res = await GET()
     const data = await res.json()
 
     expect(res.status).toBe(200)

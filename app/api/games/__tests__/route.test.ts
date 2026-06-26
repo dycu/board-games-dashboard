@@ -1,8 +1,6 @@
 /**
  * @jest-environment node
  */
-import { NextRequest } from 'next/server'
-
 jest.mock('@/lib/connectors')
 
 import { fetchAllPlatforms } from '@/lib/connectors'
@@ -23,8 +21,7 @@ describe('GET /api/games', () => {
     }
     mockFetchAllPlatforms.mockResolvedValue(mockResult)
 
-    const req = new NextRequest('http://localhost/api/games')
-    const res = await GET(req)
+    const res = await GET()
     const data = await res.json()
 
     expect(res.status).toBe(200)
