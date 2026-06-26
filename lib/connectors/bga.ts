@@ -24,10 +24,11 @@ function cookieString(cookies: Record<string, string>): string {
 }
 
 function extractRequestToken(html: string): string {
-  // Look for 64-char hex string used as request_token / CSRF token
-  const m = html.match(/['"](request_token|requestToken)['"]\s*[=:]\s*['"]([a-f0-9]{32,64})['"]/i)
+  const m = html.match(/g_requestToken\s*[=:]\s*['"]([a-f0-9]{32,64})['"]/i)
+           ?? html.match(/['"]request_token['"]\s*[=:]\s*['"]([a-f0-9]{32,64})['"]/i)
            ?? html.match(/name=['"]request_token['"][^>]*value=['"]([a-f0-9]{32,64})['"]/i)
-           ?? html.match(/request_token['"\s:=]+([a-f0-9]{64})/i)
+           ?? html.match(/\brequestToken['"\s:=,]+([a-f0-9]{64})\b/i)
+           ?? html.match(/\brequest_token['"\s:=,]+([a-f0-9]{64})\b/i)
   return m ? m[m.length - 1] : ''
 }
 
@@ -62,7 +63,8 @@ export async function fetchBGA(username: string, password: string): Promise<Game
   const requestToken = extractRequestToken(loginPageHtml)
 
   if (!requestToken) {
-    throw new Error(`BGA: could not extract request_token from login page (sample: ${loginPageHtml.slice(0, 400).replace(/\s+/g, ' ')})`)
+    const hexFound = [...loginPageHtml.matchAll(/[a-f0-9]{48,64}/gi)].map(m => m[0]).slice(0, 5)
+    throw new Error(`BGA: could not extract request_token. Hex strings found in page: [${hexFound.join(', ') || 'none'}]`)
   }
 
   // Step 3: POST login to locale subdomain with correct endpoint and field names
