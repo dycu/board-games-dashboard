@@ -1,0 +1,32 @@
+[
+  {
+    "id": 111,
+    "title": "1830: Railways & Robber Barons",
+    "status": "active",
+    "updated_at": "2026-06-20T10:00:00Z",
+    "players": [
+      { "id": 1, "name": "testuser" },
+      { "id": 2, "name": "dave" }
+    ],
+    "active_players": [{ "id": 1, "name": "testuser" }]
+  },
+  {
+    "id": 222,
+    "title": "1889: History of Shikoku Railways",
+    "status": "active",
+    "updated_at": "2026-06-24T08:00:00Z",
+    "players": [
+      { "id": 1, "name": "testuser" },
+      { "id": 3, "name": "eve" }
+    ],
+    "active_players": [{ "id": 3, "name": "eve" }]
+  },
+  {
+    "id": 333,
+    "title": "Finished Game",
+    "status": "finished",
+    "updated_at": "2026-06-01T00:00:00Z",
+    "players": [{ "id": 1, "name": "testuser" }],
+    "active_players": []
+  }
+]
