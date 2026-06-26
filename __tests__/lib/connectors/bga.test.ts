@@ -9,7 +9,8 @@ const SESSION = 'test-session-cookie'
 function makeTablesMock(data: object) {
   return {
     ok: true,
-    json: async () => data,
+    status: 200,
+    text: async () => JSON.stringify(data),
   }
 }
 
@@ -20,7 +21,7 @@ describe('fetchBGA', () => {
     mockFetch
       .mockResolvedValueOnce(makeTablesMock(fixture))
 
-    const games = await fetchBGA(SESSION, '42')
+    const games = await fetchBGA(SESSION, '42', 'token123')
     expect(games.length).toBe(2)
     expect(games[0]).toMatchObject({
       platform: 'bga',
@@ -35,7 +36,7 @@ describe('fetchBGA', () => {
     mockFetch
       .mockResolvedValueOnce(makeTablesMock(fixture))
 
-    const games = await fetchBGA(SESSION, '42')
+    const games = await fetchBGA(SESSION, '42', 'token123')
     // Game 12345: active_player=99, me=42 → NOT my turn
     const wingspan = games.find(g => g.id === 'bga:12345')!
     expect(wingspan.myTurn).toBe(false)
@@ -48,7 +49,7 @@ describe('fetchBGA', () => {
 
   it('returns empty array when no tables exist', async () => {
     mockFetch.mockResolvedValueOnce(makeTablesMock({ status: 1, data: { tables: [] } }))
-    const games = await fetchBGA(SESSION, '42')
+    const games = await fetchBGA(SESSION, '42', 'token123')
     expect(games).toHaveLength(0)
   })
 })

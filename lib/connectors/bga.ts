@@ -3,19 +3,25 @@ import { formatTimeAgo } from './utils'
 
 const BASE = 'https://boardgamearena.com'
 
-const HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-  'Accept': 'application/json, */*',
-  'X-Requested-With': 'XMLHttpRequest',
-}
+export async function fetchBGA(session: string, playerId: string, requestToken: string): Promise<Game[]> {
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    'Accept': 'application/json, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'X-Requested-With': 'XMLHttpRequest',
+    'X-Request-Token': requestToken,
+    'Cookie': `PHPSESSID=${session}; TournoiEnLigneid=${requestToken}`,
+  }
 
-export async function fetchBGA(session: string, playerId: string): Promise<Game[]> {
-  const cookie = `PHPSESSID=${session}`
+  const tablesRes = await fetch(`${BASE}/player/player/getactivetables.html?status=open`, { headers })
+  const raw = await tablesRes.text()
+  let tablesData: any
+  try {
+    tablesData = JSON.parse(raw)
+  } catch {
+    throw new Error(`BGA tables HTTP ${tablesRes.status}: ${raw.slice(0, 300) || '(empty body)'}`)
+  }
 
-  const tablesRes = await fetch(`${BASE}/player/player/getactivetables?status=open`, {
-    headers: { ...HEADERS, Cookie: cookie },
-  })
-  const tablesData = await tablesRes.json()
   const tables: any[] = tablesData?.data?.tables ?? []
 
   return tables.map((t: any): Game => {
