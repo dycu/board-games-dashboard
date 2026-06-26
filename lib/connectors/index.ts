@@ -1,4 +1,6 @@
 import { Game, Platform, GamesApiResponse } from '../types'
+
+export type Fetcher = () => Promise<Game[]>
 import { fetchBGA } from './bga'
 import { fetchEighteenXX } from './eighteenxx'
 import { fetchOBG } from './obg'
@@ -6,8 +8,6 @@ import { fetchYucata } from './yucata'
 import { fetchChoochoo } from './choochoo'
 import { fetchHansa } from './hansa'
 import { fetchRally } from './rally'
-
-type Fetcher = () => Promise<Game[]>
 
 function env(key: string): string {
   return process.env[key] ?? ''

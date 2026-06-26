@@ -36,11 +36,6 @@ export const DEFAULT_PREFS: UserPrefs = {
   filter: { turnStatus: 'all', platforms: [] },
 }
 
-export interface ConnectorResult {
-  games: Game[]
-  error?: string
-}
-
 export interface GamesApiResponse {
   games: Game[]
   errors: { platform: Platform; error: string }[]
