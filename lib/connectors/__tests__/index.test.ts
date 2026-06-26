@@ -40,9 +40,8 @@ function makeGame(id: string, platform: Game['platform']): Game {
 }
 
 const ALL_ENV_VARS: Record<string, string> = {
-  BGA_SESSION: 'bga_session_cookie',
-  BGA_PLAYER_ID: '12345',
-  BGA_REQUEST_TOKEN: 'token123',
+  BGA_USERNAME: 'bga_user',
+  BGA_PASSWORD: 'bga_pass',
   EIGHTEENXX_USERNAME: '18xx_user',
   EIGHTEENXX_PASSWORD: '18xx_pass',
   OBG_USERNAME: 'obg_user',
@@ -126,7 +125,7 @@ describe('fetchAllPlatforms', () => {
   it('silently skips platforms with missing credentials without adding errors', async () => {
     // Set credentials for all platforms except BGA
     for (const [key, val] of Object.entries(ALL_ENV_VARS)) {
-      if (!key.startsWith('BGA_')) {
+      if (key !== 'BGA_USERNAME' && key !== 'BGA_PASSWORD') {
         process.env[key] = val
       }
     }
@@ -183,8 +182,8 @@ describe('fetchAllPlatforms', () => {
     expect(new Date(result.fetchedAt).toISOString()).toBe(result.fetchedAt)
   })
 
-  it('skips BGA when BGA_SESSION is not set', async () => {
-    // BGA_SESSION intentionally not set
+  it('skips BGA when BGA_USERNAME is not set', async () => {
+    // BGA_USERNAME intentionally not set
 
     const result = await fetchAllPlatforms()
 
