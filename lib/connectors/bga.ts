@@ -98,25 +98,36 @@ export async function fetchBGA(username: string, password: string): Promise<Game
   const postLoginToken = allCookies['TournoiEnLigneidt'] ?? allCookies['TournoiEnLigneid'] ?? ''
   if (!postLoginToken) throw new Error(`BGA: no request token in login response cookies (keys: ${Object.keys(allCookies).join(', ')})`)
 
-  // Step 4: fetch active tables
-  const tablesRes = await fetch(`${BASE}/player/player/getactivetables.html?status=open`, {
+  // Step 4: fetch the games-in-progress page and extract embedded game data
+  const tablesRes = await fetch(`${BASE}/gameinprogress`, {
     headers: {
       ...BROWSER_HEADERS,
-      Accept: 'application/json, */*',
-      'X-Requested-With': 'XMLHttpRequest',
+      Accept: 'text/html,application/xhtml+xml,*/*',
       'X-Request-Token': postLoginToken,
       Cookie: cookieString(allCookies),
     },
   })
   const tablesText = await tablesRes.text()
+
+  // BGA embeds game list as a JS variable in the server-rendered page HTML.
+  // Try to find and parse it from a script block.
   let tablesData: any
-  try {
-    tablesData = JSON.parse(tablesText)
-  } catch {
-    throw new Error(`BGA tables HTTP ${tablesRes.status}: ${tablesText.slice(0, 300) || '(empty body)'}`)
+  const jsonMatch = tablesText.match(/\btables\b\s*[:=]\s*(\[[\s\S]*?\])/m)
+                 ?? tablesText.match(/gamesinprogress\s*[:=]\s*(\{[\s\S]*?\})/m)
+                 ?? tablesText.match(/"tables"\s*:\s*(\[[\s\S]*?\])/m)
+  if (jsonMatch) {
+    try { tablesData = { data: { tables: JSON.parse(jsonMatch[1]) } } } catch { /* fall through */ }
+  }
+  if (!tablesData) {
+    // Last resort: try parsing the whole response as JSON (in case the endpoint changed back)
+    try {
+      tablesData = JSON.parse(tablesText)
+    } catch {
+      throw new Error(`BGA tables HTTP ${tablesRes.status} — could not find game list. Page sample: ${tablesText.slice(0, 400).replace(/\s+/g, ' ')}`)
+    }
   }
 
-  const tables: any[] = tablesData?.data?.tables ?? []
+  const tables: any[] = tablesData?.data?.tables ?? tablesData?.tables ?? []
 
   return tables.map((t: any): Game => {
     const lastMoveAt = new Date(t.gameserver_updated * 1000)
