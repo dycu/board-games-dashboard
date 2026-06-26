@@ -29,14 +29,22 @@ export async function fetchBGA(username: string, password: string): Promise<Game
     redirect: 'manual',
     headers: { ...BROWSER_HEADERS, Accept: 'text/html,application/xhtml+xml,*/*' },
   })
-  const cookies = parseCookies(initRes.headers)
-  const requestToken = cookies['TournoiEnLigneid'] ?? ''
-  if (!requestToken) {
-    const status = initRes.status
-    const setCookie = initRes.headers.get('set-cookie') ?? '(none)'
-    const receivedKeys = Object.keys(cookies).join(', ') || '(none)'
-    throw new Error(`BGA: failed to obtain requestToken (HTTP ${status}, set-cookie: ${setCookie.slice(0, 200)}, parsed keys: ${receivedKeys})`)
+  let cookies = parseCookies(initRes.headers)
+
+  // BGA redirects /account and sets TournoiEnLigneid on the redirect target.
+  // Follow manually so we can pass PHPSESSID along — auto-follow drops intermediate cookies.
+  if (initRes.status >= 300 && initRes.status < 400) {
+    const location = initRes.headers.get('location') ?? '/account'
+    const url = location.startsWith('http') ? location : `${BASE}${location}`
+    const followRes = await fetch(url, {
+      redirect: 'manual',
+      headers: { ...BROWSER_HEADERS, Accept: 'text/html,application/xhtml+xml,*/*', Cookie: cookieString(cookies) },
+    })
+    cookies = { ...cookies, ...parseCookies(followRes.headers) }
   }
+
+  const requestToken = cookies['TournoiEnLigneid'] ?? ''
+  if (!requestToken) throw new Error('BGA: failed to obtain requestToken from initial page load')
 
   // Step 2: POST login
   const loginRes = await fetch(`${BASE}/account/account/login.html`, {
