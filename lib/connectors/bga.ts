@@ -26,11 +26,17 @@ function cookieString(cookies: Record<string, string>): string {
 export async function fetchBGA(username: string, password: string): Promise<Game[]> {
   // Step 1: visit login page to get PHPSESSID + TournoiEnLigneid (= requestToken / CSRF token)
   const initRes = await fetch(`${BASE}/account`, {
+    redirect: 'manual',
     headers: { ...BROWSER_HEADERS, Accept: 'text/html,application/xhtml+xml,*/*' },
   })
   const cookies = parseCookies(initRes.headers)
   const requestToken = cookies['TournoiEnLigneid'] ?? ''
-  if (!requestToken) throw new Error('BGA: failed to obtain requestToken from initial page load')
+  if (!requestToken) {
+    const status = initRes.status
+    const setCookie = initRes.headers.get('set-cookie') ?? '(none)'
+    const receivedKeys = Object.keys(cookies).join(', ') || '(none)'
+    throw new Error(`BGA: failed to obtain requestToken (HTTP ${status}, set-cookie: ${setCookie.slice(0, 200)}, parsed keys: ${receivedKeys})`)
+  }
 
   // Step 2: POST login
   const loginRes = await fetch(`${BASE}/account/account/login.html`, {
