@@ -23,10 +23,16 @@ function cookieString(cookies: Record<string, string>): string {
   return Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ')
 }
 
+function extractRequestToken(html: string): string {
+  // Look for 64-char hex string used as request_token / CSRF token
+  const m = html.match(/['"](request_token|requestToken)['"]\s*[=:]\s*['"]([a-f0-9]{32,64})['"]/i)
+           ?? html.match(/name=['"]request_token['"][^>]*value=['"]([a-f0-9]{32,64})['"]/i)
+           ?? html.match(/request_token['"\s:=]+([a-f0-9]{64})/i)
+  return m ? m[m.length - 1] : ''
+}
+
 export async function fetchBGA(username: string, password: string): Promise<Game[]> {
-  // Step 1: follow the redirect from boardgamearena.com to the locale subdomain (e.g. en.boardgamearena.com)
-  // to collect PHPSESSID. TournoiEnLigneid is JS-generated and not available server-side,
-  // so we skip it — the login endpoint doesn't require it.
+  // Step 1: follow redirect from boardgamearena.com to locale subdomain, collect PHPSESSID
   const initRes = await fetch(`${BASE}/account`, {
     redirect: 'manual',
     headers: { ...BROWSER_HEADERS, Accept: 'text/html,application/xhtml+xml,*/*' },
@@ -47,18 +53,32 @@ export async function fetchBGA(username: string, password: string): Promise<Game
     }
   }
 
-  // Step 2: POST login — API lives on the main domain, not the locale subdomain
-  const loginRes = await fetch(`${BASE}/account/account/login.html`, {
+  // Step 2: fetch login page to extract the CSRF request_token embedded in HTML/JS
+  const loginPageRes = await fetch(`${loginBase}/?page=login`, {
+    headers: { ...BROWSER_HEADERS, Accept: 'text/html,application/xhtml+xml,*/*', Cookie: cookieString(cookies) },
+  })
+  cookies = { ...cookies, ...parseCookies(loginPageRes.headers) }
+  const loginPageHtml = await loginPageRes.text()
+  const requestToken = extractRequestToken(loginPageHtml)
+
+  if (!requestToken) {
+    throw new Error(`BGA: could not extract request_token from login page (sample: ${loginPageHtml.slice(0, 400).replace(/\s+/g, ' ')})`)
+  }
+
+  // Step 3: POST login to locale subdomain with correct endpoint and field names
+  const loginRes = await fetch(`${loginBase}/account/auth/loginUserWithPassword.html`, {
     method: 'POST',
     headers: {
       ...BROWSER_HEADERS,
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Accept: 'application/json, */*',
+      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      Accept: '*/*',
       'X-Requested-With': 'XMLHttpRequest',
-      Referer: `${loginBase}/account`,
+      'X-Request-Token': requestToken,
+      Origin: loginBase,
+      Referer: `${loginBase}/?step=2&page=login`,
       Cookie: cookieString(cookies),
     },
-    body: new URLSearchParams({ email: username, password, rememberme: 'on', redirect: 'studio' }),
+    body: new URLSearchParams({ username, password, remember_me: 'true', request_token: requestToken }),
   })
 
   const loginText = await loginRes.text()
@@ -72,11 +92,11 @@ export async function fetchBGA(username: string, password: string): Promise<Game
 
   const allCookies = { ...cookies, ...parseCookies(loginRes.headers) }
   const myId = String(loginData.data?.id ?? '')
-  // After login BGA sets TournoiEnLigneidt — this is what X-Request-Token must use for API calls
+  // After login BGA sets TournoiEnLigneidt — this is the X-Request-Token for subsequent API calls
   const postLoginToken = allCookies['TournoiEnLigneidt'] ?? allCookies['TournoiEnLigneid'] ?? ''
   if (!postLoginToken) throw new Error(`BGA: no request token in login response cookies (keys: ${Object.keys(allCookies).join(', ')})`)
 
-  // Step 3: fetch active tables
+  // Step 4: fetch active tables
   const tablesRes = await fetch(`${BASE}/player/player/getactivetables.html?status=open`, {
     headers: {
       ...BROWSER_HEADERS,
