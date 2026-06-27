@@ -129,9 +129,12 @@ export async function fetchBGA(username: string, password: string): Promise<Game
   const tables = Object.values(rawTables)
 
   if (tables.length > 0) {
-    const sample = tables[0] as any
-    const { players: _p, options: _o, ...rest } = sample
-    console.log('[BGA DEBUG] first table (no players/options):', JSON.stringify(rest))
+    const firstSlug = (tables[0] as any).game_name
+    const gpRes = await fetch(`https://en.boardgamearena.com/gamepanel?game=${firstSlug}`, {
+      headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) },
+    })
+    const gpHtml = await gpRes.text()
+    console.log('[BGA DEBUG] gamepanel HTML (first 1200 chars):', gpHtml.slice(0, 1200))
   }
 
   return tables.map((t: any): Game => {
