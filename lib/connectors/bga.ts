@@ -136,8 +136,6 @@ export async function fetchBGA(username: string, password: string): Promise<Game
     // active player = whichever player has myturn=1
     const activePlayerEntry = Object.values(players).find((p: any) => p.myturn === '1' || p.myturn === 1) as any
 
-    // think_limit=null means no enforced time limit; think_seconds still tracks elapsed time
-    const hasTimeLimit = t.think_limit != null
     const thinkSeconds = parseInt(activePlayerEntry?.think_seconds ?? '0') || 0
     const lastMoveAt = thinkSeconds > 0
       ? new Date(Date.now() - thinkSeconds * 1000)
@@ -154,8 +152,8 @@ export async function fetchBGA(username: string, password: string): Promise<Game
       myTurn: isMyTurn,
       currentPlayer: isMyTurn ? undefined : (activePlayerEntry?.fullname ?? undefined),
       lastMoveAt,
-      lastMoveAgo: hasTimeLimit ? formatTimeAgo(lastMoveAt) : 'no time limit',
-      urgent: hasTimeLimit && Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
+      lastMoveAgo: formatTimeAgo(lastMoveAt),
+      urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
       gameUrl: `${BASE}/${t.gameserver}/${t.game_name}?table=${t.id}`,
       platformUrl: `${BASE}/gameinprogress`,
       players: playerNames,
