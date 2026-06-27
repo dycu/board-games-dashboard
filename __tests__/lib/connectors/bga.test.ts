@@ -44,11 +44,12 @@ function makeLoginPageResponse(token = TOKEN) {
   }
 }
 
+// Login response uses user_id (not id) — matches real BGA API
 function makeLoginResponse(playerId: string | number) {
   return {
     ok: true,
     status: 200,
-    text: async () => JSON.stringify({ status: 1, data: { id: playerId } }),
+    text: async () => JSON.stringify({ status: 1, data: { user_id: String(playerId), username: 'testuser' } }),
     headers: makeMockHeaders(['TournoiEnLigneidt=postLoginToken; Path=/; HttpOnly']),
   }
 }
@@ -91,18 +92,18 @@ describe('fetchBGA', () => {
     setupHappyPath()
     const games = await fetchBGA('user@example.com', 'password')
 
-    // Game 12345: active_player=99, me=42 → NOT my turn
+    // Game 12345: myturn=1 on player 99 (alice), me=42 → NOT my turn
     const wingspan = games.find(g => g.id === 'bga:12345')!
     expect(wingspan.myTurn).toBe(false)
     expect(wingspan.currentPlayer).toBe('alice')
 
-    // Game 67890: active_player=42, me=42 → MY turn
+    // Game 67890: myturn=1 on player 42 (me) → MY turn
     const agricola = games.find(g => g.id === 'bga:67890')!
     expect(agricola.myTurn).toBe(true)
   })
 
   it('returns empty array when no tables exist', async () => {
-    setupHappyPath('42', { status: 1, data: { tables: [] } })
+    setupHappyPath('42', { status: 1, data: { tables: {} } })
     const games = await fetchBGA('user@example.com', 'password')
     expect(games).toHaveLength(0)
   })
@@ -159,7 +160,7 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        text: async () => JSON.stringify({ status: 1, data: { id: '42' } }),
+        text: async () => JSON.stringify({ status: 1, data: { user_id: '42' } }),
         headers: makeMockHeaders([]),
       })
 

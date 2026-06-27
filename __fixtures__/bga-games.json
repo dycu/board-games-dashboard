@@ -1,31 +1,49 @@
 {
   "status": 1,
   "data": {
-    "tables": [
-      {
+    "tables": {
+      "12345": {
         "id": "12345",
         "game_name": "Wingspan",
-        "gameserver_updated": 1750000000,
-        "active_player": "99",
-        "me": "42",
-        "active_player_name": "alice",
-        "players": [
-          { "id": "42", "name": "testuser" },
-          { "id": "99", "name": "alice" }
-        ]
+        "status": "asyncplay",
+        "gamestart": 1750000000,
+        "scheduled": 1749990000,
+        "players": {
+          "42": {
+            "id": "42",
+            "fullname": "testuser",
+            "myturn": "0",
+            "think_seconds": null
+          },
+          "99": {
+            "id": "99",
+            "fullname": "alice",
+            "myturn": "1",
+            "think_seconds": "3600"
+          }
+        }
       },
-      {
+      "67890": {
         "id": "67890",
         "game_name": "Agricola",
-        "gameserver_updated": 1749990000,
-        "active_player": "42",
-        "me": "42",
-        "active_player_name": "testuser",
-        "players": [
-          { "id": "42", "name": "testuser" },
-          { "id": "77", "name": "bob" }
-        ]
+        "status": "asyncplay",
+        "gamestart": 1749990000,
+        "scheduled": 1749980000,
+        "players": {
+          "42": {
+            "id": "42",
+            "fullname": "testuser",
+            "myturn": "1",
+            "think_seconds": "7200"
+          },
+          "77": {
+            "id": "77",
+            "fullname": "bob",
+            "myturn": "0",
+            "think_seconds": null
+          }
+        }
       }
-    ]
+    }
   }
 }

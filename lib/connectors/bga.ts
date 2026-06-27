@@ -67,7 +67,7 @@ export async function fetchBGA(username: string, password: string): Promise<Game
     throw new Error(`BGA: could not extract request_token. Hex strings found in page: [${hexFound.join(', ') || 'none'}]`)
   }
 
-  // Step 3: POST login to locale subdomain with correct endpoint and field names
+  // Step 3: POST login to locale subdomain
   const loginRes = await fetch(`${loginBase}/account/auth/loginUserWithPassword.html`, {
     method: 'POST',
     headers: {
@@ -93,77 +93,71 @@ export async function fetchBGA(username: string, password: string): Promise<Game
   if (loginData.status !== 1) throw new Error(`BGA login failed: ${loginData.error ?? JSON.stringify(loginData)}`)
 
   const allCookies = { ...cookies, ...parseCookies(loginRes.headers) }
-  const myId = String(loginData.data?.id ?? '')
+  // Login response uses user_id (not id)
+  const myId = String(loginData.data?.user_id ?? loginData.data?.id ?? '')
   // After login BGA sets TournoiEnLigneidt — this is the X-Request-Token for subsequent API calls
   const postLoginToken = allCookies['TournoiEnLigneidt'] ?? allCookies['TournoiEnLigneid'] ?? ''
   if (!postLoginToken) throw new Error(`BGA: no request token in login response cookies (keys: ${Object.keys(allCookies).join(', ')})`)
 
-  // Step 4: probe candidate endpoints to find the active tables API
-  const authHeaders = {
-    ...BROWSER_HEADERS,
-    Accept: 'application/json, */*',
-    'X-Requested-With': 'XMLHttpRequest',
-    'X-Request-Token': postLoginToken,
-    Cookie: cookieString(allCookies),
-  }
+  // Step 4: fetch active in-progress async games via tablemanager
+  const tablesRes = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, {
+    method: 'POST',
+    headers: {
+      ...BROWSER_HEADERS,
+      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      Accept: 'application/json, */*',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-Request-Token': postLoginToken,
+      Origin: BASE,
+      Referer: `${BASE}/gameinprogress`,
+      Cookie: cookieString(allCookies),
+    },
+    body: 'status=asyncplay&turninfo=true',
+  })
 
-  const candidates = [
-    // tablemanager endpoint seen in browser DevTools on /gameinprogress page
-    { method: 'POST', url: `${BASE}/tablemanager/tablemanager/tableinfos.html`, body: 'status=open&turninfo=true&matchmakingtables=true' },
-    { method: 'POST', url: `${BASE}/tablemanager/tablemanager/tableinfos.html`, body: 'status=open&turninfo=true' },
-    { method: 'POST', url: `${BASE}/gameinprogress/gameinprogress/getGameList.html`, body: undefined },
-    { method: 'POST', url: `${BASE}/player/player/getactivetables.html`, body: 'status=open' },
-    { method: 'GET',  url: `${BASE}/player/player/getactivetables.html?status=open&ajax=1`, body: undefined },
-  ]
-
-  const probeResults: string[] = []
+  const tablesText = await tablesRes.text()
   let tablesData: any
-
-  for (const { method, url, body } of candidates) {
-    const res = await fetch(url, {
-      method,
-      headers: { ...authHeaders, ...(body ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}) },
-      ...(body ? { body } : {}),
-    })
-    const text = await res.text()
-    const sample = text.slice(0, 200).replace(/\s+/g, ' ')
-    probeResults.push(`${method} ${url.replace(BASE, '')} → ${res.status}: ${sample}`)
-    if (res.status === 200) {
-      try {
-        const parsed = JSON.parse(text)
-        // BGA may return tables as array or as object keyed by table id
-        const rawTables = parsed?.data?.tables ?? parsed?.tables
-        if (rawTables !== undefined && rawTables !== null) {
-          tablesData = parsed
-          break
-        }
-      } catch { /* not JSON */ }
-    }
+  try {
+    tablesData = JSON.parse(tablesText)
+  } catch {
+    throw new Error(`BGA tables HTTP ${tablesRes.status}: ${tablesText.slice(0, 300)}`)
   }
+  if (tablesData.status !== 1) throw new Error(`BGA tables failed: ${tablesData.error ?? JSON.stringify(tablesData).slice(0, 200)}`)
 
-  if (!tablesData) {
-    throw new Error(`BGA: could not find active tables endpoint.\n${probeResults.join('\n')}`)
-  }
-
-  const rawTables = tablesData?.data?.tables ?? tablesData?.tables ?? []
-  // BGA sometimes returns tables as object keyed by table id rather than array
-  const tables: any[] = Array.isArray(rawTables) ? rawTables : Object.values(rawTables)
+  // tables is an object keyed by table id
+  const rawTables: Record<string, any> = tablesData?.data?.tables ?? {}
+  const tables = Object.values(rawTables)
 
   return tables.map((t: any): Game => {
-    const lastMoveAt = new Date(t.gameserver_updated * 1000)
-    const isMyTurn = String(t.active_player) === myId
+    const players: Record<string, any> = t.players ?? {}
+    const myPlayer = players[myId]
+    const isMyTurn = myPlayer?.myturn === '1' || myPlayer?.myturn === 1
+
+    // active player = whichever player has myturn=1
+    const activePlayerEntry = Object.values(players).find((p: any) => p.myturn === '1' || p.myturn === 1) as any
+
+    // think_seconds = how long the active player has been sitting on their turn → last move elapsed
+    const thinkSeconds = parseInt(activePlayerEntry?.think_seconds ?? '0') || 0
+    const lastMoveAt = thinkSeconds > 0
+      ? new Date(Date.now() - thinkSeconds * 1000)
+      : new Date((t.gamestart ?? t.scheduled ?? 0) * 1000)
+
+    const playerNames = Object.values(players)
+      .map((p: any) => p.fullname)
+      .filter((n: string) => n && n !== (myPlayer?.fullname ?? ''))
+
     return {
       id: `bga:${t.id}`,
       platform: 'bga',
       gameName: t.game_name ?? 'Unknown',
       myTurn: isMyTurn,
-      currentPlayer: isMyTurn ? undefined : t.active_player_name,
+      currentPlayer: isMyTurn ? undefined : (activePlayerEntry?.fullname ?? undefined),
       lastMoveAt,
       lastMoveAgo: formatTimeAgo(lastMoveAt),
       urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
       gameUrl: `${BASE}/table/table/main.html?table=${t.id}`,
-      platformUrl: `${BASE}/player`,
-      players: (t.players ?? []).map((p: any) => p.name).filter((n: string) => n !== ''),
+      platformUrl: `${BASE}/gameinprogress`,
+      players: playerNames,
     }
   })
 }
