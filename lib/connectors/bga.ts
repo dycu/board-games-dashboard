@@ -32,6 +32,25 @@ function extractRequestToken(html: string): string {
   return m ? m[m.length - 1] : ''
 }
 
+// BGA's gamepanel og:title is "Play {Game Name} online from your browser"
+async function fetchGameNames(slugs: string[], cookies: Record<string, string>): Promise<Map<string, string>> {
+  const pairs = await Promise.all(
+    slugs.map(async (slug): Promise<[string, string]> => {
+      try {
+        const res = await fetch(`https://en.boardgamearena.com/gamepanel?game=${slug}`, {
+          headers: { ...BROWSER_HEADERS, Cookie: cookieString(cookies) },
+        })
+        const html = await res.text()
+        const m = html.match(/content=["']Play (.+?) online from your browser["']/i)
+        return [slug, m ? m[1] : slug]
+      } catch {
+        return [slug, slug]
+      }
+    })
+  )
+  return new Map(pairs)
+}
+
 export async function fetchBGA(username: string, password: string): Promise<Game[]> {
   // Step 1: follow redirect from boardgamearena.com to locale subdomain, collect PHPSESSID
   const initRes = await fetch(`${BASE}/account`, {
@@ -128,19 +147,9 @@ export async function fetchBGA(username: string, password: string): Promise<Game
   const rawTables: Record<string, any> = tablesData?.data?.tables ?? {}
   const tables = Object.values(rawTables)
 
-  if (tables.length > 0) {
-    const firstSlug = (tables[0] as any).game_name
-    const gpRes = await fetch(`https://en.boardgamearena.com/gamepanel?game=${firstSlug}`, {
-      headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) },
-    })
-    const gpHtml = await gpRes.text()
-    const titleMatch = gpHtml.match(/<title>([^<]+)<\/title>/i)
-    const ogTitleMatch = gpHtml.match(/og:title["'][^>]+content=["']([^"']+)["']/i)
-                      ?? gpHtml.match(/content=["']([^"']+)["'][^>]+og:title/i)
-    console.log('[BGA DEBUG] title:', titleMatch?.[1])
-    console.log('[BGA DEBUG] og:title:', ogTitleMatch?.[1])
-    console.log('[BGA DEBUG] gamepanel HTML 1200-3000:', gpHtml.slice(1200, 3000))
-  }
+  // Step 5: resolve display names from gamepanel pages (game_name field is a URL slug)
+  const uniqueSlugs = [...new Set(tables.map((t: any) => t.game_name as string).filter(Boolean))]
+  const nameMap = uniqueSlugs.length > 0 ? await fetchGameNames(uniqueSlugs, allCookies) : new Map<string, string>()
 
   return tables.map((t: any): Game => {
     const players: Record<string, any> = t.players ?? {}
@@ -174,7 +183,7 @@ export async function fetchBGA(username: string, password: string): Promise<Game
     return {
       id: `bga:${t.id}`,
       platform: 'bga',
-      gameName: t.game_display_name ?? t.game_name ?? 'Unknown',
+      gameName: nameMap.get(t.game_name) ?? t.game_name ?? 'Unknown',
       myTurn: isMyTurn,
       currentPlayer: isMyTurn ? undefined : (activePlayerEntry?.fullname ?? undefined),
       lastMoveAt,

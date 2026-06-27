@@ -63,13 +63,30 @@ function makeTablesResponse(data: object) {
   }
 }
 
-function setupHappyPath(playerId = '42', tables: object = fixture) {
-  mockFetch
+function makeGamepanelResponse(displayName: string) {
+  return {
+    ok: true,
+    status: 200,
+    text: async () =>
+      `<html><head><meta property="og:title" content="Play ${displayName} online from your browser"/></head></html>`,
+    headers: makeMockHeaders([]),
+  }
+}
+
+// fixture has 2 games: imperialsettlers → "Imperial Settlers", terraformingmars → "Terraforming Mars"
+function setupHappyPath(playerId = '42', tables: object = fixture, gamepanelResponses: Array<{ slug: string; name: string }> = [
+  { slug: 'imperialsettlers', name: 'Imperial Settlers' },
+  { slug: 'terraformingmars', name: 'Terraforming Mars' },
+]) {
+  let mock = mockFetch
     .mockResolvedValueOnce(makeInitResponse())
     .mockResolvedValueOnce(makeRedirectFollowResponse())
     .mockResolvedValueOnce(makeLoginPageResponse())
     .mockResolvedValueOnce(makeLoginResponse(playerId))
     .mockResolvedValueOnce(makeTablesResponse(tables))
+  for (const { name } of gamepanelResponses) {
+    mock = mock.mockResolvedValueOnce(makeGamepanelResponse(name))
+  }
 }
 
 describe('fetchBGA', () => {
@@ -88,7 +105,7 @@ describe('fetchBGA', () => {
     })
   })
 
-  it('uses game_display_name over game_name slug', async () => {
+  it('resolves display names from gamepanel og:title', async () => {
     setupHappyPath()
     const games = await fetchBGA('user@example.com', 'password')
 
@@ -99,8 +116,8 @@ describe('fetchBGA', () => {
     expect(terraformingMars.gameName).toBe('Terraforming Mars')
   })
 
-  it('falls back to game_name slug when game_display_name is absent', async () => {
-    const tablesWithoutDisplayName = {
+  it('falls back to slug when gamepanel fetch fails', async () => {
+    const singleTable = {
       status: 1,
       data: {
         tables: {
@@ -117,7 +134,14 @@ describe('fetchBGA', () => {
         },
       },
     }
-    setupHappyPath('42', tablesWithoutDisplayName)
+    mockFetch
+      .mockResolvedValueOnce(makeInitResponse())
+      .mockResolvedValueOnce(makeRedirectFollowResponse())
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginResponse('42'))
+      .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockRejectedValueOnce(new Error('network error'))
+
     const games = await fetchBGA('user@example.com', 'password')
     expect(games[0].gameName).toBe('someslug')
   })
@@ -137,7 +161,7 @@ describe('fetchBGA', () => {
   })
 
   it('returns empty array when no tables exist', async () => {
-    setupHappyPath('42', { status: 1, data: { tables: {} } })
+    setupHappyPath('42', { status: 1, data: { tables: {} } }, [])
     const games = await fetchBGA('user@example.com', 'password')
     expect(games).toHaveLength(0)
   })

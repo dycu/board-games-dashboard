@@ -5,7 +5,6 @@
       "12345": {
         "id": "12345",
         "game_name": "imperialsettlers",
-        "game_display_name": "Imperial Settlers",
         "status": "asyncplay",
         "gamestart": 1750000000,
         "scheduled": 1749990000,
@@ -27,7 +26,6 @@
       "67890": {
         "id": "67890",
         "game_name": "terraformingmars",
-        "game_display_name": "Terraforming Mars",
         "status": "asyncplay",
         "gamestart": 1749990000,
         "scheduled": 1749980000,
