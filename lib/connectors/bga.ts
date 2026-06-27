@@ -1,5 +1,5 @@
 import { Game } from '../types'
-import { formatTimeAgo } from './utils'
+import { formatTimeAgo, formatTimeRemaining } from './utils'
 
 const BASE = 'https://boardgamearena.com'
 
@@ -136,18 +136,17 @@ export async function fetchBGA(username: string, password: string): Promise<Game
     // active player = whichever player has myturn=1
     const activePlayerEntry = Object.values(players).find((p: any) => p.myturn === '1' || p.myturn === 1) as any
 
-    // think_limit  = Unix timestamp (seconds) when the active player's bank expires
-    // think_seconds = seconds of bank remaining when the current turn started
-    // → turn started at: think_limit − think_seconds  (= when the last move was made)
+    // think_limit   = Unix timestamp (seconds) of the active player's deadline
+    // think_seconds = think_limit − now  (remaining seconds; negative = overtime)
+    // BGA doesn't expose last-move time, so we show time remaining instead
     const thinkLimitSec = t.think_limit != null ? parseInt(t.think_limit) : null
     const thinkRemainSec = activePlayerEntry?.think_seconds != null
       ? parseInt(activePlayerEntry.think_seconds)
       : null
     const hasTimingData = thinkLimitSec != null && !isNaN(thinkLimitSec)
-      && thinkRemainSec != null && !isNaN(thinkRemainSec) && thinkRemainSec > 0
-    const lastMoveAt = hasTimingData
-      ? new Date((thinkLimitSec! - thinkRemainSec!) * 1000)
-      : new Date()
+      && thinkRemainSec != null && !isNaN(thinkRemainSec)
+    // Use deadline as lastMoveAt so urgency sorting works: earlier deadline → sorts first
+    const lastMoveAt = hasTimingData ? new Date(thinkLimitSec! * 1000) : new Date()
 
     const playerNames = Object.values(players)
       .map((p: any) => p.fullname)
@@ -160,8 +159,8 @@ export async function fetchBGA(username: string, password: string): Promise<Game
       myTurn: isMyTurn,
       currentPlayer: isMyTurn ? undefined : (activePlayerEntry?.fullname ?? undefined),
       lastMoveAt,
-      lastMoveAgo: hasTimingData ? formatTimeAgo(lastMoveAt) : '–',
-      urgent: hasTimingData && Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
+      lastMoveAgo: hasTimingData ? formatTimeRemaining(thinkRemainSec!) : '–',
+      urgent: hasTimingData && thinkRemainSec! < 24 * 3600,
       gameUrl: `${BASE}/${t.gameserver}/${t.game_name}?table=${t.id}`,
       platformUrl: `${BASE}/gameinprogress`,
       players: playerNames,
