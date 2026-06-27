@@ -136,9 +136,9 @@ export async function fetchBGA(username: string, password: string): Promise<Game
     // active player = whichever player has myturn=1
     const activePlayerEntry = Object.values(players).find((p: any) => p.myturn === '1' || p.myturn === 1) as any
 
-    const thinkSeconds = parseInt(activePlayerEntry?.think_seconds ?? '0') || 0
-    const lastMoveAt = thinkSeconds > 0
-      ? new Date(Date.now() - thinkSeconds * 1000)
+    const thinkMs = parseInt(activePlayerEntry?.think_seconds ?? '0') || 0
+    const lastMoveAt = thinkMs > 0
+      ? new Date(Date.now() - thinkMs)
       : new Date()
 
     const playerNames = Object.values(players)
