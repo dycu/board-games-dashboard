@@ -63,7 +63,9 @@ async function fetchGameNames(slugs: string[], cookies: Record<string, string>):
           headers: { ...BROWSER_HEADERS, Cookie: cookieString(cookies) },
         })
         const html = await res.text()
-        const m = html.match(/content=["']Play ([^"']+?) online from your browser["']/i)
+        // BGA always uses double-quote delimiters on og:title, so [^"] stays inside
+        // the attribute and handles apostrophes (e.g. "Andromeda's Edge") correctly
+        const m = html.match(/content="Play ([^"]+?) online from your browser"/i)
         return [slug, m ? decodeHtmlEntities(m[1].replace(/\s+/g, ' ').trim()) : slug]
       } catch {
         return [slug, slug]
