@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import dns from 'dns/promises'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -6,72 +7,81 @@ export const maxDuration = 60
 export async function GET() {
   const results: any[] = []
 
-  // ── RALLY THE TROOPS ─────────────────────────────────────────────────────
+  // ── CHOOCHOO DNS + CONNECTIVITY ──────────────────────────────────────────
   {
-    const username = process.env.RALLY_USERNAME
-    const password = process.env.RALLY_PASSWORD
+    const username = process.env.CHOOCHOO_USERNAME
+    const password = process.env.CHOOCHOO_PASSWORD
     const log: string[] = []
 
-    // Check basic connectivity first
-    for (const url of [
-      'https://rallythetroops.com',
-      'https://www.rallythetroops.com',
-      'https://rallythetroops.com/api',
-      'https://rallythetroops.com/login',
-    ]) {
+    // DNS lookup first
+    for (const host of ['choochoo.games', 'api.choochoo.games', 'www.choochoo.games']) {
+      try {
+        const addrs = await dns.resolve4(host)
+        log.push(`DNS ${host}: ${addrs.join(', ')}`)
+      } catch (e: any) {
+        log.push(`DNS ${host}: error=${e.message}`)
+      }
+    }
+
+    // Connectivity attempts
+    const urls = [
+      'https://choochoo.games',
+      'https://www.choochoo.games',
+      'https://api.choochoo.games',
+      'https://api.choochoo.games/api/xsrf',
+      'https://choochoo.games/api/xsrf',
+    ]
+    for (const url of urls) {
       try {
         const r = await fetch(url, {
-          headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'text/html,application/json,*/*' },
-          redirect: 'manual',
+          headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json, text/html' },
+          signal: AbortSignal.timeout(10000),
         })
         const body = await r.text()
-        const loc = r.headers.get('location') ?? ''
-        const ct = r.headers.get('content-type') ?? ''
-        log.push(`GET ${url}: HTTP ${r.status} loc=${loc} ct=${ct} len=${body.length} body=${body.slice(0, 150)}`)
+        log.push(`GET ${url}: HTTP ${r.status} len=${body.length} body=${body.slice(0, 100)}`)
       } catch (e: any) {
-        log.push(`GET ${url}: error=${e.message}`)
+        log.push(`GET ${url}: error=${e.message} (${e.cause?.message ?? e.cause ?? ''})`)
       }
     }
 
     if (!username || !password) {
-      results.push({ name: 'rally', log, error: 'no credentials' })
+      results.push({ name: 'choochoo', log, error: 'no credentials' })
     } else {
-      // Try login variants
-      const loginUrls = [
-        'https://rallythetroops.com/login',
-        'https://rallythetroops.com/api/login',
-        'https://rallythetroops.com/api/auth/login',
-        'https://rallythetroops.com/api/users/login',
-        'https://rallythetroops.com/api/session',
-      ]
+      // If any URL worked, try the XSRF + login flow
+      const workingXsrf = log.find(l => l.includes('/xsrf') && l.includes('HTTP 200'))
+      if (workingXsrf) {
+        try {
+          const base = workingXsrf.includes('api.choochoo') ? 'https://api.choochoo.games/api' : 'https://choochoo.games/api'
+          const xsrfRes = await fetch(`${base}/xsrf`, { headers: { Accept: 'application/json' } })
+          const { xsrfToken } = await xsrfRes.json()
+          const xsrfCookie = xsrfRes.headers.get('set-cookie')?.split(';')[0] ?? ''
 
-      for (const url of loginUrls) {
-        for (const [ct, body] of [
-          ['application/json', JSON.stringify({ username, password })],
-          ['application/json', JSON.stringify({ email: username, password })],
-          ['application/x-www-form-urlencoded', new URLSearchParams({ username, password }).toString()],
-        ] as [string, string][]) {
-          try {
-            const r = await fetch(url, {
-              method: 'POST',
-              headers: { 'Content-Type': ct, Accept: 'application/json, text/html', 'User-Agent': 'Mozilla/5.0' },
-              body,
-              redirect: 'manual',
+          const loginRes = await fetch(`${base}/users/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'xsrf-token': xsrfToken, Cookie: xsrfCookie },
+            body: JSON.stringify({ usernameOrEmail: username, password }),
+          })
+          const loginJson = await loginRes.json()
+          const authCookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
+          log.push(`login: HTTP ${loginRes.status} body=${JSON.stringify(loginJson).slice(0, 200)}`)
+
+          if (loginJson.success || loginJson.body?.user) {
+            const allCookies = [xsrfCookie, authCookie].filter(Boolean).join('; ')
+            const gamesRes = await fetch(`${base}/games`, {
+              headers: { Accept: 'application/json', Cookie: allCookies, 'xsrf-token': xsrfToken },
             })
-            const resp = await r.text()
-            const cookie = r.headers.get('set-cookie') ?? ''
-            const loc = r.headers.get('location') ?? ''
-            log.push(`POST ${url} (${ct.includes('json') ? 'json' : 'form'}): HTTP ${r.status} loc=${loc} cookie=${cookie.slice(0, 60)} body=${resp.slice(0, 150)}`)
-            if (r.status < 400 && cookie) {
-              log.push(`*** possible login success at ${url} ***`)
-            }
-          } catch (e: any) {
-            log.push(`POST ${url}: error=${e.message}`)
+            const gamesJson = await gamesRes.json()
+            log.push(`games: HTTP ${gamesRes.status}`)
+            results.push({ name: 'choochoo', success: true, log, gamesJson })
+          } else {
+            results.push({ name: 'choochoo', error: 'login failed', log })
           }
+        } catch (e: any) {
+          results.push({ name: 'choochoo', error: e.message, log })
         }
+      } else {
+        results.push({ name: 'choochoo', error: 'all endpoints unreachable', log })
       }
-
-      results.push({ name: 'rally', log })
     }
   }
 
