@@ -40,60 +40,37 @@ export async function GET() {
           return NextResponse.json(results)
         }
         const combinedCookies = [sessionCookie, authCookie].filter(Boolean).join('; ')
-
-        // Search JS for GetLiveGames and d.Games context
-        const bundleRes = await fetch('https://www.yucata.de/bundles/mpscripts4', {
-          headers: { Cookie: combinedCookies, 'User-Agent': 'Mozilla/5.0' },
-        })
-        const bundleJs = await bundleRes.text()
-
-        const liveGamesIdx = bundleJs.indexOf('GetLiveGames')
-        if (liveGamesIdx >= 0) {
-          log.push(`GetLiveGames context: ${bundleJs.slice(Math.max(0, liveGamesIdx - 200), liveGamesIdx + 400)}`)
-        }
-
-        const dGamesIdx = bundleJs.indexOf('data.d.Games')
-        if (dGamesIdx >= 0) {
-          log.push(`data.d.Games context: ${bundleJs.slice(Math.max(0, dGamesIdx - 300), dGamesIdx + 200)}`)
-        }
-
-        // Also search for any WCF call that loads running/current games
-        const gamesCallCtx = [...bundleJs.matchAll(/.{0,100}(?:currentGamesData|LiveGames|runningGames).{0,100}/g)]
-          .map(m => m[0]).slice(0, 8)
-        log.push(`currentGames/LiveGames contexts: ${gamesCallCtx.join(' || ')}`)
+        log.push('login ok')
 
         const wcfBase = 'https://www.yucata.de/Services/YucataService.svc'
-
-        // Try GetLiveGames with various bodies
-        for (const body of ['{}', '{"userID":1031968}', '{"userHash":"D09DD64FBFA5D8DB18A26CD681821B05"}', '{"filterValue":0}']) {
-          const r = await fetch(`${wcfBase}/GetLiveGames`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json; charset=utf-8',
-              Accept: 'application/json',
-              Cookie: combinedCookies,
-              'User-Agent': 'Mozilla/5.0',
-              Referer: 'https://www.yucata.de/en/Overview',
-            },
-            body,
-          })
-          const txt = await r.text()
-          log.push(`GetLiveGames(${body}): HTTP ${r.status} len=${txt.length} body=${txt.slice(0, 400)}`)
+        const hdrs = {
+          'Content-Type': 'application/json; charset=utf-8',
+          Accept: 'application/json',
+          Cookie: combinedCookies,
+          'User-Agent': 'Mozilla/5.0',
+          Referer: 'https://www.yucata.de/en/Overview',
         }
 
-        // Also try GetQuarantinedGames (might be "paused/waiting" games)
-        const qr = await fetch(`${wcfBase}/GetQuarantinedGames`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json; charset=utf-8',
-            Accept: 'application/json',
-            Cookie: combinedCookies,
-            'User-Agent': 'Mozilla/5.0',
-          },
-          body: '{}',
-        })
-        const qtxt = await qr.text()
-        log.push(`GetQuarantinedGames: HTTP ${qr.status} len=${qtxt.length} body=${qtxt.slice(0, 400)}`)
+        // GetLiveGames — most likely "currently running games for user"
+        for (const body of ['{}', '{"filterValue":0}', '{"filterValue":2}', '{"userID":1031968}']) {
+          const r = await fetch(`${wcfBase}/GetLiveGames`, { method: 'POST', headers: hdrs, body })
+          const txt = await r.text()
+          log.push(`GetLiveGames(${body}): HTTP ${r.status} len=${txt.length} body=${txt.slice(0, 500)}`)
+        }
+
+        // GetQuarantinedGames
+        {
+          const r = await fetch(`${wcfBase}/GetQuarantinedGames`, { method: 'POST', headers: hdrs, body: '{}' })
+          const txt = await r.text()
+          log.push(`GetQuarantinedGames: HTTP ${r.status} len=${txt.length} body=${txt.slice(0, 300)}`)
+        }
+
+        // GetPersonalInvitations (might expose running games too)
+        {
+          const r = await fetch(`${wcfBase}/GetPersonalInvitations`, { method: 'POST', headers: hdrs, body: '{}' })
+          const txt = await r.text()
+          log.push(`GetPersonalInvitations: HTTP ${r.status} len=${txt.length} body=${txt.slice(0, 300)}`)
+        }
 
         results.push({ name: 'yucata', log })
       } catch (e: any) {
