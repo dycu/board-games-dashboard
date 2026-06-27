@@ -53,10 +53,12 @@ export async function GET() {
   const loginBody = await loginRes.text()
   const loginCookies = loginRes.headers.get('set-cookie') ?? ''
   const loginLoc = loginRes.headers.get('location') ?? ''
-  log.push(`POST login: HTTP ${loginRes.status} loc=${loginLoc} cookies=${loginCookies.slice(0,100)} body=${loginBody.slice(0,100)}`)
+  const loginError = loginBody.match(/<div[^>]*class="error"[^>]*>([^<]+)<\/div>/)?.[1]?.trim() ?? 'no error div'
+  const sessionid = loginCookies.match(/\bsessionid=([^;,\s]+)/)?.[1]
+  log.push(`POST login: HTTP ${loginRes.status} loc=${loginLoc} sessionid=${sessionid ? sessionid.slice(0,12)+'...' : 'none'} error="${loginError}"`)
 
-  // Check if login succeeded (Django redirects to next on success, stays on /login/ on failure)
-  const loginSuccess = loginRes.status === 302 && loginLoc !== '/login/' && loginLoc !== `${BASE}/login/`
+  // Successful login: got a sessionid cookie, or redirected away from /login/
+  const loginSuccess = !!sessionid || (loginRes.status >= 300 && loginRes.status < 400 && loginLoc && loginLoc !== '/login/' && loginLoc !== `${BASE}/login/`)
   log.push(`login success: ${loginSuccess}`)
 
   if (!loginSuccess) {
