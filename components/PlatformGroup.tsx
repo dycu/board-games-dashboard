@@ -47,8 +47,6 @@ export default function PlatformGroup({ platform, games, pins }: Props) {
             </span>
             <a
               href={g.gameUrl}
-              target="_blank"
-              rel="noopener noreferrer"
               className="text-xs text-blue-400 hover:underline ml-2 shrink-0">
               open
             </a>
