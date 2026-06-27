@@ -15,9 +15,10 @@ interface Props {
   game: Game
   pinned: boolean
   onTogglePin: (id: string) => void
+  onDismiss: () => void
 }
 
-export default function GameCard({ game, pinned, onTogglePin }: Props) {
+export default function GameCard({ game, pinned, onTogglePin, onDismiss }: Props) {
   const badgeClass = BADGE_COLORS[game.platform] ?? 'bg-slate-800 text-slate-400'
 
   return (
@@ -57,17 +58,25 @@ export default function GameCard({ game, pinned, onTogglePin }: Props) {
         <span className={`text-xs ${game.urgent ? 'text-amber-400' : 'text-slate-500'}`}>
           {game.urgent ? '⏱ ' : ''}{game.lastMoveAgo}
         </span>
-        <a
-          href={game.gameUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Open game"
-          className={`text-xs font-medium px-3 py-1 rounded-md transition-colors
-            ${game.myTurn
-              ? 'bg-blue-700 text-white hover:bg-blue-600'
-              : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
-          Open →
-        </a>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onDismiss}
+            title="Dismiss until next refresh"
+            className="text-xs text-slate-600 hover:text-slate-400 transition-colors px-2 py-1 rounded-md hover:bg-slate-800">
+            ✓ Done
+          </button>
+          <a
+            href={game.gameUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Open game"
+            className={`text-xs font-medium px-3 py-1 rounded-md transition-colors
+              ${game.myTurn
+                ? 'bg-blue-700 text-white hover:bg-blue-600'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+            Open →
+          </a>
+        </div>
       </div>
     </div>
   )

@@ -8,13 +8,16 @@ interface Props {
   data: GamesApiResponse
   prefs: UserPrefs
   onPrefsChange: (p: UserPrefs) => void
+  dismissed: Set<string>
+  onDismiss: (id: string) => void
 }
 
-export default function GameGrid({ data, prefs, onPrefsChange }: Props) {
+export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDismiss }: Props) {
   const { games, errors, fetchedAt } = data
-  const myTurnCount = games.filter(g => g.myTurn).length
-  const myTurnGames = sortAndFilter(games.filter(g => g.myTurn), prefs)
-  const waitingGames = sortAndFilter(games.filter(g => !g.myTurn), prefs)
+  const visible = games.filter(g => !dismissed.has(g.id))
+  const myTurnCount = visible.filter(g => g.myTurn).length
+  const myTurnGames = sortAndFilter(visible.filter(g => g.myTurn), prefs)
+  const waitingGames = sortAndFilter(visible.filter(g => !g.myTurn), prefs)
 
   const togglePin = async (id: string) => {
     const pins = prefs.pins.includes(id)
@@ -59,7 +62,7 @@ export default function GameGrid({ data, prefs, onPrefsChange }: Props) {
           <p className="text-xs uppercase tracking-widest text-slate-500 mb-3">Your turn first</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 mb-8">
             {myTurnGames.map(g => (
-              <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} />
+              <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} onDismiss={() => onDismiss(g.id)} />
             ))}
           </div>
         </>
@@ -70,7 +73,7 @@ export default function GameGrid({ data, prefs, onPrefsChange }: Props) {
           <p className="text-xs uppercase tracking-widest text-slate-500 mb-3">Waiting for others</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
             {waitingGames.map(g => (
-              <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} />
+              <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} onDismiss={() => onDismiss(g.id)} />
             ))}
           </div>
         </>
