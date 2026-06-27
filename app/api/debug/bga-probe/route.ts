@@ -113,24 +113,21 @@ export async function GET() {
       Cookie: cookieString(allCookies),
     }
 
-    // First get a real table ID from the active games
-    const tablesRes2 = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, {
+    const tablesRes = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, {
       method: 'POST',
       headers: { ...authHeaders, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
       body: 'status=play&turninfo=true',
     })
-    const tablesJson2 = await tablesRes2.json().catch(() => null)
-    const firstTable: any = tablesJson2?.data?.tables ? Object.values(tablesJson2.data.tables)[0] : null
-    const sampleTableId = firstTable?.id ?? '766195607'
-    const sampleGameName = firstTable?.game_name ?? 'thecrew'
+    const tablesJson = await tablesRes.json().catch(() => null)
 
-    // Inspect the full data structure for display name fields
-    const dataKeys = Object.keys(tablesJson2?.data ?? {})
-    const firstTable: any = tablesJson2?.data?.tables ? Object.values(tablesJson2.data.tables)[0] : null
-    const tableKeys = firstTable ? Object.keys(firstTable) : []
+    // Top-level keys in data (looking for anything beyond 'tables')
+    const dataKeys = Object.keys(tablesJson?.data ?? {})
 
-    // Sample: pick a few tables and show all name-related fields
-    const allTables: any[] = tablesJson2?.data?.tables ? Object.values(tablesJson2.data.tables) : []
+    // Keys on a single table object
+    const allTables: any[] = tablesJson?.data?.tables ? Object.values(tablesJson.data.tables) : []
+    const tableKeys = allTables[0] ? Object.keys(allTables[0]) : []
+
+    // All name/title/display/label fields across first 5 tables
     const nameSample = allTables.slice(0, 5).map((t: any) => ({
       game_name: t.game_name,
       game_id: t.game_id,
@@ -141,7 +138,14 @@ export async function GET() {
       ),
     }))
 
-    return NextResponse.json({ dataKeys, tableKeys, nameSample })
+    // Also try BGA's gamelist endpoint to see if it returns display names
+    const gamelistRes = await fetch(`${BASE}/gamelist/gamelist/gamelist.html`, {
+      headers: { ...authHeaders },
+    }).catch(() => null)
+    const gamelistText = gamelistRes ? await gamelistRes.text().catch(() => '') : ''
+    const gamelistPreview = gamelistText.slice(0, 500)
+
+    return NextResponse.json({ dataKeys, tableKeys, nameSample, gamelistPreview })
   } catch (e) {
     return NextResponse.json({ error: String(e), log }, { status: 500 })
   }
