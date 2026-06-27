@@ -125,24 +125,25 @@ export async function GET() {
     const sampleGameName = firstTable?.game_name ?? 'thecrew'
 
     const allTables: any[] = tablesJson2?.data?.tables ? Object.values(tablesJson2.data.tables) : []
+    const nowSec = Math.floor(Date.now() / 1000)
 
-    // Summarise all tables: game name, whose turn, and think_seconds for each player
     const summary = allTables.map((t: any) => {
       const players = Object.values(t.players ?? {}) as any[]
+      const activePlayer = players.find((p: any) => p.myturn === '1' || p.myturn === 1) as any
+      const thinkLimit = t.think_limit != null ? parseInt(t.think_limit) : null
+      const thinkRemain = activePlayer?.think_seconds != null ? parseInt(activePlayer.think_seconds) : null
+      const turnStartSec = thinkLimit != null && thinkRemain != null ? thinkLimit - thinkRemain : null
       return {
-        id: t.id,
         game: t.game_name,
-        gamestart: t.gamestart,
         think_limit: t.think_limit,
-        players: players.map((p: any) => ({
-          name: p.fullname,
-          myturn: p.myturn,
-          think_seconds: p.think_seconds,
-        })),
+        active_player: activePlayer?.fullname,
+        active_think_seconds: activePlayer?.think_seconds,
+        computed_turn_start: turnStartSec,
+        computed_elapsed_min: turnStartSec != null ? Math.round((nowSec - turnStartSec) / 60) : null,
       }
     })
 
-    return NextResponse.json({ log, myId, summary })
+    return NextResponse.json({ nowSec, summary })
   } catch (e) {
     return NextResponse.json({ error: String(e), log }, { status: 500 })
   }
