@@ -90,7 +90,7 @@ export async function GET() {
       continue
     }
 
-    const variants = [
+    const variants: Record<string, string>[] = [
       { username, password },
       { email: username, password },
       { login: username, password },
