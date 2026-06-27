@@ -98,36 +98,56 @@ export async function fetchBGA(username: string, password: string): Promise<Game
   const postLoginToken = allCookies['TournoiEnLigneidt'] ?? allCookies['TournoiEnLigneid'] ?? ''
   if (!postLoginToken) throw new Error(`BGA: no request token in login response cookies (keys: ${Object.keys(allCookies).join(', ')})`)
 
-  // Step 4: fetch the games-in-progress page and extract embedded game data
-  const tablesRes = await fetch(`${BASE}/gameinprogress`, {
-    headers: {
-      ...BROWSER_HEADERS,
-      Accept: 'text/html,application/xhtml+xml,*/*',
-      'X-Request-Token': postLoginToken,
-      Cookie: cookieString(allCookies),
-    },
-  })
-  const tablesText = await tablesRes.text()
-
-  // BGA embeds game list as a JS variable in the server-rendered page HTML.
-  // Try to find and parse it from a script block.
-  let tablesData: any
-  const jsonMatch = tablesText.match(/\btables\b\s*[:=]\s*(\[[\s\S]*?\])/m)
-                 ?? tablesText.match(/gamesinprogress\s*[:=]\s*(\{[\s\S]*?\})/m)
-                 ?? tablesText.match(/"tables"\s*:\s*(\[[\s\S]*?\])/m)
-  if (jsonMatch) {
-    try { tablesData = { data: { tables: JSON.parse(jsonMatch[1]) } } } catch { /* fall through */ }
+  // Step 4: probe candidate endpoints to find the active tables API
+  const authHeaders = {
+    ...BROWSER_HEADERS,
+    Accept: 'application/json, */*',
+    'X-Requested-With': 'XMLHttpRequest',
+    'X-Request-Token': postLoginToken,
+    Cookie: cookieString(allCookies),
   }
-  if (!tablesData) {
-    // Last resort: try parsing the whole response as JSON (in case the endpoint changed back)
-    try {
-      tablesData = JSON.parse(tablesText)
-    } catch {
-      throw new Error(`BGA tables HTTP ${tablesRes.status} — could not find game list. Page sample: ${tablesText.slice(0, 400).replace(/\s+/g, ' ')}`)
+
+  const candidates = [
+    // tablemanager endpoint seen in browser DevTools on /gameinprogress page
+    { method: 'POST', url: `${BASE}/tablemanager/tablemanager/tableinfos.html`, body: 'status=open&turninfo=true&matchmakingtables=true' },
+    { method: 'POST', url: `${BASE}/tablemanager/tablemanager/tableinfos.html`, body: 'status=open&turninfo=true' },
+    { method: 'POST', url: `${BASE}/gameinprogress/gameinprogress/getGameList.html`, body: undefined },
+    { method: 'POST', url: `${BASE}/player/player/getactivetables.html`, body: 'status=open' },
+    { method: 'GET',  url: `${BASE}/player/player/getactivetables.html?status=open&ajax=1`, body: undefined },
+  ]
+
+  const probeResults: string[] = []
+  let tablesData: any
+
+  for (const { method, url, body } of candidates) {
+    const res = await fetch(url, {
+      method,
+      headers: { ...authHeaders, ...(body ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}) },
+      ...(body ? { body } : {}),
+    })
+    const text = await res.text()
+    const sample = text.slice(0, 200).replace(/\s+/g, ' ')
+    probeResults.push(`${method} ${url.replace(BASE, '')} → ${res.status}: ${sample}`)
+    if (res.status === 200) {
+      try {
+        const parsed = JSON.parse(text)
+        // BGA may return tables as array or as object keyed by table id
+        const rawTables = parsed?.data?.tables ?? parsed?.tables
+        if (rawTables !== undefined && rawTables !== null) {
+          tablesData = parsed
+          break
+        }
+      } catch { /* not JSON */ }
     }
   }
 
-  const tables: any[] = tablesData?.data?.tables ?? tablesData?.tables ?? []
+  if (!tablesData) {
+    throw new Error(`BGA: could not find active tables endpoint.\n${probeResults.join('\n')}`)
+  }
+
+  const rawTables = tablesData?.data?.tables ?? tablesData?.tables ?? []
+  // BGA sometimes returns tables as object keyed by table id rather than array
+  const tables: any[] = Array.isArray(rawTables) ? rawTables : Object.values(rawTables)
 
   return tables.map((t: any): Game => {
     const lastMoveAt = new Date(t.gameserver_updated * 1000)
