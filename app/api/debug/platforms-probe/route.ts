@@ -37,8 +37,6 @@ export async function GET() {
         })
         const loginJson = await loginRes.json()
         const authCookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
-        log.push(`login: ${JSON.stringify(loginJson)}, authLen=${authCookie.length}`)
-
         if (!loginJson.d) {
           results.push({ name: 'yucata', error: 'login failed', log })
           return NextResponse.json(results)
@@ -46,97 +44,50 @@ export async function GET() {
 
         const combinedCookies = [sessionCookie, authCookie].filter(Boolean).join('; ')
 
-        // Step 3: get user ID from /en page
-        const homeRes = await fetch('https://www.yucata.de/en', {
+        // Step 3: get WCF service help page to find real method names
+        const helpRes = await fetch('https://www.yucata.de/Services/YucataService.svc', {
           headers: { Cookie: combinedCookies, 'User-Agent': 'Mozilla/5.0', Accept: 'text/html' },
         })
-        const homeHtml = await homeRes.text()
-        const userIdMatch = homeHtml.match(/var UserID\s*=\s*'(\d+)'/)
-        const userHashMatch = homeHtml.match(/var UserHash\s*=\s*'([A-F0-9]+)'/)
-        const userId = userIdMatch?.[1] ?? ''
-        const userHash = userHashMatch?.[1] ?? ''
-        log.push(`userId=${userId}, userHash=${userHash.slice(0, 8)}...`)
+        const helpHtml = await helpRes.text()
+        log.push(`WCF help: HTTP ${helpRes.status} len=${helpHtml.length}`)
 
-        // Step 4: try WCF service methods with user ID
-        const wcfBase = 'https://www.yucata.de/Services/YucataService.svc'
-        const wcfMethods = [
-          { name: 'GetRunningGames', body: {} },
-          { name: 'GetRunningGames', body: { userID: parseInt(userId) } },
-          { name: 'GetRunningGamesForUser', body: { userID: parseInt(userId) } },
-          { name: 'GetGamesForUser', body: { userID: parseInt(userId) } },
-          { name: 'GetOpenGames', body: {} },
-          { name: 'GetOpenGamesForUser', body: { userID: parseInt(userId) } },
-          { name: 'GetMyGames', body: { userHash } },
-          { name: 'GetUserRunningGames', body: { userID: parseInt(userId) } },
-        ]
-        for (const { name, body } of wcfMethods) {
-          try {
-            const r = await fetch(`${wcfBase}/${name}`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json; charset=utf-8',
-                Accept: 'application/json',
-                Cookie: combinedCookies,
-                'User-Agent': 'Mozilla/5.0',
-              },
-              body: JSON.stringify(body),
-            })
-            const txt = await r.text()
-            log.push(`WCF ${name}(${JSON.stringify(body)}): HTTP ${r.status} len=${txt.length} body=${txt.slice(0, 150)}`)
-          } catch (e: any) {
-            log.push(`WCF ${name}: error ${e.message}`)
-          }
-        }
+        // Extract method names from help HTML (they appear as links or in text)
+        const methodMatches = [...helpHtml.matchAll(/href="([^"]+YucataService[^"]+)"/gi)]
+          .map(m => m[1])
+        const operationMatches = [...helpHtml.matchAll(/operation[^>]*>([^<]{3,60})</gi)]
+          .map(m => m[1].trim())
+        log.push(`WCF links: ${methodMatches.slice(0, 20).join(', ')}`)
+        log.push(`WCF operations: ${operationMatches.slice(0, 20).join(', ')}`)
 
-        // Step 5: try WCF service help/metadata
-        try {
-          const helpR = await fetch(`${wcfBase}`, {
-            headers: { Cookie: combinedCookies, 'User-Agent': 'Mozilla/5.0', Accept: 'text/html' },
-          })
-          const helpTxt = await helpR.text()
-          log.push(`WCF help: HTTP ${helpR.status} len=${helpTxt.length} body=${helpTxt.slice(0, 300)}`)
-        } catch (e: any) {
-          log.push(`WCF help: error ${e.message}`)
-        }
+        // Step 4: get JS bundle to find API call patterns
+        const bundleMatch = helpHtml.match(/\/bundles\/y4scripts\?v=([^"]+)"/)
+          ?? helpHtml.match(/\/scripts\/([^"]+\.js)[^"]*"/)
+        log.push(`bundle: ${bundleMatch?.[0] ?? 'not found'}`)
 
-        // Step 6: fetch /en/Overview (Lobby) full page
+        // Try fetching the main JS bundle from the lobby page
         const lobbyRes = await fetch('https://www.yucata.de/en/Overview', {
           headers: { Cookie: combinedCookies, 'User-Agent': 'Mozilla/5.0', Accept: 'text/html' },
-          redirect: 'manual',
         })
         const lobbyHtml = await lobbyRes.text()
-        const lobbyLoc = lobbyRes.headers.get('location') ?? ''
-        log.push(`/en/Overview: HTTP ${lobbyRes.status} loc=${lobbyLoc} len=${lobbyHtml.length}`)
+        // Find script bundle URL
+        const scriptBundleMatch = lobbyHtml.match(/src="(\/bundles\/y4scripts[^"]+)"/)
+        const scriptBundleUrl = scriptBundleMatch?.[1] ?? ''
+        log.push(`Script bundle: ${scriptBundleUrl}`)
 
-        // Step 7: try user-specific game URLs
-        const gameUrls = [
-          `/en/User/${username}`,
-          `/en/Profile`,
-          `/en/MyGames`,
-          `/en/RunningGames`,
-          `/en/Game/Running`,
-        ]
-        for (const path of gameUrls) {
-          try {
-            const r = await fetch(`https://www.yucata.de${path}`, {
-              headers: { Cookie: combinedCookies, 'User-Agent': 'Mozilla/5.0', Accept: 'text/html' },
-              redirect: 'manual',
-            })
-            const txt = await r.text()
-            const loc = r.headers.get('location') ?? ''
-            log.push(`${path}: HTTP ${r.status} loc=${loc} len=${txt.length}`)
-          } catch (e: any) {
-            log.push(`${path}: error ${e.message}`)
-          }
-        }
+        // Find any WCF method references in the lobby page
+        const wcfRefs = [...lobbyHtml.matchAll(/YucataService\.svc\/(\w+)/g)].map(m => m[1])
+        log.push(`WCF refs in lobby: ${wcfRefs.join(', ')}`)
+
+        // Find any fetch/ajax patterns
+        const ajaxRefs = [...lobbyHtml.matchAll(/['"]\/(?:Services|api|en)\/([^'"]{3,80})['"]/g)]
+          .map(m => m[0]).slice(0, 20)
+        log.push(`Ajax refs: ${ajaxRefs.join(' | ')}`)
 
         results.push({
           name: 'yucata',
           log,
-          userId,
-          lobbyStatus: lobbyRes.status,
-          lobbyLen: lobbyHtml.length,
-          lobbyHtml: lobbyHtml.slice(0, 8000),
+          wcfHtml: helpHtml.slice(0, 8000),
+          lobbyHtml: lobbyHtml.slice(0, 3000),
         })
       } catch (e: any) {
         results.push({ name: 'yucata', error: e.message })
@@ -146,7 +97,7 @@ export async function GET() {
 
   // ── CHOOCHOO ─────────────────────────────────────────────────────────────
   {
-    results.push({ name: 'choochoo', error: 'network unreachable from Vercel — both api.choochoo.games and choochoo.games fail with fetch failed' })
+    results.push({ name: 'choochoo', error: 'network unreachable from Vercel — api.choochoo.games and choochoo.games both fail' })
   }
 
   return NextResponse.json(results)
