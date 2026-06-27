@@ -6,82 +6,73 @@ export const maxDuration = 60
 export async function GET() {
   const results: any[] = []
 
-  // ── YUCATA ──────────────────────────────────────────────────────────────
+  // ── RALLY THE TROOPS ─────────────────────────────────────────────────────
   {
-    const username = process.env.YUCATA_USERNAME
-    const password = process.env.YUCATA_PASSWORD
-    if (!username || !password) {
-      results.push({ name: 'yucata', error: 'no credentials' })
-    } else {
-      try {
-        const log: string[] = []
+    const username = process.env.RALLY_USERNAME
+    const password = process.env.RALLY_PASSWORD
+    const log: string[] = []
 
-        // Login
-        const initRes = await fetch('https://www.yucata.de/en', {
-          headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'text/html,*/*' },
+    // Check basic connectivity first
+    for (const url of [
+      'https://rallythetroops.com',
+      'https://www.rallythetroops.com',
+      'https://rallythetroops.com/api',
+      'https://rallythetroops.com/login',
+    ]) {
+      try {
+        const r = await fetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'text/html,application/json,*/*' },
           redirect: 'manual',
         })
-        const sessionCookie = initRes.headers.get('set-cookie')?.split(';')[0] ?? ''
-
-        const loginRes = await fetch('https://www.yucata.de/Services/YucataService.svc/AuthenticateViaAjax', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json; charset=utf-8',
-            Accept: 'application/json',
-            Cookie: sessionCookie,
-            'User-Agent': 'Mozilla/5.0',
-          },
-          body: JSON.stringify({ login: username, password, remember: false }),
-        })
-        const loginJson = await loginRes.json()
-        const authCookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
-        if (!loginJson.d) {
-          results.push({ name: 'yucata', error: 'login failed' })
-          return NextResponse.json(results)
-        }
-        const combinedCookies = [sessionCookie, authCookie].filter(Boolean).join('; ')
-        log.push('login ok')
-
-        const wcfBase = 'https://www.yucata.de/Services/YucataService.svc'
-        const hdrs = {
-          'Content-Type': 'application/json; charset=utf-8',
-          Accept: 'application/json',
-          Cookie: combinedCookies,
-          'User-Agent': 'Mozilla/5.0',
-          Referer: 'https://www.yucata.de/en/Overview',
-        }
-
-        // GetLiveGames — most likely "currently running games for user"
-        for (const body of ['{}', '{"filterValue":0}', '{"filterValue":2}', '{"userID":1031968}']) {
-          const r = await fetch(`${wcfBase}/GetLiveGames`, { method: 'POST', headers: hdrs, body })
-          const txt = await r.text()
-          log.push(`GetLiveGames(${body}): HTTP ${r.status} len=${txt.length} body=${txt.slice(0, 500)}`)
-        }
-
-        // GetQuarantinedGames
-        {
-          const r = await fetch(`${wcfBase}/GetQuarantinedGames`, { method: 'POST', headers: hdrs, body: '{}' })
-          const txt = await r.text()
-          log.push(`GetQuarantinedGames: HTTP ${r.status} len=${txt.length} body=${txt.slice(0, 300)}`)
-        }
-
-        // GetPersonalInvitations (might expose running games too)
-        {
-          const r = await fetch(`${wcfBase}/GetPersonalInvitations`, { method: 'POST', headers: hdrs, body: '{}' })
-          const txt = await r.text()
-          log.push(`GetPersonalInvitations: HTTP ${r.status} len=${txt.length} body=${txt.slice(0, 300)}`)
-        }
-
-        results.push({ name: 'yucata', log })
+        const body = await r.text()
+        const loc = r.headers.get('location') ?? ''
+        const ct = r.headers.get('content-type') ?? ''
+        log.push(`GET ${url}: HTTP ${r.status} loc=${loc} ct=${ct} len=${body.length} body=${body.slice(0, 150)}`)
       } catch (e: any) {
-        results.push({ name: 'yucata', error: e.message })
+        log.push(`GET ${url}: error=${e.message}`)
       }
     }
-  }
 
-  // ── CHOOCHOO ─────────────────────────────────────────────────────────────
-  {
-    results.push({ name: 'choochoo', error: 'network unreachable from Vercel' })
+    if (!username || !password) {
+      results.push({ name: 'rally', log, error: 'no credentials' })
+    } else {
+      // Try login variants
+      const loginUrls = [
+        'https://rallythetroops.com/login',
+        'https://rallythetroops.com/api/login',
+        'https://rallythetroops.com/api/auth/login',
+        'https://rallythetroops.com/api/users/login',
+        'https://rallythetroops.com/api/session',
+      ]
+
+      for (const url of loginUrls) {
+        for (const [ct, body] of [
+          ['application/json', JSON.stringify({ username, password })],
+          ['application/json', JSON.stringify({ email: username, password })],
+          ['application/x-www-form-urlencoded', new URLSearchParams({ username, password }).toString()],
+        ] as [string, string][]) {
+          try {
+            const r = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': ct, Accept: 'application/json, text/html', 'User-Agent': 'Mozilla/5.0' },
+              body,
+              redirect: 'manual',
+            })
+            const resp = await r.text()
+            const cookie = r.headers.get('set-cookie') ?? ''
+            const loc = r.headers.get('location') ?? ''
+            log.push(`POST ${url} (${ct.includes('json') ? 'json' : 'form'}): HTTP ${r.status} loc=${loc} cookie=${cookie.slice(0, 60)} body=${resp.slice(0, 150)}`)
+            if (r.status < 400 && cookie) {
+              log.push(`*** possible login success at ${url} ***`)
+            }
+          } catch (e: any) {
+            log.push(`POST ${url}: error=${e.message}`)
+          }
+        }
+      }
+
+      results.push({ name: 'rally', log })
+    }
   }
 
   return NextResponse.json(results)
