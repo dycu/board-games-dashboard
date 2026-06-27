@@ -63,7 +63,7 @@ async function fetchGameNames(slugs: string[], cookies: Record<string, string>):
           headers: { ...BROWSER_HEADERS, Cookie: cookieString(cookies) },
         })
         const html = await res.text()
-        const m = html.match(/content=["']Play ([\s\S]+?) online from your browser["']/i)
+        const m = html.match(/content=["']Play ([^"']+?) online from your browser["']/i)
         return [slug, m ? decodeHtmlEntities(m[1].replace(/\s+/g, ' ').trim()) : slug]
       } catch {
         return [slug, slug]
