@@ -160,7 +160,7 @@ export async function fetchBGA(username: string, password: string): Promise<Game
     return {
       id: `bga:${t.id}`,
       platform: 'bga',
-      gameName: t.game_name ?? 'Unknown',
+      gameName: t.game_display_name ?? t.game_name ?? 'Unknown',
       myTurn: isMyTurn,
       currentPlayer: isMyTurn ? undefined : (activePlayerEntry?.fullname ?? undefined),
       lastMoveAt,

@@ -88,18 +88,52 @@ describe('fetchBGA', () => {
     })
   })
 
+  it('uses game_display_name over game_name slug', async () => {
+    setupHappyPath()
+    const games = await fetchBGA('user@example.com', 'password')
+
+    const imperialSettlers = games.find(g => g.id === 'bga:12345')!
+    expect(imperialSettlers.gameName).toBe('Imperial Settlers')
+
+    const terraformingMars = games.find(g => g.id === 'bga:67890')!
+    expect(terraformingMars.gameName).toBe('Terraforming Mars')
+  })
+
+  it('falls back to game_name slug when game_display_name is absent', async () => {
+    const tablesWithoutDisplayName = {
+      status: 1,
+      data: {
+        tables: {
+          '11111': {
+            id: '11111',
+            game_name: 'someslug',
+            status: 'asyncplay',
+            gamestart: 1750000000,
+            scheduled: 1749990000,
+            players: {
+              '42': { id: '42', fullname: 'testuser', myturn: '1', think_seconds: '3600' },
+            },
+          },
+        },
+      },
+    }
+    setupHappyPath('42', tablesWithoutDisplayName)
+    const games = await fetchBGA('user@example.com', 'password')
+    expect(games[0].gameName).toBe('someslug')
+  })
+
   it('correctly identifies whose turn it is', async () => {
     setupHappyPath()
     const games = await fetchBGA('user@example.com', 'password')
 
     // Game 12345: myturn=1 on player 99 (alice), me=42 → NOT my turn
-    const wingspan = games.find(g => g.id === 'bga:12345')!
-    expect(wingspan.myTurn).toBe(false)
-    expect(wingspan.currentPlayer).toBe('alice')
+    const game1 = games.find(g => g.id === 'bga:12345')!
+    expect(game1.myTurn).toBe(false)
+    expect(game1.currentPlayer).toBe('alice')
 
     // Game 67890: myturn=1 on player 42 (me) → MY turn
-    const agricola = games.find(g => g.id === 'bga:67890')!
-    expect(agricola.myTurn).toBe(true)
+    const game2 = games.find(g => g.id === 'bga:67890')!
+    expect(game2.myTurn).toBe(true)
   })
 
   it('returns empty array when no tables exist', async () => {
