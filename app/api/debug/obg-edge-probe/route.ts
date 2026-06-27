@@ -80,21 +80,21 @@ export async function GET() {
   const homeHtml = await homeRes.text()
   log.push(`GET /: HTTP ${homeRes.status} len=${homeHtml.length}`)
 
-  // Extract username from nav: <a href="/profile/{username}/">My Games</a>
+  // Extract OBG profile name from nav: <a href="/profile/{name}/">My Games</a>
   const profileHrefMatch = homeHtml.match(/href="\/profile\/([^/"]+)\/"[^>]*>\s*My Games/)
-  const username = profileHrefMatch?.[1] ?? ''
-  log.push(`username from nav: "${username}"`)
+  const profileName = profileHrefMatch?.[1] ?? ''
+  log.push(`profileName from nav: "${profileName}"`)
 
-  if (!username) {
+  if (!profileName) {
     return Response.json({ name: 'obg-edge', log, homeSnippet: homeHtml.slice(0, 3000) })
   }
 
-  // Fetch the user's game list at /profile/{username}/
-  const profileRes = await fetch(`${BASE}/profile/${username}/`, {
+  // Fetch the user's game list at /profile/{profileName}/
+  const profileRes = await fetch(`${BASE}/profile/${profileName}/`, {
     headers: { ...BROWSER, Cookie: sessionCookie, 'Sec-Fetch-Site': 'same-origin' },
   })
   const profileHtml = await profileRes.text()
-  log.push(`GET /profile/${username}/: HTTP ${profileRes.status} len=${profileHtml.length}`)
+  log.push(`GET /profile/${profileName}/: HTTP ${profileRes.status} len=${profileHtml.length}`)
 
   return Response.json({ name: 'obg-edge', success: true, log, gamesHtml: profileHtml })
 }
