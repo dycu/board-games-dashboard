@@ -53,6 +53,19 @@ export async function fetchOBG(username: string, password: string): Promise<Game
   return parseGames(profileHtml, profileName)
 }
 
+const OBG_GAME_NAMES: Record<string, string> = {
+  FCM: 'Food Chain Magnate',
+  HLC: 'Horseless Carriage',
+  AQY: 'Antiquity',
+  IND: 'Indonesia',
+  BUS: 'Bus',
+  TGZ: 'The Great Zimbabwe',
+  CNS: 'Cannes',
+  WEB: 'Web of Power',
+  KFW: 'Keyflower',
+  RNB: 'Roads & Boats',
+}
+
 function parseGames(html: string, profileName: string): Game[] {
   const $ = cheerio.load(html)
   const games: Game[] = []
@@ -67,9 +80,13 @@ function parseGames(html: string, profileName: string): Game[] {
 
     // Game URL and name from the name cell anchor (col 0)
     const $nameAnchor = $tr.find('td').eq(0).find('a').first()
-    const gameUrl = BASE + ($nameAnchor.attr('href') ?? '')
+    const href = $nameAnchor.attr('href') ?? ''
+    const gameUrl = BASE + href
     const rawName = $nameAnchor.text().trim()
-    const gameName = rawName.replace(/^\[(.+)\]$/, '$1') || 'Unknown'
+    const customTitle = rawName.match(/^\[(.+)\]$/)?.[1]
+    const typeCode = href.match(/^\/([A-Z]+)\//)?.[1] ?? ''
+    const typeName = OBG_GAME_NAMES[typeCode] ?? typeCode
+    const gameName = customTitle ? `${typeName} — ${customTitle}` : (rawName || typeName || 'Unknown')
 
     const isMyTurn = $tr.hasClass('myMove')
 

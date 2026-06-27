@@ -54,7 +54,7 @@ describe('fetchOBG', () => {
       id: expect.stringMatching(/^obg:/),
       myTurn: expect.any(Boolean),
       gameUrl: expect.stringContaining('onlineboardgamers.com'),
-      gameName: expect.any(String),
+      gameName: expect.stringContaining('Food Chain Magnate'),
     })
   })
 
@@ -84,6 +84,7 @@ describe('fetchOBG', () => {
     const games = await fetchOBG('testuser', 'pass')
     const g1 = games.find(g => g.id === 'obg:101')!
     expect(g1.gameUrl).toBe('https://www.onlineboardgamers.com/FCM/101/show/')
+    expect(g1.gameName).toBe("Food Chain Magnate — Dycu's Game")
     expect(g1.players).toEqual(['alice', 'bob'])
   })
 
