@@ -90,15 +90,19 @@ export async function GET() {
     if (loginData.status !== 1) return NextResponse.json({ error: 'login failed', details: loginData }, { status: 500 })
 
     const allCookies = { ...cookies, ...parseCookies(loginRes.headers) }
-    const myId = String(loginData.data?.id ?? '')
+    // Dump full login data to find where myId lives
+    const loginDataKeys = Object.keys(loginData.data ?? {})
+    const myId = String(loginData.data?.id ?? loginData.data?.player_id ?? loginData.data?.user_id ?? '')
     const postLoginToken = allCookies['TournoiEnLigneidt'] ?? allCookies['TournoiEnLigneid'] ?? ''
     log.push(`myId: ${myId}, postLoginToken: ${postLoginToken}`)
+    log.push(`loginData.data keys: ${loginDataKeys.join(', ')}`)
+    log.push(`loginData.data sample: ${JSON.stringify(loginData.data).slice(0, 300)}`)
 
     if (!postLoginToken) {
       return NextResponse.json({ error: 'no post-login token', cookieKeys: Object.keys(allCookies), log }, { status: 500 })
     }
 
-    // Step 4: probe all candidates, return full results
+    // Step 4: probe — focus on in-progress game statuses, not lobby
     const authHeaders = {
       ...BROWSER_HEADERS,
       Accept: 'application/json, */*',
@@ -110,15 +114,21 @@ export async function GET() {
     }
 
     const candidates = [
-      { method: 'POST', url: `${BASE}/tablemanager/tablemanager/tableinfos.html`, body: 'status=open&turninfo=true&matchmakingtables=true' },
-      { method: 'POST', url: `${BASE}/tablemanager/tablemanager/tableinfos.html`, body: 'status=open&turninfo=true' },
-      { method: 'POST', url: `${BASE}/tablemanager/tablemanager/getMytables.html`, body: 'status=open' },
-      { method: 'POST', url: `${BASE}/gameinprogress/gameinprogress/getGameList.html`, body: '' },
-      { method: 'POST', url: `${BASE}/player/player/getactivetables.html`, body: 'status=open' },
-      { method: 'GET',  url: `${BASE}/player/player/getactivetables.html?status=open&ajax=1`, body: undefined },
+      // "play" = active in-progress games (not lobby)
+      { method: 'POST', url: `${BASE}/tablemanager/tablemanager/tableinfos.html`, body: 'status=play&turninfo=true' },
+      { method: 'POST', url: `${BASE}/tablemanager/tablemanager/tableinfos.html`, body: 'status=asyncplay&turninfo=true' },
+      // combined: both real-time and async in-progress
+      { method: 'POST', url: `${BASE}/tablemanager/tablemanager/tableinfos.html`, body: 'status=play&status=asyncplay&turninfo=true' },
+      // maybe there's a mygames endpoint
+      { method: 'POST', url: `${BASE}/tablemanager/tablemanager/getMytables.html`, body: 'status=play' },
+      { method: 'POST', url: `${BASE}/tablemanager/tablemanager/getMytables.html`, body: '' },
+      // player profile may embed active game data
+      { method: 'GET', url: myId ? `${BASE}/player/player/index.html?id=${myId}&ajax=1` : `${BASE}/player`, body: undefined },
+      // gameinprogress HTML — may have embedded JSON with game list
+      { method: 'GET', url: `${BASE}/gameinprogress`, body: undefined },
     ]
 
-    const results: Array<{ label: string; status: number; bodyPreview: string; parsed: unknown }> = []
+    const results: Array<{ label: string; status: number; bodyPreview: string; tableCount?: number; tableStatuses?: string[]; firstTable?: unknown }> = []
 
     for (const { method, url, body } of candidates) {
       const res = await fetch(url, {
@@ -127,12 +137,28 @@ export async function GET() {
         ...(body != null ? { body } : {}),
       })
       const text = await res.text()
-      let parsed: unknown = null
+      let parsed: any = null
       try { parsed = JSON.parse(text) } catch {}
-      results.push({ label: `${method} ${url.replace(BASE, '')}`, status: res.status, bodyPreview: text.slice(0, 500), parsed })
+
+      const entry: (typeof results)[number] = {
+        label: `${method} ${url.replace(BASE, '')}`,
+        status: res.status,
+        bodyPreview: text.slice(0, 600),
+      }
+
+      if (parsed?.data?.tables) {
+        const tables = Array.isArray(parsed.data.tables)
+          ? parsed.data.tables
+          : Object.values(parsed.data.tables as Record<string, unknown>)
+        entry.tableCount = (tables as unknown[]).length
+        entry.tableStatuses = [...new Set((tables as any[]).map((t: any) => t.status))]
+        entry.firstTable = (tables as any[])[0]
+      }
+
+      results.push(entry)
     }
 
-    return NextResponse.json({ log, myId, results })
+    return NextResponse.json({ log, myId, loginDataSample: loginData.data, results })
   } catch (e) {
     return NextResponse.json({ error: String(e), log }, { status: 500 })
   }
