@@ -11,78 +11,80 @@ export async function GET() {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.9',
-    'Sec-Ch-Ua': '"Google Chrome";v="125", "Chromium";v="125"',
-    'Sec-Ch-Ua-Mobile': '?0',
     'Sec-Fetch-Dest': 'document',
     'Sec-Fetch-Mode': 'navigate',
     'Sec-Fetch-Site': 'none',
     'Upgrade-Insecure-Requests': '1',
   }
 
-  // Step 1: fetch homepage to find login form + CSRF token + cookies
-  const homeRes = await fetch(BASE, { headers: BROWSER })
-  const homeHtml = await homeRes.text()
-  const homeCookies = homeRes.headers.get('set-cookie') ?? ''
-  log.push(`home: HTTP ${homeRes.status} len=${homeHtml.length} cookies=${homeCookies.slice(0, 80)}`)
-
-  // Extract CSRF token if present
-  const csrfMatch = homeHtml.match(/name="_token"\s+value="([^"]+)"/)
-    ?? homeHtml.match(/<meta[^>]+name="csrf-token"[^>]+content="([^"]+)"/)
-    ?? homeHtml.match(/csrf[_-]token['":\s]+['"]([^'"]{10,80})['"]/)
-  const csrf = csrfMatch?.[1] ?? ''
-  log.push(`csrf: ${csrf.slice(0, 40) || '(not found)'}`)
-
-  // Find form action
-  const formActionMatch = homeHtml.match(/<form[^>]+action="([^"]*login[^"]*)"/)
-  log.push(`form action: ${formActionMatch?.[1] ?? '(not found)'}`)
-
-  // Find login-related links/URLs in the HTML
-  const loginLinks = [...homeHtml.matchAll(/href="([^"]*(?:login|signin|auth)[^"]*)"/gi)]
-    .map(m => m[1]).slice(0, 10)
-  log.push(`login links: ${loginLinks.join(', ')}`)
-
-  // Snippet of the HTML for inspection
-  const loginSection = homeHtml.slice(homeHtml.toLowerCase().indexOf('login'), homeHtml.toLowerCase().indexOf('login') + 800)
-
-  // Step 2: fetch /login page specifically (follow redirect)
-  const loginPageRes = await fetch(`${BASE}/login`, { headers: BROWSER })
+  // Step 1: GET /login/ to obtain Django csrftoken cookie + csrfmiddlewaretoken form field
+  const loginPageRes = await fetch(`${BASE}/login/`, { headers: BROWSER })
   const loginPageHtml = await loginPageRes.text()
-  const loginCookies = loginPageRes.headers.get('set-cookie') ?? ''
-  const loginCsrf = loginPageHtml.match(/name="_token"\s+value="([^"]+)"/)
-    ?? loginPageHtml.match(/<meta[^>]+name="csrf-token"[^>]+content="([^"]+)"/)
-  const token = loginCsrf?.[1] ?? csrf
-  log.push(`login page: HTTP ${loginPageRes.status} len=${loginPageHtml.length} token=${token.slice(0, 20)}`)
+  const rawCookies = loginPageRes.headers.get('set-cookie') ?? ''
+  // Extract just the csrftoken value from cookie header
+  const csrfCookieMatch = rawCookies.match(/csrftoken=([^;,\s]+)/)
+  const csrfCookieVal = csrfCookieMatch?.[1] ?? ''
+  // Extract csrfmiddlewaretoken from the form
+  const csrfTokenMatch = loginPageHtml.match(/name="csrfmiddlewaretoken"\s+value="([^"]+)"/)
+    ?? loginPageHtml.match(/csrfmiddlewaretoken['"]\s+value=['"]([^'"]+)['"]/)
+  const csrfMiddleware = csrfTokenMatch?.[1] ?? csrfCookieVal
+  log.push(`login page: HTTP ${loginPageRes.status} csrfCookie=${csrfCookieVal.slice(0,20)} csrfForm=${csrfMiddleware.slice(0,20)}`)
 
-  // Extract login form fields
-  const formFields = [...loginPageHtml.matchAll(/<input[^>]+name="([^"]+)"/gi)].map(m => m[1])
-  log.push(`form fields: ${formFields.join(', ')}`)
+  // Step 2: POST /login/ with Django CSRF token, username, password
+  const formBody = new URLSearchParams({
+    csrfmiddlewaretoken: csrfMiddleware,
+    username,
+    password,
+    next: '/',
+  })
+  const loginRes = await fetch(`${BASE}/login/`, {
+    method: 'POST',
+    headers: {
+      ...BROWSER,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Referer': `${BASE}/login/`,
+      'Origin': BASE,
+      'Sec-Fetch-Site': 'same-origin',
+      Cookie: `csrftoken=${csrfCookieVal}`,
+    },
+    body: formBody.toString(),
+    redirect: 'manual',
+  })
+  const loginBody = await loginRes.text()
+  const loginCookies = loginRes.headers.get('set-cookie') ?? ''
+  const loginLoc = loginRes.headers.get('location') ?? ''
+  log.push(`POST login: HTTP ${loginRes.status} loc=${loginLoc} cookies=${loginCookies.slice(0,100)} body=${loginBody.slice(0,100)}`)
 
-  // Step 3: try login with various approaches
-  const cookieHeader = [homeCookies, loginCookies].filter(Boolean).map(c => c.split(';')[0]).join('; ')
+  // Check if login succeeded (Django redirects to next on success, stays on /login/ on failure)
+  const loginSuccess = loginRes.status === 302 && loginLoc !== '/login/' && loginLoc !== `${BASE}/login/`
+  log.push(`login success: ${loginSuccess}`)
 
-  // Try form POST
-  for (const [emailField, userVal] of [['email', username], ['username', username], ['login', username]] as [string, string][]) {
-    const body = new URLSearchParams({ [emailField]: userVal, password, _token: token })
-    const r = await fetch(`${BASE}/login`, {
-      method: 'POST',
-      headers: {
-        ...BROWSER,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Referer': `${BASE}/login`,
-        Cookie: cookieHeader,
-      },
-      body: body.toString(),
+  if (!loginSuccess) {
+    return Response.json({ name: 'obg-edge', log, loginPageSnippet: loginPageHtml.slice(0, 2000) })
+  }
+
+  // Step 3: collect session cookies and fetch active games
+  const allCookieParts: string[] = [`csrftoken=${csrfCookieVal}`]
+  for (const c of loginCookies.split(',')) {
+    const kv = c.trim().split(';')[0]
+    if (kv) allCookieParts.push(kv)
+  }
+  const sessionCookie = allCookieParts.join('; ')
+
+  // Try known game list URLs
+  const gameUrls = ['/games/', '/dashboard/', '/my-games/', '/active-games/', '/']
+  for (const path of gameUrls) {
+    const r = await fetch(`${BASE}${path}`, {
+      headers: { ...BROWSER, Cookie: sessionCookie, 'Sec-Fetch-Site': 'same-origin' },
       redirect: 'manual',
     })
-    const resp = await r.text()
+    const body = await r.text()
     const loc = r.headers.get('location') ?? ''
-    const setCookie = r.headers.get('set-cookie') ?? ''
-    log.push(`POST /login (${emailField}): HTTP ${r.status} loc=${loc} cookie=${setCookie.slice(0, 60)} body=${resp.slice(0, 100)}`)
-    if (r.status >= 200 && r.status < 400 && setCookie) {
-      log.push('*** login appears successful ***')
-      break
+    log.push(`GET ${path}: HTTP ${r.status} loc=${loc} len=${body.length} body=${body.slice(0, 150)}`)
+    if (r.status === 200 && body.length > 2000) {
+      return Response.json({ name: 'obg-edge', success: true, log, gamesHtml: body.slice(0, 6000) })
     }
   }
 
-  return Response.json({ name: 'obg-edge', log, loginPageSnippet: loginPageHtml.slice(0, 3000), loginSection })
+  return Response.json({ name: 'obg-edge', log })
 }
