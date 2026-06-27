@@ -124,26 +124,24 @@ export async function GET() {
     const sampleTableId = firstTable?.id ?? '766195607'
     const sampleGameName = firstTable?.game_name ?? 'thecrew'
 
+    // Inspect the full data structure for display name fields
+    const dataKeys = Object.keys(tablesJson2?.data ?? {})
+    const firstTable: any = tablesJson2?.data?.tables ? Object.values(tablesJson2.data.tables)[0] : null
+    const tableKeys = firstTable ? Object.keys(firstTable) : []
+
+    // Sample: pick a few tables and show all name-related fields
     const allTables: any[] = tablesJson2?.data?.tables ? Object.values(tablesJson2.data.tables) : []
-    const nowSec = Math.floor(Date.now() / 1000)
+    const nameSample = allTables.slice(0, 5).map((t: any) => ({
+      game_name: t.game_name,
+      game_id: t.game_id,
+      ...Object.fromEntries(
+        Object.entries(t).filter(([k]) =>
+          k.includes('name') || k.includes('title') || k.includes('display') || k.includes('label')
+        )
+      ),
+    }))
 
-    const summary = allTables.map((t: any) => {
-      const players = Object.values(t.players ?? {}) as any[]
-      const activePlayer = players.find((p: any) => p.myturn === '1' || p.myturn === 1) as any
-      const thinkLimit = t.think_limit != null ? parseInt(t.think_limit) : null
-      const thinkRemain = activePlayer?.think_seconds != null ? parseInt(activePlayer.think_seconds) : null
-      const turnStartSec = thinkLimit != null && thinkRemain != null ? thinkLimit - thinkRemain : null
-      return {
-        game: t.game_name,
-        think_limit: t.think_limit,
-        active_player: activePlayer?.fullname,
-        active_think_seconds: activePlayer?.think_seconds,
-        computed_turn_start: turnStartSec,
-        computed_elapsed_min: turnStartSec != null ? Math.round((nowSec - turnStartSec) / 60) : null,
-      }
-    })
-
-    return NextResponse.json({ nowSec, summary })
+    return NextResponse.json({ dataKeys, tableKeys, nameSample })
   } catch (e) {
     return NextResponse.json({ error: String(e), log }, { status: 500 })
   }
