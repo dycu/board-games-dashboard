@@ -124,49 +124,22 @@ export async function GET() {
     const sampleTableId = firstTable?.id ?? '766195607'
     const sampleGameName = firstTable?.game_name ?? 'thecrew'
 
-    log.push(`Sample table: id=${sampleTableId} game_name=${sampleGameName}`)
+    const allTables: any[] = tablesJson2?.data?.tables ? Object.values(tablesJson2.data.tables) : []
+    const nucleumTable = allTables.find((t: any) => t.game_name === 'nucleum') ?? allTables[0] ?? null
 
-    const candidates = [
-      // fetch the table page — look for "go to game" link in HTML
-      { method: 'GET', url: `${BASE}/table?table=${sampleTableId}`, body: undefined },
-      // try known game URL patterns
-      { method: 'GET', url: `${BASE}/${sampleGameName}?table=${sampleTableId}`, body: undefined },
-      { method: 'GET', url: `${BASE}/${sampleGameName}/${sampleGameName}/main.html?table=${sampleTableId}`, body: undefined },
-      // check if there's a redirect via table controller
-      { method: 'GET', url: `${BASE}/table/table/main.html?table=${sampleTableId}`, body: undefined },
-    ]
+    // Return all top-level keys + player keys for the nucleum (or first) table so we can find the right timestamp field
+    const tableKeys = nucleumTable ? Object.keys(nucleumTable) : []
+    const playerSample = nucleumTable?.players ? Object.values(nucleumTable.players)[0] : null
+    const playerKeys = playerSample ? Object.keys(playerSample as object) : []
 
-    const results: Array<{ label: string; status: number; bodyPreview: string; tableCount?: number; tableStatuses?: string[]; firstTable?: unknown }> = []
-
-    for (const { method, url, body } of candidates) {
-      const res = await fetch(url, {
-        method,
-        headers: { ...authHeaders, ...(body != null ? { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' } : {}) },
-        ...(body != null ? { body } : {}),
-      })
-      const text = await res.text()
-      let parsed: any = null
-      try { parsed = JSON.parse(text) } catch {}
-
-      const entry: (typeof results)[number] = {
-        label: `${method} ${url.replace(BASE, '')}`,
-        status: res.status,
-        bodyPreview: text.slice(0, 600),
-      }
-
-      if (parsed?.data?.tables) {
-        const tables = Array.isArray(parsed.data.tables)
-          ? parsed.data.tables
-          : Object.values(parsed.data.tables as Record<string, unknown>)
-        entry.tableCount = (tables as unknown[]).length
-        entry.tableStatuses = [...new Set((tables as any[]).map((t: any) => t.status))]
-        entry.firstTable = (tables as any[])[0]
-      }
-
-      results.push(entry)
-    }
-
-    return NextResponse.json({ log, myId, loginDataSample: loginData.data, results })
+    return NextResponse.json({
+      log,
+      myId,
+      nucleumTable,
+      tableKeys,
+      playerKeys,
+      playerSample,
+    })
   } catch (e) {
     return NextResponse.json({ error: String(e), log }, { status: 500 })
   }
