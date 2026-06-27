@@ -112,7 +112,7 @@ export async function fetchBGA(username: string, password: string): Promise<Game
       Referer: `${BASE}/gameinprogress`,
       Cookie: cookieString(allCookies),
     },
-    body: 'status=asyncplay&turninfo=true',
+    body: 'status=play&turninfo=true',
   })
 
   const tablesText = await tablesRes.text()
