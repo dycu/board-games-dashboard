@@ -15,6 +15,7 @@ const defaultPrefs = {
   pins: [],
   sort: 'longest-wait' as const,
   filter: { turnStatus: 'all' as const, platforms: [] },
+  disabledPlatforms: [],
 }
 
 describe('GET /api/prefs', () => {
@@ -44,6 +45,7 @@ describe('POST /api/prefs', () => {
       pins: ['bga:123'],
       sort: 'most-recent' as const,
       filter: { turnStatus: 'my-turn' as const, platforms: [] },
+      disabledPlatforms: [],
     }
     mockSavePrefs.mockResolvedValue(undefined)
     mockGetPrefs.mockResolvedValue(updatedPrefs)
