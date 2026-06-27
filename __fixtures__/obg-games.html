@@ -1,21 +1,55 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <body>
-  <div class="game-list">
-    <div class="game-item my-turn" data-game-id="101">
-      <span class="game-title">Brass: Birmingham</span>
-      <span class="active-player">testuser</span>
-      <span class="last-move-time">2026-06-20T10:00:00Z</span>
-      <a class="game-link" href="/game/101">Play</a>
-      <span class="player-names">testuser, alice, bob</span>
-    </div>
-    <div class="game-item" data-game-id="202">
-      <span class="game-title">Hive</span>
-      <span class="active-player">alice</span>
-      <span class="last-move-time">2026-06-24T08:00:00Z</span>
-      <a class="game-link" href="/game/202">Play</a>
-      <span class="player-names">testuser, alice</span>
-    </div>
-  </div>
+<table>
+  <thead>
+    <tr class="headingRow">
+      <td class="nameHeaderCurrent">Name</td>
+      <td class="currentPlayersHeader">Current Players</td>
+      <td class="currentTurnHeader">Current Turn</td>
+      <td class="playersHeader">Players</td>
+      <td class="speedHeader">Speed</td>
+      <td class="creatorHeader">Creator</td>
+      <td class="lastActivityHeader">Last Turn</td>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="clickableGameRow myMove " id="FCMgamesRow101" onclick="window.location.href='/FCM/101/show/';">
+      <td class="nameTDcurrent tdWithBox" id="td1">
+        <a href="/FCM/101/show/">Food Chain Magnate</a>
+      </td>
+      <td>testuser</td>
+      <td>3 - Operations</td>
+      <td>
+        <a href="/profile/testuser/">testuser</a>,
+        <a href="/profile/alice/">alice</a>,
+        <a href="/profile/bob/">bob</a>
+      </td>
+      <td>Standard<br/>(1-2+ moves/day)</td>
+      <td><a href="/profile/testuser/">testuser</a></td>
+      <td>
+        <span class="timeToConvertSpan">1719475200000</span>
+        <br/>5h 30m
+      </td>
+    </tr>
+    <tr class="clickableGameRow  " id="AQYgamesRow202" onclick="window.location.href='/AQY/202/show/';">
+      <td class="nameTDcurrent tdWithBox" id="td1">
+        <a href="/AQY/202/show/">Antiquity</a>
+      </td>
+      <td>alice</td>
+      <td>7 - Build</td>
+      <td>
+        <a href="/profile/testuser/">testuser</a>,
+        <a href="/profile/alice/">alice</a>
+      </td>
+      <td>Standard<br/>(1-2+ moves/day)</td>
+      <td><a href="/profile/testuser/">testuser</a></td>
+      <td>
+        <span class="timeToConvertSpan">1719388800000</span>
+        <br/>1d 5h
+      </td>
+    </tr>
+  </tbody>
+</table>
 </body>
 </html>

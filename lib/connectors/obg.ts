@@ -11,16 +11,13 @@ const BROWSER = {
 }
 
 export async function fetchOBG(username: string, password: string): Promise<Game[]> {
-  // Step 1: GET /login/ to obtain Django CSRF cookie + form token
-  const loginPageRes = await fetch(`${BASE}/login/`, {
-    headers: BROWSER,
-    redirect: 'manual',
-  })
+  // Step 1: GET /login/ — Django CSRF cookie + form token
+  const loginPageRes = await fetch(`${BASE}/login/`, { headers: BROWSER, redirect: 'manual' })
   const loginPageHtml = await loginPageRes.text()
   const csrfCookieVal = loginPageRes.headers.get('set-cookie')?.match(/\bcsrftoken=([^;,\s]+)/)?.[1] ?? ''
   const csrfMiddleware = loginPageHtml.match(/name="csrfmiddlewaretoken"\s+value="([^"]+)"/)?.[1] ?? csrfCookieVal
 
-  // Step 2: POST login with Django CSRF tokens
+  // Step 2: POST /login/ with credentials
   const loginRes = await fetch(`${BASE}/login/`, {
     method: 'POST',
     headers: {
@@ -33,7 +30,6 @@ export async function fetchOBG(username: string, password: string): Promise<Game
     body: new URLSearchParams({ csrfmiddlewaretoken: csrfMiddleware, username, password, next: '' }),
     redirect: 'manual',
   })
-
   const loginSetCookie = loginRes.headers.get('set-cookie') ?? ''
   const sessionidMatch = loginSetCookie.match(/\bsessionid=([^;,\s]+)/)
   const newCsrf = loginSetCookie.match(/\bcsrftoken=([^;,\s]+)/)?.[1] ?? csrfCookieVal
@@ -43,38 +39,63 @@ export async function fetchOBG(username: string, password: string): Promise<Game
 
   const cookieHeader = [`csrftoken=${newCsrf}`, ...(sessionidMatch ? [`sessionid=${sessionidMatch[1]}`] : [])].join('; ')
 
-  // Step 3: Fetch active games page
-  const gamesRes = await fetch(`${BASE}/dashboard/`, {
-    headers: { ...BROWSER, Cookie: cookieHeader, 'Referer': `${BASE}/` },
+  // Step 3: GET / — extract profile name from "My Games" nav link
+  const homeRes = await fetch(`${BASE}/`, { headers: { ...BROWSER, Cookie: cookieHeader } })
+  const homeHtml = await homeRes.text()
+  const profileName = homeHtml.match(/href="\/profile\/([^/"]+)\/"[^>]*>\s*My Games/)?.[1] ?? username
+
+  // Step 4: GET /profile/{name}/ — active games table
+  const profileRes = await fetch(`${BASE}/profile/${profileName}/`, {
+    headers: { ...BROWSER, Cookie: cookieHeader },
   })
-  const html = await gamesRes.text()
+  const profileHtml = await profileRes.text()
+
+  return parseGames(profileHtml, profileName)
+}
+
+function parseGames(html: string, profileName: string): Game[] {
   const $ = cheerio.load(html)
   const games: Game[] = []
 
-  $('.game-item').each((_: number, el: any) => {
-    const $el = $(el)
-    const gameId = $el.attr('data-game-id') ?? ''
-    const lastMoveStr = $el.find('.last-move-time').text().trim()
-    const lastMoveAt = lastMoveStr ? new Date(lastMoveStr) : new Date()
-    const activePlayer = $el.find('.active-player').text().trim()
-    const isMyTurn = $el.hasClass('my-turn')
-    const playerNames = $el.find('.player-names').text().trim()
-      .split(',')
-      .map((n: string) => n.trim())
-      .filter((n: string) => n && n !== username)
+  $('tr.clickableGameRow').each((_: number, el: any) => {
+    const $tr = $(el)
+
+    // Game ID from tr id: "AQYgamesRow28424" → "28424"
+    const gameId = ($tr.attr('id') ?? '').match(/gamesRow(\d+)/)?.[1]
+    if (!gameId) return
+
+    // Game URL and name from the name cell anchor (col 0)
+    const $nameAnchor = $tr.find('td').eq(0).find('a').first()
+    const gameUrl = BASE + ($nameAnchor.attr('href') ?? '')
+    const rawName = $nameAnchor.text().trim()
+    const gameName = rawName.replace(/^\[(.+)\]$/, '$1') || 'Unknown'
+
+    const isMyTurn = $tr.hasClass('myMove')
+
+    // Col 1: current player(s) text — who can move right now
+    const currentPlayerText = $tr.find('td').eq(1).text().trim()
+    const currentPlayer = isMyTurn ? undefined : (currentPlayerText || undefined)
+
+    // Col 3: all players as profile links — exclude self
+    const allPlayers = $tr.find('td').eq(3).find('a').map((_: number, a: any) => $(a).text().trim()).get() as string[]
+    const players = allPlayers.filter((p: string) => p && p !== profileName)
+
+    // Last turn: timeToConvertSpan holds Unix ms timestamp
+    const tsText = $tr.find('.timeToConvertSpan').first().text().trim()
+    const lastMoveAt = tsText ? new Date(parseInt(tsText)) : new Date()
 
     games.push({
       id: `obg:${gameId}`,
       platform: 'obg',
-      gameName: $el.find('.game-title').text().trim(),
+      gameName,
       myTurn: isMyTurn,
-      currentPlayer: isMyTurn ? undefined : activePlayer,
+      currentPlayer,
       lastMoveAt,
       lastMoveAgo: formatTimeAgo(lastMoveAt),
       urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
-      gameUrl: BASE + ($el.find('.game-link').attr('href') ?? ''),
-      platformUrl: `${BASE}/dashboard/`,
-      players: playerNames,
+      gameUrl,
+      platformUrl: `${BASE}/profile/${profileName}/`,
+      players,
     })
   })
 
