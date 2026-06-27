@@ -73,8 +73,9 @@ function parseGames(html: string, profileName: string): Game[] {
     const isMyTurn = $tr.hasClass('myMove')
 
     // Col 1: current player(s) text — who can move right now
+    // Numeric values (e.g. "5") indicate simultaneous-move games with N players pending
     const currentPlayerText = $tr.find('td').eq(1).text().trim()
-    const currentPlayer = isMyTurn ? undefined : (currentPlayerText || undefined)
+    const currentPlayer = isMyTurn || /^\d+$/.test(currentPlayerText) ? undefined : (currentPlayerText || undefined)
 
     // Col 3: all players as profile links — exclude self
     const allPlayers = $tr.find('td').eq(3).find('a').map((_: number, a: any) => $(a).text().trim()).get() as string[]
