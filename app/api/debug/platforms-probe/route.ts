@@ -39,59 +39,63 @@ export async function GET() {
           results.push({ name: 'yucata', error: 'login failed' })
           return NextResponse.json(results)
         }
-
         const combinedCookies = [sessionCookie, authCookie].filter(Boolean).join('; ')
 
-        // Search JS bundle for loadGamesAndGamesTags function body
+        // Search JS for GetLiveGames and d.Games context
         const bundleRes = await fetch('https://www.yucata.de/bundles/mpscripts4', {
           headers: { Cookie: combinedCookies, 'User-Agent': 'Mozilla/5.0' },
         })
         const bundleJs = await bundleRes.text()
 
-        // Extract the loadGamesAndGamesTags function to see its URL and body
-        const fnIdx = bundleJs.indexOf('loadGamesAndGamesTags')
-        if (fnIdx >= 0) {
-          log.push(`loadGamesAndGamesTags context: ${bundleJs.slice(fnIdx, fnIdx + 600)}`)
+        const liveGamesIdx = bundleJs.indexOf('GetLiveGames')
+        if (liveGamesIdx >= 0) {
+          log.push(`GetLiveGames context: ${bundleJs.slice(Math.max(0, liveGamesIdx - 200), liveGamesIdx + 400)}`)
         }
 
-        // Also find currentGamesData assignment
-        const cgdIdx = bundleJs.indexOf('currentGamesData=')
-        if (cgdIdx >= 0) {
-          log.push(`currentGamesData= context: ${bundleJs.slice(cgdIdx, cgdIdx + 300)}`)
+        const dGamesIdx = bundleJs.indexOf('data.d.Games')
+        if (dGamesIdx >= 0) {
+          log.push(`data.d.Games context: ${bundleJs.slice(Math.max(0, dGamesIdx - 300), dGamesIdx + 200)}`)
         }
 
-        // Try GetGamesList with various bodies
+        // Also search for any WCF call that loads running/current games
+        const gamesCallCtx = [...bundleJs.matchAll(/.{0,100}(?:currentGamesData|LiveGames|runningGames).{0,100}/g)]
+          .map(m => m[0]).slice(0, 8)
+        log.push(`currentGames/LiveGames contexts: ${gamesCallCtx.join(' || ')}`)
+
         const wcfBase = 'https://www.yucata.de/Services/YucataService.svc'
-        const methods = [
-          { name: 'GetGamesList', bodies: ['{}', '{"userID":1031968}', '{"userHash":"D09DD64FBFA5D8DB18A26CD681821B05"}'] },
-          { name: 'GetLiveGames', bodies: ['{}', '{"userID":1031968}'] },
-          { name: 'GetQuarantinedGames', bodies: ['{}'] },
-          { name: 'GetPersonalInvitations', bodies: ['{}'] },
-        ]
 
-        for (const { name, bodies } of methods) {
-          for (const body of bodies) {
-            const r = await fetch(`${wcfBase}/${name}`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json; charset=utf-8',
-                Accept: 'application/json',
-                Cookie: combinedCookies,
-                'User-Agent': 'Mozilla/5.0',
-                Referer: 'https://www.yucata.de/en/Overview',
-              },
-              body,
-            })
-            const txt = await r.text()
-            log.push(`${name}(${body}): HTTP ${r.status} len=${txt.length} body=${txt.slice(0, 300)}`)
-            if (r.ok && txt.length > 100 && !txt.includes('DOCTYPE')) {
-              results.push({ name: 'yucata', success: true, method: name, body, log, responseJson: txt.slice(0, 8000) })
-              return NextResponse.json(results)
-            }
-          }
+        // Try GetLiveGames with various bodies
+        for (const body of ['{}', '{"userID":1031968}', '{"userHash":"D09DD64FBFA5D8DB18A26CD681821B05"}', '{"filterValue":0}']) {
+          const r = await fetch(`${wcfBase}/GetLiveGames`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+              Accept: 'application/json',
+              Cookie: combinedCookies,
+              'User-Agent': 'Mozilla/5.0',
+              Referer: 'https://www.yucata.de/en/Overview',
+            },
+            body,
+          })
+          const txt = await r.text()
+          log.push(`GetLiveGames(${body}): HTTP ${r.status} len=${txt.length} body=${txt.slice(0, 400)}`)
         }
 
-        results.push({ name: 'yucata', error: 'no working API found', log })
+        // Also try GetQuarantinedGames (might be "paused/waiting" games)
+        const qr = await fetch(`${wcfBase}/GetQuarantinedGames`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            Accept: 'application/json',
+            Cookie: combinedCookies,
+            'User-Agent': 'Mozilla/5.0',
+          },
+          body: '{}',
+        })
+        const qtxt = await qr.text()
+        log.push(`GetQuarantinedGames: HTTP ${qr.status} len=${qtxt.length} body=${qtxt.slice(0, 400)}`)
+
+        results.push({ name: 'yucata', log })
       } catch (e: any) {
         results.push({ name: 'yucata', error: e.message })
       }
