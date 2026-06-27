@@ -145,8 +145,13 @@ export async function fetchBGA(username: string, password: string): Promise<Game
       : null
     const hasTimingData = thinkLimitSec != null && !isNaN(thinkLimitSec)
       && thinkRemainSec != null && !isNaN(thinkRemainSec)
-    // Use deadline as lastMoveAt so urgency sorting works: earlier deadline → sorts first
-    const lastMoveAt = hasTimingData ? new Date(thinkLimitSec! * 1000) : new Date()
+    // Map remaining time to a sortable "last move" equivalent so BGA mixes with other platforms:
+    // less time remaining → older lastMoveAt → sorts first (most urgent)
+    // Assumes 90-day max bank; overtime (negative remain) sorts before everything else
+    const MAX_BANK_MS = 90 * 24 * 3600 * 1000
+    const lastMoveAt = hasTimingData
+      ? new Date(Date.now() - (MAX_BANK_MS - thinkRemainSec! * 1000))
+      : new Date()
 
     const playerNames = Object.values(players)
       .map((p: any) => p.fullname)
