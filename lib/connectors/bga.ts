@@ -141,7 +141,7 @@ export async function fetchBGA(username: string, password: string): Promise<Game
     const thinkSeconds = parseInt(activePlayerEntry?.think_seconds ?? '0') || 0
     const lastMoveAt = thinkSeconds > 0
       ? new Date(Date.now() - thinkSeconds * 1000)
-      : new Date((t.gamestart ?? t.scheduled ?? 0) * 1000)
+      : new Date()
 
     const playerNames = Object.values(players)
       .map((p: any) => p.fullname)
