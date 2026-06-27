@@ -4,10 +4,11 @@ import { formatTimeAgo } from './utils'
 const BASE = 'https://18xx.games'
 
 export async function fetchEighteenXX(username: string, password: string): Promise<Game[]> {
+  // 18xx.games API uses 'email' field but accepts username too
   const loginRes = await fetch(`${BASE}/api/user/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ login: username, password }),
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ email: username, password }),
   })
   if (!loginRes.ok) throw new Error('18xx.games login failed')
 
@@ -16,7 +17,7 @@ export async function fetchEighteenXX(username: string, password: string): Promi
   const cookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
 
   const gamesRes = await fetch(`${BASE}/api/game/user`, {
-    headers: { Cookie: cookie },
+    headers: { Cookie: cookie, Accept: 'application/json' },
   })
   if (!gamesRes.ok) throw new Error('18xx.games games fetch failed')
 
@@ -26,12 +27,14 @@ export async function fetchEighteenXX(username: string, password: string): Promi
   return games
     .filter((g: any) => g.status === 'active')
     .map((g: any): Game => {
-      const lastMoveAt = new Date(g.updated_at ?? g.created_at)
-      const activePlayers: any[] = g.active_players ?? []
-      const isMyTurn = activePlayers.some((p: any) => p.id === myId)
+      // updated_at is a Unix timestamp in seconds
+      const lastMoveAt = new Date((g.updated_at ?? g.created_at) * 1000)
+      // acting = array of player IDs whose turn it is
+      const acting: number[] = g.acting ?? []
+      const isMyTurn = acting.includes(myId)
       const currentPlayer = isMyTurn
         ? undefined
-        : activePlayers[0]?.name
+        : (g.players ?? []).find((p: any) => acting.includes(p.id))?.name
 
       return {
         id: `eighteenxx:${g.id}`,
