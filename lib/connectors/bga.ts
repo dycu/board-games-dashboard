@@ -134,7 +134,12 @@ export async function fetchBGA(username: string, password: string): Promise<Game
       headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) },
     })
     const gpHtml = await gpRes.text()
-    console.log('[BGA DEBUG] gamepanel HTML (first 1200 chars):', gpHtml.slice(0, 1200))
+    const titleMatch = gpHtml.match(/<title>([^<]+)<\/title>/i)
+    const ogTitleMatch = gpHtml.match(/og:title["'][^>]+content=["']([^"']+)["']/i)
+                      ?? gpHtml.match(/content=["']([^"']+)["'][^>]+og:title/i)
+    console.log('[BGA DEBUG] title:', titleMatch?.[1])
+    console.log('[BGA DEBUG] og:title:', ogTitleMatch?.[1])
+    console.log('[BGA DEBUG] gamepanel HTML 1200-3000:', gpHtml.slice(1200, 3000))
   }
 
   return tables.map((t: any): Game => {
