@@ -116,6 +116,43 @@ describe('fetchBGA', () => {
     expect(terraformingMars.gameName).toBe('Terraforming Mars')
   })
 
+  it('decodes HTML entities and collapses whitespace in display names', async () => {
+    const singleTable = {
+      status: 1,
+      data: {
+        tables: {
+          '11111': {
+            id: '11111',
+            game_name: 'throughtheagesnewstory',
+            status: 'asyncplay',
+            gamestart: 1750000000,
+            scheduled: 1749990000,
+            players: {
+              '42': { id: '42', fullname: 'testuser', myturn: '1', think_seconds: '3600' },
+            },
+          },
+        },
+      },
+    }
+    mockFetch
+      .mockResolvedValueOnce(makeInitResponse())
+      .mockResolvedValueOnce(makeRedirectFollowResponse())
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginResponse('42'))
+      .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      // og:title split across two lines, with HTML entity
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () =>
+          `<html><head><meta property="og:title" content="Play Through the Ages: A new Story of\nCivilization online from your browser"/></head></html>`,
+        headers: makeMockHeaders([]),
+      })
+
+    const games = await fetchBGA('user@example.com', 'password')
+    expect(games[0].gameName).toBe('Through the Ages: A new Story of Civilization')
+  })
+
   it('falls back to slug when gamepanel fetch fails', async () => {
     const singleTable = {
       status: 1,

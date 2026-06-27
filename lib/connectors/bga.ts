@@ -32,7 +32,29 @@ function extractRequestToken(html: string): string {
   return m ? m[m.length - 1] : ''
 }
 
+const HTML_ENTITIES: Record<string, string> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  ndash: '–', mdash: '—',
+  agrave: 'à', aacute: 'á', acirc: 'â', atilde: 'ã', auml: 'ä', aring: 'å', aelig: 'æ',
+  egrave: 'è', eacute: 'é', ecirc: 'ê', euml: 'ë',
+  igrave: 'ì', iacute: 'í', icirc: 'î', iuml: 'ï',
+  ograve: 'ò', oacute: 'ó', ocirc: 'ô', otilde: 'õ', ouml: 'ö', oslash: 'ø',
+  ugrave: 'ù', uacute: 'ú', ucirc: 'û', uuml: 'ü',
+  ntilde: 'ñ', ccedil: 'ç', szlig: 'ß',
+  Agrave: 'À', Aacute: 'Á', Acirc: 'Â', Auml: 'Ä', Aring: 'Å',
+  Egrave: 'È', Eacute: 'É', Euml: 'Ë',
+  Iacute: 'Í', Ouml: 'Ö', Uacute: 'Ú', Uuml: 'Ü', Ntilde: 'Ñ', Ccedil: 'Ç',
+}
+
+function decodeHtmlEntities(s: string): string {
+  return s
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&([a-zA-Z]+);/g, (m, e) => HTML_ENTITIES[e] ?? m)
+}
+
 // BGA's gamepanel og:title is "Play {Game Name} online from your browser"
+// The title can span multiple lines in the HTML, so we use [\s\S] instead of .
 async function fetchGameNames(slugs: string[], cookies: Record<string, string>): Promise<Map<string, string>> {
   const pairs = await Promise.all(
     slugs.map(async (slug): Promise<[string, string]> => {
@@ -41,8 +63,8 @@ async function fetchGameNames(slugs: string[], cookies: Record<string, string>):
           headers: { ...BROWSER_HEADERS, Cookie: cookieString(cookies) },
         })
         const html = await res.text()
-        const m = html.match(/content=["']Play (.+?) online from your browser["']/i)
-        return [slug, m ? m[1] : slug]
+        const m = html.match(/content=["']Play ([\s\S]+?) online from your browser["']/i)
+        return [slug, m ? decodeHtmlEntities(m[1].replace(/\s+/g, ' ').trim()) : slug]
       } catch {
         return [slug, slug]
       }
