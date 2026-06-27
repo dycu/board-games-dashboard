@@ -29,9 +29,9 @@ function hasCreds(platform: Platform): boolean {
   return !!(process.env[`${prefix}_USERNAME`] && process.env[`${prefix}_PASSWORD`])
 }
 
-export async function fetchAllPlatforms(): Promise<GamesApiResponse> {
+export async function fetchAllPlatforms(disabledPlatforms: Platform[] = []): Promise<GamesApiResponse> {
   const entries = (Object.entries(connectors) as [Platform, Fetcher][])
-    .filter(([platform]) => hasCreds(platform))
+    .filter(([platform]) => hasCreds(platform) && !disabledPlatforms.includes(platform))
 
   const results = await Promise.allSettled(
     entries.map(async ([platform, fetch]) => {

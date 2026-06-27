@@ -28,12 +28,14 @@ export interface UserPrefs {
     turnStatus: 'all' | 'my-turn' | 'waiting'
     platforms: Platform[]  // empty = show all
   }
+  disabledPlatforms: Platform[]  // skipped entirely during fetch
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
   pins: [],
   sort: 'longest-wait',
   filter: { turnStatus: 'all', platforms: [] },
+  disabledPlatforms: [],
 }
 
 export interface GamesApiResponse {

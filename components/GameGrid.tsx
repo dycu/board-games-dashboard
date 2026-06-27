@@ -40,9 +40,14 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
             &nbsp;·&nbsp; updated {new Date(fetchedAt).toLocaleTimeString()}
           </p>
         </div>
-        <a href="/" className="text-xs bg-slate-800 text-slate-400 hover:bg-slate-700 px-3 py-1.5 rounded-md">
-          ↻ Refresh
-        </a>
+        <div className="flex items-center gap-2">
+          <a href="/setup" className="text-xs bg-slate-800 text-slate-400 hover:bg-slate-700 px-3 py-1.5 rounded-md">
+            ⚙ Settings
+          </a>
+          <a href="/" className="text-xs bg-slate-800 text-slate-400 hover:bg-slate-700 px-3 py-1.5 rounded-md">
+            ↻ Refresh
+          </a>
+        </div>
       </div>
 
       {errors.length > 0 && (

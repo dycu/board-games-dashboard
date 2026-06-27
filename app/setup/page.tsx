@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Platform, PLATFORM_LABELS } from '@/lib/types'
 
 const PLATFORMS: Platform[] = ['bga', 'eighteenxx', 'obg', 'yucata', 'choochoo', 'hansa', 'rally']
@@ -21,6 +21,13 @@ export default function SetupPage() {
     Object.fromEntries(PLATFORMS.map(p => [p, 'idle'])) as Record<Platform, Status>
   )
   const [errors, setErrors] = useState<Record<Platform, string>>({} as Record<Platform, string>)
+  const [disabled, setDisabled] = useState<Set<Platform>>(new Set())
+
+  useEffect(() => {
+    fetch('/api/prefs').then(r => r.json()).then(prefs => {
+      setDisabled(new Set(prefs.disabledPlatforms ?? []))
+    })
+  }, [])
 
   const test = async (platform: Platform) => {
     setStatuses(s => ({ ...s, [platform]: 'testing' }))
@@ -30,11 +37,23 @@ export default function SetupPage() {
     if (!data.ok) setErrors(e => ({ ...e, [platform]: data.error }))
   }
 
+  const togglePlatform = async (platform: Platform) => {
+    const next = new Set(disabled)
+    if (next.has(platform)) next.delete(platform)
+    else next.add(platform)
+    setDisabled(next)
+    await fetch('/api/prefs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ disabledPlatforms: [...next] }),
+    })
+  }
+
   return (
     <div className="min-h-screen p-8 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-2">Setup</h1>
       <p className="text-slate-400 text-sm mb-8">
-        Add your credentials as Vercel environment variables. They are stored securely server-side and never exposed to the browser.
+        Add your credentials as Vercel environment variables. Toggle platforms off to skip them entirely during refresh.
       </p>
 
       <div className="bg-slate-900 rounded-xl border border-slate-800 p-5 mb-8">
@@ -50,16 +69,25 @@ export default function SetupPage() {
         {PLATFORMS.map(platform => {
           const [userKey, passKey] = ENV_KEYS[platform]
           const status = statuses[platform]
+          const enabled = !disabled.has(platform)
           return (
-            <div key={platform} className="bg-slate-900 rounded-xl border border-slate-800 p-5">
+            <div key={platform} className={`bg-slate-900 rounded-xl border p-5 transition-opacity ${enabled ? 'border-slate-800' : 'border-slate-800 opacity-50'}`}>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold">{PLATFORM_LABELS[platform]}</h3>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => togglePlatform(platform)}
+                    title={enabled ? 'Disable platform' : 'Enable platform'}
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${enabled ? 'bg-blue-600' : 'bg-slate-700'}`}>
+                    <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-5' : 'translate-x-1'}`} />
+                  </button>
+                  <h3 className="font-semibold">{PLATFORM_LABELS[platform]}</h3>
+                </div>
                 <div className="flex items-center gap-2">
                   {status === 'ok' && <span className="text-xs text-green-400">✓ Connected</span>}
                   {status === 'error' && <span className="text-xs text-red-400">✗ {errors[platform]}</span>}
                   <button
                     onClick={() => test(platform)}
-                    disabled={status === 'testing'}
+                    disabled={status === 'testing' || !enabled}
                     className="text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 px-3 py-1.5 rounded-md disabled:opacity-50">
                     {status === 'testing' ? 'Testing…' : 'Test connection'}
                   </button>
