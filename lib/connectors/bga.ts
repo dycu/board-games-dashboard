@@ -155,7 +155,7 @@ export async function fetchBGA(username: string, password: string): Promise<Game
       lastMoveAt,
       lastMoveAgo: formatTimeAgo(lastMoveAt),
       urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
-      gameUrl: `${BASE}/table/table/main.html?table=${t.id}`,
+      gameUrl: `${BASE}/table?table=${t.id}`,
       platformUrl: `${BASE}/gameinprogress`,
       players: playerNames,
     }
