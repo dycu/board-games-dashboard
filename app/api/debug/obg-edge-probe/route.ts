@@ -73,20 +73,28 @@ export async function GET() {
   }
   const sessionCookie = allCookieParts.join('; ')
 
-  // Try known game list URLs
-  const gameUrls = ['/games/', '/profile/', '/dashboard/', '/my-games/', '/active-games/', '/']
-  for (const path of gameUrls) {
-    const r = await fetch(`${BASE}${path}`, {
-      headers: { ...BROWSER, Cookie: sessionCookie, 'Sec-Fetch-Site': 'same-origin' },
-      redirect: 'manual',
-    })
-    const body = await r.text()
-    const loc = r.headers.get('location') ?? ''
-    log.push(`GET ${path}: HTTP ${r.status} loc=${loc} len=${body.length}`)
-    if (r.status === 200 && body.length > 2000) {
-      return Response.json({ name: 'obg-edge', success: true, log, gamesHtml: body })
-    }
+  // Fetch home page to extract username and "My Games" link
+  const homeRes = await fetch(`${BASE}/`, {
+    headers: { ...BROWSER, Cookie: sessionCookie, 'Sec-Fetch-Site': 'same-origin' },
+  })
+  const homeHtml = await homeRes.text()
+  log.push(`GET /: HTTP ${homeRes.status} len=${homeHtml.length}`)
+
+  // Extract username from nav: <a href="/profile/{username}/">My Games</a>
+  const profileHrefMatch = homeHtml.match(/href="\/profile\/([^/"]+)\/"[^>]*>\s*My Games/)
+  const username = profileHrefMatch?.[1] ?? ''
+  log.push(`username from nav: "${username}"`)
+
+  if (!username) {
+    return Response.json({ name: 'obg-edge', log, homeSnippet: homeHtml.slice(0, 3000) })
   }
 
-  return Response.json({ name: 'obg-edge', log })
+  // Fetch the user's game list at /profile/{username}/
+  const profileRes = await fetch(`${BASE}/profile/${username}/`, {
+    headers: { ...BROWSER, Cookie: sessionCookie, 'Sec-Fetch-Site': 'same-origin' },
+  })
+  const profileHtml = await profileRes.text()
+  log.push(`GET /profile/${username}/: HTTP ${profileRes.status} len=${profileHtml.length}`)
+
+  return Response.json({ name: 'obg-edge', success: true, log, gamesHtml: profileHtml })
 }
