@@ -125,21 +125,24 @@ export async function GET() {
     const sampleGameName = firstTable?.game_name ?? 'thecrew'
 
     const allTables: any[] = tablesJson2?.data?.tables ? Object.values(tablesJson2.data.tables) : []
-    const nucleumTable = allTables.find((t: any) => t.game_name === 'nucleum') ?? allTables[0] ?? null
 
-    // Return all top-level keys + player keys for the nucleum (or first) table so we can find the right timestamp field
-    const tableKeys = nucleumTable ? Object.keys(nucleumTable) : []
-    const playerSample = nucleumTable?.players ? Object.values(nucleumTable.players)[0] : null
-    const playerKeys = playerSample ? Object.keys(playerSample as object) : []
-
-    return NextResponse.json({
-      log,
-      myId,
-      nucleumTable,
-      tableKeys,
-      playerKeys,
-      playerSample,
+    // Summarise all tables: game name, whose turn, and think_seconds for each player
+    const summary = allTables.map((t: any) => {
+      const players = Object.values(t.players ?? {}) as any[]
+      return {
+        id: t.id,
+        game: t.game_name,
+        gamestart: t.gamestart,
+        think_limit: t.think_limit,
+        players: players.map((p: any) => ({
+          name: p.fullname,
+          myturn: p.myturn,
+          think_seconds: p.think_seconds,
+        })),
+      }
     })
+
+    return NextResponse.json({ log, myId, summary })
   } catch (e) {
     return NextResponse.json({ error: String(e), log }, { status: 500 })
   }
