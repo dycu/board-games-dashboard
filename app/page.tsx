@@ -14,7 +14,10 @@ export default function DashboardPage() {
       fetch('/api/games').then(r => r.json()),
       fetch('/api/prefs').then(r => r.json()),
     ]).then(([gamesData, prefsData]) => {
-      setData(gamesData)
+      setData({
+        ...gamesData,
+        games: (gamesData.games ?? []).map((g: any) => ({ ...g, lastMoveAt: new Date(g.lastMoveAt) })),
+      })
       setPrefs(prefsData)
       setLoading(false)
     })
