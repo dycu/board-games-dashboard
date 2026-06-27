@@ -57,7 +57,8 @@ function parseGames(html: string, profileName: string): Game[] {
   const $ = cheerio.load(html)
   const games: Game[] = []
 
-  $('tr.clickableGameRow').each((_: number, el: any) => {
+  // Profile page has two gamesTable tables: "Current Games" then "Finished Games" — take only the first
+  $('table.gamesTable').first().find('tr.clickableGameRow').each((_: number, el: any) => {
     const $tr = $(el)
 
     // Game ID from tr id: "AQYgamesRow28424" → "28424"
