@@ -33,8 +33,6 @@ export default function PlatformGroup({ platform, games, pins }: Props) {
         </div>
         <a
           href={platformUrl}
-          target="_blank"
-          rel="noopener noreferrer"
           className="text-xs bg-slate-800 text-slate-400 hover:bg-slate-700 px-2 py-1 rounded-md whitespace-nowrap">
           Open lobby →
         </a>
