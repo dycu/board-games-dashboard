@@ -23,7 +23,7 @@ export const connectors: Record<Platform, Fetcher> = {
   rally: () => fetchRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
 }
 
-export function hasCreds(platform: Platform): boolean {
+function hasCreds(platform: Platform): boolean {
   if (platform === 'bga') return !!(process.env.BGA_USERNAME && process.env.BGA_PASSWORD)
   const prefix = platform.toUpperCase()
   return !!(process.env[`${prefix}_USERNAME`] && process.env[`${prefix}_PASSWORD`])
