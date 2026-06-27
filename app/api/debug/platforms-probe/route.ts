@@ -42,70 +42,64 @@ export async function GET() {
 
         const combinedCookies = [sessionCookie, authCookie].filter(Boolean).join('; ')
 
-        // Step 1: Fetch the main JS bundle and search for API patterns
+        // Step 1: Full lobby HTML — get middle section (chars 3000-18000) to find game containers
+        const lobbyRes = await fetch('https://www.yucata.de/en/Overview', {
+          headers: { Cookie: combinedCookies, 'User-Agent': 'Mozilla/5.0', Accept: 'text/html' },
+        })
+        const lobbyHtml = await lobbyRes.text()
+        log.push(`lobby: HTTP ${lobbyRes.status} len=${lobbyHtml.length}`)
+
+        // Step 2: Fetch JS bundle and do targeted searches
         const bundleRes = await fetch('https://www.yucata.de/bundles/mpscripts4', {
           headers: { Cookie: combinedCookies, 'User-Agent': 'Mozilla/5.0' },
         })
         const bundleJs = await bundleRes.text()
-        log.push(`mpscripts4 bundle: HTTP ${bundleRes.status} len=${bundleJs.length}`)
+        log.push(`bundle: HTTP ${bundleRes.status} len=${bundleJs.length}`)
 
-        if (bundleRes.ok) {
-          // Find all URL patterns in the JS
-          const svcCalls = [...new Set([...bundleJs.matchAll(/YucataService\.svc\/(\w+)/g)].map(m => m[1]))]
-          const ashxCalls = [...new Set([...bundleJs.matchAll(/['"](\/[^'"]*\.ashx[^'"]*)['"]/g)].map(m => m[1]))]
-          const apiPaths = [...new Set([...bundleJs.matchAll(/url\s*:\s*['"]([^'"]{5,80})['"]/g)].map(m => m[1]))]
-          const enPaths = [...new Set([...bundleJs.matchAll(/['"]\/en\/\w+\/\w+['"]/g)].map(m => m[0]))]
-          log.push(`WCF svc methods: ${svcCalls.join(', ')}`)
-          log.push(`ashx handlers: ${ashxCalls.join(', ')}`)
-          log.push(`url: patterns: ${apiPaths.slice(0, 30).join(' | ')}`)
-          log.push(`/en/X/Y paths: ${enPaths.slice(0, 30).join(' | ')}`)
+        // Find ALL BaseServiceCall invocations
+        const allServiceCalls = [...new Set([...bundleJs.matchAll(/BaseServiceCall\(\s*["'](\w+)["']/g)].map(m => m[1]))]
+        log.push(`All WCF methods: ${allServiceCalls.join(', ')}`)
 
-          // Search specifically for "running" or "game" near API calls
-          const runningCtx = [...bundleJs.matchAll(/.{0,80}[Rr]unning.{0,80}/g)].map(m => m[0]).slice(0, 10)
-          const gameApiCtx = [...bundleJs.matchAll(/.{0,60}GetGame.{0,60}/g)].map(m => m[0]).slice(0, 10)
-          log.push(`'running' contexts: ${runningCtx.join(' || ')}`)
-          log.push(`'GetGame' contexts: ${gameApiCtx.join(' || ')}`)
-        }
+        // Find any fetch/XMLHttpRequest/ajax calls with URLs
+        const fetchUrls = [...bundleJs.matchAll(/fetch\(['"](\/[^'"]{3,80})['"]/g)].map(m => m[1])
+        const xhrUrls = [...bundleJs.matchAll(/\.open\s*\(\s*["'](?:GET|POST)["']\s*,\s*["'](\/[^'"]{3,80})["']/g)].map(m => m[1])
+        const ajaxUrls = [...bundleJs.matchAll(/\$\.(?:get|post|ajax)\s*\(\s*["'](\/[^'"]{3,80})["']/g)].map(m => m[1])
+        log.push(`fetch URLs: ${fetchUrls.join(', ')}`)
+        log.push(`XHR open URLs: ${xhrUrls.join(', ')}`)
+        log.push(`jQuery ajax URLs: ${ajaxUrls.join(', ')}`)
 
-        // Step 2: Fetch the GetRunningGames endpoint (returned 200 len=1898)
-        const grgRes = await fetch('https://www.yucata.de/en/Game/GetRunningGames', {
-          method: 'POST',
-          headers: {
-            Cookie: combinedCookies,
-            'User-Agent': 'Mozilla/5.0',
-            'Content-Type': 'application/json',
-            Accept: 'application/json, text/html, */*',
-            'X-Requested-With': 'XMLHttpRequest',
-          },
-          body: '{}',
-        })
-        const grgBody = await grgRes.text()
-        log.push(`GetRunningGames: HTTP ${grgRes.status} len=${grgBody.length} body=${grgBody.slice(0, 200)}`)
+        // Search around 'Overview' references in JS
+        const overviewCtx = [...bundleJs.matchAll(/.{0,60}[Oo]verview.{0,60}/g)].map(m => m[0]).slice(0, 15)
+        log.push(`Overview contexts: ${overviewCtx.join(' || ')}`)
 
-        // Step 3: Try Handlers with params
-        const handlerEndpoints = [
-          '/Handlers/GameHandler.ashx?action=GetRunningGames',
-          '/Handlers/GameHandler.ashx?action=running',
-          '/Handlers/GameHandler.ashx',
-          '/Handlers/UserHandler.ashx?action=games',
-          '/Handlers/UserHandler.ashx',
-        ]
-        for (const url of handlerEndpoints) {
+        // Search for game loading patterns
+        const gameLoadCtx = [...bundleJs.matchAll(/.{0,60}[Ll]oad[Gg]ame.{0,60}/g)].map(m => m[0]).slice(0, 10)
+        log.push(`loadGame contexts: ${gameLoadCtx.join(' || ')}`)
+
+        // Step 3: Try WCF GetGamesWithTags with different tag params
+        for (const body of ['{}', '{"tags":"running"}', '{"tags":"active"}', '{"userID":1031968}']) {
           try {
-            const r = await fetch(`https://www.yucata.de${url}`, {
-              headers: { Cookie: combinedCookies, 'User-Agent': 'Mozilla/5.0', 'X-Requested-With': 'XMLHttpRequest' },
+            const r = await fetch('https://www.yucata.de/Services/YucataService.svc/GetGamesWithTags', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json; charset=utf-8',
+                Accept: 'application/json',
+                Cookie: combinedCookies,
+                'User-Agent': 'Mozilla/5.0',
+              },
+              body,
             })
             const txt = await r.text()
-            log.push(`GET ${url}: HTTP ${r.status} len=${txt.length} body=${txt.slice(0, 150)}`)
+            log.push(`GetGamesWithTags(${body}): HTTP ${r.status} len=${txt.length} body=${txt.slice(0, 200)}`)
           } catch (e: any) {
-            log.push(`${url}: error ${e.message}`)
+            log.push(`GetGamesWithTags: error ${e.message}`)
           }
         }
 
         results.push({
           name: 'yucata',
           log,
-          getRunningGamesBody: grgBody.slice(0, 6000),
+          lobbyMiddle: lobbyHtml.slice(3000, 18000),
         })
       } catch (e: any) {
         results.push({ name: 'yucata', error: e.message })
