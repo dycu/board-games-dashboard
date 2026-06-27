@@ -128,6 +128,19 @@ export async function fetchBGA(username: string, password: string): Promise<Game
   const rawTables: Record<string, any> = tablesData?.data?.tables ?? {}
   const tables = Object.values(rawTables)
 
+  if (tables.length > 0) {
+    const sample = tables[0] as any
+    console.log('[BGA DEBUG] first table keys:', Object.keys(sample).join(', '))
+    console.log('[BGA DEBUG] name fields:', JSON.stringify({
+      game_name: sample.game_name,
+      game_display_name: sample.game_display_name,
+      name: sample.name,
+      game_title: sample.game_title,
+      gamename: sample.gamename,
+      display_name: sample.display_name,
+    }))
+  }
+
   return tables.map((t: any): Game => {
     const players: Record<string, any> = t.players ?? {}
     const myPlayer = players[myId]
