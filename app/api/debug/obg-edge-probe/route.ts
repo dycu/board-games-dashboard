@@ -74,7 +74,7 @@ export async function GET() {
   const sessionCookie = allCookieParts.join('; ')
 
   // Try known game list URLs
-  const gameUrls = ['/games/', '/dashboard/', '/my-games/', '/active-games/', '/']
+  const gameUrls = ['/games/', '/profile/', '/dashboard/', '/my-games/', '/active-games/', '/']
   for (const path of gameUrls) {
     const r = await fetch(`${BASE}${path}`, {
       headers: { ...BROWSER, Cookie: sessionCookie, 'Sec-Fetch-Site': 'same-origin' },
@@ -82,9 +82,9 @@ export async function GET() {
     })
     const body = await r.text()
     const loc = r.headers.get('location') ?? ''
-    log.push(`GET ${path}: HTTP ${r.status} loc=${loc} len=${body.length} body=${body.slice(0, 150)}`)
+    log.push(`GET ${path}: HTTP ${r.status} loc=${loc} len=${body.length}`)
     if (r.status === 200 && body.length > 2000) {
-      return Response.json({ name: 'obg-edge', success: true, log, gamesHtml: body.slice(0, 6000) })
+      return Response.json({ name: 'obg-edge', success: true, log, gamesHtml: body })
     }
   }
 
