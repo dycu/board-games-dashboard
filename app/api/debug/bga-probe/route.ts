@@ -113,19 +113,27 @@ export async function GET() {
       Cookie: cookieString(allCookies),
     }
 
+    // First get a real table ID from the active games
+    const tablesRes2 = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, {
+      method: 'POST',
+      headers: { ...authHeaders, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: 'status=play&turninfo=true',
+    })
+    const tablesJson2 = await tablesRes2.json().catch(() => null)
+    const firstTable: any = tablesJson2?.data?.tables ? Object.values(tablesJson2.data.tables)[0] : null
+    const sampleTableId = firstTable?.id ?? '766195607'
+    const sampleGameName = firstTable?.game_name ?? 'thecrew'
+
+    log.push(`Sample table: id=${sampleTableId} game_name=${sampleGameName}`)
+
     const candidates = [
-      // "play" = active in-progress games (not lobby)
-      { method: 'POST', url: `${BASE}/tablemanager/tablemanager/tableinfos.html`, body: 'status=play&turninfo=true' },
-      { method: 'POST', url: `${BASE}/tablemanager/tablemanager/tableinfos.html`, body: 'status=asyncplay&turninfo=true' },
-      // combined: both real-time and async in-progress
-      { method: 'POST', url: `${BASE}/tablemanager/tablemanager/tableinfos.html`, body: 'status=play&status=asyncplay&turninfo=true' },
-      // maybe there's a mygames endpoint
-      { method: 'POST', url: `${BASE}/tablemanager/tablemanager/getMytables.html`, body: 'status=play' },
-      { method: 'POST', url: `${BASE}/tablemanager/tablemanager/getMytables.html`, body: '' },
-      // player profile may embed active game data
-      { method: 'GET', url: myId ? `${BASE}/player/player/index.html?id=${myId}&ajax=1` : `${BASE}/player`, body: undefined },
-      // gameinprogress HTML — may have embedded JSON with game list
-      { method: 'GET', url: `${BASE}/gameinprogress`, body: undefined },
+      // fetch the table page — look for "go to game" link in HTML
+      { method: 'GET', url: `${BASE}/table?table=${sampleTableId}`, body: undefined },
+      // try known game URL patterns
+      { method: 'GET', url: `${BASE}/${sampleGameName}?table=${sampleTableId}`, body: undefined },
+      { method: 'GET', url: `${BASE}/${sampleGameName}/${sampleGameName}/main.html?table=${sampleTableId}`, body: undefined },
+      // check if there's a redirect via table controller
+      { method: 'GET', url: `${BASE}/table/table/main.html?table=${sampleTableId}`, body: undefined },
     ]
 
     const results: Array<{ label: string; status: number; bodyPreview: string; tableCount?: number; tableStatuses?: string[]; firstTable?: unknown }> = []
