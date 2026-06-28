@@ -3,6 +3,19 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
+const HEADERS = { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json, text/html, */*' }
+
+async function probe(url: string, opts?: RequestInit): Promise<{ status: number; body: string; cookies: string }> {
+  try {
+    const r = await fetch(url, { ...opts, headers: { ...HEADERS, ...(opts?.headers ?? {}) }, signal: AbortSignal.timeout(5000) })
+    const body = await r.text()
+    const cookies = r.headers.get('set-cookie') ?? ''
+    return { status: r.status, body: body.slice(0, 300), cookies: cookies.slice(0, 100) }
+  } catch (e: any) {
+    return { status: 0, body: e.message, cookies: '' }
+  }
+}
+
 export async function GET() {
   const username = process.env.CHOOCHOO_USERNAME
   const password = process.env.CHOOCHOO_PASSWORD
@@ -10,111 +23,54 @@ export async function GET() {
     return NextResponse.json({ error: 'CHOOCHOO_USERNAME / CHOOCHOO_PASSWORD not set' }, { status: 500 })
   }
 
-  const log: string[] = []
+  // Phase 1: probe main page and API paths (parallel, 5s each)
+  const [mainPage, apiRoot, apiXsrf, apiGames, loginPage] = await Promise.all([
+    probe('https://www.choochoo.games'),
+    probe('https://www.choochoo.games/api'),
+    probe('https://www.choochoo.games/api/xsrf'),
+    probe('https://www.choochoo.games/api/games'),
+    probe('https://www.choochoo.games/login'),
+  ])
 
-  // Step 1: find working API base by probing known URL patterns
-  const apiBases = [
-    'https://www.choochoo.games/api',
-    'https://choochoo.games/api',
-    'https://api.choochoo.games',
-    'https://www.choochoo.games',
-    'https://choochoo.games',
-  ]
+  // Phase 2: try login attempts (sequential so we can use cookies)
+  const loginAttempts: any[] = []
 
-  const xsrfPaths = ['/xsrf', '/csrf', '/token', '/auth/csrf']
-
-  let workingBase = ''
-  let xsrfToken = ''
-  let xsrfCookie = ''
-
-  for (const base of apiBases) {
-    for (const path of xsrfPaths) {
-      try {
-        const r = await fetch(`${base}${path}`, {
-          headers: { Accept: 'application/json, text/plain, */*', 'User-Agent': 'Mozilla/5.0' },
-          signal: AbortSignal.timeout(6000),
-        })
-        const txt = await r.text()
-        log.push(`${base}${path}: HTTP ${r.status} body=${txt.slice(0, 120)}`)
-        if (r.ok && txt.includes('{')) {
-          try {
-            const j = JSON.parse(txt)
-            const tok = j.xsrfToken ?? j.csrfToken ?? j.token ?? ''
-            if (tok) {
-              xsrfToken = tok
-              xsrfCookie = (r.headers.get('set-cookie') ?? '').split(';')[0]
-              workingBase = base
-              log.push(`→ found xsrf at ${base}${path} token=${tok.slice(0, 16)}...`)
-              break
-            }
-          } catch {}
-        }
-      } catch (e: any) {
-        log.push(`${base}${path}: error=${e.message}`)
-      }
-    }
-    if (workingBase) break
-  }
-
-  if (!workingBase) {
-    // Step 2: try login directly with form POST (no xsrf needed)
-    for (const base of ['https://www.choochoo.games', 'https://choochoo.games']) {
-      for (const loginPath of ['/login', '/api/login', '/api/auth/login', '/api/users/login', '/auth/login']) {
-        try {
-          const r = await fetch(`${base}${loginPath}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' },
-            body: JSON.stringify({ username, password, usernameOrEmail: username, email: username }),
-            signal: AbortSignal.timeout(6000),
-          })
-          const txt = await r.text()
-          log.push(`POST ${base}${loginPath}: HTTP ${r.status} body=${txt.slice(0, 150)}`)
-        } catch (e: any) {
-          log.push(`POST ${base}${loginPath}: error=${e.message}`)
-        }
-      }
-    }
-    return NextResponse.json({ error: 'no xsrf endpoint found', log }, { status: 500 })
-  }
-
-  // Step 3: login
-  const loginRes = await fetch(`${workingBase}/users/login`, {
+  // Attempt A: JSON login without XSRF
+  const lA = await probe('https://www.choochoo.games/api/users/login', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'xsrf-token': xsrfToken,
-      Cookie: xsrfCookie,
-      'User-Agent': 'Mozilla/5.0',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ usernameOrEmail: username, password }),
-    signal: AbortSignal.timeout(10000),
   })
-  const loginText = await loginRes.text()
-  const authCookie = (loginRes.headers.get('set-cookie') ?? '').split(';')[0]
-  log.push(`login: HTTP ${loginRes.status} body=${loginText.slice(0, 200)} authCookie=${authCookie.slice(0, 40)}`)
+  loginAttempts.push({ url: '/api/users/login (no xsrf)', ...lA })
 
-  let loginJson: any
-  try { loginJson = JSON.parse(loginText) } catch { loginJson = null }
-  if (!loginJson?.success && !loginJson?.body?.user) {
-    return NextResponse.json({ error: 'login failed', log }, { status: 500 })
+  // Attempt B: form POST to /login
+  const lB = await probe('https://www.choochoo.games/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ username, password, email: username }).toString(),
+  })
+  loginAttempts.push({ url: '/login (form)', ...lB })
+
+  // Extract JS bundle URL from main page to find API calls
+  const bundleMatch = mainPage.body.match(/src="([^"]*(?:app|main|index)[^"]*\.js[^"]*)"/i)
+  const bundleUrl = bundleMatch ? new URL(bundleMatch[1], 'https://www.choochoo.games').href : null
+
+  let bundleSnippet = ''
+  if (bundleUrl) {
+    const bundle = await probe(bundleUrl)
+    // Search for API paths in the bundle
+    const apiPaths = [...(bundle.body.match(/["'](\/api\/[^"']{2,40})["']/g) ?? [])].slice(0, 10)
+    bundleSnippet = apiPaths.join(', ')
   }
 
-  const allCookies = [xsrfCookie, authCookie].filter(Boolean).join('; ')
-
-  // Step 4: get games
-  for (const gamesPath of ['/games', '/api/games', '/game', '/api/game']) {
-    try {
-      const r = await fetch(`${workingBase}${gamesPath}`, {
-        headers: { Accept: 'application/json', Cookie: allCookies, 'xsrf-token': xsrfToken, 'User-Agent': 'Mozilla/5.0' },
-        signal: AbortSignal.timeout(10000),
-      })
-      const txt = await r.text()
-      log.push(`GET ${gamesPath}: HTTP ${r.status} body=${txt.slice(0, 500)}`)
-    } catch (e: any) {
-      log.push(`GET ${gamesPath}: error=${e.message}`)
-    }
-  }
-
-  return NextResponse.json({ log, workingBase })
+  return NextResponse.json({
+    mainPage: { status: mainPage.status, bodyStart: mainPage.body.slice(0, 200) },
+    apiRoot,
+    apiXsrf,
+    apiGames,
+    loginPage: { status: loginPage.status, bodyStart: loginPage.body.slice(0, 100) },
+    loginAttempts,
+    bundleUrl,
+    bundleApiPaths: bundleSnippet,
+  })
 }
