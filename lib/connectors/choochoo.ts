@@ -11,8 +11,11 @@ export async function fetchChoochoo(username: string, password: string): Promise
   })
   const xsrfJson = await xsrfRes.json() as any
   const xsrfToken: string = xsrfJson.xsrfToken ?? ''
-  const xsrfCookie = xsrfRes.headers.get('set-cookie')?.split(';')[0] ?? ''
-  if (!xsrfToken) throw new Error('choochoo.games: failed to get XSRF token')
+  const setCookies: string[] = (xsrfRes.headers as any).getSetCookie?.() ?? []
+  const rawCookie = setCookies[0] ?? xsrfRes.headers.get('set-cookie') ?? ''
+  const xsrfCookie = rawCookie.split(';')[0]
+  if (!xsrfToken) throw new Error(`choochoo: no xsrf token (xsrf status=${xsrfRes.status} body=${JSON.stringify(xsrfJson).slice(0,100)})`)
+  if (!xsrfCookie) throw new Error(`choochoo: no session cookie after xsrf (setCookies=${setCookies.length} raw=${rawCookie.slice(0,80)})`)
 
   // Step 2: login at /api/users/login with session cookie + xsrf-token header
   const loginRes = await fetch(`${API}/api/users/login`, {
@@ -26,8 +29,10 @@ export async function fetchChoochoo(username: string, password: string): Promise
     },
     body: JSON.stringify({ usernameOrEmail: username, password }),
   })
-  const loginJson = await loginRes.json() as any
-  if (!loginJson.user) throw new Error('choochoo.games login failed')
+  const loginBody = await loginRes.text()
+  let loginJson: any
+  try { loginJson = JSON.parse(loginBody) } catch { loginJson = {} }
+  if (!loginJson.user) throw new Error(`choochoo: login failed (status=${loginRes.status} body=${loginBody.slice(0,150)})`)
 
   const myUserId: number = loginJson.user.id
   const authCookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? xsrfCookie
