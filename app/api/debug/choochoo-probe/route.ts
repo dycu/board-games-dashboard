@@ -19,7 +19,7 @@ function httpsReq(method: string, path: string, headers: Record<string, string>,
       res.on('data', (chunk: any) => data += chunk)
       res.on('end', () => resolve({
         status: res.statusCode ?? 0,
-        body: data.slice(0, 2000),
+        body: data.slice(0, 1000),
         resHeaders: Object.fromEntries(
           Object.entries(res.headers).map(([k, v]) => [k, typeof v === 'string' ? v : (v ?? [])])
         ),
@@ -32,63 +32,51 @@ function httpsReq(method: string, path: string, headers: Record<string, string>,
   })
 }
 
+function loginBody(username: string, password: string, extra: object = {}) {
+  const b = JSON.stringify({ usernameOrEmail: username, password, ...extra })
+  return { body: b, len: Buffer.byteLength(b).toString() }
+}
+
 export async function GET() {
   const username = process.env.CHOOCHOO_USERNAME
   const password = process.env.CHOOCHOO_PASSWORD
   if (!username || !password) return NextResponse.json({ error: 'creds not set' }, { status: 500 })
 
-  const baseHeaders = { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' }
+  const base = { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' }
 
   // Step 1: get XSRF token
-  const xsrfRes = await httpsReq('GET', '/api/xsrf', baseHeaders)
+  const xsrfRes = await httpsReq('GET', '/api/xsrf', base)
   let xsrfToken = ''
   try { xsrfToken = JSON.parse(xsrfRes.body).xsrfToken ?? '' } catch {}
-  const xsrfCookies: string[] = Array.isArray(xsrfRes.resHeaders['set-cookie'])
-    ? xsrfRes.resHeaders['set-cookie'] as string[]
-    : (xsrfRes.resHeaders['set-cookie'] ? [xsrfRes.resHeaders['set-cookie'] as string] : [])
 
-  // Step 2: login using the XSRF token from body
-  const loginBody = JSON.stringify({ usernameOrEmail: username, password })
-  const loginRes = await httpsReq('POST', '/users/login', {
-    ...baseHeaders,
-    'Content-Type': 'application/json',
-    'Content-Length': Buffer.byteLength(loginBody).toString(),
-    'xsrf-token': xsrfToken,
-  }, loginBody)
+  // Try 6 login variants in parallel, each with a different XSRF delivery method
+  const { body: lb, len } = loginBody(username, password)
+  const ct = { 'Content-Type': 'application/json', 'Content-Length': len }
 
-  const loginCookies: string[] = Array.isArray(loginRes.resHeaders['set-cookie'])
-    ? loginRes.resHeaders['set-cookie'] as string[]
-    : (loginRes.resHeaders['set-cookie'] ? [loginRes.resHeaders['set-cookie'] as string] : [])
+  const [v1, v2, v3, v4, v5, v6] = await Promise.all([
+    // v1: xsrf-token header (current approach)
+    httpsReq('POST', '/users/login', { ...base, ...ct, 'xsrf-token': xsrfToken }, lb),
+    // v2: X-XSRF-TOKEN header (Angular convention)
+    httpsReq('POST', '/users/login', { ...base, ...ct, 'X-XSRF-TOKEN': xsrfToken }, lb),
+    // v3: X-CSRF-TOKEN header (Rails/Django convention)
+    httpsReq('POST', '/users/login', { ...base, ...ct, 'X-CSRF-TOKEN': xsrfToken }, lb),
+    // v4: xsrf-token header + XSRF-TOKEN cookie (double-submit cookie pattern)
+    httpsReq('POST', '/users/login', { ...base, ...ct, 'xsrf-token': xsrfToken, Cookie: `XSRF-TOKEN=${xsrfToken}` }, lb),
+    // v5: X-XSRF-TOKEN header + XSRF-TOKEN cookie
+    httpsReq('POST', '/users/login', { ...base, ...ct, 'X-XSRF-TOKEN': xsrfToken, Cookie: `XSRF-TOKEN=${xsrfToken}` }, lb),
+    // v6: xsrfToken in body
+    (() => { const { body: b2, len: l2 } = loginBody(username, password, { xsrfToken }); return httpsReq('POST', '/users/login', { ...base, 'Content-Type': 'application/json', 'Content-Length': l2 }, b2) })(),
+  ])
 
-  const authCookie = loginCookies.find(c => c.includes('connect.sid'))?.split(';')[0] ?? ''
+  const fmt = (r: typeof v1) => ({ status: r.status, body: r.body.slice(0, 200) })
 
-  let loginJson: any = null
-  try { loginJson = JSON.parse(loginRes.body) } catch {}
-
-  // Step 3: if login succeeded, fetch games
-  let gamesResult: any = 'skipped (login failed)'
-  if (loginJson?.user?.id && authCookie) {
-    const userId = loginJson.user.id
-    const gamesRes = await httpsReq('GET', `/games?userId=${userId}&status[]=ACTIVE&pageSize=20`, {
-      ...baseHeaders,
-      Cookie: authCookie,
-    })
-    try { gamesResult = JSON.parse(gamesRes.body) } catch { gamesResult = { status: gamesRes.status, raw: gamesRes.body.slice(0, 500) } }
-  }
+  // Check if any variant succeeded
+  const variants = { v1_xsrfTokenHeader: fmt(v1), v2_XxsrfTokenHeader: fmt(v2), v3_XcsrfTokenHeader: fmt(v3), v4_doubleSubmitXsrf: fmt(v4), v5_doubleSubmitXXsrf: fmt(v5), v6_inBody: fmt(v6) }
+  const winner = Object.entries(variants).find(([, r]) => r.status === 200)
 
   return NextResponse.json({
-    step1_xsrf: {
-      status: xsrfRes.status,
-      token: xsrfToken,
-      tokenLength: xsrfToken.length,
-      cookies: xsrfCookies.map(c => c.slice(0, 100)),
-    },
-    step2_login: {
-      status: loginRes.status,
-      body: loginRes.body.slice(0, 500),
-      cookies: loginCookies.map(c => c.slice(0, 120)),
-      userId: loginJson?.user?.id ?? null,
-    },
-    step3_games: gamesResult,
+    xsrfToken: xsrfToken.slice(0, 16) + '...',
+    variants,
+    winner: winner ? winner[0] : 'none — all failed',
   })
 }
