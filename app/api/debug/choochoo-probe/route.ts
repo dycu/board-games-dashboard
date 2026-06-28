@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 30
 
-async function get(url: string): Promise<{ status: number; text: string; cookies: string }> {
+const API = 'https://api.choochoo.games'
+
+async function req(url: string, opts?: RequestInit): Promise<{ status: number; body: string; cookies: string }> {
   try {
-    const r = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0', Accept: '*/*' },
-      signal: AbortSignal.timeout(8000),
-    })
-    return { status: r.status, text: await r.text(), cookies: r.headers.get('set-cookie') ?? '' }
+    const r = await fetch(url, { ...opts, signal: AbortSignal.timeout(8000) })
+    const body = await r.text()
+    return { status: r.status, body: body.slice(0, 800), cookies: r.headers.get('set-cookie') ?? '' }
   } catch (e: any) {
-    return { status: 0, text: e.message, cookies: '' }
+    return { status: 0, body: e.message, cookies: '' }
   }
 }
 
@@ -22,39 +22,53 @@ export async function GET() {
     return NextResponse.json({ error: 'CHOOCHOO_USERNAME / CHOOCHOO_PASSWORD not set' }, { status: 500 })
   }
 
-  // Fetch main page and extract all script/link src values
-  const main = await get('https://www.choochoo.games')
-  const scriptSrcs = [...(main.text.matchAll(/src="([^"]+)"/gi))].map(m => m[1])
-  const linkHrefs = [...(main.text.matchAll(/href="([^"]+\.(?:js|css)[^"]*)"/))]
-    .map(m => m[1]).filter(h => !h.includes('googleapis'))
+  // Step 1: login
+  const loginRes = await req(`${API}/users/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' },
+    body: JSON.stringify({ usernameOrEmail: username, password }),
+  })
+  const sessionCookie = loginRes.cookies.split(';')[0]
 
-  // Try the JS bundle path pattern based on CSS path
-  const cssPath = main.text.match(/href="(\/dist\/[^"]+\.css[^"]*)"/)?.[1] ?? ''
-  const jsBundleUrl = cssPath ? `https://www.choochoo.games${cssPath.replace(/\.css/, '.js').split('?')[0]}` : null
+  let loginJson: any
+  try { loginJson = JSON.parse(loginRes.body) } catch { loginJson = null }
 
-  const bundleResult = jsBundleUrl ? await get(jsBundleUrl) : { status: 0, text: '', cookies: '' }
+  if (loginRes.status >= 400 || !sessionCookie) {
+    return NextResponse.json({ error: 'login failed', loginRes, loginJson }, { status: 500 })
+  }
 
-  // Search for API calls in the bundle
-  const apiPatterns = bundleResult.text
-    ? [
-        ...(bundleResult.text.matchAll(/https?:\/\/[a-z0-9.-]+\/[a-z/.-]{2,50}/gi)),
-        ...(bundleResult.text.matchAll(/["'`](\/api\/[a-z/_-]{2,40})["'`]/gi)),
-        ...(bundleResult.text.matchAll(/["'`](https?:\/\/api[^"'`\s]{3,60})["'`]/gi)),
-      ].map(m => m[0]).filter((v, i, a) => a.indexOf(v) === i).slice(0, 20)
-    : []
+  // Step 2: get /users/me to understand user object
+  const meRes = await req(`${API}/users/me`, {
+    headers: { Accept: 'application/json', Cookie: sessionCookie, 'User-Agent': 'Mozilla/5.0' },
+  })
+  let meJson: any
+  try { meJson = JSON.parse(meRes.body) } catch { meJson = null }
 
-  // Also try fetching with different script src patterns
-  const fullHtml = main.text.slice(0, 5000)
+  // Step 3: get games
+  const gamesRes = await req(`${API}/games`, {
+    headers: { Accept: 'application/json', Cookie: sessionCookie, 'User-Agent': 'Mozilla/5.0' },
+  })
+  let gamesJson: any
+  try { gamesJson = JSON.parse(gamesRes.body) } catch { gamesJson = null }
+
+  const games: any[] = gamesJson?.games ?? gamesJson?.body?.games ?? (Array.isArray(gamesJson) ? gamesJson : [])
+  const firstGame = games[0]
+  const firstGameKeys = firstGame ? Object.keys(firstGame) : []
+  const firstPlayer = firstGame?.players?.[0] ?? firstGame?.Players?.[0] ?? null
+  const firstPlayerKeys = firstPlayer ? Object.keys(firstPlayer) : []
 
   return NextResponse.json({
-    mainStatus: main.status,
-    scriptSrcs: scriptSrcs.slice(0, 10),
-    linkHrefs: linkHrefs.slice(0, 5),
-    cssPath,
-    jsBundleUrl,
-    bundleStatus: bundleResult.status,
-    bundleSize: bundleResult.text.length,
-    apiPatterns,
-    htmlPreview: fullHtml,
+    loginStatus: loginRes.status,
+    sessionCookie: sessionCookie.slice(0, 40),
+    loginJsonKeys: loginJson ? Object.keys(loginJson) : [],
+    meStatus: meRes.status,
+    meJson,
+    gamesStatus: gamesRes.status,
+    gamesTopLevelKeys: gamesJson ? Object.keys(gamesJson) : [],
+    gameCount: games.length,
+    firstGameKeys,
+    firstPlayerKeys,
+    firstGameSample: firstGame ? JSON.stringify(firstGame).slice(0, 800) : null,
+    gameSamples: games.slice(0, 2),
   })
 }
