@@ -29,15 +29,19 @@ export async function fetchYucata(username: string, password: string): Promise<G
   const authCookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
   const cookies = [sessionCookie, authCookie].filter(Boolean).join('; ')
 
-  // Step 3: fetch active games — returns {d: {Games: [...], NextGameOnTurn, TotalGames}}
-  const gamesRes = await fetch(`${WCF}/GetCurrentGames`, {
+  // Step 3: fetch active games
+  // Response: {d: {Games: CurrentGameRecord[], ...}}
+  // CurrentGameRecord fields: ID, GameIDName, GameName, GameShortName,
+  //   UserIsOnTurn, PlayerOnTurn, LastMoveOn, Players: PlayerInfo[]
+  // PlayerInfo fields: PlayerID, Login, Order, Rank, IsOnVacation
+  const gamesRes = await fetch(`${WCF}/GetLiveGames`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
       Accept: 'application/json',
       Cookie: cookies,
       'User-Agent': 'Mozilla/5.0',
-      Referer: `${BASE}/en/CurrentGames`,
+      Referer: `${BASE}/en/Overview`,
     },
     body: '{}',
   })
@@ -48,25 +52,23 @@ export async function fetchYucata(username: string, password: string): Promise<G
 
   return games.map((g: any): Game => {
     const gameId = g.ID ?? 0
-    const gameName = g.GameName ?? 'Unknown'
+    const gameIdName = g.GameIDName ?? ''
+    const gameName = g.GameShortName ?? g.GameName ?? 'Unknown'
+
+    const isMyTurn = !!g.UserIsOnTurn
 
     const rawPlayers: any[] = g.Players ?? []
-
-    // Find my player ID by matching Login (case-insensitive)
-    const me = rawPlayers.find((p: any) => p.Login?.toLowerCase() === username.toLowerCase())
-    const myPlayerId: number | undefined = me?.PlayerID
-
-    const isMyTurn = myPlayerId !== undefined && g.PlayerOnTurn === myPlayerId
 
     const otherPlayers = rawPlayers
       .filter((p: any) => p.Login?.toLowerCase() !== username.toLowerCase())
       .map((p: any) => p.Login ?? '')
       .filter(Boolean)
 
-    const currentPlayerObj = isMyTurn ? undefined : rawPlayers.find((p: any) => p.PlayerID === g.PlayerOnTurn)
+    const currentPlayerObj = isMyTurn
+      ? undefined
+      : rawPlayers.find((p: any) => p.PlayerID === g.PlayerOnTurn)
     const currentPlayer = currentPlayerObj?.Login
 
-    // LastMoveOn is ISO 8601: "2024-01-15T10:30:00.0000000Z"
     const lastMoveAt = g.LastMoveOn ? new Date(g.LastMoveOn) : new Date()
 
     return {
@@ -78,8 +80,8 @@ export async function fetchYucata(username: string, password: string): Promise<G
       lastMoveAt,
       lastMoveAgo: formatTimeAgo(lastMoveAt),
       urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
-      gameUrl: `${BASE}/en/Game/${gameId}`,
-      platformUrl: `${BASE}/en/CurrentGames`,
+      gameUrl: `${BASE}/en/Game/${gameIdName || gameId}/${gameId}`,
+      platformUrl: `${BASE}/en/Overview`,
       players: otherPlayers,
     }
   })
