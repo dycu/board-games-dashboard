@@ -44,6 +44,5 @@ describe('GameCard', () => {
     render(<GameCard game={game} pinned={false} onTogglePin={() => {}} onDismiss={() => {}} />)
     const link = screen.getByRole('link', { name: /open/i })
     expect(link).toHaveAttribute('href', game.gameUrl)
-    expect(link).toHaveAttribute('target', '_blank')
   })
 })

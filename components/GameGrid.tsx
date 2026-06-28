@@ -35,7 +35,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
         <div>
           <h1 className="text-lg font-semibold">Board Games Dashboard</h1>
           <p className="text-sm text-slate-500">
-            {games.length} active &nbsp;·&nbsp;
+            {games.length}{' '}active &nbsp;·&nbsp;
             <span className="text-blue-400 font-medium">{myTurnCount} your turn</span>
             &nbsp;·&nbsp; updated {new Date(fetchedAt).toLocaleTimeString()}
           </p>

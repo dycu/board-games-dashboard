@@ -25,16 +25,19 @@ export async function fetchEighteenXX(username: string, password: string): Promi
   const games: any[] = Array.isArray(data) ? data : data.games ?? []
 
   return games
-    .filter((g: any) => g.status === 'active')
+    .filter((g: any) => g.status === 'active' && (g.players ?? []).some((p: any) => p.id === myId))
     .map((g: any): Game => {
-      // updated_at is a Unix timestamp in seconds
-      const lastMoveAt = new Date((g.updated_at ?? g.created_at) * 1000)
-      // acting = array of player IDs whose turn it is
-      const acting: number[] = g.acting ?? []
+      // updated_at may be a Unix timestamp (seconds) or an ISO string
+      const rawTime = g.updated_at ?? g.created_at
+      const lastMoveAt = typeof rawTime === 'number' ? new Date(rawTime * 1000) : new Date(rawTime)
+      // API may return acting (array of IDs) or active_players (array of {id, name})
+      const activePlayers: any[] = g.active_players ?? []
+      const acting: number[] = g.acting ?? activePlayers.map((p: any) => p.id)
       const isMyTurn = acting.includes(myId)
       const currentPlayer = isMyTurn
         ? undefined
-        : (g.players ?? []).find((p: any) => acting.includes(p.id))?.name
+        : (g.players ?? []).find((p: any) => acting.includes(p.id) && p.id !== myId)?.name
+          ?? activePlayers.find((p: any) => p.id !== myId)?.name
 
       return {
         id: `eighteenxx:${g.id}`,

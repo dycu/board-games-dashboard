@@ -59,16 +59,16 @@ export default function GameCard({ game, pinned, onTogglePin, onDismiss }: Props
           {game.urgent ? '⏱ ' : ''}{game.lastMoveAgo}
         </span>
         <div className="flex items-center gap-2">
-          <button
-            onClick={onDismiss}
-            title="Dismiss until next refresh"
-            className="text-xs text-slate-600 hover:text-slate-400 transition-colors px-2 py-1 rounded-md hover:bg-slate-800">
-            ✓ Done
-          </button>
+          {game.myTurn && (
+            <button
+              onClick={onDismiss}
+              title="Dismiss until next refresh"
+              className="text-xs text-slate-600 hover:text-slate-400 transition-colors px-2 py-1 rounded-md hover:bg-slate-800">
+              ✓ Done
+            </button>
+          )}
           <a
             href={game.gameUrl}
-            target="_blank"
-            rel="noopener noreferrer"
             aria-label="Open game"
             className={`text-xs font-medium px-3 py-1 rounded-md transition-colors
               ${game.myTurn

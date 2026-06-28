@@ -1,21 +1,53 @@
 <!DOCTYPE html>
 <html>
+<head><title>Play</title></head>
 <body>
-  <div class="game-list">
-    <div class="game-item my-turn" data-game-id="101">
-      <span class="game-title">Brass: Birmingham</span>
-      <span class="active-player">testuser</span>
-      <span class="last-move-time">2026-06-20T10:00:00Z</span>
-      <a class="game-link" href="/game/101">Play</a>
-      <span class="player-names">testuser, alice, bob</span>
-    </div>
-    <div class="game-item" data-game-id="202">
-      <span class="game-title">Hive</span>
-      <span class="active-player">alice</span>
-      <span class="last-move-time">2026-06-24T08:00:00Z</span>
-      <a class="game-link" href="/game/202">Play</a>
-      <span class="player-names">testuser, alice</span>
+<article class="wide">
+<h1>Play</h1>
+
+<h2>Move</h2>
+<div class="game_list">
+  <div>
+    <div class="game_item your_turn active">
+      <div class="game_head">
+        <div><a href="/join/101">#101 &#x2013; Paths of Glory</a></div>
+        <a class="command" href="/paths-of-glory/play.html?game=101&amp;role=Allies">Play</a>
+      </div>
+      <div class="game_main">
+        <div class="game_info">
+          <i></i>
+          <div>Players: <a href="/user/testuser">testuser</a>, <a href="/user/alice">alice</a></div>
+          <div>Moves: 12</div>
+          <div>Last move: 3 hours ago</div>
+        </div>
+        <a href="/paths-of-glory"><img src="/paths-of-glory/thumbnail.jpg"></a>
+      </div>
     </div>
   </div>
+</div>
+
+<h2>Active</h2>
+<div class="game_list">
+  <div>
+    <div class="game_item active">
+      <div class="game_head">
+        <div><a href="/join/202">#202 &#x2013; Julius Caesar</a></div>
+        <a class="command" href="/julius-caesar/play.html?game=202">Watch</a>
+      </div>
+      <div class="game_main">
+        <div class="game_info">
+          <i></i>
+          <div>Players: <a href="/user/testuser">testuser</a>, <a href="/user/bob">bob</a></div>
+          <div>Moves: 5</div>
+          <div>Last move: 2 days ago</div>
+        </div>
+        <a href="/julius-caesar"><img src="/julius-caesar/thumbnail.jpg"></a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2>Solo</h2>
+</article>
 </body>
 </html>

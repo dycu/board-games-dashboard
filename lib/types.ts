@@ -61,5 +61,5 @@ export const PLATFORM_URLS: Record<Platform, string> = {
   yucata: 'https://www.yucata.de',
   choochoo: 'https://choochoo.games',
   hansa: 'https://www.hansa-teutonica.de',
-  rally: 'https://www.rallythe.troops',
+  rally: 'https://rally-the-troops.com',
 }
