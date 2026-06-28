@@ -15,7 +15,7 @@ function req(method: string, path: string, headers: Record<string, string>, body
       res.on('data', (c: any) => data += c)
       res.on('end', () => resolve({
         status: res.statusCode ?? 0,
-        body: data.slice(0, 3000),
+        body: data.slice(0, 5000),
         resHeaders: Object.fromEntries(Object.entries(res.headers).map(([k, v]) => [k, typeof v === 'string' ? v : (v ?? [])])),
       }))
     })
@@ -38,49 +38,45 @@ export async function GET() {
 
   const base = { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' }
 
-  // Step 1: XSRF token + session
+  // Step 1: XSRF
   const xsrfRes = await req('GET', '/api/xsrf', base)
   let xsrfToken = ''
   try { xsrfToken = JSON.parse(xsrfRes.body).xsrfToken ?? '' } catch {}
   const xsrfCookie = getCookies(xsrfRes).map(c => c.split(';')[0]).join('; ')
 
-  // Step 2: login at /api/users/login
+  // Step 2: login
   const lb = JSON.stringify({ usernameOrEmail: username, password })
   const ct = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(lb).toString() }
   const loginRes = await req('POST', '/api/users/login', {
     ...base, ...ct, 'xsrf-token': xsrfToken, Cookie: xsrfCookie,
   }, lb)
-
   let loginJson: any = null
   try { loginJson = JSON.parse(loginRes.body) } catch {}
-  const loginCookies = getCookies(loginRes)
-  const authCookie = loginCookies.map(c => c.split(';')[0]).join('; ') || xsrfCookie
+  const authCookie = getCookies(loginRes).map(c => c.split(';')[0]).join('; ') || xsrfCookie
   const userId = loginJson?.user?.id
 
-  // Step 3: try games endpoints
-  let gamesResult: any = 'login failed'
-  let gamesAlt: any = 'skipped'
-  if (userId) {
-    const [g1, g2, g3] = await Promise.all([
-      req('GET', `/api/games?userId=${userId}&status[]=ACTIVE&pageSize=50`, { ...base, Cookie: authCookie }),
-      req('GET', `/games?userId=${userId}&status[]=ACTIVE&pageSize=50`, { ...base, Cookie: authCookie }),
-      req('GET', `/api/games`, { ...base, Cookie: authCookie }),
-    ])
-    gamesResult = { '/api/games?userId': { status: g1.status, body: g1.body.slice(0, 800) } }
-    gamesAlt = {
-      '/games?userId': { status: g2.status, body: g2.body.slice(0, 400) },
-      '/api/games (no params)': { status: g3.status, body: g3.body.slice(0, 400) },
-    }
+  if (!userId) {
+    return NextResponse.json({ error: 'login failed', loginStatus: loginRes.status, loginBody: loginRes.body })
   }
 
+  // Step 3: probe games endpoint variants to understand structure
+  const [g1, g2, g3, g4, g5] = await Promise.all([
+    req('GET', '/api/games', { ...base, Cookie: authCookie }),
+    req('GET', `/api/games?status[]=ACTIVE&pageSize=20`, { ...base, Cookie: authCookie }),
+    req('GET', `/api/games?userId=${userId}&status[]=ACTIVE&pageSize=20`, { ...base, Cookie: authCookie }),
+    req('GET', `/api/games?status=ACTIVE&pageSize=20`, { ...base, Cookie: authCookie }),
+    req('GET', `/api/games?pageSize=20`, { ...base, Cookie: authCookie }),
+  ])
+
   return NextResponse.json({
-    step1_xsrf: { status: xsrfRes.status, tokenLen: xsrfToken.length, cookie: xsrfCookie.slice(0, 60) },
-    step2_login: {
-      status: loginRes.status,
-      user: loginJson?.user ?? null,
-      loginCookies: loginCookies.map(c => c.slice(0, 100)),
+    userId,
+    authCookiePreview: authCookie.slice(0, 60),
+    games: {
+      'no params': { status: g1.status, body: g1.body },
+      'status[]=ACTIVE&pageSize=20': { status: g2.status, body: g2.body.slice(0, 1000) },
+      'userId+status[]=ACTIVE&pageSize=20': { status: g3.status, body: g3.body.slice(0, 500) },
+      'status=ACTIVE&pageSize=20': { status: g4.status, body: g4.body.slice(0, 1000) },
+      'pageSize=20': { status: g5.status, body: g5.body.slice(0, 1000) },
     },
-    step3_games: gamesResult,
-    step3_gamesAlt: gamesAlt,
   })
 }
