@@ -70,8 +70,9 @@ export async function GET() {
   }, JSON.stringify({ usernameOrEmail: username, password }))
 
   // Step 3: try login with XSRF from connect.sid cookie
-  const connectSid = ((loginNoXsrf.resHeaders['set-cookie'] as string[] | string | undefined) ?? [])
-    .find?.((c: string) => c.includes('connect.sid')) ?? ''
+  const setCookieHeader = loginNoXsrf.resHeaders['set-cookie']
+  const setCookieList: string[] = Array.isArray(setCookieHeader) ? setCookieHeader : (setCookieHeader ? [setCookieHeader as string] : [])
+  const connectSid = setCookieList.find((c: string) => c.includes('connect.sid')) ?? ''
   const sessionCookieVal = connectSid.split(';')[0]
 
   // Step 4: check if there's a double-submit pattern (send sid as xsrf token)
