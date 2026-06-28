@@ -5,7 +5,12 @@ import { getPrefs } from '@/lib/prefs'
 export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+// Platforms that can't run in edge runtime — proxied through Node.js endpoints
+const PROXY_PATH: Partial<Record<Platform, string>> = {
+  choochoo: '/api/choochoo',
+}
+
+export async function GET(request?: Request) {
   const prefs = await getPrefs()
   const disabled = prefs.disabledPlatforms ?? []
 
@@ -23,9 +28,19 @@ export async function GET() {
       send({ type: 'start', platforms: entries.map(([p]) => p) })
 
       await Promise.allSettled(
-        entries.map(async ([platform, fetch]) => {
+        entries.map(async ([platform, fetcher]) => {
           try {
-            const games = await fetch()
+            let games: any[]
+            const proxyPath = PROXY_PATH[platform]
+            if (proxyPath) {
+              const origin = request ? new URL(request.url).origin : 'http://localhost:3000'
+              const res = await fetch(`${origin}${proxyPath}`)
+              const json = await res.json() as any
+              if (json.error) throw new Error(json.error)
+              games = json.games ?? []
+            } else {
+              games = await fetcher()
+            }
             send({ type: 'platform', platform, games, error: null })
           } catch (e) {
             send({ type: 'platform', platform, games: [], error: e instanceof Error ? e.message : String(e) })

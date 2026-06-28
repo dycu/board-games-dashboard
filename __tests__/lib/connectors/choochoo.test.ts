@@ -43,7 +43,7 @@ function setupHappyPath() {
     })
     .mockResolvedValueOnce({
       ok: true,
-      json: async () => LOGIN_RESPONSE,
+      text: async () => JSON.stringify(LOGIN_RESPONSE),
       headers: makeMockHeaders('connect.sid=auth-session; Path=/'),
     })
     .mockResolvedValueOnce({
@@ -93,7 +93,7 @@ describe('fetchChoochoo', () => {
       json: async () => ({}),
       headers: makeMockHeaders(null),
     })
-    await expect(fetchChoochoo('user', 'pass')).rejects.toThrow('choochoo.games: failed to get XSRF token')
+    await expect(fetchChoochoo('user', 'pass')).rejects.toThrow(/choochoo: no xsrf token/)
   })
 
   it('throws when login response has no user', async () => {
@@ -105,9 +105,9 @@ describe('fetchChoochoo', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ error: 'Invalid credentials' }),
+        text: async () => JSON.stringify({ error: 'Invalid credentials' }),
         headers: makeMockHeaders(null),
       })
-    await expect(fetchChoochoo('bad', 'creds')).rejects.toThrow('choochoo.games login failed')
+    await expect(fetchChoochoo('bad', 'creds')).rejects.toThrow(/choochoo: login failed/)
   })
 })
