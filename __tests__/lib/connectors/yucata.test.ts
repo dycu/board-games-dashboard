@@ -5,24 +5,29 @@ global.fetch = mockFetch
 
 const FIXTURE = {
   d: {
+    TotalGames: 2,
+    NextGameOnTurn: 101,
     Games: [
       {
-        GameID: 101,
-        IdName: 'brassbirmingham',
+        ID: 101,
         GameName: 'Brass: Birmingham',
-        CanMove: true,
-        Players: [{ Login: 'testuser' }, { Login: 'alice' }, { Login: 'bob' }],
-        ActivePlayer: { Login: 'testuser' },
-        LastMoveTime: '/Date(1750418400000)/',
+        PlayerOnTurn: 42,
+        LastMoveOn: '2024-06-20T10:00:00.0000000Z',
+        Players: [
+          { PlayerID: 42, Login: 'testuser', Order: 0, Rank: '1500', IsOnVacation: false },
+          { PlayerID: 43, Login: 'alice', Order: 1, Rank: '1400', IsOnVacation: false },
+          { PlayerID: 44, Login: 'bob', Order: 2, Rank: '1300', IsOnVacation: false },
+        ],
       },
       {
-        GameID: 202,
-        IdName: 'hive',
+        ID: 202,
         GameName: 'Hive',
-        CanMove: false,
-        Players: [{ Login: 'testuser' }, { Login: 'alice' }],
-        ActivePlayer: { Login: 'alice' },
-        LastMoveTime: '/Date(1750762800000)/',
+        PlayerOnTurn: 43,
+        LastMoveOn: '2024-06-24T10:00:00.0000000Z',
+        Players: [
+          { PlayerID: 42, Login: 'testuser', Order: 0, Rank: '1500', IsOnVacation: false },
+          { PlayerID: 43, Login: 'alice', Order: 1, Rank: '1400', IsOnVacation: false },
+        ],
       },
     ],
   },
@@ -41,7 +46,7 @@ function setupHappyPath() {
       headers: { get: () => 'Yucata=xyz; Path=/' },
       json: async () => ({ d: true }),
     })
-    // Step 3: GetLiveGames
+    // Step 3: GetCurrentGames
     .mockResolvedValueOnce({
       ok: true,
       json: async () => FIXTURE,
