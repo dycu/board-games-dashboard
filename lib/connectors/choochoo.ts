@@ -32,13 +32,14 @@ export async function fetchChoochoo(username: string, password: string): Promise
   const myUserId: number = loginJson.user.id
   const authCookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? xsrfCookie
 
-  // Step 3: fetch active games
-  const gamesRes = await fetch(`${API}/api/games?userId=${myUserId}&status[]=ACTIVE&pageSize=50`, {
+  // Step 3: fetch active games (status[] must be array format; userId filters by owner so we filter locally instead)
+  const gamesRes = await fetch(`${API}/api/games?status[]=ACTIVE&pageSize=20`, {
     headers: { Accept: 'application/json', Cookie: authCookie, 'User-Agent': 'Mozilla/5.0' },
   })
   if (!gamesRes.ok) throw new Error(`choochoo.games games fetch failed: HTTP ${gamesRes.status}`)
   const gamesJson = await gamesRes.json() as any
-  const games: any[] = gamesJson.games ?? gamesJson ?? []
+  const allGames: any[] = gamesJson.games ?? (Array.isArray(gamesJson) ? gamesJson : [])
+  const games = allGames.filter((g: any) => Array.isArray(g.playerIds) && g.playerIds.includes(myUserId))
 
   return games.map((g: any): Game => {
     const gameId = g.id ?? 0
