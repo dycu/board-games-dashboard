@@ -50,6 +50,12 @@ export async function fetchYucata(username: string, password: string): Promise<G
   const gamesData = await gamesRes.json()
   const games: any[] = gamesData.d?.Games ?? []
 
+  // Derive my PlayerID from games where it's my turn (UserIsOnTurn + PlayerOnTurn = my ID)
+  const myPlayerIds = new Set<number>()
+  for (const g of games) {
+    if (g.UserIsOnTurn && g.PlayerOnTurn) myPlayerIds.add(g.PlayerOnTurn)
+  }
+
   return games.map((g: any): Game => {
     const gameId = g.ID ?? 0
     const gameIdName = g.GameIDName ?? ''
@@ -60,7 +66,9 @@ export async function fetchYucata(username: string, password: string): Promise<G
     const rawPlayers: any[] = g.Players ?? []
 
     const otherPlayers = rawPlayers
-      .filter((p: any) => p.Login?.toLowerCase() !== username.toLowerCase())
+      .filter((p: any) => myPlayerIds.size > 0
+        ? !myPlayerIds.has(p.PlayerID)
+        : p.Login?.toLowerCase() !== username.toLowerCase())
       .map((p: any) => p.Login ?? '')
       .filter(Boolean)
 
