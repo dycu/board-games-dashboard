@@ -1,26 +1,18 @@
-import { Agent } from 'undici'
 import { Game } from '../types'
 import { formatTimeAgo } from './utils'
 
 const API = 'https://api.choochoo.games'
 const BASE = 'https://www.choochoo.games'
 
-// api.choochoo.games uses Let's Encrypt E7 (ISRG Root X2), which is absent from
-// Vercel's Node.js CA bundle. rejectUnauthorized: false is acceptable here because
-// we're the client calling a known, fixed hostname.
-const tlsAgent = new Agent({ connect: { rejectUnauthorized: false } })
-
 async function apiGet(path: string, sessionCookie: string): Promise<Response> {
   return fetch(`${API}${path}`, {
-    dispatcher: tlsAgent,
     headers: { Accept: 'application/json', Cookie: sessionCookie, 'User-Agent': 'Mozilla/5.0' },
-  } as RequestInit)
+  })
 }
 
 async function apiPost(path: string, sessionCookie: string, xsrfToken: string, body: object): Promise<Response> {
   return fetch(`${API}${path}`, {
     method: 'POST',
-    dispatcher: tlsAgent,
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
@@ -29,15 +21,14 @@ async function apiPost(path: string, sessionCookie: string, xsrfToken: string, b
       'User-Agent': 'Mozilla/5.0',
     },
     body: JSON.stringify(body),
-  } as RequestInit)
+  })
 }
 
 export async function fetchChoochoo(username: string, password: string): Promise<Game[]> {
   // Step 1: get XSRF token + session cookie
   const xsrfRes = await fetch(`${API}/api/xsrf`, {
-    dispatcher: tlsAgent,
     headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' },
-  } as RequestInit)
+  })
   const xsrfJson = await xsrfRes.json() as any
   const xsrfToken: string = xsrfJson.xsrfToken ?? ''
   const sessionCookie = xsrfRes.headers.get('set-cookie')?.split(';')[0] ?? ''
