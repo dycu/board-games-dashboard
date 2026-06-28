@@ -30,44 +30,44 @@ export async function fetchYucata(username: string, password: string): Promise<G
   const cookies = [sessionCookie, authCookie].filter(Boolean).join('; ')
 
   // Step 3: fetch active games — returns {d: {Games: [...], NextGameOnTurn, TotalGames}}
-  const gamesRes = await fetch(`${WCF}/GetLiveGames`, {
+  const gamesRes = await fetch(`${WCF}/GetCurrentGames`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
       Accept: 'application/json',
       Cookie: cookies,
       'User-Agent': 'Mozilla/5.0',
-      Referer: `${BASE}/en/Overview`,
+      Referer: `${BASE}/en/CurrentGames`,
     },
     body: '{}',
   })
-  if (!gamesRes.ok) throw new Error('Yucata games fetch failed')
+  if (!gamesRes.ok) throw new Error(`Yucata games fetch failed: HTTP ${gamesRes.status}`)
 
   const gamesData = await gamesRes.json()
   const games: any[] = gamesData.d?.Games ?? []
 
   return games.map((g: any): Game => {
-    // Field names inferred from WCF type CurrentGameInfo:#Yucata.Data —
-    // Games array was empty during initial testing so we handle multiple possible names
-    const gameId = g.GameID ?? g.Id ?? g.GameId ?? 0
-    const idName = g.IdName ?? g.GameTypeIdName ?? ''
-    const gameName = g.GameName ?? g.ShortName ?? idName ?? 'Unknown'
+    const gameId = g.ID ?? 0
+    const gameName = g.GameName ?? 'Unknown'
 
-    const isMyTurn = !!(g.CanMove ?? g.IsMyTurn ?? g.MyTurn ?? false)
+    const rawPlayers: any[] = g.Players ?? []
 
-    const rawPlayers: any[] = g.Players ?? g.Opponents ?? []
-    const players = rawPlayers
-      .map((p: any) => p.Login ?? p.UserLogin ?? p.Name ?? '')
-      .filter((n: string) => n && n !== username)
+    // Find my player ID by matching Login (case-insensitive)
+    const me = rawPlayers.find((p: any) => p.Login?.toLowerCase() === username.toLowerCase())
+    const myPlayerId: number | undefined = me?.PlayerID
 
-    const activePlayerLogin = g.ActivePlayer?.Login ?? g.ActivePlayerLogin ?? g.CurrentPlayer ?? undefined
-    const currentPlayer = isMyTurn ? undefined : activePlayerLogin
+    const isMyTurn = myPlayerId !== undefined && g.PlayerOnTurn === myPlayerId
 
-    // LastMoveTime is a WCF date serialised as /Date(milliseconds)/
-    const rawTime = g.LastMoveTime ?? g.LastMoveDate ?? g.UpdatedAt
-    const lastMoveAt = rawTime
-      ? parseDotNetDate(rawTime)
-      : new Date()
+    const otherPlayers = rawPlayers
+      .filter((p: any) => p.Login?.toLowerCase() !== username.toLowerCase())
+      .map((p: any) => p.Login ?? '')
+      .filter(Boolean)
+
+    const currentPlayerObj = isMyTurn ? undefined : rawPlayers.find((p: any) => p.PlayerID === g.PlayerOnTurn)
+    const currentPlayer = currentPlayerObj?.Login
+
+    // LastMoveOn is ISO 8601: "2024-01-15T10:30:00.0000000Z"
+    const lastMoveAt = g.LastMoveOn ? new Date(g.LastMoveOn) : new Date()
 
     return {
       id: `yucata:${gameId}`,
@@ -78,17 +78,9 @@ export async function fetchYucata(username: string, password: string): Promise<G
       lastMoveAt,
       lastMoveAgo: formatTimeAgo(lastMoveAt),
       urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
-      gameUrl: `${BASE}/en/Game/${idName || gameId}/${gameId}`,
-      platformUrl: `${BASE}/en/Overview`,
-      players,
+      gameUrl: `${BASE}/en/Game/${gameId}`,
+      platformUrl: `${BASE}/en/CurrentGames`,
+      players: otherPlayers,
     }
   })
-}
-
-// WCF serialises dates as "/Date(1234567890000)/" or ISO strings
-function parseDotNetDate(raw: string | number): Date {
-  if (typeof raw === 'number') return new Date(raw)
-  const m = String(raw).match(/\/Date\((-?\d+)(?:[+-]\d+)?\)\//)
-  if (m) return new Date(parseInt(m[1]))
-  return new Date(raw)
 }
