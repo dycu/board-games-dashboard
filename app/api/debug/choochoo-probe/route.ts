@@ -4,24 +4,23 @@ import { request as httpsRequest } from 'https'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
-function req(method: string, path: string, headers: Record<string, string>, body?: string, timeoutMs = 20000): Promise<{ status: number; body: string; resHeaders: Record<string, string | string[]> }> {
+function req(method: string, path: string, headers: Record<string, string>, body?: string): Promise<{ status: number; body: string; resHeaders: Record<string, string | string[]> }> {
   return new Promise((resolve) => {
     const r = httpsRequest({
       hostname: 'api.choochoo.games',
       port: 443, path, method, headers,
-      rejectUnauthorized: false,
-      timeout: timeoutMs,
+      rejectUnauthorized: false, timeout: 15000,
     }, (res) => {
       let data = ''
       res.on('data', (c: any) => data += c)
       res.on('end', () => resolve({
         status: res.statusCode ?? 0,
-        body: data.slice(0, 2000),
+        body: data.slice(0, 3000),
         resHeaders: Object.fromEntries(Object.entries(res.headers).map(([k, v]) => [k, typeof v === 'string' ? v : (v ?? [])])),
       }))
     })
     r.on('error', (e) => resolve({ status: 0, body: `ERROR: ${e.message}`, resHeaders: {} }))
-    r.on('timeout', () => { r.destroy(); resolve({ status: 0, body: `TIMEOUT after ${timeoutMs}ms`, resHeaders: {} }) })
+    r.on('timeout', () => { r.destroy(); resolve({ status: 0, body: 'TIMEOUT', resHeaders: {} }) })
     if (body) r.write(body)
     r.end()
   })
@@ -39,46 +38,49 @@ export async function GET() {
 
   const base = { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' }
 
-  // Step 1: fresh XSRF token + session
+  // Step 1: XSRF token + session
   const xsrfRes = await req('GET', '/api/xsrf', base)
   let xsrfToken = ''
   try { xsrfToken = JSON.parse(xsrfRes.body).xsrfToken ?? '' } catch {}
   const xsrfCookie = getCookies(xsrfRes).map(c => c.split(';')[0]).join('; ')
 
+  // Step 2: login at /api/users/login
   const lb = JSON.stringify({ usernameOrEmail: username, password })
   const ct = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(lb).toString() }
-
-  // Step 2a: login without session cookie, with xsrf-token header — 20s timeout
-  const loginNoCookie = await req('POST', '/users/login', {
-    ...base, ...ct, 'xsrf-token': xsrfToken,
-  }, lb, 20000)
-
-  // Step 2b: login WITH session cookie + xsrf-token — 20s timeout
-  const loginWithCookie = await req('POST', '/users/login', {
+  const loginRes = await req('POST', '/api/users/login', {
     ...base, ...ct, 'xsrf-token': xsrfToken, Cookie: xsrfCookie,
-  }, lb, 20000)
+  }, lb)
 
-  // Step 2c: try the /api/ prefix (since /api/ returned 401 "please log in")
-  const loginApiPrefix = await req('POST', '/api/users/login', {
-    ...base, ...ct, 'xsrf-token': xsrfToken, Cookie: xsrfCookie,
-  }, lb, 10000)
+  let loginJson: any = null
+  try { loginJson = JSON.parse(loginRes.body) } catch {}
+  const loginCookies = getCookies(loginRes)
+  const authCookie = loginCookies.map(c => c.split(';')[0]).join('; ') || xsrfCookie
+  const userId = loginJson?.user?.id
 
-  // Step 2d: try /api/login
-  const loginApiLogin = await req('POST', '/api/login', {
-    ...base, ...ct, 'xsrf-token': xsrfToken, Cookie: xsrfCookie,
-  }, lb, 10000)
-
-  const fmt = (r: typeof loginNoCookie) => ({
-    status: r.status,
-    body: r.body.slice(0, 500),
-    cookies: getCookies(r).map(c => c.slice(0, 100)),
-  })
+  // Step 3: try games endpoints
+  let gamesResult: any = 'login failed'
+  let gamesAlt: any = 'skipped'
+  if (userId) {
+    const [g1, g2, g3] = await Promise.all([
+      req('GET', `/api/games?userId=${userId}&status[]=ACTIVE&pageSize=50`, { ...base, Cookie: authCookie }),
+      req('GET', `/games?userId=${userId}&status[]=ACTIVE&pageSize=50`, { ...base, Cookie: authCookie }),
+      req('GET', `/api/games`, { ...base, Cookie: authCookie }),
+    ])
+    gamesResult = { '/api/games?userId': { status: g1.status, body: g1.body.slice(0, 800) } }
+    gamesAlt = {
+      '/games?userId': { status: g2.status, body: g2.body.slice(0, 400) },
+      '/api/games (no params)': { status: g3.status, body: g3.body.slice(0, 400) },
+    }
+  }
 
   return NextResponse.json({
-    xsrf: { status: xsrfRes.status, tokenLen: xsrfToken.length, sessionCookie: xsrfCookie.slice(0, 60) },
-    login_noCookie_20s: fmt(loginNoCookie),
-    login_withCookie_20s: fmt(loginWithCookie),
-    login_apiPrefix: fmt(loginApiPrefix),
-    login_apiLogin: fmt(loginApiLogin),
+    step1_xsrf: { status: xsrfRes.status, tokenLen: xsrfToken.length, cookie: xsrfCookie.slice(0, 60) },
+    step2_login: {
+      status: loginRes.status,
+      user: loginJson?.user ?? null,
+      loginCookies: loginCookies.map(c => c.slice(0, 100)),
+    },
+    step3_games: gamesResult,
+    step3_gamesAlt: gamesAlt,
   })
 }
