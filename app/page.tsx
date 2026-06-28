@@ -131,7 +131,7 @@ export default function DashboardPage() {
   return (
     <div className="flex h-screen overflow-hidden">
       <GameGrid data={data} prefs={prefs} onPrefsChange={setPrefs} dismissed={dismissed} onDismiss={handleDismiss} />
-      <PlaySidebar games={data.games} pins={prefs.pins} />
+      <PlaySidebar games={data.games.filter(g => !dismissed.has(g.id))} pins={prefs.pins} />
     </div>
   )
 }
