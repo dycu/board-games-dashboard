@@ -2,66 +2,32 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
-export const runtime = 'edge'  // try edge runtime for TLS
+export const runtime = 'edge'
 
-const API = 'https://api.choochoo.games'
-
-async function req(url: string, opts?: RequestInit): Promise<{ status: number; body: string; cookies: string }> {
+async function req(url: string, opts?: RequestInit): Promise<string> {
   try {
-    const r = await fetch(url, { ...opts, signal: AbortSignal.timeout(8000) })
+    const r = await fetch(url, { ...opts, signal: AbortSignal.timeout(6000) })
     const body = await r.text()
-    return { status: r.status, body: body.slice(0, 800), cookies: r.headers.get('set-cookie') ?? '' }
+    return `HTTP ${r.status} | cookies=${r.headers.get('set-cookie')?.slice(0, 60) ?? 'none'} | ${body.slice(0, 200)}`
   } catch (e: any) {
-    return { status: 0, body: `${e.name}: ${e.message} (cause: ${e.cause?.message ?? 'none'})`, cookies: '' }
+    return `ERROR: ${e.constructor?.name} ${e.message} cause=${JSON.stringify(e.cause)}`
   }
 }
 
 export async function GET() {
   const username = process.env.CHOOCHOO_USERNAME
   const password = process.env.CHOOCHOO_PASSWORD
-  if (!username || !password) {
-    return NextResponse.json({ error: 'CHOOCHOO_USERNAME / CHOOCHOO_PASSWORD not set' })
-  }
+  if (!username || !password) return NextResponse.json({ error: 'creds not set' })
 
-  const loginRes = await req(`${API}/users/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' },
-    body: JSON.stringify({ usernameOrEmail: username, password }),
-  })
-  const sessionCookie = loginRes.cookies.split(';')[0]
+  const loginBody = JSON.stringify({ usernameOrEmail: username, password })
+  const jsonHeaders = { 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' }
 
-  if (loginRes.status === 0 || loginRes.status >= 400 || !sessionCookie) {
-    // Also test raw connectivity
-    const pingRes = await req(`${API}`)
-    return NextResponse.json({
-      error: 'login failed',
-      loginRes,
-      pingRes,
-      runtime: 'edge',
-    })
-  }
+  const results = await Promise.all([
+    req('https://api.choochoo.games').then(r => ['https ping', r]),
+    req('http://api.choochoo.games').then(r => ['http ping', r]),
+    req('https://api.choochoo.games/users/login', { method: 'POST', headers: jsonHeaders, body: loginBody }).then(r => ['https login', r]),
+    req('http://api.choochoo.games/users/login', { method: 'POST', headers: jsonHeaders, body: loginBody }).then(r => ['http login', r]),
+  ])
 
-  const meRes = await req(`${API}/users/me`, {
-    headers: { Accept: 'application/json', Cookie: sessionCookie, 'User-Agent': 'Mozilla/5.0' },
-  })
-
-  const gamesRes = await req(`${API}/games`, {
-    headers: { Accept: 'application/json', Cookie: sessionCookie, 'User-Agent': 'Mozilla/5.0' },
-  })
-
-  let gamesJson: any
-  try { gamesJson = JSON.parse(gamesRes.body) } catch { gamesJson = null }
-  const games: any[] = gamesJson?.games ?? (Array.isArray(gamesJson) ? gamesJson : [])
-
-  return NextResponse.json({
-    runtime: 'edge',
-    loginStatus: loginRes.status,
-    sessionCookie: sessionCookie.slice(0, 40),
-    meStatus: meRes.status,
-    meBody: meRes.body.slice(0, 300),
-    gamesStatus: gamesRes.status,
-    gameCount: games.length,
-    firstGameKeys: games[0] ? Object.keys(games[0]) : [],
-    gameSamples: games.slice(0, 2),
-  })
+  return NextResponse.json(Object.fromEntries(results))
 }
