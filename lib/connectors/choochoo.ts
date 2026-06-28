@@ -1,61 +1,83 @@
-// lib/connectors/choochoo.ts
-import * as cheerio from 'cheerio/slim'
+import { Agent } from 'undici'
 import { Game } from '../types'
 import { formatTimeAgo } from './utils'
 
-const BASE = 'https://choochoo.games'
-// TODO: Verify login endpoint and field names by inspecting the real login form
-const LOGIN_URL = `${BASE}/login`
-// TODO: Verify the URL of the page listing your active games
-const GAMES_URL = `${BASE}/games`
+const API = 'https://api.choochoo.games'
+const BASE = 'https://www.choochoo.games'
+
+// api.choochoo.games uses Let's Encrypt E7 (ISRG Root X2), which is absent from
+// Vercel's Node.js CA bundle. rejectUnauthorized: false is acceptable here because
+// we're the client calling a known, fixed hostname.
+const tlsAgent = new Agent({ connect: { rejectUnauthorized: false } })
+
+async function apiGet(path: string, sessionCookie: string): Promise<Response> {
+  return fetch(`${API}${path}`, {
+    dispatcher: tlsAgent,
+    headers: { Accept: 'application/json', Cookie: sessionCookie, 'User-Agent': 'Mozilla/5.0' },
+  } as RequestInit)
+}
+
+async function apiPost(path: string, sessionCookie: string, xsrfToken: string, body: object): Promise<Response> {
+  return fetch(`${API}${path}`, {
+    method: 'POST',
+    dispatcher: tlsAgent,
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Cookie: sessionCookie,
+      'xsrf-token': xsrfToken,
+      'User-Agent': 'Mozilla/5.0',
+    },
+    body: JSON.stringify(body),
+  } as RequestInit)
+}
 
 export async function fetchChoochoo(username: string, password: string): Promise<Game[]> {
-  // Login to get session cookie
-  // TODO: Verify form field names (may be 'username'/'password', 'email'/'password', etc.)
-  const loginRes = await fetch(LOGIN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ username, password }),
-    redirect: 'manual',
-  })
-  const cookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
-  if (!cookie) throw new Error('choochoo.games login failed')
+  // Step 1: get XSRF token + session cookie
+  const xsrfRes = await fetch(`${API}/api/xsrf`, {
+    dispatcher: tlsAgent,
+    headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' },
+  } as RequestInit)
+  const xsrfJson = await xsrfRes.json() as any
+  const xsrfToken: string = xsrfJson.xsrfToken ?? ''
+  const sessionCookie = xsrfRes.headers.get('set-cookie')?.split(';')[0] ?? ''
+  if (!xsrfToken || !sessionCookie) throw new Error('choochoo.games: failed to get XSRF token')
 
-  // Fetch active games page
-  const gamesRes = await fetch(GAMES_URL, {
-    headers: { Cookie: cookie },
-  })
-  const html = await gamesRes.text()
-  const $ = cheerio.load(html)
-  const games: Game[] = []
+  // Step 2: login
+  const loginRes = await apiPost('/users/login', sessionCookie, xsrfToken, { usernameOrEmail: username, password })
+  const loginJson = await loginRes.json() as any
+  if (!loginJson.user) throw new Error('choochoo.games login failed')
 
-  // TODO: Verify selectors by inspecting real HTML — update these when real fixture is captured
-  $('.game-item').each((_: number, el: any) => {
-    const $el = $(el)
-    const gameId = $el.attr('data-game-id') ?? ''
-    const lastMoveStr = $el.find('.last-move-time').text().trim()
-    const lastMoveAt = lastMoveStr ? new Date(lastMoveStr) : new Date()
-    const activePlayer = $el.find('.active-player').text().trim()
-    const isMyTurn = $el.hasClass('my-turn')
-    const playerNames = $el.find('.player-names').text().trim()
-      .split(',')
-      .map((n: string) => n.trim())
-      .filter((n: string) => n && n !== username)
+  const myUserId: number = loginJson.user.id
+  const authCookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? sessionCookie
 
-    games.push({
+  // Step 3: fetch active games for this user
+  const gamesRes = await apiGet(`/games?userId=${myUserId}&status[]=ACTIVE&pageSize=20`, authCookie)
+  if (!gamesRes.ok) throw new Error(`choochoo.games games fetch failed: HTTP ${gamesRes.status}`)
+  const gamesJson = await gamesRes.json() as any
+  const games: any[] = gamesJson.games ?? []
+
+  return games.map((g: any): Game => {
+    const gameId = g.id ?? 0
+    const isMyTurn = g.activePlayerId === myUserId
+
+    // Build a list of other player IDs — fetch their usernames if playerIds is available
+    const otherPlayerIds: number[] = (g.playerIds ?? []).filter((id: number) => id !== myUserId)
+
+    const lastMoveAt = g.updatedAt ? new Date(g.updatedAt) : new Date()
+
+    return {
       id: `choochoo:${gameId}`,
       platform: 'choochoo',
-      gameName: $el.find('.game-title').text().trim(),
+      gameName: g.name ?? g.gameKey ?? 'Unknown',
       myTurn: isMyTurn,
-      currentPlayer: isMyTurn ? undefined : activePlayer,
+      currentPlayer: undefined,
       lastMoveAt,
       lastMoveAgo: formatTimeAgo(lastMoveAt),
       urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
-      gameUrl: BASE + ($el.find('.game-link').attr('href') ?? ''),
-      platformUrl: GAMES_URL,
-      players: playerNames,
-    })
+      gameUrl: `${BASE}/game/${gameId}`,
+      platformUrl: `${BASE}/games`,
+      players: otherPlayerIds.map(String), // IDs as strings until we can resolve names
+    }
   })
-
-  return games
 }

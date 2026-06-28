@@ -69,6 +69,8 @@ export default function GameCard({ game, pinned, onTogglePin, onDismiss }: Props
           )}
           <a
             href={game.gameUrl}
+            target="_blank"
+            rel="noopener noreferrer"
             aria-label="Open game"
             className={`text-xs font-medium px-3 py-1 rounded-md transition-colors
               ${game.myTurn

@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { fetchAllPlatforms, connectors } from '../index'
 import { fetchBGA } from '../bga'
 import { fetchEighteenXX } from '../eighteenxx'
