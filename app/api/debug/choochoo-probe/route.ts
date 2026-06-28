@@ -19,7 +19,7 @@ function httpsReq(method: string, path: string, headers: Record<string, string>,
       res.on('data', (chunk: any) => data += chunk)
       res.on('end', () => resolve({
         status: res.statusCode ?? 0,
-        body: data.slice(0, 1000),
+        body: data.slice(0, 2000),
         resHeaders: Object.fromEntries(
           Object.entries(res.headers).map(([k, v]) => [k, typeof v === 'string' ? v : (v ?? [])])
         ),
@@ -32,9 +32,13 @@ function httpsReq(method: string, path: string, headers: Record<string, string>,
   })
 }
 
-function loginBody(username: string, password: string, extra: object = {}) {
-  const b = JSON.stringify({ usernameOrEmail: username, password, ...extra })
-  return { body: b, len: Buffer.byteLength(b).toString() }
+function getCookies(r: { resHeaders: Record<string, string | string[]> }): string[] {
+  const raw = r.resHeaders['set-cookie'] ?? []
+  return (Array.isArray(raw) ? raw : [raw as string]).filter(Boolean)
+}
+
+function joinCookies(cookies: string[]): string {
+  return cookies.map(c => c.split(';')[0]).filter(Boolean).join('; ')
 }
 
 export async function GET() {
@@ -43,40 +47,72 @@ export async function GET() {
   if (!username || !password) return NextResponse.json({ error: 'creds not set' }, { status: 500 })
 
   const base = { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' }
+  const loginBodyStr = JSON.stringify({ usernameOrEmail: username, password })
+  const ct = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(loginBodyStr).toString() }
 
-  // Step 1: get XSRF token
-  const xsrfRes = await httpsReq('GET', '/api/xsrf', base)
-  let xsrfToken = ''
-  try { xsrfToken = JSON.parse(xsrfRes.body).xsrfToken ?? '' } catch {}
+  // ── Approach A: xsrf-first (current assumption) ──────────────────────────
+  // GET /api/xsrf (no session) → try login with that token
+  const xsrfA = await httpsReq('GET', '/api/xsrf', base)
+  let tokenA = ''
+  try { tokenA = JSON.parse(xsrfA.body).xsrfToken ?? '' } catch {}
 
-  // Try 6 login variants in parallel, each with a different XSRF delivery method
-  const { body: lb, len } = loginBody(username, password)
-  const ct = { 'Content-Type': 'application/json', 'Content-Length': len }
+  const loginA = await httpsReq('POST', '/users/login', {
+    ...base, ...ct, 'xsrf-token': tokenA,
+  }, loginBodyStr)
 
-  const [v1, v2, v3, v4, v5, v6] = await Promise.all([
-    // v1: xsrf-token header (current approach)
-    httpsReq('POST', '/users/login', { ...base, ...ct, 'xsrf-token': xsrfToken }, lb),
-    // v2: X-XSRF-TOKEN header (Angular convention)
-    httpsReq('POST', '/users/login', { ...base, ...ct, 'X-XSRF-TOKEN': xsrfToken }, lb),
-    // v3: X-CSRF-TOKEN header (Rails/Django convention)
-    httpsReq('POST', '/users/login', { ...base, ...ct, 'X-CSRF-TOKEN': xsrfToken }, lb),
-    // v4: xsrf-token header + XSRF-TOKEN cookie (double-submit cookie pattern)
-    httpsReq('POST', '/users/login', { ...base, ...ct, 'xsrf-token': xsrfToken, Cookie: `XSRF-TOKEN=${xsrfToken}` }, lb),
-    // v5: X-XSRF-TOKEN header + XSRF-TOKEN cookie
-    httpsReq('POST', '/users/login', { ...base, ...ct, 'X-XSRF-TOKEN': xsrfToken, Cookie: `XSRF-TOKEN=${xsrfToken}` }, lb),
-    // v6: xsrfToken in body
-    (() => { const { body: b2, len: l2 } = loginBody(username, password, { xsrfToken }); return httpsReq('POST', '/users/login', { ...base, 'Content-Type': 'application/json', 'Content-Length': l2 }, b2) })(),
-  ])
+  // ── Approach B: session-first ─────────────────────────────────────────────
+  // Step 1: GET /api/xsrf with no session → get whatever session the server sets
+  const xsrfB1 = await httpsReq('GET', '/api/xsrf', base)
+  const sessionFromXsrf = joinCookies(getCookies(xsrfB1))
+  let tokenB1 = ''
+  try { tokenB1 = JSON.parse(xsrfB1.body).xsrfToken ?? '' } catch {}
 
-  const fmt = (r: typeof v1) => ({ status: r.status, body: r.body.slice(0, 200) })
+  // Step 2: GET /api/xsrf again, but WITH the session cookie from step 1
+  const xsrfB2 = await httpsReq('GET', '/api/xsrf', { ...base, ...(sessionFromXsrf ? { Cookie: sessionFromXsrf } : {}) })
+  let tokenB2 = ''
+  try { tokenB2 = JSON.parse(xsrfB2.body).xsrfToken ?? '' } catch {}
+  const sessionFromXsrf2 = joinCookies([...getCookies(xsrfB1), ...getCookies(xsrfB2)])
 
-  // Check if any variant succeeded
-  const variants = { v1_xsrfTokenHeader: fmt(v1), v2_XxsrfTokenHeader: fmt(v2), v3_XcsrfTokenHeader: fmt(v3), v4_doubleSubmitXsrf: fmt(v4), v5_doubleSubmitXXsrf: fmt(v5), v6_inBody: fmt(v6) }
-  const winner = Object.entries(variants).find(([, r]) => r.status === 200)
+  // Step 3: login with session + token from step 2
+  const loginB = await httpsReq('POST', '/users/login', {
+    ...base, ...ct, 'xsrf-token': tokenB2,
+    ...(sessionFromXsrf2 ? { Cookie: sessionFromXsrf2 } : {}),
+  }, loginBodyStr)
+
+  // ── Approach C: failed-login-first, then xsrf ────────────────────────────
+  // Some apps issue a session on the first (failed) request
+  const loginC1 = await httpsReq('POST', '/users/login', { ...base, ...ct }, loginBodyStr)
+  const sessionC = joinCookies(getCookies(loginC1))
+
+  // GET /api/xsrf WITH that session
+  const xsrfC = await httpsReq('GET', '/api/xsrf', { ...base, ...(sessionC ? { Cookie: sessionC } : {}) })
+  let tokenC = ''
+  try { tokenC = JSON.parse(xsrfC.body).xsrfToken ?? '' } catch {}
+  const allCookiesC = joinCookies([...getCookies(loginC1), ...getCookies(xsrfC)])
+
+  // Login with session + new xsrf token
+  const loginC2 = await httpsReq('POST', '/users/login', {
+    ...base, ...ct, 'xsrf-token': tokenC,
+    ...(allCookiesC ? { Cookie: allCookiesC } : {}),
+  }, loginBodyStr)
+
+  const fmt = (r: typeof loginA) => ({ status: r.status, body: r.body.slice(0, 300) })
 
   return NextResponse.json({
-    xsrfToken: xsrfToken.slice(0, 16) + '...',
-    variants,
-    winner: winner ? winner[0] : 'none — all failed',
+    approachA_xsrfFirst: {
+      xsrfStatus: xsrfA.status, tokenLength: tokenA.length,
+      loginResult: fmt(loginA),
+    },
+    approachB_sessionThenFreshXsrf: {
+      step1_xsrfCookies: getCookies(xsrfB1).map(c => c.slice(0, 80)),
+      step2_token: tokenB2.slice(0, 16) + '...', step2_sameAsStep1: tokenB1 === tokenB2,
+      loginResult: fmt(loginB),
+    },
+    approachC_failedLoginThenXsrf: {
+      step1_loginStatus: loginC1.status,
+      step1_cookies: getCookies(loginC1).map(c => c.slice(0, 80)),
+      step2_xsrfStatus: xsrfC.status, step2_token: tokenC.slice(0, 16) + '...',
+      loginResult: fmt(loginC2),
+    },
   })
 }
