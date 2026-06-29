@@ -179,21 +179,12 @@ export async function fetchBGA(username: string, password: string): Promise<Game
     if (samplePlayer) console.log('[BGA debug] player keys:', Object.keys(samplePlayer).sort().join(', '))
     console.log('[BGA debug] sample table (timing fields):', JSON.stringify({
       think_limit: sample.think_limit,
-      start_thinking: sample.start_thinking,
-      date: sample.date,
-      date_update: sample.date_update,
-      updated_at: sample.updated_at,
-      last_move_at: sample.last_move_at,
-      move_date: sample.move_date,
-      active_since: sample.active_since,
+      gamestart: sample.gamestart,
+      options: sample.options,
     }))
     if (samplePlayer) console.log('[BGA debug] sample player (timing fields):', JSON.stringify({
       think_seconds: samplePlayer.think_seconds,
-      start_thinking: samplePlayer.start_thinking,
-      think_start: samplePlayer.think_start,
-      begin_thinking: samplePlayer.begin_thinking,
-      move_date: samplePlayer.move_date,
-      last_move: samplePlayer.last_move,
+      played: samplePlayer.played,
     }))
   }
 
