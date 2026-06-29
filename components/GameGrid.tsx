@@ -19,6 +19,9 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
     new Set([...games.map(g => g.platform), ...errors.map(e => e.platform)])
   )
   const visible = games.filter(g => !dismissed.has(g.id))
+  const countByPlatform = Object.fromEntries(
+    configuredPlatforms.map(p => [p, visible.filter(g => g.platform === p).length])
+  )
   const myTurnCount = visible.filter(g => g.myTurn).length
   const myTurnGames = sortAndFilter(visible.filter(g => g.myTurn), prefs)
   const waitingGames = sortAndFilter(visible.filter(g => !g.myTurn), prefs)
@@ -73,7 +76,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
               target="_blank"
               rel="noopener noreferrer"
               className={`text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[p] ?? 'bg-slate-800 text-slate-400'}`}>
-              {PLATFORM_LABELS[p]}
+              {PLATFORM_LABELS[p]} ({countByPlatform[p] ?? 0})
             </a>
           ))}
         </div>
@@ -83,7 +86,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
 
       {myTurnGames.length > 0 && (
         <>
-          <p className="text-xs uppercase tracking-widest text-slate-500 mb-3">Your turn first</p>
+          <p className="text-xs uppercase tracking-widest text-slate-500 mb-3">Your turn first ({myTurnGames.length})</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 mb-8">
             {myTurnGames.map(g => (
               <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} onDismiss={() => onDismiss(g.id)} />
@@ -94,7 +97,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
 
       {waitingGames.length > 0 && (
         <>
-          <p className="text-xs uppercase tracking-widest text-slate-500 mb-3">Waiting for others</p>
+          <p className="text-xs uppercase tracking-widest text-slate-500 mb-3">Waiting for others ({waitingGames.length})</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
             {waitingGames.map(g => (
               <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} onDismiss={() => onDismiss(g.id)} />
