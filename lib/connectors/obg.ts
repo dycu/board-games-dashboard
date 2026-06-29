@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio/slim'
-import { Game } from '../types'
+import { Game, FinishedGame } from '../types'
 import { formatTimeAgo } from './utils'
 
 const BASE = 'https://www.onlineboardgamers.com'
@@ -119,4 +119,79 @@ function parseGames(html: string, profileName: string): Game[] {
   })
 
   return games
+}
+
+function parseFinishedGames(html: string): FinishedGame[] {
+  const $ = cheerio.load(html)
+  const tables = $('table.gamesTable')
+  if (tables.length < 2) return []
+  const $table = tables.eq(1)
+  const games: FinishedGame[] = []
+
+  $table.find('tr.clickableGameRow').each((_: number, el: any) => {
+    const $tr = $(el)
+    const gameId = ($tr.attr('id') ?? '').match(/gamesRow(\d+)/)?.[1]
+    if (!gameId) return
+
+    const $nameAnchor = $tr.find('td').eq(0).find('a').first()
+    const href = $nameAnchor.attr('href') ?? ''
+    const gameUrl = BASE + href
+    const rawName = $nameAnchor.text().trim()
+    const customTitle = rawName.match(/^\[(.+)\]$/)?.[1]
+    const typeCode = href.match(/^\/([A-Z]+)\//)?.[1] ?? ''
+    const typeName = OBG_GAME_NAMES[typeCode] ?? typeCode
+    const gameName = customTitle ? `${typeName} — ${customTitle}` : (rawName || typeName || 'Unknown')
+
+    const tsText = $tr.find('.timeToConvertSpan').first().text().trim()
+    const completedAt = tsText ? new Date(parseInt(tsText)) : new Date()
+
+    games.push({
+      id: `obg:${gameId}`,
+      platform: 'obg',
+      gameName,
+      completedAt,
+      completedAgo: formatTimeAgo(completedAt),
+      gameUrl,
+    })
+  })
+
+  return games
+}
+
+export async function fetchFinishedOBG(username: string, password: string): Promise<FinishedGame[]> {
+  const loginPageRes = await fetch(`${BASE}/login/`, { headers: BROWSER, redirect: 'manual' })
+  const loginPageHtml = await loginPageRes.text()
+  const csrfCookieVal = loginPageRes.headers.get('set-cookie')?.match(/\bcsrftoken=([^;,\s]+)/)?.[1] ?? ''
+  const csrfMiddleware = loginPageHtml.match(/name="csrfmiddlewaretoken"\s+value="([^"]+)"/)?.[1] ?? csrfCookieVal
+
+  const loginRes = await fetch(`${BASE}/login/`, {
+    method: 'POST',
+    headers: {
+      ...BROWSER,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Referer': `${BASE}/login/`,
+      'Origin': BASE,
+      Cookie: `csrftoken=${csrfCookieVal}`,
+    },
+    body: new URLSearchParams({ csrfmiddlewaretoken: csrfMiddleware, username, password, next: '' }),
+    redirect: 'manual',
+  })
+  const loginSetCookie = loginRes.headers.get('set-cookie') ?? ''
+  const sessionidMatch = loginSetCookie.match(/\bsessionid=([^;,\s]+)/)
+  const newCsrf = loginSetCookie.match(/\bcsrftoken=([^;,\s]+)/)?.[1] ?? csrfCookieVal
+  const loginLoc = loginRes.headers.get('location') ?? ''
+  const loginOk = !!sessionidMatch || (loginRes.status >= 300 && loginRes.status < 400 && loginLoc && loginLoc !== '/login/' && loginLoc !== `${BASE}/login/`)
+  if (!loginOk) throw new Error('OBG login failed')
+
+  const cookieHeader = [`csrftoken=${newCsrf}`, ...(sessionidMatch ? [`sessionid=${sessionidMatch[1]}`] : [])].join('; ')
+
+  const homeRes = await fetch(`${BASE}/`, { headers: { ...BROWSER, Cookie: cookieHeader } })
+  const homeHtml = await homeRes.text()
+  const profileName = homeHtml.match(/href="\/profile\/([^/"]+)\/"[^>]*>\s*My Games/)?.[1] ?? username
+
+  const profileRes = await fetch(`${BASE}/profile/${profileName}/`, {
+    headers: { ...BROWSER, Cookie: cookieHeader },
+  })
+  const profileHtml = await profileRes.text()
+  return parseFinishedGames(profileHtml)
 }
