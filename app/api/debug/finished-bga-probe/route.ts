@@ -82,32 +82,40 @@ export async function GET() {
       Cookie: cookieString(allCookies),
     }
 
-    // Try various status values
+    // Try status=finished with player filter (avoids returning ALL finished games)
     const attempts: any[] = []
     for (const body of [
-      'status=done',
+      `status=finished&player=${myId}`,
       'status=finished',
-      'status=end',
-      'status=over',
-      'status=archive',
-      `status=done&player=${myId}`,
     ]) {
       const r = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, {
         method: 'POST', headers: { ...authHeaders, Referer: `${BASE}/gameinprogress` }, body,
       })
       let parsed: any = null
       try { parsed = await r.json() } catch {}
-      attempts.push({ body, httpStatus: r.status, apiStatus: parsed?.status, error: parsed?.error, tableCount: parsed?.data?.tables ? Object.keys(parsed.data.tables).length : null })
+      const tables = parsed?.data?.tables ? Object.values(parsed.data.tables) : []
+      const sampleTable = tables[0]
+      attempts.push({
+        body,
+        httpStatus: r.status,
+        apiStatus: parsed?.status,
+        error: parsed?.error,
+        tableCount: tables.length,
+        sampleTableKeys: sampleTable ? Object.keys(sampleTable as object) : null,
+        sampleTable: tables.length > 0 ? (sampleTable as any) : null,
+      })
+      if (parsed?.status === 1) break // found it
     }
 
-    // Also check what pages BGA has for game history
-    const historyPages: any[] = []
-    for (const path of ['/gamereview', '/archive', '/gamehistory', '/tablemanager']) {
-      const r = await fetch(`${BASE}${path}`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) }, redirect: 'manual' })
-      historyPages.push({ path, status: r.status, location: r.headers.get('location') })
-    }
+    // Fetch the /archive page and show its content
+    const archiveRes = await fetch(`${BASE}/archive`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) } })
+    const archiveHtml = await archiveRes.text()
+    const archivePreview = archiveHtml.slice(0, 2000)
 
-    return NextResponse.json({ log, attempts, historyPages })
+    // Check for any API calls the archive page makes (look for embedded JS data/tables)
+    const archiveApiCalls = (archiveHtml.match(/\/[a-z]+\/[a-z]+\/[a-z]+\.html/g) ?? []).slice(0, 10)
+
+    return NextResponse.json({ log, attempts, archiveStatus: archiveRes.status, archivePreview, archiveApiCalls })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, log }, { status: 500 })
   }

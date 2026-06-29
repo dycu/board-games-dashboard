@@ -63,7 +63,7 @@ export async function GET() {
   }
   const authCookie = loginRes.cookies.map(c => c.split(';')[0]).join('; ') || xsrfCookie
 
-  const gamesRes = await req('GET', '/api/games?status[]=FINISHED&pageSize=50', { ...base, Cookie: authCookie })
+  const gamesRes = await req('GET', '/api/games?status[]=ENDED&pageSize=50', { ...base, Cookie: authCookie })
   let gamesJson: any = {}
   try { gamesJson = JSON.parse(gamesRes.body) } catch {}
   const allGames: any[] = gamesJson.games ?? (Array.isArray(gamesJson) ? gamesJson : [])
