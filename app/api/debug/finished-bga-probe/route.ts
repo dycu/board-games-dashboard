@@ -65,57 +65,99 @@ export async function GET() {
     if (!postLoginToken) return NextResponse.json({ error: 'no post-login token', log }, { status: 500 })
     log.push(`login ok, myId=${myId}`)
 
-    const authHeaders = {
+    const browserHeaders = {
       ...BROWSER_HEADERS,
-      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      Cookie: cookieString(allCookies),
+      Accept: 'text/html,application/xhtml+xml,*/*',
+    }
+    const ajaxHeaders = {
+      ...BROWSER_HEADERS,
+      Cookie: cookieString(allCookies),
       Accept: 'application/json, */*',
       'X-Requested-With': 'XMLHttpRequest',
       'X-Request-Token': postLoginToken,
       Origin: BASE,
-      Referer: `${BASE}/gameinprogress`,
-      Cookie: cookieString(allCookies),
     }
 
-    // Test multiple param variations in sequence so we can see which works
-    const attempts: any[] = []
-    const paramSets = [
-      // Exact production params (what fetchFinishedBGA sends)
-      myId ? `status=finished&player=${myId}` : 'status=finished',
-      // With pagination — limit result set to reduce DB load
-      myId ? `status=finished&player=${myId}&start=0&nbmax=50` : 'status=finished&start=0&nbmax=50',
-      // Recent flag
-      myId ? `status=finished&player=${myId}&recent=true` : 'status=finished&recent=true',
-      // With turninfo (same as active games call)
-      myId ? `status=finished&player=${myId}&turninfo=true` : 'status=finished&turninfo=true',
+    // Step 1: fetch the lastresults player page (what the browser sees)
+    const playerPageRes = await fetch(`${BASE}/player?id=${myId}&section=lastresults`, { headers: browserHeaders })
+    const playerHtml = await playerPageRes.text()
+    log.push(`player?section=lastresults HTTP ${playerPageRes.status}, bodyLen=${playerHtml.length}`)
+
+    // Look for embedded game data (JS vars, JSON blobs, table IDs)
+    const embeddedJsonBlobs = (playerHtml.match(/\bg_[a-zA-Z_]+\s*=\s*(\{[^;]{0,500})/g) ?? []).slice(0, 10)
+    const ajaxUrlHints = [...new Set((playerHtml.match(/(?:url|href|action)\s*[=:]\s*['"]([^'"]*(?:player|archive|result|history|game)[^'"]*)['"]/gi) ?? []).slice(0, 20))]
+    const scriptSrcHints = (playerHtml.match(/<script[^>]+src=['"]([^'"]+)['"]/gi) ?? []).slice(0, 10)
+    // Look for table rows that might contain game data
+    const tableRowSample = (playerHtml.match(/<tr[^>]*>[\s\S]{0,300}/g) ?? []).slice(0, 5).map(s => s.slice(0, 200))
+    // Look for any JSON-like structures embedded
+    const jsonStructures = (playerHtml.match(/\{[^{}]{20,400}\}/g) ?? [])
+      .filter(s => s.includes('game') || s.includes('table') || s.includes('result'))
+      .slice(0, 5)
+
+    log.push(`embeddedJsonBlobs found: ${embeddedJsonBlobs.length}, ajaxUrlHints: ${ajaxUrlHints.length}`)
+
+    // Step 2: try AJAX endpoints that BGA might call to populate lastresults
+    const ajaxAttempts: any[] = []
+    const ajaxEndpoints = [
+      // player controller endpoints
+      { method: 'GET', url: `${BASE}/player/player/getLastResults.html?id=${myId}` },
+      { method: 'GET', url: `${BASE}/player/player/getLastResults.html?player_id=${myId}` },
+      { method: 'GET', url: `${BASE}/player/player/lastresults.html?id=${myId}` },
+      { method: 'GET', url: `${BASE}/player/player/index.html?id=${myId}&section=lastresults` },
+      // Generic player profile with ajax flag
+      { method: 'GET', url: `${BASE}/player?id=${myId}&section=lastresults&ajax=1` },
+      // archive controller
+      { method: 'GET', url: `${BASE}/archive/archive/index.html?player=${myId}&ajax=1` },
+      { method: 'GET', url: `${BASE}/archive/archive/getLastResults.html?player=${myId}` },
+      { method: 'GET', url: `${BASE}/archive/archive/results.html?player=${myId}` },
+      // gamestat
+      { method: 'GET', url: `${BASE}/gamestat/gamestat/getPlayerStats.html?player=${myId}` },
+      { method: 'GET', url: `${BASE}/gamestat/gamestat/index.html?player=${myId}&ajax=1` },
+      // table controller for finished
+      { method: 'POST', url: `${BASE}/table/table/tableinfos.html`, body: `status=finished&player=${myId}` },
+      { method: 'POST', url: `${BASE}/table/table/getLastResults.html`, body: `player=${myId}` },
     ]
 
-    for (const body of paramSets) {
+    for (const { method, url, body } of ajaxEndpoints) {
       const t0 = Date.now()
       try {
-        const r = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, { method: 'POST', headers: authHeaders, body })
+        const headers = body
+          ? { ...ajaxHeaders, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', Referer: `${BASE}/player?id=${myId}&section=lastresults` }
+          : { ...ajaxHeaders, Referer: `${BASE}/player?id=${myId}&section=lastresults` }
+        const r = await fetch(url, { method, headers, ...(body ? { body } : {}) })
         const text = await r.text()
         const elapsedMs = Date.now() - t0
         let parsed: any = null
         try { parsed = JSON.parse(text) } catch {}
-        const tableCount = parsed?.data?.tables ? Object.keys(parsed.data.tables).length : null
-        attempts.push({
-          body,
+        ajaxAttempts.push({
+          method, url,
           httpStatus: r.status,
           elapsedMs,
           apiStatus: parsed?.status,
           error: parsed?.error,
-          tableCount,
-          // Show raw text if parsing failed or API error
-          rawPreview: (parsed === null || parsed?.status !== 1) ? text.slice(0, 400) : undefined,
-          // Show first table keys if we got data
-          firstTableKeys: tableCount && tableCount > 0 ? Object.keys(Object.values(parsed.data.tables)[0] as any) : undefined,
+          dataKeys: parsed?.data ? Object.keys(parsed.data) : undefined,
+          rawPreview: text.slice(0, 300),
         })
       } catch (e: any) {
-        attempts.push({ body, elapsedMs: Date.now() - t0, fetchError: e.message })
+        ajaxAttempts.push({ method, url, elapsedMs: Date.now() - t0, fetchError: e.message })
       }
     }
 
-    return NextResponse.json({ log, myId, attempts })
+    return NextResponse.json({
+      log,
+      myId,
+      playerPage: {
+        httpStatus: playerPageRes.status,
+        bodyLen: playerHtml.length,
+        embeddedJsonBlobs,
+        ajaxUrlHints,
+        scriptSrcHints,
+        tableRowSample,
+        jsonStructures,
+      },
+      ajaxAttempts,
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, log }, { status: 500 })
   }
