@@ -41,7 +41,7 @@ function setupBGALogin(playerId = '42') {
 describe('fetchFinishedBGA', () => {
   beforeEach(() => mockFetch.mockClear())
 
-  it('returns FinishedGame[] from finished tables', async () => {
+  it('returns FinishedGame[] from gamestats/getGames', async () => {
     setupBGALogin('42')
     mockFetch.mockResolvedValueOnce({
       ok: true, status: 200,
@@ -61,11 +61,11 @@ describe('fetchFinishedBGA', () => {
     expect(g.completedAt).toBeInstanceOf(Date)
   })
 
-  it('returns empty array when no finished tables', async () => {
+  it('returns empty array when no tables', async () => {
     setupBGALogin('42')
     mockFetch.mockResolvedValueOnce({
       ok: true, status: 200,
-      text: async () => JSON.stringify({ status: 1, data: { tables: {} } }),
+      text: async () => JSON.stringify({ status: 1, data: { tables: [], stats: [] } }),
       headers: makeMockHeaders([]),
     })
 

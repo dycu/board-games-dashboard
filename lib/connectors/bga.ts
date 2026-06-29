@@ -277,44 +277,40 @@ export async function fetchFinishedBGA(username: string, password: string): Prom
   const postLoginToken = allCookies['TournoiEnLigneidt'] ?? allCookies['TournoiEnLigneid'] ?? ''
   if (!postLoginToken) throw new Error(`BGA: no request token in login response cookies`)
 
-  const tablesRes = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, {
-    method: 'POST',
+  // gamestats/getGames returns full game history without DB timeouts (unlike tablemanager status=finished)
+  const gamesRes = await fetch(`${BASE}/gamestats/gamestats/getGames.html?player=${myId}&updateStats=0`, {
     headers: {
       ...BROWSER_HEADERS,
-      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
       Accept: 'application/json, */*',
       'X-Requested-With': 'XMLHttpRequest',
       'X-Request-Token': postLoginToken,
       Origin: BASE,
-      Referer: `${BASE}/gameinprogress`,
+      Referer: `${BASE}/gamestats?player=${myId}`,
       Cookie: cookieString(allCookies),
     },
-    body: myId ? `status=finished&player=${myId}&start=0&nbmax=50` : 'status=finished&start=0&nbmax=50',
   })
 
-  const tablesText = await tablesRes.text()
-  let tablesData: any
-  try { tablesData = JSON.parse(tablesText) } catch {
-    throw new Error(`BGA finished tables HTTP ${tablesRes.status}: ${tablesText.slice(0, 300)}`)
+  const gamesText = await gamesRes.text()
+  let gamesData: any
+  try { gamesData = JSON.parse(gamesText) } catch {
+    throw new Error(`BGA gamestats HTTP ${gamesRes.status}: ${gamesText.slice(0, 300)}`)
   }
-  if (tablesData.status !== 1) throw new Error(`BGA finished tables failed: ${JSON.stringify(tablesData).slice(0, 400)}`)
+  if (gamesData.status !== 1) throw new Error(`BGA gamestats failed: ${JSON.stringify(gamesData).slice(0, 400)}`)
 
-  const rawTables: Record<string, any> = tablesData?.data?.tables ?? {}
-  const tables = Object.values(rawTables)
+  const tables: any[] = gamesData?.data?.tables ?? []
 
-  return tables.map((t: any): FinishedGame => {
-    const dateEndSec = t.date_end != null ? parseInt(t.date_end) : null
-    const completedAt = dateEndSec && !isNaN(dateEndSec)
-      ? new Date(dateEndSec * 1000)
-      : new Date()
+  // Response comes newest-first; take the 50 most recent
+  return tables.slice(0, 50).map((t: any): FinishedGame => {
+    const endSec = t.end != null ? parseInt(t.end) : null
+    const completedAt = endSec && !isNaN(endSec) ? new Date(endSec * 1000) : new Date()
 
     return {
-      id: `bga:${t.id}`,
+      id: `bga:${t.table_id}`,
       platform: 'bga',
       gameName: t.game_name ?? 'Unknown',
       completedAt,
       completedAgo: formatTimeAgo(completedAt),
-      gameUrl: `${BASE}/${t.gameserver ?? 'en'}/${t.game_name}?table=${t.id}`,
+      gameUrl: `${BASE}/table?table=${t.table_id}`,
     }
   })
 }
