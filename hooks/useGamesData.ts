@@ -180,6 +180,7 @@ export function useGamesData(): UseGamesDataResult {
       setCachedAt(cached.cachedAt)
       hasDisplayedRef.current = true
     }
+    isManualRefreshRef.current = true
     runFetch()
     return () => {
       abortRef.current?.abort()
