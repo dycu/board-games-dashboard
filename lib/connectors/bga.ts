@@ -171,6 +171,32 @@ export async function fetchBGA(username: string, password: string): Promise<Game
   const rawTables: Record<string, any> = tablesData?.data?.tables ?? {}
   const tables = Object.values(rawTables)
 
+  // TEMPORARY DEBUG — remove once we've identified useful timing fields
+  if (tables.length > 0) {
+    const sample = tables[0] as any
+    console.log('[BGA debug] table keys:', Object.keys(sample).sort().join(', '))
+    const samplePlayer = Object.values(sample.players ?? {})[0] as any
+    if (samplePlayer) console.log('[BGA debug] player keys:', Object.keys(samplePlayer).sort().join(', '))
+    console.log('[BGA debug] sample table (timing fields):', JSON.stringify({
+      think_limit: sample.think_limit,
+      start_thinking: sample.start_thinking,
+      date: sample.date,
+      date_update: sample.date_update,
+      updated_at: sample.updated_at,
+      last_move_at: sample.last_move_at,
+      move_date: sample.move_date,
+      active_since: sample.active_since,
+    }))
+    if (samplePlayer) console.log('[BGA debug] sample player (timing fields):', JSON.stringify({
+      think_seconds: samplePlayer.think_seconds,
+      start_thinking: samplePlayer.start_thinking,
+      think_start: samplePlayer.think_start,
+      begin_thinking: samplePlayer.begin_thinking,
+      move_date: samplePlayer.move_date,
+      last_move: samplePlayer.last_move,
+    }))
+  }
+
   // Step 5: resolve display names from gamepanel pages (game_name field is a URL slug)
   const uniqueSlugs = [...new Set(tables.map((t: any) => t.game_name as string).filter(Boolean))]
   const nameMap = uniqueSlugs.length > 0 ? await fetchGameNames(uniqueSlugs, allCookies) : new Map<string, string>()
@@ -192,12 +218,13 @@ export async function fetchBGA(username: string, password: string): Promise<Game
       : null
     const hasTimingData = thinkLimitSec != null && !isNaN(thinkLimitSec)
       && thinkRemainSec != null && !isNaN(thinkRemainSec)
-    // Map remaining time to a sortable "last move" equivalent so BGA mixes with other platforms:
-    // less time remaining → older lastMoveAt → sorts first (most urgent)
-    // Assumes 90-day max bank; overtime (negative remain) sorts before everything else
-    const MAX_BANK_MS = 90 * 24 * 3600 * 1000
+    // BGA doesn't expose last-move time; map remaining bank to a fake "age" so BGA
+    // games sort alongside other platforms: less time remaining → older lastMoveAt.
+    // Using 3-day bank (most common BGA async setting): a freshly-reset bank maps
+    // to "just now"; < 3 days remaining ranks proportionally; > 3 days = "just now".
+    const MAX_BANK_MS = 3 * 24 * 3600 * 1000
     const lastMoveAt = hasTimingData
-      ? new Date(Date.now() - (MAX_BANK_MS - thinkRemainSec! * 1000))
+      ? new Date(Date.now() - Math.max(0, MAX_BANK_MS - thinkRemainSec! * 1000))
       : new Date()
 
     const playerNames = Object.values(players)
