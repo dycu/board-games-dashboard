@@ -48,7 +48,7 @@ export async function GET() {
     cookies = { ...cookies, ...parseCookies(loginPageRes.headers) }
     const loginPageHtml = await loginPageRes.text()
     const requestToken = extractRequestToken(loginPageHtml)
-    if (!requestToken) { return NextResponse.json({ error: 'no request_token', log }, { status: 500 }) }
+    if (!requestToken) return NextResponse.json({ error: 'no request_token', log }, { status: 500 })
 
     const loginRes = await fetch(`${loginBase}/account/auth/loginUserWithPassword.html`, {
       method: 'POST',
@@ -65,6 +65,24 @@ export async function GET() {
     if (!postLoginToken) return NextResponse.json({ error: 'no post-login token', log }, { status: 500 })
     log.push(`login ok, myId=${myId}`)
 
+    // Fetch BGA home page and look for embedded game data
+    const homeRes = await fetch(`${BASE}/`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) } })
+    const homeHtml = await homeRes.text()
+    log.push(`home bodyLen=${homeHtml.length}`)
+
+    // Extract JS variable assignments that might contain game table data
+    // BGA often embeds data as: var g_gamedatas = {...}; or jstpl_xxx = '...'
+    const jsVarMatches = (homeHtml.match(/\bg_[a-z_]+\s*=\s*\{[^;]{0,200}/gi) ?? []).slice(0, 8)
+    // Look for "gameover", "archive", "finished" in any context
+    const contextualMatches = (homeHtml.match(/.{0,50}(?:gameover|date_end|recently.{0,10}finish)[^<]{0,100}/gi) ?? []).slice(0, 5)
+
+    // Try BGA's home API - fetch gameinprogress page and look for status values beyond "play"
+    const gpRes = await fetch(`${BASE}/gameinprogress`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) } })
+    const gpHtml = await gpRes.text()
+    log.push(`gameinprogress bodyLen=${gpHtml.length}`)
+    const gpStatusValues = [...new Set((gpHtml.match(/"status"\s*:\s*"([^"]+)"/g) ?? []).map(m => m.match(/"([^"]+)"$/)?.[1] ?? ''))]
+
+    // Try table overview controller which might list all user games
     const authHeaders = {
       ...BROWSER_HEADERS,
       Accept: 'application/json, */*',
@@ -72,53 +90,17 @@ export async function GET() {
       'X-Request-Token': postLoginToken,
       Cookie: cookieString(allCookies),
     }
-
-    // Approach 1: BGA home page — does it embed recent finished games?
-    const homeRes = await fetch(`${BASE}/`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) } })
-    const homeHtml = await homeRes.text()
-    // Look for game-over / finished / completed mentions
-    const finishedMentions = (homeHtml.match(/(?:finished|gameover|completed|recent.{0,20}game)[^<]{0,200}/gi) ?? []).slice(0, 5)
-    log.push(`home bodyLen=${homeHtml.length}, finished mentions: ${finishedMentions.length}`)
-
-    // Approach 2: BGA's player stats/history endpoint
-    const statsAttempts: any[] = []
-    for (const path of [
-      `/playeroverview/playeroverview/PlayerOverview.html?player_id=${myId}`,
-      `/playerstat/playerstat/PlayerStat.html?player_id=${myId}`,
-      `/user/${myId}`,
-      `/player/player/playerpage.html?id=${myId}`,
-    ]) {
-      const r = await fetch(`${BASE}${path}`, { headers: { ...authHeaders, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' } })
-      let parsed: any = null
-      const bodyText = await r.text()
-      try { parsed = JSON.parse(bodyText) } catch {}
-      statsAttempts.push({
-        path,
-        status: r.status,
-        bodyLen: bodyText.length,
-        isJson: !!parsed,
-        preview: bodyText.slice(0, 300),
-      })
+    const overviewAttempts: any[] = []
+    for (const [path, body] of [
+      [`${BASE}/tablemanager/tablemanager/tableinfos.html`, `status=finished&player=${myId}&recent=true`],
+      [`${BASE}/tablemanager/tablemanager/tableinfos.html`, `status=finished&turninfo=true&player=${myId}`],
+    ] as [string, string][]) {
+      const r = await fetch(path, { method: 'POST', headers: { ...authHeaders, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', Referer: `${BASE}/gameinprogress` }, body })
+      let parsed: any = null; try { parsed = await r.json() } catch {}
+      overviewAttempts.push({ body, status: r.status, apiStatus: parsed?.status, error: parsed?.error })
     }
 
-    // Approach 3: try tablemanager/tablemanager/tableinfos.html with GET (not POST) for recent history
-    const getAttempts: any[] = []
-    for (const qs of [
-      `?status=finished&player=${myId}&count=5`,
-      `?action=tableinfos&status=finished&player=${myId}`,
-    ]) {
-      const r = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html${qs}`, { headers: { ...authHeaders } })
-      let parsed: any = null
-      try { parsed = await r.json() } catch {}
-      getAttempts.push({ qs, status: r.status, apiStatus: parsed?.status, error: parsed?.error, tableCount: parsed?.data?.tables ? Object.keys(parsed.data.tables).length : null })
-    }
-
-    return NextResponse.json({
-      log,
-      finishedMentions,
-      statsAttempts,
-      getAttempts,
-    })
+    return NextResponse.json({ log, jsVarMatches, contextualMatches, gpStatusValues, overviewAttempts })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, log }, { status: 500 })
   }
