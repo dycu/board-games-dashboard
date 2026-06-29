@@ -3,7 +3,6 @@ import { request as httpsRequest } from 'https'
 export const dynamic = 'force-dynamic'
 
 const API_HOST = 'api.choochoo.games'
-const BASE_URL = 'https://www.choochoo.games'
 
 function req(
   method: string,
@@ -41,9 +40,7 @@ export async function GET() {
   let xsrfToken = ''
   try { xsrfToken = JSON.parse(xsrfRes.body).xsrfToken ?? '' } catch {}
   const xsrfCookie = xsrfRes.cookies.map(c => c.split(';')[0]).join('; ')
-  if (!xsrfToken || !xsrfCookie) {
-    return Response.json({ error: `xsrf failed`, xsrfStatus: xsrfRes.status })
-  }
+  if (!xsrfToken || !xsrfCookie) return Response.json({ error: 'xsrf failed' })
 
   const loginBody = JSON.stringify({ usernameOrEmail: username, password })
   const loginRes = await req('POST', '/api/users/login', {
@@ -56,47 +53,45 @@ export async function GET() {
   let loginJson: any = {}
   try { loginJson = JSON.parse(loginRes.body) } catch {}
   const myUserId: number = loginJson?.user?.id
-  if (!myUserId) {
-    return Response.json({ error: 'login failed', loginStatus: loginRes.status, loginBody: loginRes.body.slice(0, 200) })
-  }
+  if (!myUserId) return Response.json({ error: 'login failed' })
   const authCookie = loginRes.cookies.map(c => c.split(';')[0]).join('; ') || xsrfCookie
 
-  const attempts: any[] = []
+  // Fetch ended games using userId filter (correct approach)
+  const endedRes = await req('GET', `/api/games?userId=${myUserId}&status[]=ENDED&pageSize=20`, { ...base, Cookie: authCookie })
+  let endedJson: any = {}
+  try { endedJson = JSON.parse(endedRes.body) } catch {}
+  const endedGames: any[] = endedJson.games ?? []
 
-  const endpoints = [
-    // User profile endpoint
-    { label: 'GET /api/users/:id', path: `/api/users/${myUserId}` },
-    // User's games with various filters
-    { label: 'GET /api/users/:id/games ENDED', path: `/api/users/${myUserId}/games?status[]=ENDED&pageSize=20` },
-    { label: 'GET /api/users/:id/games (all)', path: `/api/users/${myUserId}/games?pageSize=10` },
-    { label: 'GET /api/games?userId ENDED', path: `/api/games?userId=${myUserId}&status[]=ENDED&pageSize=20` },
-    { label: 'GET /api/games?userId (all)', path: `/api/games?userId=${myUserId}&pageSize=10` },
-    { label: 'GET /api/games?playerId ENDED', path: `/api/games?playerId=${myUserId}&status[]=ENDED&pageSize=20` },
-    { label: 'GET /api/games?player ENDED', path: `/api/games?player=${myUserId}&status[]=ENDED&pageSize=20` },
-    // ENDED with larger page to check if we'd miss games
-    { label: 'GET /api/games ENDED pageSize=100', path: `/api/games?status[]=ENDED&pageSize=100` },
-    // Check what total ENDED games exist
-    { label: 'GET /api/games ENDED pageSize=1 (count check)', path: `/api/games?status[]=ENDED&pageSize=1` },
-  ]
-
-  for (const { label, path } of endpoints) {
-    const res = await req('GET', path, { ...base, Cookie: authCookie })
-    let parsed: any = null
-    try { parsed = JSON.parse(res.body) } catch {}
-    const games: any[] = parsed?.games ?? (Array.isArray(parsed) ? parsed : [])
-    const myGames = games.filter((g: any) => Array.isArray(g.playerIds) && g.playerIds.includes(myUserId))
-    const totalCount = parsed?.total ?? parsed?.count ?? parsed?.totalCount ?? null
-    attempts.push({
-      label,
-      httpStatus: res.status,
-      totalGames: games.length,
-      myGames: myGames.length,
-      totalCount,
-      topLevelKeys: parsed ? Object.keys(parsed) : null,
-      sampleGame: myGames[0] ? JSON.stringify(myGames[0]).slice(0, 400) : undefined,
-      rawPreview: res.status !== 200 ? res.body.slice(0, 200) : undefined,
-    })
+  // Get full detail of first ended game to see all available fields (including dates)
+  let firstGameDetail: any = null
+  if (endedGames.length > 0) {
+    const detailRes = await req('GET', `/api/games/${endedGames[0].id}`, { ...base, Cookie: authCookie })
+    try { firstGameDetail = JSON.parse(detailRes.body) } catch {}
   }
 
-  return Response.json({ myUserId, attempts })
+  // Check if there are more pages
+  const nextCursor = endedJson.nextPageCursor ?? null
+
+  // Also fetch page 2 if cursor exists
+  let page2Games: any[] = []
+  if (nextCursor) {
+    const page2Res = await req('GET', `/api/games?userId=${myUserId}&status[]=ENDED&pageSize=20&cursor=${nextCursor}`, { ...base, Cookie: authCookie })
+    let page2Json: any = {}
+    try { page2Json = JSON.parse(page2Res.body) } catch {}
+    page2Games = page2Json.games ?? []
+  }
+
+  return Response.json({
+    myUserId,
+    endedGames: {
+      httpStatus: endedRes.status,
+      count: endedGames.length,
+      nextPageCursor: nextCursor,
+      // Show full first game object to see all available fields
+      firstGameFull: endedGames[0] ?? null,
+      firstGameDetailFull: firstGameDetail,
+      page2Count: page2Games.length,
+      page2FirstGame: page2Games[0] ?? null,
+    },
+  })
 }
