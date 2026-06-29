@@ -1,4 +1,4 @@
-import { Game } from '../types'
+import { Game, FinishedGame } from '../types'
 import { formatTimeAgo } from './utils'
 
 const BASE = 'https://rally-the-troops.com'
@@ -123,4 +123,60 @@ function parseGamesActive(html: string, username: string): Game[] {
   parseSection(extractSection(html, 'Move'), true, username, games)
   parseSection(extractSection(html, 'Active'), false, username, games)
   return games
+}
+
+function parseGamesFinished(html: string): FinishedGame[] {
+  const section = extractSection(html, 'Finished')
+  if (!section) return []
+  const games: FinishedGame[] = []
+  const chunks = section.split(/(?=<div[^>]+class="[^"]*\bgame_item\b)/)
+  for (const chunk of chunks) {
+    const gameId = chunk.match(/href="\/join\/(\d+)"/)?.[1]
+    if (!gameId) continue
+
+    const titleMatch = chunk.match(/href="\/join\/\d+"[^>]*>#\d+\s*(?:&#x2013;|[–—-])\s*([^<(]+)/)
+    const gameName = titleMatch ? titleMatch[1].trim() : 'Unknown'
+
+    const cmdMatch = chunk.match(/<a[^>]+class="command"[^>]+href="([^"]+)"/)
+                ?? chunk.match(/href="([^"]+)"[^>]*>(?:Play|Watch|Review)</)
+    const rawUrl = (cmdMatch?.[1] ?? `/join/${gameId}`).replace(/&amp;/g, '&')
+    const gameUrl = rawUrl.startsWith('http') ? rawUrl : `${BASE}${rawUrl}`
+
+    const lastMoveMatch = chunk.match(/Last move:\s*([^<]+)</)
+    const completedAt = lastMoveMatch ? parseHumanDate(lastMoveMatch[1].trim()) : new Date()
+
+    games.push({
+      id: `rally:${gameId}`,
+      platform: 'rally',
+      gameName,
+      completedAt,
+      completedAgo: formatTimeAgo(completedAt),
+      gameUrl,
+    })
+  }
+  return games
+}
+
+export async function fetchFinishedRally(username: string, password: string): Promise<FinishedGame[]> {
+  const chRes = await fetch(`${BASE}/altcha-challenge`)
+  const challenge: AltchaChallenge = await chRes.json()
+  const altcha = await solveAltcha(challenge)
+
+  const loginRes = await fetch(`${BASE}/login`, {
+    method: 'POST',
+    headers: { ...HEADERS, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ username, password, altcha }),
+    redirect: 'manual',
+  })
+  if (loginRes.status !== 302) throw new Error('Rally the Troops login failed')
+  const cookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
+  if (!cookie) throw new Error('Rally the Troops login failed: no session cookie')
+
+  const gamesRes = await fetch(`${BASE}/games/finished`, {
+    headers: { ...HEADERS, Cookie: cookie },
+  })
+  if (!gamesRes.ok) throw new Error(`Rally finished games fetch failed (HTTP ${gamesRes.status})`)
+
+  const html = await gamesRes.text()
+  return parseGamesFinished(html)
 }
