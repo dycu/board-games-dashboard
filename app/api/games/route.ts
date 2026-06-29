@@ -35,7 +35,10 @@ export async function GET(request?: Request) {
             const proxyPath = PROXY_PATH[platform]
             if (proxyPath) {
               const origin = request ? new URL(request.url).origin : 'http://localhost:3000'
-              const res = await fetch(`${origin}${proxyPath}`)
+              const authHeader = request?.headers.get('authorization')
+              const res = await fetch(`${origin}${proxyPath}`, {
+                headers: authHeader ? { Authorization: authHeader } : {},
+              })
               const json = await res.json() as any
               if (json.error) throw new Error(json.error)
               games = json.games ?? []
