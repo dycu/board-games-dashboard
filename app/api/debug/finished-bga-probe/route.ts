@@ -48,7 +48,7 @@ export async function GET() {
     cookies = { ...cookies, ...parseCookies(loginPageRes.headers) }
     const loginPageHtml = await loginPageRes.text()
     const requestToken = extractRequestToken(loginPageHtml)
-    if (!requestToken) { const hexFound = [...loginPageHtml.matchAll(/[a-f0-9]{48,64}/gi)].map(m => m[0]).slice(0, 5); return NextResponse.json({ error: 'no request_token', hexFound, log }, { status: 500 }) }
+    if (!requestToken) { return NextResponse.json({ error: 'no request_token', log }, { status: 500 }) }
 
     const loginRes = await fetch(`${loginBase}/account/auth/loginUserWithPassword.html`, {
       method: 'POST',
@@ -57,7 +57,7 @@ export async function GET() {
     })
     let loginData: any
     try { loginData = JSON.parse(await loginRes.text()) } catch { return NextResponse.json({ error: 'login parse failed', log }, { status: 500 }) }
-    if (loginData.status !== 1) return NextResponse.json({ error: 'login failed', details: loginData, log }, { status: 500 })
+    if (loginData.status !== 1) return NextResponse.json({ error: 'login failed', log }, { status: 500 })
 
     const allCookies = { ...cookies, ...parseCookies(loginRes.headers) }
     const myId = String(loginData.data?.user_id ?? loginData.data?.id ?? '')
@@ -67,51 +67,58 @@ export async function GET() {
 
     const authHeaders = {
       ...BROWSER_HEADERS,
-      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
       Accept: 'application/json, */*',
       'X-Requested-With': 'XMLHttpRequest',
       'X-Request-Token': postLoginToken,
-      Origin: BASE,
       Cookie: cookieString(allCookies),
     }
 
-    // Try tablemanager with count/pagination params
-    const tableAttempts: any[] = []
-    for (const body of [
-      `status=finished&player=${myId}&count=5`,
-      `status=finished&player=${myId}&start=0&count=5`,
-      `status=finished&player=${myId}&nb=5`,
+    // Approach 1: BGA home page — does it embed recent finished games?
+    const homeRes = await fetch(`${BASE}/`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) } })
+    const homeHtml = await homeRes.text()
+    // Look for game-over / finished / completed mentions
+    const finishedMentions = (homeHtml.match(/(?:finished|gameover|completed|recent.{0,20}game)[^<]{0,200}/gi) ?? []).slice(0, 5)
+    log.push(`home bodyLen=${homeHtml.length}, finished mentions: ${finishedMentions.length}`)
+
+    // Approach 2: BGA's player stats/history endpoint
+    const statsAttempts: any[] = []
+    for (const path of [
+      `/playeroverview/playeroverview/PlayerOverview.html?player_id=${myId}`,
+      `/playerstat/playerstat/PlayerStat.html?player_id=${myId}`,
+      `/user/${myId}`,
+      `/player/player/playerpage.html?id=${myId}`,
     ]) {
-      const r = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, {
-        method: 'POST', headers: { ...authHeaders, Referer: `${BASE}/gameinprogress` }, body,
+      const r = await fetch(`${BASE}${path}`, { headers: { ...authHeaders, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' } })
+      let parsed: any = null
+      const bodyText = await r.text()
+      try { parsed = JSON.parse(bodyText) } catch {}
+      statsAttempts.push({
+        path,
+        status: r.status,
+        bodyLen: bodyText.length,
+        isJson: !!parsed,
+        preview: bodyText.slice(0, 300),
       })
+    }
+
+    // Approach 3: try tablemanager/tablemanager/tableinfos.html with GET (not POST) for recent history
+    const getAttempts: any[] = []
+    for (const qs of [
+      `?status=finished&player=${myId}&count=5`,
+      `?action=tableinfos&status=finished&player=${myId}`,
+    ]) {
+      const r = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html${qs}`, { headers: { ...authHeaders } })
       let parsed: any = null
       try { parsed = await r.json() } catch {}
-      tableAttempts.push({ body, httpStatus: r.status, apiStatus: parsed?.status, error: parsed?.error, tableCount: parsed?.data?.tables ? Object.keys(parsed.data.tables).length : null })
-      if (parsed?.status === 1) break
+      getAttempts.push({ qs, status: r.status, apiStatus: parsed?.status, error: parsed?.error, tableCount: parsed?.data?.tables ? Object.keys(parsed.data.tables).length : null })
     }
 
-    // Check /archive with redirect tracking and look at full URL + content
-    const archiveNoFollow = await fetch(`${BASE}/archive`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) }, redirect: 'manual' })
-    log.push(`/archive (no-follow): HTTP ${archiveNoFollow.status}, location=${archiveNoFollow.headers.get('location')}`)
-
-    const archiveFollow = await fetch(`${BASE}/archive`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) } })
-    const archiveHtml = await archiveFollow.text()
-    log.push(`/archive (follow): HTTP ${archiveFollow.status}, url=${archiveFollow.url}, bodyLen=${archiveHtml.length}`)
-
-    // Try archive API endpoints (common BGA pattern: /module/module/action.html)
-    const archiveApiAttempts: any[] = []
-    for (const path of [
-      '/archivecontroller/archivecontroller/archivelist.html',
-      '/archive/archive/archive.html',
-      '/archivecontroller/archivecontroller/displayarchive.html',
-    ]) {
-      const r = await fetch(`${BASE}${path}`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies), Accept: 'application/json, */*', 'X-Requested-With': 'XMLHttpRequest', 'X-Request-Token': postLoginToken } })
-      let parsed: any = null; try { parsed = await r.json() } catch {}
-      archiveApiAttempts.push({ path, status: r.status, parsed: parsed ?? null })
-    }
-
-    return NextResponse.json({ log, tableAttempts, archivePreview: archiveHtml.slice(0, 2000), archiveApiAttempts })
+    return NextResponse.json({
+      log,
+      finishedMentions,
+      statsAttempts,
+      getAttempts,
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, log }, { status: 500 })
   }
