@@ -145,27 +145,47 @@ export async function GET() {
     const gamelistText = gamelistRes ? await gamelistRes.text().catch(() => '') : ''
     const gamelistPreview = gamelistText.slice(0, 500)
 
-    // Test gamepanel fetches for first 3 unique slugs — with cookies vs without
+    // Test gamepanel fetches for all unique slugs — report failures
     const OG_RE = /content="Play ([^"]+?) online from your browser"/i
-    const testSlugs = [...new Set(allTables.map((t: any) => t.game_name as string).filter(Boolean))].slice(0, 3)
-    const gamepanelDiag = await Promise.all(testSlugs.map(async (slug) => {
-      const results: Record<string, any> = { slug }
-      for (const label of ['withCookies', 'noCookies'] as const) {
-        const headers: Record<string, string> = { ...BROWSER_HEADERS }
-        if (label === 'withCookies') headers['Cookie'] = cookieString(allCookies)
-        try {
-          const r = await fetch(`https://en.boardgamearena.com/gamepanel?game=${slug}`, { headers })
-          const html = await r.text()
-          const m = html.match(OG_RE)
-          results[label] = { status: r.status, ok: r.ok, matched: !!m, name: m?.[1] ?? null, htmlPreview: m ? null : html.slice(0, 300) }
-        } catch (e) {
-          results[label] = { error: String(e) }
-        }
+    const allSlugs = [...new Set(allTables.map((t: any) => t.game_name as string).filter(Boolean))]
+    const slugToGameId = Object.fromEntries(allTables.map((t: any) => [t.game_name, t.game_id]))
+    const gamepanelDiag = await Promise.all(allSlugs.map(async (slug) => {
+      const headers: Record<string, string> = { ...BROWSER_HEADERS }
+      try {
+        const r = await fetch(`https://en.boardgamearena.com/gamepanel?game=${slug}`, { headers })
+        const html = await r.text()
+        const m = html.match(OG_RE)
+        // On failure show more HTML (2000 chars) to find where the game name might be
+        return { slug, game_id: slugToGameId[slug], status: r.status, ok: r.ok, matched: !!m, name: m?.[1] ?? null, htmlPreview: m ? null : html.slice(0, 2000) }
+      } catch (e) {
+        return { slug, game_id: slugToGameId[slug], error: String(e) }
       }
-      return results
     }))
 
-    return NextResponse.json({ dataKeys, tableKeys, nameSample, gamelistPreview, gamepanelDiag })
+    // Try a few BGA API patterns for game info by game_id
+    const sampleGameId = allTables[0]?.game_id
+    const gameIdApiResults: Record<string, any> = {}
+    if (sampleGameId) {
+      const slug = allTables[0]?.game_name
+      for (const [label, url] of [
+        ['gamepanel_gameInfos', `${BASE}/gamepanel/gamepanel/gameInfos.html?game=${slug}`],
+        ['gamepanel_gameInfos_id', `${BASE}/gamepanel/gamepanel/gameInfos.html?id=${sampleGameId}`],
+        ['gameinfos_byid', `${BASE}/gameinfos/gameinfos/gameInfos.html?id=${sampleGameId}`],
+        ['gamelist_gameinfos', `${BASE}/gamelist/gamelist/gameInfos.html?game=${slug}`],
+      ] as [string, string][]) {
+        try {
+          const r = await fetch(url, { headers: { ...authHeaders } })
+          const text = await r.text()
+          let parsed: any = null
+          try { parsed = JSON.parse(text) } catch {}
+          gameIdApiResults[label] = { status: r.status, isJson: !!parsed, preview: parsed ? JSON.stringify(parsed).slice(0, 300) : text.slice(0, 300) }
+        } catch (e) {
+          gameIdApiResults[label] = { error: String(e) }
+        }
+      }
+    }
+
+    return NextResponse.json({ dataKeys, tableKeys, nameSample, gamelistPreview, gamepanelDiag, gameIdApiResults })
   } catch (e) {
     return NextResponse.json({ error: String(e), log }, { status: 500 })
   }
