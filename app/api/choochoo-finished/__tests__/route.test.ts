@@ -41,11 +41,13 @@ describe('GET /api/choochoo-finished', () => {
   it('returns finished games as JSON', async () => {
     const xsrfBody = JSON.stringify({ xsrfToken: 'tok123' })
     const loginBody = JSON.stringify({ user: { id: 99 } })
+    // API already filters by userId, so all returned games belong to the user
     const gamesBody = JSON.stringify({
       games: [
-        { id: 777, name: 'Steam', playerIds: [99, 2], activePlayerId: null, updatedAt: '2026-06-01T00:00:00Z' },
-        { id: 888, name: 'Age of Steam', playerIds: [1, 2], activePlayerId: null, updatedAt: '2026-06-05T00:00:00Z' },
+        { id: 777, name: 'Steam', playerIds: [99, 2], updatedAt: '2026-06-01T00:00:00Z' },
+        { id: 888, name: 'Age of Steam', playerIds: [99, 3], updatedAt: '2026-06-05T00:00:00Z' },
       ],
+      nextPageCursor: null,
     })
 
     mockedRequest
@@ -56,7 +58,7 @@ describe('GET /api/choochoo-finished', () => {
     const res = await GET()
     const json = await res.json()
     expect(json.error).toBeNull()
-    expect(json.games).toHaveLength(1)
+    expect(json.games).toHaveLength(2)
     expect(json.games[0]).toMatchObject({
       id: 'choochoo:777',
       platform: 'choochoo',

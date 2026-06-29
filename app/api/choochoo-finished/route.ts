@@ -44,7 +44,7 @@ export async function GET() {
   try { xsrfToken = JSON.parse(xsrfRes.body).xsrfToken ?? '' } catch {}
   const xsrfCookie = xsrfRes.cookies.map(c => c.split(';')[0]).join('; ')
   if (!xsrfToken || !xsrfCookie) {
-    return Response.json({ games: [], error: `choochoo: xsrf failed` })
+    return Response.json({ games: [], error: 'choochoo: xsrf failed' })
   }
 
   const loginBody = JSON.stringify({ usernameOrEmail: username, password })
@@ -59,25 +59,36 @@ export async function GET() {
   try { loginJson = JSON.parse(loginRes.body) } catch {}
   const myUserId: number = loginJson?.user?.id
   if (!myUserId) {
-    return Response.json({ games: [], error: `choochoo: login failed` })
+    return Response.json({ games: [], error: 'choochoo: login failed' })
   }
   const authCookie = loginRes.cookies.map(c => c.split(';')[0]).join('; ') || xsrfCookie
 
-  const gamesRes = await req('GET', '/api/games?status[]=ENDED&pageSize=50', { ...base, Cookie: authCookie })
-  let gamesJson: any = {}
-  try { gamesJson = JSON.parse(gamesRes.body) } catch {}
-  const allGames: any[] = gamesJson.games ?? (Array.isArray(gamesJson) ? gamesJson : [])
-  const myGames = allGames.filter((g: any) => Array.isArray(g.playerIds) && g.playerIds.includes(myUserId))
+  // Fetch ended games filtered server-side by userId — pageSize max is 20
+  const allGames: any[] = []
+  let cursor: string | null = null
+  let pages = 0
+  do {
+    const path = `/api/games?userId=${myUserId}&status[]=ENDED&pageSize=20${cursor ? `&cursor=${cursor}` : ''}`
+    const res = await req('GET', path, { ...base, Cookie: authCookie })
+    let json: any = {}
+    try { json = JSON.parse(res.body) } catch {}
+    const games: any[] = json.games ?? (Array.isArray(json) ? json : [])
+    allGames.push(...games)
+    cursor = json.nextPageCursor ?? null
+    pages++
+  } while (cursor && pages < 5) // cap at 5 pages (100 games)
 
-  const games: FinishedGame[] = myGames.map((g: any): FinishedGame => {
+  // The game list API has no date field; use turnStartTime from detail if ever needed.
+  // For now use the game's updatedAt if present, otherwise fall back gracefully.
+  const games: FinishedGame[] = allGames.map((g: any): FinishedGame => {
     const gameId = g.id ?? 0
-    const completedAt = g.updatedAt ? new Date(g.updatedAt) : new Date()
+    const completedAt = g.updatedAt ? new Date(g.updatedAt) : g.endedAt ? new Date(g.endedAt) : new Date(0)
     return {
       id: `choochoo:${gameId}`,
       platform: 'choochoo',
       gameName: g.name ?? g.gameKey ?? 'Unknown',
       completedAt,
-      completedAgo: formatTimeAgo(completedAt),
+      completedAgo: completedAt.getTime() === 0 ? 'unknown' : formatTimeAgo(completedAt),
       gameUrl: `${BASE_URL}/app/games/${gameId}`,
     }
   })
