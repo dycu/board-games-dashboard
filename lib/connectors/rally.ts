@@ -126,10 +126,9 @@ function parseGamesActive(html: string, username: string): Game[] {
 }
 
 function parseGamesFinished(html: string): FinishedGame[] {
-  const section = extractSection(html, 'Finished')
-  if (!section) return []
+  // /games/finished has no <h2> section headers — game_items appear at the top level
   const games: FinishedGame[] = []
-  const chunks = section.split(/(?=<div[^>]+class="[^"]*\bgame_item\b)/)
+  const chunks = html.split(/(?=<div[^>]+class="[^"]*\bgame_item\b)/)
   for (const chunk of chunks) {
     const gameId = chunk.match(/href="\/join\/(\d+)"/)?.[1]
     if (!gameId) continue
@@ -142,8 +141,9 @@ function parseGamesFinished(html: string): FinishedGame[] {
     const rawUrl = (cmdMatch?.[1] ?? `/join/${gameId}`).replace(/&amp;/g, '&')
     const gameUrl = rawUrl.startsWith('http') ? rawUrl : `${BASE}${rawUrl}`
 
-    const lastMoveMatch = chunk.match(/Last move:\s*([^<]+)</)
-    const completedAt = lastMoveMatch ? parseHumanDate(lastMoveMatch[1].trim()) : new Date()
+    // Finished games page uses "Finished:" not "Last move:"
+    const finishedMatch = chunk.match(/Finished:\s*([^<]+)</)
+    const completedAt = finishedMatch ? parseHumanDate(finishedMatch[1].trim()) : new Date()
 
     games.push({
       id: `rally:${gameId}`,

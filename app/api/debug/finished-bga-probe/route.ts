@@ -23,6 +23,9 @@ function cookieString(c: Record<string, string>) { return Object.entries(c).map(
 function extractRequestToken(html: string): string {
   const m = html.match(/g_requestToken\s*[=:]\s*['"]([a-f0-9]{32,64})['"]/i)
            ?? html.match(/['"]request_token['"]\s*[=:]\s*['"]([a-f0-9]{32,64})['"]/i)
+           ?? html.match(/name=['"]request_token['"][^>]*value=['"]([a-f0-9]{32,64})['"]/i)
+           ?? html.match(/\brequestToken['"\s:=,]+([a-f0-9]{64})\b/i)
+           ?? html.match(/\brequest_token['"\s:=,]+([a-f0-9]{64})\b/i)
   return m ? m[m.length - 1] : ''
 }
 
@@ -33,7 +36,6 @@ export async function GET() {
 
   const log: string[] = []
   try {
-    // Login (same as bga connector)
     const initRes = await fetch(`${BASE}/account`, { redirect: 'manual', headers: { ...BROWSER_HEADERS, Accept: 'text/html,*/*' } })
     let cookies = parseCookies(initRes.headers)
     let loginBase = BASE
@@ -48,8 +50,12 @@ export async function GET() {
     }
     const loginPageRes = await fetch(`${loginBase}/?page=login`, { headers: { ...BROWSER_HEADERS, Accept: 'text/html,*/*', Cookie: cookieString(cookies) } })
     cookies = { ...cookies, ...parseCookies(loginPageRes.headers) }
-    const requestToken = extractRequestToken(await loginPageRes.text())
-    if (!requestToken) return NextResponse.json({ error: 'no request_token', log }, { status: 500 })
+    const loginPageHtml = await loginPageRes.text()
+    const requestToken = extractRequestToken(loginPageHtml)
+    if (!requestToken) {
+      const hexFound = [...loginPageHtml.matchAll(/[a-f0-9]{48,64}/gi)].map(m => m[0]).slice(0, 5)
+      return NextResponse.json({ error: 'no request_token', hexFound, log }, { status: 500 })
+    }
 
     const loginRes = await fetch(`${loginBase}/account/auth/loginUserWithPassword.html`, {
       method: 'POST',
@@ -61,9 +67,10 @@ export async function GET() {
     if (loginData.status !== 1) return NextResponse.json({ error: 'login failed', details: loginData, log }, { status: 500 })
 
     const allCookies = { ...cookies, ...parseCookies(loginRes.headers) }
+    const myId = String(loginData.data?.user_id ?? loginData.data?.id ?? '')
     const postLoginToken = allCookies['TournoiEnLigneidt'] ?? allCookies['TournoiEnLigneid'] ?? ''
     if (!postLoginToken) return NextResponse.json({ error: 'no post-login token', log }, { status: 500 })
-    log.push('login ok')
+    log.push(`login ok, myId=${myId}`)
 
     const authHeaders = {
       ...BROWSER_HEADERS,
@@ -75,37 +82,32 @@ export async function GET() {
       Cookie: cookieString(allCookies),
     }
 
-    // Try various status values and also try fetching game history page
+    // Try various status values
     const attempts: any[] = []
-
-    for (const body of ['status=done', 'status=finished', 'status=end', 'status=done&turninfo=true', 'status=finished&turninfo=true']) {
-      const r = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, { method: 'POST', headers: authHeaders, body })
-      let parsed: any
-      try { parsed = await r.json() } catch { parsed = null }
+    for (const body of [
+      'status=done',
+      'status=finished',
+      'status=end',
+      'status=over',
+      'status=archive',
+      `status=done&player=${myId}`,
+    ]) {
+      const r = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, {
+        method: 'POST', headers: { ...authHeaders, Referer: `${BASE}/gameinprogress` }, body,
+      })
+      let parsed: any = null
+      try { parsed = await r.json() } catch {}
       attempts.push({ body, httpStatus: r.status, apiStatus: parsed?.status, error: parsed?.error, tableCount: parsed?.data?.tables ? Object.keys(parsed.data.tables).length : null })
     }
 
-    // Also try fetching the actual game history page
-    const historyRes = await fetch(`${BASE}/gamereview`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) } })
-    log.push(`/gamereview: HTTP ${historyRes.status}`)
-
-    const archiveRes = await fetch(`${BASE}/archive`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) } })
-    log.push(`/archive: HTTP ${archiveRes.status}`)
-
-    // Try the tablemanager with status=done but also include the player parameter
-    const myId = String(loginData.data?.user_id ?? loginData.data?.id ?? '')
-    if (myId) {
-      const withPlayer = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, {
-        method: 'POST',
-        headers: authHeaders,
-        body: `status=done&player=${myId}`,
-      })
-      let p: any
-      try { p = await withPlayer.json() } catch { p = null }
-      attempts.push({ body: `status=done&player=${myId}`, httpStatus: withPlayer.status, apiStatus: p?.status, error: p?.error, tableCount: p?.data?.tables ? Object.keys(p.data.tables).length : null })
+    // Also check what pages BGA has for game history
+    const historyPages: any[] = []
+    for (const path of ['/gamereview', '/archive', '/gamehistory', '/tablemanager']) {
+      const r = await fetch(`${BASE}${path}`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) }, redirect: 'manual' })
+      historyPages.push({ path, status: r.status, location: r.headers.get('location') })
     }
 
-    return NextResponse.json({ log, attempts })
+    return NextResponse.json({ log, attempts, historyPages })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, log }, { status: 500 })
   }
