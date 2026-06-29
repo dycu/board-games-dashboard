@@ -171,21 +171,19 @@ export async function fetchBGA(username: string, password: string): Promise<Game
   const rawTables: Record<string, any> = tablesData?.data?.tables ?? {}
   const tables = Object.values(rawTables)
 
-  // TEMPORARY DEBUG — remove once we've identified useful timing fields
-  if (tables.length > 0) {
-    const sample = tables[0] as any
-    console.log('[BGA debug] table keys:', Object.keys(sample).sort().join(', '))
-    const samplePlayer = Object.values(sample.players ?? {})[0] as any
-    if (samplePlayer) console.log('[BGA debug] player keys:', Object.keys(samplePlayer).sort().join(', '))
-    console.log('[BGA debug] sample table (timing fields):', JSON.stringify({
-      think_limit: sample.think_limit,
-      gamestart: sample.gamestart,
-      options: sample.options,
-    }))
-    if (samplePlayer) console.log('[BGA debug] sample player (timing fields):', JSON.stringify({
-      think_seconds: samplePlayer.think_seconds,
-      played: samplePlayer.played,
-    }))
+  // TEMPORARY DEBUG — log options + think_seconds for tables that have timing data
+  for (const t of tables as any[]) {
+    const activePl = Object.values(t.players ?? {}).find((p: any) => p.myturn === '1' || p.myturn === 1) as any
+    if (t.think_limit != null && activePl?.think_seconds != null) {
+      console.log('[BGA debug] timed table:', JSON.stringify({
+        id: t.id,
+        think_limit: t.think_limit,
+        think_seconds: activePl.think_seconds,
+        opt103: t.options?.['103'],
+        opt200: t.options?.['200'],
+        opt201: t.options?.['201'],
+      }))
+    }
   }
 
   // Step 5: resolve display names from gamepanel pages (game_name field is a URL slug)
