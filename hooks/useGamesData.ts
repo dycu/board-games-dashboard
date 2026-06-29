@@ -99,9 +99,12 @@ export function useGamesData(): UseGamesDataResult {
 
     try {
       const res = await fetch('/api/games', { signal: controller.signal })
+      if (!res.ok) throw new Error(`Server error ${res.status}`)
+
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let receivedDone = false
 
       while (true) {
         const { done, value } = await reader.read()
@@ -139,6 +142,7 @@ export function useGamesData(): UseGamesDataResult {
               }))
             }
           } else if (event.type === 'done') {
+            receivedDone = true
             const freshData: GamesApiResponse = {
               games: allGames,
               errors: allErrors,
@@ -155,6 +159,8 @@ export function useGamesData(): UseGamesDataResult {
           }
         }
       }
+
+      if (!receivedDone) throw new Error('Stream ended without completing')
     } catch (e) {
       if (e instanceof Error && e.name === 'AbortError') return
       setLastError(e instanceof Error ? e.message : 'Fetch failed')
@@ -173,7 +179,10 @@ export function useGamesData(): UseGamesDataResult {
       hasDisplayedRef.current = true
     }
     runFetch()
-    return () => { abortRef.current?.abort() }
+    return () => {
+      abortRef.current?.abort()
+      fetchingRef.current = false
+    }
   }, [runFetch])
 
   const triggerRefresh = useCallback(() => { runFetch() }, [runFetch])

@@ -31,6 +31,10 @@ describe('GameGrid quick-links bar', () => {
         onPrefsChange={() => {}}
         dismissed={new Set()}
         onDismiss={() => {}}
+        onRefresh={() => {}}
+        isRefreshing={false}
+        lastError={null}
+        cachedAt={null}
       />
     )
     const bgaLink = screen.getByRole('link', { name: 'BGA' })
@@ -52,6 +56,10 @@ describe('GameGrid quick-links bar', () => {
         onPrefsChange={() => {}}
         dismissed={new Set()}
         onDismiss={() => {}}
+        onRefresh={() => {}}
+        isRefreshing={false}
+        lastError={null}
+        cachedAt={null}
       />
     )
     expect(screen.getByRole('link', { name: 'Rally the Troops' })).toHaveAttribute(
@@ -73,6 +81,10 @@ describe('GameGrid quick-links bar', () => {
         onPrefsChange={() => {}}
         dismissed={new Set()}
         onDismiss={() => {}}
+        onRefresh={() => {}}
+        isRefreshing={false}
+        lastError={null}
+        cachedAt={null}
       />
     )
     expect(screen.getAllByRole('link', { name: 'BGA' })).toHaveLength(1)
