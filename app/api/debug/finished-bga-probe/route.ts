@@ -68,93 +68,73 @@ export async function GET() {
     const browserHeaders = { ...BROWSER_HEADERS, Cookie: cookieString(allCookies), Accept: 'text/html,application/xhtml+xml,*/*' }
     const ajaxHeaders = { ...BROWSER_HEADERS, Cookie: cookieString(allCookies), Accept: 'application/json, text/javascript, */*', 'X-Requested-With': 'XMLHttpRequest', 'X-Request-Token': postLoginToken, Origin: BASE }
 
-    // Step 1: fetch the lastresults player page and look inside for game data
-    const playerPageRes = await fetch(`${BASE}/player?id=${myId}&section=lastresults`, { headers: browserHeaders })
-    const playerHtml = await playerPageRes.text()
-    log.push(`player?section=lastresults HTTP ${playerPageRes.status}, bodyLen=${playerHtml.length}`)
+    // Step 1: fetch /gamestats?player=myId (linked from lastresults section as "games history")
+    const gamestatsRes = await fetch(`${BASE}/gamestats?player=${myId}`, { headers: browserHeaders })
+    const gamestatsHtml = await gamestatsRes.text()
+    log.push(`/gamestats HTTP ${gamestatsRes.status}, bodyLen=${gamestatsHtml.length}`)
 
-    // Search the HTML for patterns that look like game results
-    const lastResultsSection = (() => {
-      const idx = playerHtml.indexOf('lastresults')
-      return idx >= 0 ? playerHtml.slice(Math.max(0, idx - 100), idx + 2000) : null
-    })()
-    const tableIdSection = (() => {
-      const idx = playerHtml.indexOf('table_id')
-      return idx >= 0 ? playerHtml.slice(Math.max(0, idx - 50), idx + 500) : null
-    })()
-    // Look for game name patterns in various formats
-    const gameNamePatterns = (playerHtml.match(/(?:gamename|game_name|gameName|"game"\s*:)[^"]{0,5}"([^"]{2,60})"/gi) ?? []).slice(0, 10)
-    // Look for any section with "results"
-    const resultsDivs = (playerHtml.match(/<div[^>]*(?:result|lastresult|history)[^>]*>[\s\S]{0,500}/gi) ?? []).slice(0, 3)
-    // Look for any BGA module/controller path hints in embedded JS
-    const controllerHints = [...new Set((playerHtml.match(/["']\/(player|archive|gamestat|result)[^"']+\.html[^"']*/gi) ?? []).slice(0, 20))]
-    // Look for Ajax.call patterns to find what BGA calls on this page
-    const ajaxCallPatterns = (playerHtml.match(/ajax(?:Call)?\s*\(\s*['"]([^'"]+)['"]/gi) ?? []).slice(0, 20)
-    const ajaxCallPatterns2 = (playerHtml.match(/callModule\s*\(\s*['"]([^'"]+)['"][^)]{0,100}/gi) ?? []).slice(0, 20)
+    // Look for embedded JSON data, API call patterns, table data
+    const gamestatsEmbeddedJson = (gamestatsHtml.match(/\bg_[a-zA-Z_]+\s*=\s*(\{[^;]{0,1000})/g) ?? []).slice(0, 10)
+    const gamestatsAjaxCalls = (gamestatsHtml.match(/(?:callModule|ajax)\s*\(\s*['"]([^'"]+)['"]/gi) ?? []).slice(0, 20)
+    const gamestatsControllers = [...new Set((gamestatsHtml.match(/["'\/](gamestats|gamestat|gameresult|gamehistory)[^"']{0,100}/gi) ?? []).slice(0, 20))]
+    // Find game entries — BGA often uses data-game-id, data-table-id type attrs
+    const dataAttrs = (gamestatsHtml.match(/data-(?:game|table|result)[^=]{0,20}=["']([^"']{1,60})["']/gi) ?? []).slice(0, 20)
+    // Look for JSON structures that might be game results
+    const gameResultStructures = (gamestatsHtml.match(/\{[^{}]{0,500}(?:game_name|table_id|gameresult)[^{}]{0,500}\}/g) ?? []).slice(0, 5)
+    // Look for script tags with game data
+    const inlineScripts = (gamestatsHtml.match(/<script[^>]*>([\s\S]{0,500}gamestat[\s\S]{0,500})<\/script>/gi) ?? []).slice(0, 3)
+    // Grab first 3000 chars of body content (after <body> tag)
+    const bodyStart = gamestatsHtml.indexOf('<body')
+    const bodyPreview = bodyStart >= 0 ? gamestatsHtml.slice(bodyStart, bodyStart + 3000) : gamestatsHtml.slice(0, 3000)
 
-    log.push(`lastResultsSection found: ${lastResultsSection !== null}`)
-
-    // Step 2: fetch the ajax=1 version of the same page (BGA typically returns section HTML)
-    const ajaxPageRes = await fetch(`${BASE}/player?id=${myId}&section=lastresults&ajax=1`, {
-      headers: { ...browserHeaders, 'X-Requested-With': 'XMLHttpRequest' },
-    })
-    const ajaxPageText = await ajaxPageRes.text()
-    log.push(`player?section=lastresults&ajax=1 HTTP ${ajaxPageRes.status}, bodyLen=${ajaxPageText.length}`)
-
-    // Try to parse it and look for game data
-    let ajaxPageParsed: any = null
-    try { ajaxPageParsed = JSON.parse(ajaxPageText) } catch {}
-    const ajaxPagePreview = ajaxPageText.slice(0, 2000)
-    // Look for table IDs or game names in the ajax response
-    const ajaxGameRows = (ajaxPageText.match(/(?:table_id|game_name|gamename)[^"]{0,5}"([^"]{1,60})"/gi) ?? []).slice(0, 10)
-    const ajaxTableIds = (ajaxPageText.match(/\btable_?id[=:]["']?(\d+)/gi) ?? []).slice(0, 10)
-
-    // Step 3: try more specific AJAX endpoints discovered from inspecting BGA's JS
-    const specificAttempts: any[] = []
+    // Step 2: try gamestats AJAX endpoints
+    const gamestatsAttempts: any[] = []
     const endpoints = [
-      // player controller with different action names
-      { label: 'player/getLastResults', method: 'GET', url: `${BASE}/player/player/getResults.html?id=${myId}` },
-      { label: 'player/gethistory', method: 'GET', url: `${BASE}/player/player/gethistory.html?id=${myId}` },
-      { label: 'player/section ajax', method: 'GET', url: `${BASE}/player/player/section.html?id=${myId}&section=lastresults` },
-      { label: 'player index section', method: 'GET', url: `${BASE}/player/player/index.html?id=${myId}&section=lastresults&ajax=1` },
-      // gameresult controller
-      { label: 'gameresult/getlast', method: 'GET', url: `${BASE}/gameresult/gameresult/getLastResults.html?player=${myId}` },
-      { label: 'gameresult/index', method: 'GET', url: `${BASE}/gameresult/gameresult/index.html?player=${myId}&ajax=1` },
-      // table controller with proper id param
-      { label: 'tablemanager finished (no player)', method: 'POST', url: `${BASE}/tablemanager/tablemanager/tableinfos.html`, body: `status=finished&start=0&nbmax=10` },
+      { label: 'gamestats/getPlayerStats GET', method: 'GET', url: `${BASE}/gamestats/gamestats/getPlayerStats.html?player=${myId}` },
+      { label: 'gamestats/index GET ajax', method: 'GET', url: `${BASE}/gamestats/gamestats/index.html?player=${myId}&ajax=1` },
+      { label: 'gamestats/getGames GET', method: 'GET', url: `${BASE}/gamestats/gamestats/getGames.html?player=${myId}` },
+      { label: 'gamestats/getLastGames GET', method: 'GET', url: `${BASE}/gamestats/gamestats/getLastGames.html?player=${myId}` },
+      { label: 'gamestats/getHistory GET', method: 'GET', url: `${BASE}/gamestats/gamestats/getHistory.html?player=${myId}` },
+      { label: 'gamestats/gameresults GET', method: 'GET', url: `${BASE}/gamestats/gamestats/gameresults.html?player=${myId}` },
+      { label: 'gamestats page ajax=1', method: 'GET', url: `${BASE}/gamestats?player=${myId}&ajax=1` },
+      { label: 'gamestats/getTableList POST', method: 'POST', url: `${BASE}/gamestats/gamestats/getTableList.html`, body: `player=${myId}&start=0&length=20` },
+      { label: 'gamestats/getTableList POST2', method: 'POST', url: `${BASE}/gamestats/gamestats/getTableList.html`, body: `player_id=${myId}&start=0&length=20` },
     ]
     for (const { label, method, url, body } of endpoints) {
       const t0 = Date.now()
       const headers = body
-        ? { ...ajaxHeaders, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', Referer: `${BASE}/player?id=${myId}&section=lastresults` }
-        : { ...ajaxHeaders, Referer: `${BASE}/player?id=${myId}&section=lastresults` }
+        ? { ...ajaxHeaders, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', Referer: `${BASE}/gamestats?player=${myId}` }
+        : { ...ajaxHeaders, Referer: `${BASE}/gamestats?player=${myId}` }
       const r = await fetch(url, { method, headers, ...(body ? { body } : {}) })
       const text = await r.text()
-      specificAttempts.push({ label, httpStatus: r.status, elapsedMs: Date.now() - t0, rawPreview: text.slice(0, 400) })
+      let parsed: any = null
+      try { parsed = JSON.parse(text) } catch {}
+      gamestatsAttempts.push({
+        label,
+        httpStatus: r.status,
+        elapsedMs: Date.now() - t0,
+        apiStatus: parsed?.status,
+        error: parsed?.error,
+        dataKeys: parsed?.data ? Object.keys(parsed.data) : undefined,
+        rawPreview: text.slice(0, 400),
+      })
     }
 
     return NextResponse.json({
       log,
       myId,
-      playerPageAnalysis: {
-        bodyLen: playerHtml.length,
-        lastResultsSection,
-        tableIdSection,
-        gameNamePatterns,
-        resultsDivs,
-        controllerHints,
-        ajaxCallPatterns,
-        ajaxCallPatterns2,
+      gamestats: {
+        httpStatus: gamestatsRes.status,
+        bodyLen: gamestatsHtml.length,
+        bodyPreview,
+        embeddedJson: gamestatsEmbeddedJson,
+        ajaxCalls: gamestatsAjaxCalls,
+        controllers: gamestatsControllers,
+        dataAttrs,
+        gameResultStructures,
+        inlineScripts,
       },
-      ajaxPage: {
-        httpStatus: ajaxPageRes.status,
-        bodyLen: ajaxPageText.length,
-        parsed: ajaxPageParsed,
-        preview: ajaxPagePreview,
-        ajaxGameRows,
-        ajaxTableIds,
-      },
-      specificAttempts,
+      gamestatsAttempts,
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, log }, { status: 500 })
