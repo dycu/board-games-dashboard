@@ -12,7 +12,7 @@ export default function FetchProgress({ platformStatuses, compact = false }: Pro
 
   if (compact) {
     return (
-      <div className="flex items-center gap-3 px-6 py-2 bg-slate-900 border-b border-slate-800 text-xs text-slate-500">
+      <div className="flex items-center gap-3 px-6 py-2 bg-white border-b border-[#e5e5e5] text-xs text-[#9b9b9b]">
         <span className="animate-pulse">⟳ Refreshing…</span>
         {platforms.map(p => {
           const status = platformStatuses[p]
@@ -20,9 +20,9 @@ export default function FetchProgress({ platformStatuses, compact = false }: Pro
           return (
             <span key={p} className="flex items-center gap-1">
               <span className={
-                state === 'done' ? 'text-green-400' :
-                state === 'error' ? 'text-red-400' :
-                'text-slate-500'
+                state === 'done' ? 'text-green-500' :
+                state === 'error' ? 'text-red-500' :
+                'text-[#9b9b9b]'
               }>
                 {state === 'done' ? '✓' : state === 'error' ? '✗' : '⟳'}
               </span>
@@ -37,9 +37,9 @@ export default function FetchProgress({ platformStatuses, compact = false }: Pro
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center">
+    <div className="flex-1 flex items-center justify-center bg-[#f7f7f7]">
       <div className="flex flex-col items-center gap-6">
-        <div className="text-slate-300 text-sm">Fetching your games…</div>
+        <div className="text-[#6b6b6b] text-sm">Fetching your games…</div>
         {platforms.length > 0 && (
           <div className="flex flex-col gap-2 text-sm">
             {platforms.map(p => {
@@ -48,16 +48,16 @@ export default function FetchProgress({ platformStatuses, compact = false }: Pro
               return (
                 <div key={p} className={`flex items-center gap-2 ${state === 'loading' ? 'animate-pulse' : ''}`}>
                   <span className={
-                    state === 'done' ? 'text-green-400 w-4 text-center' :
-                    state === 'error' ? 'text-red-400 w-4 text-center' :
-                    'text-slate-500 w-4 text-center'
+                    state === 'done' ? 'text-green-500 w-4 text-center' :
+                    state === 'error' ? 'text-red-500 w-4 text-center' :
+                    'text-[#9b9b9b] w-4 text-center'
                   }>
                     {state === 'done' ? '✓' : state === 'error' ? '✗' : '⟳'}
                   </span>
-                  <span className={state === 'loading' ? 'text-slate-500' : 'text-slate-300'}>
+                  <span className={state === 'loading' ? 'text-[#9b9b9b]' : 'text-[#1a1a1a]'}>
                     {PLATFORM_LABELS[p]}
                   </span>
-                  <span className="text-slate-600 text-xs">
+                  <span className="text-[#9b9b9b] text-xs">
                     {state === 'done' && `— ${(status as { state: 'done'; count: number }).count} games`}
                     {state === 'error' && '— failed'}
                     {state === 'loading' && '— loading…'}

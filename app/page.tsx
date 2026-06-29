@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { UserPrefs, DEFAULT_PREFS } from '@/lib/types'
 import { useGamesData } from '@/hooks/useGamesData'
 import GameGrid from '@/components/GameGrid'
-import PlaySidebar from '@/components/PlaySidebar'
 import FetchProgress from '@/components/FetchProgress'
 import PendingUpdateBanner from '@/components/PendingUpdateBanner'
 
@@ -54,46 +53,40 @@ export default function DashboardPage() {
   const showCompactProgress = !!displayedData && isRefreshing
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {showCompactProgress && (
-          <FetchProgress platformStatuses={platformStatuses} compact />
-        )}
-        {pendingData && (
-          <PendingUpdateBanner pendingData={pendingData} onApply={applyPendingData} />
-        )}
-        {showFullProgress ? (
-          <FetchProgress platformStatuses={platformStatuses} />
-        ) : displayedData ? (
-          <GameGrid
-            data={displayedData}
-            prefs={prefs}
-            onPrefsChange={setPrefs}
-            dismissed={dismissed}
-            onDismiss={handleDismiss}
-            onRefresh={triggerRefresh}
-            isRefreshing={isRefreshing}
-            lastError={lastError}
-            cachedAt={cachedAt}
-          />
-        ) : lastError ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-red-400 mb-3">Failed to load games</p>
-              <button
-                onClick={triggerRefresh}
-                className="text-xs bg-slate-800 text-slate-400 hover:bg-slate-700 px-3 py-1.5 rounded-md"
-              >
-                ↻ Try again
-              </button>
-            </div>
+    <div className="flex flex-col h-screen overflow-hidden">
+      {showCompactProgress && (
+        <FetchProgress platformStatuses={platformStatuses} compact />
+      )}
+      {pendingData && (
+        <PendingUpdateBanner pendingData={pendingData} onApply={applyPendingData} />
+      )}
+      {showFullProgress ? (
+        <FetchProgress platformStatuses={platformStatuses} />
+      ) : displayedData ? (
+        <GameGrid
+          data={displayedData}
+          prefs={prefs}
+          onPrefsChange={setPrefs}
+          dismissed={dismissed}
+          onDismiss={handleDismiss}
+          onRefresh={triggerRefresh}
+          isRefreshing={isRefreshing}
+          lastError={lastError}
+          cachedAt={cachedAt}
+        />
+      ) : lastError ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-500 mb-3">Failed to load games</p>
+            <button
+              onClick={triggerRefresh}
+              className="text-xs bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1.5 rounded-md"
+            >
+              ↻ Try again
+            </button>
           </div>
-        ) : null}
-      </div>
-      <PlaySidebar
-        games={(displayedData?.games ?? []).filter(g => !dismissed.has(g.id))}
-        pins={prefs.pins}
-      />
+        </div>
+      ) : null}
     </div>
   )
 }

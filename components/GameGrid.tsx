@@ -4,6 +4,7 @@ import { sortAndFilter } from '@/lib/sort-filter'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import GameCard from './GameCard'
 import FilterToolbar from './FilterToolbar'
+import TopNav from './TopNav'
 
 interface Props {
   data: GamesApiResponse
@@ -49,89 +50,85 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
     await fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ pins }), headers: { 'Content-Type': 'application/json' } })
   }
 
+  const navRight = (
+    <>
+      <span>
+        {games.length} active &nbsp;·&nbsp;
+        <span className="text-[#5e6ad2] font-medium">{myTurnCount} your turn</span>
+      </span>
+      <button
+        onClick={onRefresh}
+        disabled={isRefreshing}
+        className="bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] disabled:opacity-50 disabled:cursor-not-allowed px-2.5 py-1 rounded-md flex items-center gap-1">
+        <span className={isRefreshing ? 'animate-spin inline-block' : ''}>↻</span>
+        Refresh
+      </button>
+    </>
+  )
+
   return (
-    <div className="flex-1 overflow-y-auto p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-lg font-semibold">Board Games Dashboard</h1>
-          <p className="text-sm text-slate-500">
-            {games.length}{' '}active &nbsp;·&nbsp;
-            <span className="text-blue-400 font-medium">{myTurnCount} your turn</span>
-            &nbsp;·&nbsp; updated {new Date(fetchedAt).toLocaleTimeString()}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <a href="/overview" className="text-xs bg-slate-800 text-slate-400 hover:bg-slate-700 px-3 py-1.5 rounded-md">
-            ⊞ Overview
-          </a>
-          <a href="/setup" className="text-xs bg-slate-800 text-slate-400 hover:bg-slate-700 px-3 py-1.5 rounded-md">
-            ⚙ Settings
-          </a>
-          <button
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className="text-xs bg-slate-800 text-slate-400 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-md flex items-center gap-1.5"
-          >
-            <span className={isRefreshing ? 'animate-spin inline-block' : ''}>↻</span>
-            Refresh
-          </button>
-        </div>
+    <div className="flex flex-col flex-1 overflow-hidden">
+      <TopNav right={navRight} />
+      <div className="flex-1 overflow-y-auto p-5">
+        {lastError && cachedAt && (
+          <div className="mb-3 text-xs text-amber-600">
+            Last refresh failed — showing cache from {timeAgo(cachedAt)}
+          </div>
+        )}
+
+        {errors.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-2">
+            {errors.map(e => (
+              <span key={e.platform} className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-md">
+                ⚠ {e.platform} unavailable
+              </span>
+            ))}
+          </div>
+        )}
+
+        {configuredPlatforms.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {configuredPlatforms.map(p => (
+              <a
+                key={p}
+                href={PLATFORM_URLS[p]}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[p] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
+                {PLATFORM_LABELS[p]} ({countByPlatform[p] ?? 0})
+              </a>
+            ))}
+          </div>
+        )}
+
+        <FilterToolbar prefs={prefs} onChange={onPrefsChange} />
+
+        {myTurnGames.length > 0 && (
+          <>
+            <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b] mb-3">
+              Your turn · {myTurnGames.length}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5 mb-7">
+              {myTurnGames.map(g => (
+                <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} onDismiss={() => onDismiss(g.id)} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {waitingGames.length > 0 && (
+          <>
+            <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b] mb-3">
+              Waiting for others · {waitingGames.length}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
+              {waitingGames.map(g => (
+                <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} onDismiss={() => onDismiss(g.id)} />
+              ))}
+            </div>
+          </>
+        )}
       </div>
-      {lastError && cachedAt && (
-        <div className="mb-2 text-xs text-amber-500">
-          Last refresh failed — showing cache from {timeAgo(cachedAt)}
-        </div>
-      )}
-
-      {errors.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-2">
-          {errors.map(e => (
-            <span key={e.platform} className="text-xs bg-red-950 text-red-400 px-2 py-1 rounded-md">
-              ⚠ {e.platform} unavailable
-            </span>
-          ))}
-        </div>
-      )}
-
-      {configuredPlatforms.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {configuredPlatforms.map(p => (
-            <a
-              key={p}
-              href={PLATFORM_URLS[p]}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[p] ?? 'bg-slate-800 text-slate-400'}`}>
-              {PLATFORM_LABELS[p]} ({countByPlatform[p] ?? 0})
-            </a>
-          ))}
-        </div>
-      )}
-
-      <FilterToolbar prefs={prefs} onChange={onPrefsChange} />
-
-      {myTurnGames.length > 0 && (
-        <>
-          <p className="text-xs uppercase tracking-widest text-slate-500 mb-3">Your turn first ({myTurnGames.length})</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 mb-8">
-            {myTurnGames.map(g => (
-              <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} onDismiss={() => onDismiss(g.id)} />
-            ))}
-          </div>
-        </>
-      )}
-
-      {waitingGames.length > 0 && (
-        <>
-          <p className="text-xs uppercase tracking-widest text-slate-500 mb-3">Waiting for others ({waitingGames.length})</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
-            {waitingGames.map(g => (
-              <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} onDismiss={() => onDismiss(g.id)} />
-            ))}
-          </div>
-        </>
-      )}
     </div>
   )
 }
