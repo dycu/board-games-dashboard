@@ -64,6 +64,21 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
         </div>
       )}
 
+      {configuredPlatforms.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {configuredPlatforms.map(p => (
+            <a
+              key={p}
+              href={PLATFORM_URLS[p]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[p] ?? 'bg-slate-800 text-slate-400'}`}>
+              {PLATFORM_LABELS[p]}
+            </a>
+          ))}
+        </div>
+      )}
+
       <FilterToolbar prefs={prefs} onChange={onPrefsChange} />
 
       {myTurnGames.length > 0 && (
