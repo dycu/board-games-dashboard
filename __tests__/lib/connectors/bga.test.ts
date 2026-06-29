@@ -153,7 +153,7 @@ describe('fetchBGA', () => {
     expect(games[0].gameName).toBe('Through the Ages: A new Story of Civilization')
   })
 
-  it('falls back to slug when gamepanel fetch fails', async () => {
+  it('falls back to slug when all gamepanel fetch attempts fail', async () => {
     const singleTable = {
       status: 1,
       data: {
@@ -177,7 +177,71 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
       .mockResolvedValueOnce(makeTablesResponse(singleTable))
-      .mockRejectedValueOnce(new Error('network error'))
+      .mockRejectedValueOnce(new Error('network error'))   // attempt 0
+      .mockRejectedValueOnce(new Error('network error'))   // attempt 1 (retry)
+
+    const games = await fetchBGA('user@example.com', 'password')
+    expect(games[0].gameName).toBe('someslug')
+  })
+
+  it('resolves display name on retry when first gamepanel fetch fails', async () => {
+    const singleTable = {
+      status: 1,
+      data: {
+        tables: {
+          '11111': {
+            id: '11111',
+            game_name: 'someslug',
+            status: 'asyncplay',
+            gamestart: 1750000000,
+            scheduled: 1749990000,
+            players: {
+              '42': { id: '42', fullname: 'testuser', myturn: '1', think_seconds: '3600' },
+            },
+          },
+        },
+      },
+    }
+    mockFetch
+      .mockResolvedValueOnce(makeInitResponse())
+      .mockResolvedValueOnce(makeRedirectFollowResponse())
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginResponse('42'))
+      .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockRejectedValueOnce(new Error('network error'))   // attempt 0 fails
+      .mockResolvedValueOnce(makeGamepanelResponse('Some Game')) // attempt 1 succeeds
+
+    const games = await fetchBGA('user@example.com', 'password')
+    expect(games[0].gameName).toBe('Some Game')
+  })
+
+  it('falls back to slug when gamepanel returns non-ok status', async () => {
+    const singleTable = {
+      status: 1,
+      data: {
+        tables: {
+          '11111': {
+            id: '11111',
+            game_name: 'someslug',
+            status: 'asyncplay',
+            gamestart: 1750000000,
+            scheduled: 1749990000,
+            players: {
+              '42': { id: '42', fullname: 'testuser', myturn: '1', think_seconds: '3600' },
+            },
+          },
+        },
+      },
+    }
+    const errorResponse = { ok: false, status: 429, text: async () => 'Too Many Requests', headers: makeMockHeaders([]) }
+    mockFetch
+      .mockResolvedValueOnce(makeInitResponse())
+      .mockResolvedValueOnce(makeRedirectFollowResponse())
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginResponse('42'))
+      .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockResolvedValueOnce(errorResponse)   // attempt 0: 429
+      .mockResolvedValueOnce(errorResponse)   // attempt 1: 429
 
     const games = await fetchBGA('user@example.com', 'password')
     expect(games[0].gameName).toBe('someslug')

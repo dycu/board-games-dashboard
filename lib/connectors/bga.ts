@@ -53,23 +53,25 @@ function decodeHtmlEntities(s: string): string {
     .replace(/&([a-zA-Z]+);/g, (m, e) => HTML_ENTITIES[e] ?? m)
 }
 
-// BGA's gamepanel og:title is "Play {Game Name} online from your browser"
-// The title can span multiple lines in the HTML, so we use [\s\S] instead of .
 async function fetchGameNames(slugs: string[], cookies: Record<string, string>): Promise<Map<string, string>> {
   const pairs = await Promise.all(
     slugs.map(async (slug): Promise<[string, string]> => {
-      try {
-        const res = await fetch(`https://en.boardgamearena.com/gamepanel?game=${slug}`, {
-          headers: { ...BROWSER_HEADERS, Cookie: cookieString(cookies) },
-        })
-        const html = await res.text()
-        // BGA always uses double-quote delimiters on og:title, so [^"] stays inside
-        // the attribute and handles apostrophes (e.g. "Andromeda's Edge") correctly
-        const m = html.match(/content="Play ([^"]+?) online from your browser"/i)
-        return [slug, m ? decodeHtmlEntities(m[1].replace(/\s+/g, ' ').trim()) : slug]
-      } catch {
-        return [slug, slug]
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await fetch(`https://en.boardgamearena.com/gamepanel?game=${slug}`, {
+            headers: { ...BROWSER_HEADERS, Cookie: cookieString(cookies) },
+          })
+          // BGA always uses double-quote delimiters on og:title, so [^"] stays inside
+          // the attribute and handles apostrophes (e.g. "Andromeda's Edge") correctly
+          if (!res.ok) continue
+          const html = await res.text()
+          const m = html.match(/content="Play ([^"]+?) online from your browser"/i)
+          if (m) return [slug, decodeHtmlEntities(m[1].replace(/\s+/g, ' ').trim())]
+        } catch {
+          // network error; retry
+        }
       }
+      return [slug, slug]
     })
   )
   return new Map(pairs)

@@ -35,10 +35,10 @@ function renderGrid(games: Game[] = [], errors: GamesApiResponse['errors'] = [])
 }
 
 describe('GameGrid header navigation', () => {
-  it('renders Overview navigation link', () => {
+  it('renders History navigation link', () => {
     renderGrid([makeGame('bga', '1')])
-    const overviewLink = screen.getByRole('link', { name: /overview/i })
-    expect(overviewLink).toHaveAttribute('href', '/overview')
+    const historyLink = screen.getByRole('link', { name: /history/i })
+    expect(historyLink).toHaveAttribute('href', '/overview')
   })
 })
 
@@ -62,9 +62,9 @@ describe('GameGrid quick-links bar', () => {
         cachedAt={null}
       />
     )
-    const bgaLink = screen.getByRole('link', { name: 'BGA' })
+    const bgaLink = screen.getByRole('link', { name: /^BGA/ })
     expect(bgaLink).toHaveAttribute('href', PLATFORM_URLS.bga)
-    const yucataLink = screen.getByRole('link', { name: 'Yucata' })
+    const yucataLink = screen.getByRole('link', { name: /^Yucata/ })
     expect(yucataLink).toHaveAttribute('href', PLATFORM_URLS.yucata)
   })
 
@@ -87,7 +87,7 @@ describe('GameGrid quick-links bar', () => {
         cachedAt={null}
       />
     )
-    expect(screen.getByRole('link', { name: 'Rally the Troops' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /^Rally the Troops/ })).toHaveAttribute(
       'href',
       PLATFORM_URLS.rally,
     )
@@ -112,6 +112,6 @@ describe('GameGrid quick-links bar', () => {
         cachedAt={null}
       />
     )
-    expect(screen.getAllByRole('link', { name: 'BGA' })).toHaveLength(1)
+    expect(screen.getAllByRole('link', { name: /^BGA/ })).toHaveLength(1)
   })
 })

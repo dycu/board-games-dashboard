@@ -2,10 +2,14 @@
  * @jest-environment node
  */
 
-jest.mock('@/lib/connectors', () => ({
-  connectors: { bga: jest.fn() },
-  hasCreds: jest.fn(),
-}))
+jest.mock('@/lib/connectors', () => {
+  const bga = jest.fn()
+  return {
+    makeConnectors: jest.fn(() => ({ bga })),
+    connectors: { bga },
+    hasCreds: jest.fn(),
+  }
+})
 
 import { GET, dynamic } from '../route'
 import { connectors, hasCreds } from '@/lib/connectors'
