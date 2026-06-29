@@ -224,7 +224,9 @@ export async function fetchBGA(username: string, password: string): Promise<Game
       myTurn: isMyTurn,
       currentPlayer: isMyTurn ? undefined : (activePlayerEntry?.fullname ?? undefined),
       lastMoveAt,
-      lastMoveAgo: hasTimingData && thinkRemainSec! < 7 * 24 * 3600 ? formatTimeRemaining(thinkRemainSec!) : '–',
+      lastMoveAgo: hasTimingData
+        ? `${formatTimeAgo(lastMoveAt)} · ${formatTimeRemaining(thinkRemainSec!)}`
+        : '–',
       urgent: hasTimingData && thinkRemainSec! < 24 * 3600,
       gameUrl: `${BASE}/${t.gameserver}/${t.game_name}?table=${t.id}`,
       platformUrl: `${BASE}/gameinprogress`,
