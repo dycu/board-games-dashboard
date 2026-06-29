@@ -289,7 +289,7 @@ export async function fetchFinishedBGA(username: string, password: string): Prom
       Referer: `${BASE}/gameinprogress`,
       Cookie: cookieString(allCookies),
     },
-    body: myId ? `status=finished&player=${myId}` : 'status=finished',
+    body: myId ? `status=finished&player=${myId}&start=0&nbmax=50` : 'status=finished&start=0&nbmax=50',
   })
 
   const tablesText = await tablesRes.text()
@@ -297,7 +297,7 @@ export async function fetchFinishedBGA(username: string, password: string): Prom
   try { tablesData = JSON.parse(tablesText) } catch {
     throw new Error(`BGA finished tables HTTP ${tablesRes.status}: ${tablesText.slice(0, 300)}`)
   }
-  if (tablesData.status !== 1) throw new Error(`BGA finished tables failed: ${JSON.stringify(tablesData).slice(0, 200)}`)
+  if (tablesData.status !== 1) throw new Error(`BGA finished tables failed: ${JSON.stringify(tablesData).slice(0, 400)}`)
 
   const rawTables: Record<string, any> = tablesData?.data?.tables ?? {}
   const tables = Object.values(rawTables)

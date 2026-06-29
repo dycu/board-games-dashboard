@@ -57,7 +57,7 @@ export async function GET() {
     })
     let loginData: any
     try { loginData = JSON.parse(await loginRes.text()) } catch { return NextResponse.json({ error: 'login parse failed', log }, { status: 500 }) }
-    if (loginData.status !== 1) return NextResponse.json({ error: 'login failed', log }, { status: 500 })
+    if (loginData.status !== 1) return NextResponse.json({ error: 'login failed', loginData, log }, { status: 500 })
 
     const allCookies = { ...cookies, ...parseCookies(loginRes.headers) }
     const myId = String(loginData.data?.user_id ?? loginData.data?.id ?? '')
@@ -65,42 +65,57 @@ export async function GET() {
     if (!postLoginToken) return NextResponse.json({ error: 'no post-login token', log }, { status: 500 })
     log.push(`login ok, myId=${myId}`)
 
-    // Fetch BGA home page and look for embedded game data
-    const homeRes = await fetch(`${BASE}/`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) } })
-    const homeHtml = await homeRes.text()
-    log.push(`home bodyLen=${homeHtml.length}`)
-
-    // Extract JS variable assignments that might contain game table data
-    // BGA often embeds data as: var g_gamedatas = {...}; or jstpl_xxx = '...'
-    const jsVarMatches = (homeHtml.match(/\bg_[a-z_]+\s*=\s*\{[^;]{0,200}/gi) ?? []).slice(0, 8)
-    // Look for "gameover", "archive", "finished" in any context
-    const contextualMatches = (homeHtml.match(/.{0,50}(?:gameover|date_end|recently.{0,10}finish)[^<]{0,100}/gi) ?? []).slice(0, 5)
-
-    // Try BGA's home API - fetch gameinprogress page and look for status values beyond "play"
-    const gpRes = await fetch(`${BASE}/gameinprogress`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) } })
-    const gpHtml = await gpRes.text()
-    log.push(`gameinprogress bodyLen=${gpHtml.length}`)
-    const gpStatusValues = [...new Set((gpHtml.match(/"status"\s*:\s*"([^"]+)"/g) ?? []).map(m => m.match(/"([^"]+)"$/)?.[1] ?? ''))]
-
-    // Try table overview controller which might list all user games
     const authHeaders = {
       ...BROWSER_HEADERS,
+      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
       Accept: 'application/json, */*',
       'X-Requested-With': 'XMLHttpRequest',
       'X-Request-Token': postLoginToken,
+      Origin: BASE,
+      Referer: `${BASE}/gameinprogress`,
       Cookie: cookieString(allCookies),
     }
-    const overviewAttempts: any[] = []
-    for (const [path, body] of [
-      [`${BASE}/tablemanager/tablemanager/tableinfos.html`, `status=finished&player=${myId}&recent=true`],
-      [`${BASE}/tablemanager/tablemanager/tableinfos.html`, `status=finished&turninfo=true&player=${myId}`],
-    ] as [string, string][]) {
-      const r = await fetch(path, { method: 'POST', headers: { ...authHeaders, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', Referer: `${BASE}/gameinprogress` }, body })
-      let parsed: any = null; try { parsed = await r.json() } catch {}
-      overviewAttempts.push({ body, status: r.status, apiStatus: parsed?.status, error: parsed?.error })
+
+    // Test multiple param variations in sequence so we can see which works
+    const attempts: any[] = []
+    const paramSets = [
+      // Exact production params (what fetchFinishedBGA sends)
+      myId ? `status=finished&player=${myId}` : 'status=finished',
+      // With pagination — limit result set to reduce DB load
+      myId ? `status=finished&player=${myId}&start=0&nbmax=50` : 'status=finished&start=0&nbmax=50',
+      // Recent flag
+      myId ? `status=finished&player=${myId}&recent=true` : 'status=finished&recent=true',
+      // With turninfo (same as active games call)
+      myId ? `status=finished&player=${myId}&turninfo=true` : 'status=finished&turninfo=true',
+    ]
+
+    for (const body of paramSets) {
+      const t0 = Date.now()
+      try {
+        const r = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, { method: 'POST', headers: authHeaders, body })
+        const text = await r.text()
+        const elapsedMs = Date.now() - t0
+        let parsed: any = null
+        try { parsed = JSON.parse(text) } catch {}
+        const tableCount = parsed?.data?.tables ? Object.keys(parsed.data.tables).length : null
+        attempts.push({
+          body,
+          httpStatus: r.status,
+          elapsedMs,
+          apiStatus: parsed?.status,
+          error: parsed?.error,
+          tableCount,
+          // Show raw text if parsing failed or API error
+          rawPreview: (parsed === null || parsed?.status !== 1) ? text.slice(0, 400) : undefined,
+          // Show first table keys if we got data
+          firstTableKeys: tableCount && tableCount > 0 ? Object.keys(Object.values(parsed.data.tables)[0] as any) : undefined,
+        })
+      } catch (e: any) {
+        attempts.push({ body, elapsedMs: Date.now() - t0, fetchError: e.message })
+      }
     }
 
-    return NextResponse.json({ log, jsVarMatches, contextualMatches, gpStatusValues, overviewAttempts })
+    return NextResponse.json({ log, myId, attempts })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, log }, { status: 500 })
   }
