@@ -53,8 +53,8 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
   const navRight = (
     <>
       <span>
-        {games.length} active &nbsp;·&nbsp;
-        <span className="text-[#5e6ad2] font-medium">{myTurnCount} your turn</span>
+        {games.length}{' '}active &nbsp;·&nbsp;
+        <span className="text-[#5e6ad2] font-medium">{myTurnCount}{' '}your turn</span>
       </span>
       <button
         onClick={onRefresh}
