@@ -12,11 +12,7 @@ const BROWSER_HEADERS = {
 function parseCookies(headers: Headers): Record<string, string> {
   const cookies: Record<string, string> = {}
   const list = headers.getSetCookie?.() ?? (headers.get('set-cookie') ? [headers.get('set-cookie')!] : [])
-  for (const raw of list) {
-    const [kv] = raw.split(';')
-    const eq = kv.indexOf('=')
-    if (eq > 0) cookies[kv.slice(0, eq).trim()] = kv.slice(eq + 1).trim()
-  }
+  for (const raw of list) { const [kv] = raw.split(';'); const eq = kv.indexOf('='); if (eq > 0) cookies[kv.slice(0, eq).trim()] = kv.slice(eq + 1).trim() }
   return cookies
 }
 function cookieString(c: Record<string, string>) { return Object.entries(c).map(([k, v]) => `${k}=${v}`).join('; ') }
@@ -52,10 +48,7 @@ export async function GET() {
     cookies = { ...cookies, ...parseCookies(loginPageRes.headers) }
     const loginPageHtml = await loginPageRes.text()
     const requestToken = extractRequestToken(loginPageHtml)
-    if (!requestToken) {
-      const hexFound = [...loginPageHtml.matchAll(/[a-f0-9]{48,64}/gi)].map(m => m[0]).slice(0, 5)
-      return NextResponse.json({ error: 'no request_token', hexFound, log }, { status: 500 })
-    }
+    if (!requestToken) { const hexFound = [...loginPageHtml.matchAll(/[a-f0-9]{48,64}/gi)].map(m => m[0]).slice(0, 5); return NextResponse.json({ error: 'no request_token', hexFound, log }, { status: 500 }) }
 
     const loginRes = await fetch(`${loginBase}/account/auth/loginUserWithPassword.html`, {
       method: 'POST',
@@ -82,40 +75,43 @@ export async function GET() {
       Cookie: cookieString(allCookies),
     }
 
-    // Try status=finished with player filter (avoids returning ALL finished games)
-    const attempts: any[] = []
+    // Try tablemanager with count/pagination params
+    const tableAttempts: any[] = []
     for (const body of [
-      `status=finished&player=${myId}`,
-      'status=finished',
+      `status=finished&player=${myId}&count=5`,
+      `status=finished&player=${myId}&start=0&count=5`,
+      `status=finished&player=${myId}&nb=5`,
     ]) {
       const r = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, {
         method: 'POST', headers: { ...authHeaders, Referer: `${BASE}/gameinprogress` }, body,
       })
       let parsed: any = null
       try { parsed = await r.json() } catch {}
-      const tables = parsed?.data?.tables ? Object.values(parsed.data.tables) : []
-      const sampleTable = tables[0]
-      attempts.push({
-        body,
-        httpStatus: r.status,
-        apiStatus: parsed?.status,
-        error: parsed?.error,
-        tableCount: tables.length,
-        sampleTableKeys: sampleTable ? Object.keys(sampleTable as object) : null,
-        sampleTable: tables.length > 0 ? (sampleTable as any) : null,
-      })
-      if (parsed?.status === 1) break // found it
+      tableAttempts.push({ body, httpStatus: r.status, apiStatus: parsed?.status, error: parsed?.error, tableCount: parsed?.data?.tables ? Object.keys(parsed.data.tables).length : null })
+      if (parsed?.status === 1) break
     }
 
-    // Fetch the /archive page and show its content
-    const archiveRes = await fetch(`${BASE}/archive`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) } })
-    const archiveHtml = await archiveRes.text()
-    const archivePreview = archiveHtml.slice(0, 2000)
+    // Check /archive with redirect tracking and look at full URL + content
+    const archiveNoFollow = await fetch(`${BASE}/archive`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) }, redirect: 'manual' })
+    log.push(`/archive (no-follow): HTTP ${archiveNoFollow.status}, location=${archiveNoFollow.headers.get('location')}`)
 
-    // Check for any API calls the archive page makes (look for embedded JS data/tables)
-    const archiveApiCalls = (archiveHtml.match(/\/[a-z]+\/[a-z]+\/[a-z]+\.html/g) ?? []).slice(0, 10)
+    const archiveFollow = await fetch(`${BASE}/archive`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies) } })
+    const archiveHtml = await archiveFollow.text()
+    log.push(`/archive (follow): HTTP ${archiveFollow.status}, url=${archiveFollow.url}, bodyLen=${archiveHtml.length}`)
 
-    return NextResponse.json({ log, attempts, archiveStatus: archiveRes.status, archivePreview, archiveApiCalls })
+    // Try archive API endpoints (common BGA pattern: /module/module/action.html)
+    const archiveApiAttempts: any[] = []
+    for (const path of [
+      '/archivecontroller/archivecontroller/archivelist.html',
+      '/archive/archive/archive.html',
+      '/archivecontroller/archivecontroller/displayarchive.html',
+    ]) {
+      const r = await fetch(`${BASE}${path}`, { headers: { ...BROWSER_HEADERS, Cookie: cookieString(allCookies), Accept: 'application/json, */*', 'X-Requested-With': 'XMLHttpRequest', 'X-Request-Token': postLoginToken } })
+      let parsed: any = null; try { parsed = await r.json() } catch {}
+      archiveApiAttempts.push({ path, status: r.status, parsed: parsed ?? null })
+    }
+
+    return NextResponse.json({ log, tableAttempts, archivePreview: archiveHtml.slice(0, 2000), archiveApiAttempts })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, log }, { status: 500 })
   }
