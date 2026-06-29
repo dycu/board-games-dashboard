@@ -11,9 +11,23 @@ interface Props {
   onPrefsChange: (p: UserPrefs) => void
   dismissed: Set<string>
   onDismiss: (id: string) => void
+  onRefresh: () => void
+  isRefreshing: boolean
+  lastError: string | null
+  cachedAt: string | null
 }
 
-export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDismiss }: Props) {
+function timeAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(ms / 60_000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
+}
+
+export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDismiss, onRefresh, isRefreshing, lastError, cachedAt }: Props) {
   const { games, errors, fetchedAt } = data
   const configuredPlatforms = Array.from(
     new Set([...games.map(g => g.platform), ...errors.map(e => e.platform)])
@@ -51,11 +65,21 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
           <a href="/setup" className="text-xs bg-slate-800 text-slate-400 hover:bg-slate-700 px-3 py-1.5 rounded-md">
             ⚙ Settings
           </a>
-          <a href="/" className="text-xs bg-slate-800 text-slate-400 hover:bg-slate-700 px-3 py-1.5 rounded-md">
-            ↻ Refresh
-          </a>
+          <button
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="text-xs bg-slate-800 text-slate-400 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-md flex items-center gap-1.5"
+          >
+            <span className={isRefreshing ? 'animate-spin inline-block' : ''}>↻</span>
+            Refresh
+          </button>
         </div>
       </div>
+      {lastError && cachedAt && (
+        <div className="mb-2 text-xs text-amber-500">
+          Last refresh failed — showing cache from {timeAgo(cachedAt)}
+        </div>
+      )}
 
       {errors.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-2">
