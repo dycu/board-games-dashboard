@@ -1,5 +1,5 @@
-import { Game } from '../types'
-import { formatTimeRemaining } from './utils'
+import { Game, FinishedGame } from '../types'
+import { formatTimeRemaining, formatTimeAgo } from './utils'
 
 const BASE = 'https://boardgamearena.com'
 
@@ -218,6 +218,102 @@ export async function fetchBGA(username: string, password: string, capDays = 3):
       gameUrl: `${BASE}/${t.gameserver}/${t.game_name}?table=${t.id}`,
       platformUrl: `${BASE}/gameinprogress`,
       players: playerNames,
+    }
+  })
+}
+
+export async function fetchFinishedBGA(username: string, password: string): Promise<FinishedGame[]> {
+  const initRes = await fetch(`${BASE}/account`, {
+    redirect: 'manual',
+    headers: { ...BROWSER_HEADERS, Accept: 'text/html,application/xhtml+xml,*/*' },
+  })
+  let cookies = parseCookies(initRes.headers)
+  let loginBase = BASE
+
+  if (initRes.status >= 300 && initRes.status < 400) {
+    const location = initRes.headers.get('location') ?? ''
+    if (location) {
+      const redirectUrl = new URL(location.startsWith('http') ? location : `${BASE}${location}`)
+      loginBase = redirectUrl.origin
+      const followRes = await fetch(redirectUrl.href, {
+        redirect: 'manual',
+        headers: { ...BROWSER_HEADERS, Accept: 'text/html,application/xhtml+xml,*/*', Cookie: cookieString(cookies) },
+      })
+      cookies = { ...cookies, ...parseCookies(followRes.headers) }
+    }
+  }
+
+  const loginPageRes = await fetch(`${loginBase}/?page=login`, {
+    headers: { ...BROWSER_HEADERS, Accept: 'text/html,application/xhtml+xml,*/*', Cookie: cookieString(cookies) },
+  })
+  cookies = { ...cookies, ...parseCookies(loginPageRes.headers) }
+  const loginPageHtml = await loginPageRes.text()
+  const requestToken = extractRequestToken(loginPageHtml)
+  if (!requestToken) throw new Error(`BGA: could not extract request_token`)
+
+  const loginRes = await fetch(`${loginBase}/account/auth/loginUserWithPassword.html`, {
+    method: 'POST',
+    headers: {
+      ...BROWSER_HEADERS,
+      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      Accept: '*/*',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-Request-Token': requestToken,
+      Origin: loginBase,
+      Referer: `${loginBase}/?step=2&page=login`,
+      Cookie: cookieString(cookies),
+    },
+    body: new URLSearchParams({ username, password, remember_me: 'true', request_token: requestToken }),
+  })
+  const loginText = await loginRes.text()
+  let loginData: any
+  try { loginData = JSON.parse(loginText) } catch {
+    throw new Error(`BGA login HTTP ${loginRes.status}: ${loginText.slice(0, 300)}`)
+  }
+  if (loginData.status !== 1) throw new Error(`BGA login failed: ${loginData.error ?? JSON.stringify(loginData)}`)
+
+  const allCookies = { ...cookies, ...parseCookies(loginRes.headers) }
+  const postLoginToken = allCookies['TournoiEnLigneidt'] ?? allCookies['TournoiEnLigneid'] ?? ''
+  if (!postLoginToken) throw new Error(`BGA: no request token in login response cookies`)
+
+  const tablesRes = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, {
+    method: 'POST',
+    headers: {
+      ...BROWSER_HEADERS,
+      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      Accept: 'application/json, */*',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-Request-Token': postLoginToken,
+      Origin: BASE,
+      Referer: `${BASE}/gameinprogress`,
+      Cookie: cookieString(allCookies),
+    },
+    body: 'status=done',
+  })
+
+  const tablesText = await tablesRes.text()
+  let tablesData: any
+  try { tablesData = JSON.parse(tablesText) } catch {
+    throw new Error(`BGA finished tables HTTP ${tablesRes.status}: ${tablesText.slice(0, 300)}`)
+  }
+  if (tablesData.status !== 1) throw new Error(`BGA finished tables failed: ${JSON.stringify(tablesData).slice(0, 200)}`)
+
+  const rawTables: Record<string, any> = tablesData?.data?.tables ?? {}
+  const tables = Object.values(rawTables)
+
+  return tables.map((t: any): FinishedGame => {
+    const dateEndSec = t.date_end != null ? parseInt(t.date_end) : null
+    const completedAt = dateEndSec && !isNaN(dateEndSec)
+      ? new Date(dateEndSec * 1000)
+      : new Date()
+
+    return {
+      id: `bga:${t.id}`,
+      platform: 'bga',
+      gameName: t.game_name ?? 'Unknown',
+      completedAt,
+      completedAgo: formatTimeAgo(completedAt),
+      gameUrl: `${BASE}/${t.gameserver ?? 'en'}/${t.game_name}?table=${t.id}`,
     }
   })
 }

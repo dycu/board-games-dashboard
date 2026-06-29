@@ -1,0 +1,27 @@
+{
+  "status": 1,
+  "data": {
+    "tables": {
+      "55555": {
+        "id": "55555",
+        "game_name": "brass",
+        "date_end": 1748736000,
+        "gameserver": "en",
+        "players": {
+          "42": { "id": "42", "fullname": "testuser" },
+          "99": { "id": "99", "fullname": "alice" }
+        }
+      },
+      "66666": {
+        "id": "66666",
+        "game_name": "terraformingmars",
+        "date_end": 1748649600,
+        "gameserver": "en",
+        "players": {
+          "42": { "id": "42", "fullname": "testuser" },
+          "77": { "id": "77", "fullname": "bob" }
+        }
+      }
+    }
+  }
+}
