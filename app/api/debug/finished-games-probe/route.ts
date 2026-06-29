@@ -18,17 +18,19 @@ async function probe(name: string, fn: () => Promise<any[]>) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const origin = new URL(request.url).origin
+
   const results = await Promise.all([
     probe('bga', () => fetchFinishedBGA(env('BGA_USERNAME'), env('BGA_PASSWORD'))),
     probe('eighteenxx', () => fetchFinishedEighteenXX(env('EIGHTEENXX_USERNAME'), env('EIGHTEENXX_PASSWORD'))),
     probe('rally', () => fetchFinishedRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD'))),
   ])
 
-  // choochoo uses a proxy route — call it here via internal fetch
+  // choochoo uses a Node.js proxy route — call it via the same origin
   const choochooStart = Date.now()
   try {
-    const res = await fetch('http://localhost:3000/api/choochoo-finished')
+    const res = await fetch(`${origin}/api/choochoo-finished`)
     const json = await res.json() as any
     results.push({
       name: 'choochoo',
