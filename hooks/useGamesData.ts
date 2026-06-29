@@ -81,6 +81,7 @@ export function useGamesData(): UseGamesDataResult {
   // true once displayedData has been shown (from cache or first fetch) — routes
   // subsequent fetch completions to pendingData instead of displayedData.
   const hasDisplayedRef = useRef(false)
+  const isManualRefreshRef = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
 
   const runFetch = useCallback(async () => {
@@ -150,11 +151,12 @@ export function useGamesData(): UseGamesDataResult {
             }
             const newCachedAt = writeCache(freshData)
             setCachedAt(newCachedAt)
-            if (hasDisplayedRef.current) {
-              setPendingData(freshData)
-            } else {
+            if (isManualRefreshRef.current || !hasDisplayedRef.current) {
               setDisplayedData(freshData)
               hasDisplayedRef.current = true
+              isManualRefreshRef.current = false
+            } else {
+              setPendingData(freshData)
             }
           }
         }
@@ -185,7 +187,10 @@ export function useGamesData(): UseGamesDataResult {
     }
   }, [runFetch])
 
-  const triggerRefresh = useCallback(() => { runFetch() }, [runFetch])
+  const triggerRefresh = useCallback(() => {
+    isManualRefreshRef.current = true
+    runFetch()
+  }, [runFetch])
 
   const applyPendingData = useCallback(() => {
     setPendingData(prev => {
