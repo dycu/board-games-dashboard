@@ -65,98 +65,96 @@ export async function GET() {
     if (!postLoginToken) return NextResponse.json({ error: 'no post-login token', log }, { status: 500 })
     log.push(`login ok, myId=${myId}`)
 
-    const browserHeaders = {
-      ...BROWSER_HEADERS,
-      Cookie: cookieString(allCookies),
-      Accept: 'text/html,application/xhtml+xml,*/*',
-    }
-    const ajaxHeaders = {
-      ...BROWSER_HEADERS,
-      Cookie: cookieString(allCookies),
-      Accept: 'application/json, */*',
-      'X-Requested-With': 'XMLHttpRequest',
-      'X-Request-Token': postLoginToken,
-      Origin: BASE,
-    }
+    const browserHeaders = { ...BROWSER_HEADERS, Cookie: cookieString(allCookies), Accept: 'text/html,application/xhtml+xml,*/*' }
+    const ajaxHeaders = { ...BROWSER_HEADERS, Cookie: cookieString(allCookies), Accept: 'application/json, text/javascript, */*', 'X-Requested-With': 'XMLHttpRequest', 'X-Request-Token': postLoginToken, Origin: BASE }
 
-    // Step 1: fetch the lastresults player page (what the browser sees)
+    // Step 1: fetch the lastresults player page and look inside for game data
     const playerPageRes = await fetch(`${BASE}/player?id=${myId}&section=lastresults`, { headers: browserHeaders })
     const playerHtml = await playerPageRes.text()
     log.push(`player?section=lastresults HTTP ${playerPageRes.status}, bodyLen=${playerHtml.length}`)
 
-    // Look for embedded game data (JS vars, JSON blobs, table IDs)
-    const embeddedJsonBlobs = (playerHtml.match(/\bg_[a-zA-Z_]+\s*=\s*(\{[^;]{0,500})/g) ?? []).slice(0, 10)
-    const ajaxUrlHints = [...new Set((playerHtml.match(/(?:url|href|action)\s*[=:]\s*['"]([^'"]*(?:player|archive|result|history|game)[^'"]*)['"]/gi) ?? []).slice(0, 20))]
-    const scriptSrcHints = (playerHtml.match(/<script[^>]+src=['"]([^'"]+)['"]/gi) ?? []).slice(0, 10)
-    // Look for table rows that might contain game data
-    const tableRowSample = (playerHtml.match(/<tr[^>]*>[\s\S]{0,300}/g) ?? []).slice(0, 5).map(s => s.slice(0, 200))
-    // Look for any JSON-like structures embedded
-    const jsonStructures = (playerHtml.match(/\{[^{}]{20,400}\}/g) ?? [])
-      .filter(s => s.includes('game') || s.includes('table') || s.includes('result'))
-      .slice(0, 5)
+    // Search the HTML for patterns that look like game results
+    const lastResultsSection = (() => {
+      const idx = playerHtml.indexOf('lastresults')
+      return idx >= 0 ? playerHtml.slice(Math.max(0, idx - 100), idx + 2000) : null
+    })()
+    const tableIdSection = (() => {
+      const idx = playerHtml.indexOf('table_id')
+      return idx >= 0 ? playerHtml.slice(Math.max(0, idx - 50), idx + 500) : null
+    })()
+    // Look for game name patterns in various formats
+    const gameNamePatterns = (playerHtml.match(/(?:gamename|game_name|gameName|"game"\s*:)[^"]{0,5}"([^"]{2,60})"/gi) ?? []).slice(0, 10)
+    // Look for any section with "results"
+    const resultsDivs = (playerHtml.match(/<div[^>]*(?:result|lastresult|history)[^>]*>[\s\S]{0,500}/gi) ?? []).slice(0, 3)
+    // Look for any BGA module/controller path hints in embedded JS
+    const controllerHints = [...new Set((playerHtml.match(/["']\/(player|archive|gamestat|result)[^"']+\.html[^"']*/gi) ?? []).slice(0, 20))]
+    // Look for Ajax.call patterns to find what BGA calls on this page
+    const ajaxCallPatterns = (playerHtml.match(/ajax(?:Call)?\s*\(\s*['"]([^'"]+)['"]/gi) ?? []).slice(0, 20)
+    const ajaxCallPatterns2 = (playerHtml.match(/callModule\s*\(\s*['"]([^'"]+)['"][^)]{0,100}/gi) ?? []).slice(0, 20)
 
-    log.push(`embeddedJsonBlobs found: ${embeddedJsonBlobs.length}, ajaxUrlHints: ${ajaxUrlHints.length}`)
+    log.push(`lastResultsSection found: ${lastResultsSection !== null}`)
 
-    // Step 2: try AJAX endpoints that BGA might call to populate lastresults
-    const ajaxAttempts: any[] = []
-    const ajaxEndpoints = [
-      // player controller endpoints
-      { method: 'GET', url: `${BASE}/player/player/getLastResults.html?id=${myId}` },
-      { method: 'GET', url: `${BASE}/player/player/getLastResults.html?player_id=${myId}` },
-      { method: 'GET', url: `${BASE}/player/player/lastresults.html?id=${myId}` },
-      { method: 'GET', url: `${BASE}/player/player/index.html?id=${myId}&section=lastresults` },
-      // Generic player profile with ajax flag
-      { method: 'GET', url: `${BASE}/player?id=${myId}&section=lastresults&ajax=1` },
-      // archive controller
-      { method: 'GET', url: `${BASE}/archive/archive/index.html?player=${myId}&ajax=1` },
-      { method: 'GET', url: `${BASE}/archive/archive/getLastResults.html?player=${myId}` },
-      { method: 'GET', url: `${BASE}/archive/archive/results.html?player=${myId}` },
-      // gamestat
-      { method: 'GET', url: `${BASE}/gamestat/gamestat/getPlayerStats.html?player=${myId}` },
-      { method: 'GET', url: `${BASE}/gamestat/gamestat/index.html?player=${myId}&ajax=1` },
-      // table controller for finished
-      { method: 'POST', url: `${BASE}/table/table/tableinfos.html`, body: `status=finished&player=${myId}` },
-      { method: 'POST', url: `${BASE}/table/table/getLastResults.html`, body: `player=${myId}` },
+    // Step 2: fetch the ajax=1 version of the same page (BGA typically returns section HTML)
+    const ajaxPageRes = await fetch(`${BASE}/player?id=${myId}&section=lastresults&ajax=1`, {
+      headers: { ...browserHeaders, 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    const ajaxPageText = await ajaxPageRes.text()
+    log.push(`player?section=lastresults&ajax=1 HTTP ${ajaxPageRes.status}, bodyLen=${ajaxPageText.length}`)
+
+    // Try to parse it and look for game data
+    let ajaxPageParsed: any = null
+    try { ajaxPageParsed = JSON.parse(ajaxPageText) } catch {}
+    const ajaxPagePreview = ajaxPageText.slice(0, 2000)
+    // Look for table IDs or game names in the ajax response
+    const ajaxGameRows = (ajaxPageText.match(/(?:table_id|game_name|gamename)[^"]{0,5}"([^"]{1,60})"/gi) ?? []).slice(0, 10)
+    const ajaxTableIds = (ajaxPageText.match(/\btable_?id[=:]["']?(\d+)/gi) ?? []).slice(0, 10)
+
+    // Step 3: try more specific AJAX endpoints discovered from inspecting BGA's JS
+    const specificAttempts: any[] = []
+    const endpoints = [
+      // player controller with different action names
+      { label: 'player/getLastResults', method: 'GET', url: `${BASE}/player/player/getResults.html?id=${myId}` },
+      { label: 'player/gethistory', method: 'GET', url: `${BASE}/player/player/gethistory.html?id=${myId}` },
+      { label: 'player/section ajax', method: 'GET', url: `${BASE}/player/player/section.html?id=${myId}&section=lastresults` },
+      { label: 'player index section', method: 'GET', url: `${BASE}/player/player/index.html?id=${myId}&section=lastresults&ajax=1` },
+      // gameresult controller
+      { label: 'gameresult/getlast', method: 'GET', url: `${BASE}/gameresult/gameresult/getLastResults.html?player=${myId}` },
+      { label: 'gameresult/index', method: 'GET', url: `${BASE}/gameresult/gameresult/index.html?player=${myId}&ajax=1` },
+      // table controller with proper id param
+      { label: 'tablemanager finished (no player)', method: 'POST', url: `${BASE}/tablemanager/tablemanager/tableinfos.html`, body: `status=finished&start=0&nbmax=10` },
     ]
-
-    for (const { method, url, body } of ajaxEndpoints) {
+    for (const { label, method, url, body } of endpoints) {
       const t0 = Date.now()
-      try {
-        const headers = body
-          ? { ...ajaxHeaders, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', Referer: `${BASE}/player?id=${myId}&section=lastresults` }
-          : { ...ajaxHeaders, Referer: `${BASE}/player?id=${myId}&section=lastresults` }
-        const r = await fetch(url, { method, headers, ...(body ? { body } : {}) })
-        const text = await r.text()
-        const elapsedMs = Date.now() - t0
-        let parsed: any = null
-        try { parsed = JSON.parse(text) } catch {}
-        ajaxAttempts.push({
-          method, url,
-          httpStatus: r.status,
-          elapsedMs,
-          apiStatus: parsed?.status,
-          error: parsed?.error,
-          dataKeys: parsed?.data ? Object.keys(parsed.data) : undefined,
-          rawPreview: text.slice(0, 300),
-        })
-      } catch (e: any) {
-        ajaxAttempts.push({ method, url, elapsedMs: Date.now() - t0, fetchError: e.message })
-      }
+      const headers = body
+        ? { ...ajaxHeaders, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', Referer: `${BASE}/player?id=${myId}&section=lastresults` }
+        : { ...ajaxHeaders, Referer: `${BASE}/player?id=${myId}&section=lastresults` }
+      const r = await fetch(url, { method, headers, ...(body ? { body } : {}) })
+      const text = await r.text()
+      specificAttempts.push({ label, httpStatus: r.status, elapsedMs: Date.now() - t0, rawPreview: text.slice(0, 400) })
     }
 
     return NextResponse.json({
       log,
       myId,
-      playerPage: {
-        httpStatus: playerPageRes.status,
+      playerPageAnalysis: {
         bodyLen: playerHtml.length,
-        embeddedJsonBlobs,
-        ajaxUrlHints,
-        scriptSrcHints,
-        tableRowSample,
-        jsonStructures,
+        lastResultsSection,
+        tableIdSection,
+        gameNamePatterns,
+        resultsDivs,
+        controllerHints,
+        ajaxCallPatterns,
+        ajaxCallPatterns2,
       },
-      ajaxAttempts,
+      ajaxPage: {
+        httpStatus: ajaxPageRes.status,
+        bodyLen: ajaxPageText.length,
+        parsed: ajaxPageParsed,
+        preview: ajaxPagePreview,
+        ajaxGameRows,
+        ajaxTableIds,
+      },
+      specificAttempts,
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, log }, { status: 500 })
