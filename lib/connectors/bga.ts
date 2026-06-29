@@ -171,19 +171,18 @@ export async function fetchBGA(username: string, password: string): Promise<Game
   const rawTables: Record<string, any> = tablesData?.data?.tables ?? {}
   const tables = Object.values(rawTables)
 
-  // TEMPORARY DEBUG — log options + think_seconds for tables that have timing data
-  for (const t of tables as any[]) {
-    const activePl = Object.values(t.players ?? {}).find((p: any) => p.myturn === '1' || p.myturn === 1) as any
-    if (t.think_limit != null && activePl?.think_seconds != null) {
-      console.log('[BGA debug] timed table:', JSON.stringify({
-        id: t.id,
-        think_limit: t.think_limit,
-        think_seconds: activePl.think_seconds,
-        opt103: t.options?.['103'],
-        opt200: t.options?.['200'],
-        opt201: t.options?.['201'],
-      }))
-    }
+
+  // BGA option 200 = "think time per turn"; values map to async bank sizes.
+  // Confirmed empirically from live API responses (opt200 × think_seconds cross-reference).
+  const OPT200_BANK_SEC: Record<string, number> = {
+    '13': 1 * 86400,
+    '14': 2 * 86400,
+    '15': 3 * 86400,
+    '16': 5 * 86400,
+    '17': 7 * 86400,
+    '18': 14 * 86400,
+    '19': 30 * 86400,
+    '20': 90 * 86400,
   }
 
   // Step 5: resolve display names from gamepanel pages (game_name field is a URL slug)
@@ -207,13 +206,11 @@ export async function fetchBGA(username: string, password: string): Promise<Game
       : null
     const hasTimingData = thinkLimitSec != null && !isNaN(thinkLimitSec)
       && thinkRemainSec != null && !isNaN(thinkRemainSec)
-    // BGA doesn't expose last-move time; map remaining bank to a fake "age" so BGA
-    // games sort alongside other platforms: less time remaining → older lastMoveAt.
-    // Using 3-day bank (most common BGA async setting): a freshly-reset bank maps
-    // to "just now"; < 3 days remaining ranks proportionally; > 3 days = "just now".
-    const MAX_BANK_MS = 3 * 24 * 3600 * 1000
+    // Derive last-move time from bank consumed: lastMoveAt = now − (bank − remaining).
+    // Bank size comes from option 200 per game; falls back to 1 day if unknown.
+    const bankSec = OPT200_BANK_SEC[t.options?.['200']] ?? 86400
     const lastMoveAt = hasTimingData
-      ? new Date(Date.now() - Math.max(0, MAX_BANK_MS - thinkRemainSec! * 1000))
+      ? new Date(Date.now() - Math.max(0, bankSec * 1000 - thinkRemainSec! * 1000))
       : new Date()
 
     const playerNames = Object.values(players)
