@@ -3,6 +3,7 @@ import { request as httpsRequest } from 'https'
 export const dynamic = 'force-dynamic'
 
 const API_HOST = 'api.choochoo.games'
+const BASE_URL = 'https://www.choochoo.games'
 
 function req(
   method: string,
@@ -41,7 +42,7 @@ export async function GET() {
   try { xsrfToken = JSON.parse(xsrfRes.body).xsrfToken ?? '' } catch {}
   const xsrfCookie = xsrfRes.cookies.map(c => c.split(';')[0]).join('; ')
   if (!xsrfToken || !xsrfCookie) {
-    return Response.json({ error: `xsrf failed`, xsrfStatus: xsrfRes.status, xsrfBody: xsrfRes.body.slice(0, 200) })
+    return Response.json({ error: `xsrf failed`, xsrfStatus: xsrfRes.status })
   }
 
   const loginBody = JSON.stringify({ usernameOrEmail: username, password })
@@ -60,30 +61,42 @@ export async function GET() {
   }
   const authCookie = loginRes.cookies.map(c => c.split(';')[0]).join('; ') || xsrfCookie
 
-  // Try both FINISHED and finished
   const attempts: any[] = []
-  for (const status of ['FINISHED', 'finished', 'COMPLETED', 'completed', 'DONE', 'done']) {
-    const path = `/api/games?status[]=${status}&pageSize=50`
-    const gamesRes = await req('GET', path, { ...base, Cookie: authCookie })
-    let gamesJson: any = {}
-    try { gamesJson = JSON.parse(gamesRes.body) } catch {}
-    const allGames: any[] = gamesJson.games ?? (Array.isArray(gamesJson) ? gamesJson : [])
-    const myGames = allGames.filter((g: any) => Array.isArray(g.playerIds) && g.playerIds.includes(myUserId))
+
+  const endpoints = [
+    // User profile endpoint
+    { label: 'GET /api/users/:id', path: `/api/users/${myUserId}` },
+    // User's games with various filters
+    { label: 'GET /api/users/:id/games ENDED', path: `/api/users/${myUserId}/games?status[]=ENDED&pageSize=20` },
+    { label: 'GET /api/users/:id/games (all)', path: `/api/users/${myUserId}/games?pageSize=10` },
+    { label: 'GET /api/games?userId ENDED', path: `/api/games?userId=${myUserId}&status[]=ENDED&pageSize=20` },
+    { label: 'GET /api/games?userId (all)', path: `/api/games?userId=${myUserId}&pageSize=10` },
+    { label: 'GET /api/games?playerId ENDED', path: `/api/games?playerId=${myUserId}&status[]=ENDED&pageSize=20` },
+    { label: 'GET /api/games?player ENDED', path: `/api/games?player=${myUserId}&status[]=ENDED&pageSize=20` },
+    // ENDED with larger page to check if we'd miss games
+    { label: 'GET /api/games ENDED pageSize=100', path: `/api/games?status[]=ENDED&pageSize=100` },
+    // Check what total ENDED games exist
+    { label: 'GET /api/games ENDED pageSize=1 (count check)', path: `/api/games?status[]=ENDED&pageSize=1` },
+  ]
+
+  for (const { label, path } of endpoints) {
+    const res = await req('GET', path, { ...base, Cookie: authCookie })
+    let parsed: any = null
+    try { parsed = JSON.parse(res.body) } catch {}
+    const games: any[] = parsed?.games ?? (Array.isArray(parsed) ? parsed : [])
+    const myGames = games.filter((g: any) => Array.isArray(g.playerIds) && g.playerIds.includes(myUserId))
+    const totalCount = parsed?.total ?? parsed?.count ?? parsed?.totalCount ?? null
     attempts.push({
-      status,
-      httpStatus: gamesRes.status,
-      totalGames: allGames.length,
+      label,
+      httpStatus: res.status,
+      totalGames: games.length,
       myGames: myGames.length,
-      rawPreview: gamesRes.body.slice(0, 300),
+      totalCount,
+      topLevelKeys: parsed ? Object.keys(parsed) : null,
+      sampleGame: myGames[0] ? JSON.stringify(myGames[0]).slice(0, 400) : undefined,
+      rawPreview: res.status !== 200 ? res.body.slice(0, 200) : undefined,
     })
   }
 
-  // Also try fetching without status filter to see all games
-  const allRes = await req('GET', `/api/games?pageSize=10`, { ...base, Cookie: authCookie })
-  let allJson: any = {}
-  try { allJson = JSON.parse(allRes.body) } catch {}
-  const allGamesRaw: any[] = allJson.games ?? []
-  const uniqueStatuses = [...new Set(allGamesRaw.map((g: any) => g.status))]
-
-  return Response.json({ myUserId, attempts, allGamesStatuses: uniqueStatuses, allGamesCount: allGamesRaw.length })
+  return Response.json({ myUserId, attempts })
 }
