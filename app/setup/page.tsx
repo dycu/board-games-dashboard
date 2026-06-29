@@ -5,16 +5,6 @@ import TopNav from '@/components/TopNav'
 
 const PLATFORMS: Platform[] = ['bga', 'eighteenxx', 'obg', 'yucata', 'choochoo', 'hansa', 'rally']
 
-const ENV_KEYS: Record<Platform, [string, string]> = {
-  bga: ['BGA_USERNAME', 'BGA_PASSWORD'],
-  eighteenxx: ['EIGHTEENXX_USERNAME', 'EIGHTEENXX_PASSWORD'],
-  obg: ['OBG_USERNAME', 'OBG_PASSWORD'],
-  yucata: ['YUCATA_USERNAME', 'YUCATA_PASSWORD'],
-  choochoo: ['CHOOCHOO_USERNAME', 'CHOOCHOO_PASSWORD'],
-  hansa: ['HANSA_USERNAME', 'HANSA_PASSWORD'],
-  rally: ['RALLY_USERNAME', 'RALLY_PASSWORD'],
-}
-
 type Status = 'idle' | 'testing' | 'ok' | 'error'
 
 export default function SetupPage() {
@@ -58,15 +48,6 @@ export default function SetupPage() {
       <div className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
 
         <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
-          <h2 className="text-sm font-semibold text-[#1a1a1a] mb-3">How to add env vars</h2>
-          <ol className="text-sm text-[#6b6b6b] space-y-2 list-decimal list-inside">
-            <li>Install Vercel CLI: <code className="bg-[#f3f3f3] border border-[#e5e5e5] px-1.5 py-0.5 rounded text-xs">npm i -g vercel</code></li>
-            <li>Link project: <code className="bg-[#f3f3f3] border border-[#e5e5e5] px-1.5 py-0.5 rounded text-xs">vercel link</code></li>
-            <li>Add each var below using the commands shown, then redeploy</li>
-          </ol>
-        </div>
-
-        <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
           <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">BGA sort cap</h2>
           <p className="text-xs text-[#9b9b9b] mb-3">
             BGA doesn&apos;t expose last-move time. Games within this many days of their deadline
@@ -95,12 +76,11 @@ export default function SetupPage() {
 
         <div className="space-y-3">
           {PLATFORMS.map(platform => {
-            const [userKey, passKey] = ENV_KEYS[platform]
             const status = statuses[platform]
             const enabled = !disabled.has(platform)
             return (
               <div key={platform} className={`bg-white rounded-xl border border-[#e5e5e5] p-5 transition-opacity ${enabled ? '' : 'opacity-50'}`}>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => togglePlatform(platform)}
@@ -121,10 +101,6 @@ export default function SetupPage() {
                     </button>
                   </div>
                 </div>
-                <pre className="text-xs text-[#6b6b6b] bg-[#f7f7f7] rounded-lg p-3 overflow-x-auto border border-[#e5e5e5]">
-{`vercel env add ${userKey}
-vercel env add ${passKey}`}
-                </pre>
               </div>
             )
           })}
