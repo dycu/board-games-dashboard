@@ -273,6 +273,7 @@ export async function fetchFinishedBGA(username: string, password: string): Prom
   if (loginData.status !== 1) throw new Error(`BGA login failed: ${loginData.error ?? JSON.stringify(loginData)}`)
 
   const allCookies = { ...cookies, ...parseCookies(loginRes.headers) }
+  const myId = String(loginData.data?.user_id ?? loginData.data?.id ?? '')
   const postLoginToken = allCookies['TournoiEnLigneidt'] ?? allCookies['TournoiEnLigneid'] ?? ''
   if (!postLoginToken) throw new Error(`BGA: no request token in login response cookies`)
 
@@ -288,7 +289,7 @@ export async function fetchFinishedBGA(username: string, password: string): Prom
       Referer: `${BASE}/gameinprogress`,
       Cookie: cookieString(allCookies),
     },
-    body: 'status=done',
+    body: myId ? `status=finished&player=${myId}` : 'status=finished',
   })
 
   const tablesText = await tablesRes.text()
