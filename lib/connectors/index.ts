@@ -1,13 +1,14 @@
-import { Game, Platform, GamesApiResponse } from '../types'
+import { Game, Platform, GamesApiResponse, FinishedGame } from '../types'
 
 export type Fetcher = () => Promise<Game[]>
-import { fetchBGA } from './bga'
-import { fetchEighteenXX } from './eighteenxx'
-import { fetchOBG } from './obg'
+export type FinishedFetcher = () => Promise<FinishedGame[]>
+import { fetchBGA, fetchFinishedBGA } from './bga'
+import { fetchEighteenXX, fetchFinishedEighteenXX } from './eighteenxx'
+import { fetchOBG, fetchFinishedOBG } from './obg'
 import { fetchYucata } from './yucata'
 import { fetchChoochoo } from './choochoo'
 import { fetchHansa } from './hansa'
-import { fetchRally } from './rally'
+import { fetchRally, fetchFinishedRally } from './rally'
 
 function env(key: string): string {
   return process.env[key] ?? ''
@@ -33,6 +34,16 @@ export const connectors: Record<Platform, Fetcher> = {
   choochoo: () => fetchChoochoo(env('CHOOCHOO_USERNAME'), env('CHOOCHOO_PASSWORD')),
   hansa: () => fetchHansa(env('HANSA_USERNAME'), env('HANSA_PASSWORD')),
   rally: () => fetchRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
+}
+
+export function makeFinishedConnectors(): Partial<Record<Platform, FinishedFetcher>> {
+  return {
+    eighteenxx: () => fetchFinishedEighteenXX(env('EIGHTEENXX_USERNAME'), env('EIGHTEENXX_PASSWORD')),
+    obg: () => fetchFinishedOBG(env('OBG_USERNAME'), env('OBG_PASSWORD')),
+    bga: () => fetchFinishedBGA(env('BGA_USERNAME'), env('BGA_PASSWORD')),
+    rally: () => fetchFinishedRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
+    choochoo: () => { throw new Error('choochoo must be called via /api/choochoo-finished proxy') },
+  }
 }
 
 export function hasCreds(platform: Platform): boolean {
