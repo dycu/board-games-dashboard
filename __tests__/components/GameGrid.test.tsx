@@ -17,6 +17,31 @@ function makeGame(platform: Game['platform'], id: string): Game {
   }
 }
 
+function renderGrid(games: Game[] = [], errors: GamesApiResponse['errors'] = []) {
+  const data: GamesApiResponse = { games, errors, fetchedAt: new Date().toISOString() }
+  render(
+    <GameGrid
+      data={data}
+      prefs={DEFAULT_PREFS}
+      onPrefsChange={() => {}}
+      dismissed={new Set()}
+      onDismiss={() => {}}
+      onRefresh={() => {}}
+      isRefreshing={false}
+      lastError={null}
+      cachedAt={null}
+    />
+  )
+}
+
+describe('GameGrid header navigation', () => {
+  it('renders Overview navigation link', () => {
+    renderGrid([makeGame('bga', '1')])
+    const overviewLink = screen.getByRole('link', { name: /overview/i })
+    expect(overviewLink).toHaveAttribute('href', '/overview')
+  })
+})
+
 describe('GameGrid quick-links bar', () => {
   it('renders a link for each platform present in games', () => {
     const data: GamesApiResponse = {

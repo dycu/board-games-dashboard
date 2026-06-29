@@ -62,6 +62,9 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <a href="/overview" className="text-xs bg-slate-800 text-slate-400 hover:bg-slate-700 px-3 py-1.5 rounded-md">
+            ⊞ Overview
+          </a>
           <a href="/setup" className="text-xs bg-slate-800 text-slate-400 hover:bg-slate-700 px-3 py-1.5 rounded-md">
             ⚙ Settings
           </a>
