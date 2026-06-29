@@ -54,12 +54,23 @@ function decodeHtmlEntities(s: string): string {
 }
 
 async function fetchGameNames(slugs: string[], cookies: Record<string, string>): Promise<Map<string, string>> {
-  const pairs = await Promise.all(
-    slugs.map(async (slug): Promise<[string, string]> => {
-      for (let attempt = 0; attempt < 2; attempt++) {
+  const map = new Map<string, string>()
+  // Fetch in small batches with a gap to avoid triggering BGA rate-limiting.
+  // Firing all slugs in parallel (20+ concurrent requests) causes intermittent
+  // 429/503s; the immediate retry then hits the same window and also fails.
+  const BATCH = 4
+  const BATCH_DELAY_MS = 200
+  const TIMEOUT_MS = 8000
+
+  async function fetchOne(slug: string): Promise<[string, string]> {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const controller = new AbortController()
+        const tid = setTimeout(() => controller.abort(), TIMEOUT_MS)
         try {
           const res = await fetch(`https://en.boardgamearena.com/gamepanel?game=${slug}`, {
             headers: { ...BROWSER_HEADERS, Cookie: cookieString(cookies) },
+            signal: controller.signal,
           })
           // BGA always uses double-quote delimiters on og:title, so [^"] stays inside
           // the attribute and handles apostrophes (e.g. "Andromeda's Edge") correctly
@@ -67,14 +78,24 @@ async function fetchGameNames(slugs: string[], cookies: Record<string, string>):
           const html = await res.text()
           const m = html.match(/content="Play ([^"]+?) online from your browser"/i)
           if (m) return [slug, decodeHtmlEntities(m[1].replace(/\s+/g, ' ').trim())]
-        } catch {
-          // network error; retry
+        } finally {
+          clearTimeout(tid)
         }
+      } catch {
+        // network error, timeout, or abort; retry once
       }
-      return [slug, slug]
-    })
-  )
-  return new Map(pairs)
+    }
+    return [slug, slug]
+  }
+
+  for (let i = 0; i < slugs.length; i += BATCH) {
+    if (i > 0) await new Promise<void>(r => setTimeout(r, BATCH_DELAY_MS))
+    const batch = slugs.slice(i, i + BATCH)
+    const results = await Promise.all(batch.map(fetchOne))
+    for (const [slug, name] of results) map.set(slug, name)
+  }
+
+  return map
 }
 
 export async function fetchBGA(username: string, password: string, capDays = 3): Promise<Game[]> {
