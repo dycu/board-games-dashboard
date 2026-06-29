@@ -145,7 +145,27 @@ export async function GET() {
     const gamelistText = gamelistRes ? await gamelistRes.text().catch(() => '') : ''
     const gamelistPreview = gamelistText.slice(0, 500)
 
-    return NextResponse.json({ dataKeys, tableKeys, nameSample, gamelistPreview })
+    // Test gamepanel fetches for first 3 unique slugs — with cookies vs without
+    const OG_RE = /content="Play ([^"]+?) online from your browser"/i
+    const testSlugs = [...new Set(allTables.map((t: any) => t.game_name as string).filter(Boolean))].slice(0, 3)
+    const gamepanelDiag = await Promise.all(testSlugs.map(async (slug) => {
+      const results: Record<string, any> = { slug }
+      for (const label of ['withCookies', 'noCookies'] as const) {
+        const headers: Record<string, string> = { ...BROWSER_HEADERS }
+        if (label === 'withCookies') headers['Cookie'] = cookieString(allCookies)
+        try {
+          const r = await fetch(`https://en.boardgamearena.com/gamepanel?game=${slug}`, { headers })
+          const html = await r.text()
+          const m = html.match(OG_RE)
+          results[label] = { status: r.status, ok: r.ok, matched: !!m, name: m?.[1] ?? null, htmlPreview: m ? null : html.slice(0, 300) }
+        } catch (e) {
+          results[label] = { error: String(e) }
+        }
+      }
+      return results
+    }))
+
+    return NextResponse.json({ dataKeys, tableKeys, nameSample, gamelistPreview, gamepanelDiag })
   } catch (e) {
     return NextResponse.json({ error: String(e), log }, { status: 500 })
   }
