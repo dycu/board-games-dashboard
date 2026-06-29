@@ -65,77 +65,56 @@ export async function GET() {
     if (!postLoginToken) return NextResponse.json({ error: 'no post-login token', log }, { status: 500 })
     log.push(`login ok, myId=${myId}`)
 
-    const browserHeaders = { ...BROWSER_HEADERS, Cookie: cookieString(allCookies), Accept: 'text/html,application/xhtml+xml,*/*' }
-    const ajaxHeaders = { ...BROWSER_HEADERS, Cookie: cookieString(allCookies), Accept: 'application/json, text/javascript, */*', 'X-Requested-With': 'XMLHttpRequest', 'X-Request-Token': postLoginToken, Origin: BASE }
+    const ajaxHeaders = {
+      ...BROWSER_HEADERS,
+      Cookie: cookieString(allCookies),
+      Accept: 'application/json, text/javascript, */*',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-Request-Token': postLoginToken,
+      Origin: BASE,
+      Referer: `${BASE}/gamestats?player=${myId}`,
+    }
 
-    // Step 1: fetch /gamestats?player=myId (linked from lastresults section as "games history")
-    const gamestatsRes = await fetch(`${BASE}/gamestats?player=${myId}`, { headers: browserHeaders })
-    const gamestatsHtml = await gamestatsRes.text()
-    log.push(`/gamestats HTTP ${gamestatsRes.status}, bodyLen=${gamestatsHtml.length}`)
-
-    // Look for embedded JSON data, API call patterns, table data
-    const gamestatsEmbeddedJson = (gamestatsHtml.match(/\bg_[a-zA-Z_]+\s*=\s*(\{[^;]{0,1000})/g) ?? []).slice(0, 10)
-    const gamestatsAjaxCalls = (gamestatsHtml.match(/(?:callModule|ajax)\s*\(\s*['"]([^'"]+)['"]/gi) ?? []).slice(0, 20)
-    const gamestatsControllers = [...new Set((gamestatsHtml.match(/["'\/](gamestats|gamestat|gameresult|gamehistory)[^"']{0,100}/gi) ?? []).slice(0, 20))]
-    // Find game entries — BGA often uses data-game-id, data-table-id type attrs
-    const dataAttrs = (gamestatsHtml.match(/data-(?:game|table|result)[^=]{0,20}=["']([^"']{1,60})["']/gi) ?? []).slice(0, 20)
-    // Look for JSON structures that might be game results
-    const gameResultStructures = (gamestatsHtml.match(/\{[^{}]{0,500}(?:game_name|table_id|gameresult)[^{}]{0,500}\}/g) ?? []).slice(0, 5)
-    // Look for script tags with game data
-    const inlineScripts = (gamestatsHtml.match(/<script[^>]*>([\s\S]{0,500}gamestat[\s\S]{0,500})<\/script>/gi) ?? []).slice(0, 3)
-    // Grab first 3000 chars of body content (after <body> tag)
-    const bodyStart = gamestatsHtml.indexOf('<body')
-    const bodyPreview = bodyStart >= 0 ? gamestatsHtml.slice(bodyStart, bodyStart + 3000) : gamestatsHtml.slice(0, 3000)
-
-    // Step 2: try gamestats AJAX endpoints
-    const gamestatsAttempts: any[] = []
+    // Focus on gamestats/getGames — it returned a real "missing param" error, meaning the endpoint exists
+    const attempts: any[] = []
     const endpoints = [
-      { label: 'gamestats/getPlayerStats GET', method: 'GET', url: `${BASE}/gamestats/gamestats/getPlayerStats.html?player=${myId}` },
-      { label: 'gamestats/index GET ajax', method: 'GET', url: `${BASE}/gamestats/gamestats/index.html?player=${myId}&ajax=1` },
-      { label: 'gamestats/getGames GET', method: 'GET', url: `${BASE}/gamestats/gamestats/getGames.html?player=${myId}` },
-      { label: 'gamestats/getLastGames GET', method: 'GET', url: `${BASE}/gamestats/gamestats/getLastGames.html?player=${myId}` },
-      { label: 'gamestats/getHistory GET', method: 'GET', url: `${BASE}/gamestats/gamestats/getHistory.html?player=${myId}` },
-      { label: 'gamestats/gameresults GET', method: 'GET', url: `${BASE}/gamestats/gamestats/gameresults.html?player=${myId}` },
-      { label: 'gamestats page ajax=1', method: 'GET', url: `${BASE}/gamestats?player=${myId}&ajax=1` },
-      { label: 'gamestats/getTableList POST', method: 'POST', url: `${BASE}/gamestats/gamestats/getTableList.html`, body: `player=${myId}&start=0&length=20` },
-      { label: 'gamestats/getTableList POST2', method: 'POST', url: `${BASE}/gamestats/gamestats/getTableList.html`, body: `player_id=${myId}&start=0&length=20` },
+      // Try with updateStats=0 and updateStats=1 (GET)
+      { label: 'getGames GET updateStats=0 player', url: `${BASE}/gamestats/gamestats/getGames.html?player=${myId}&updateStats=0` },
+      { label: 'getGames GET updateStats=1 player', url: `${BASE}/gamestats/gamestats/getGames.html?player=${myId}&updateStats=1` },
+      { label: 'getGames GET updateStats=0 player_id', url: `${BASE}/gamestats/gamestats/getGames.html?player_id=${myId}&updateStats=0` },
+      // With start/length pagination
+      { label: 'getGames GET updateStats=0 paginated', url: `${BASE}/gamestats/gamestats/getGames.html?player=${myId}&updateStats=0&start=0&length=20` },
+      // With game filter cleared
+      { label: 'getGames GET updateStats=0 no game filter', url: `${BASE}/gamestats/gamestats/getGames.html?player=${myId}&updateStats=0&game_id=0` },
+      // Try other common param names
+      { label: 'getGames GET updateStats=false', url: `${BASE}/gamestats/gamestats/getGames.html?player=${myId}&updateStats=false` },
+      // Try more gamestats controller actions
+      { label: 'gamestats/getLastResults', url: `${BASE}/gamestats/gamestats/getLastResults.html?player=${myId}&updateStats=0` },
+      { label: 'gamestats/getResults', url: `${BASE}/gamestats/gamestats/getResults.html?player=${myId}&updateStats=0` },
+      { label: 'gamestats/getTableHistory', url: `${BASE}/gamestats/gamestats/getTableHistory.html?player=${myId}&updateStats=0` },
     ]
-    for (const { label, method, url, body } of endpoints) {
+
+    for (const { label, url } of endpoints) {
       const t0 = Date.now()
-      const headers = body
-        ? { ...ajaxHeaders, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', Referer: `${BASE}/gamestats?player=${myId}` }
-        : { ...ajaxHeaders, Referer: `${BASE}/gamestats?player=${myId}` }
-      const r = await fetch(url, { method, headers, ...(body ? { body } : {}) })
+      const r = await fetch(url, { headers: ajaxHeaders })
       const text = await r.text()
       let parsed: any = null
       try { parsed = JSON.parse(text) } catch {}
-      gamestatsAttempts.push({
+      const isSuccess = parsed?.status === 1 || parsed?.status === '1'
+      attempts.push({
         label,
         httpStatus: r.status,
         elapsedMs: Date.now() - t0,
         apiStatus: parsed?.status,
         error: parsed?.error,
         dataKeys: parsed?.data ? Object.keys(parsed.data) : undefined,
-        rawPreview: text.slice(0, 400),
+        // If success, show first table entry structure
+        sampleData: isSuccess && parsed?.data ? JSON.stringify(parsed.data).slice(0, 800) : undefined,
+        rawPreview: !isSuccess ? text.slice(0, 300) : undefined,
       })
     }
 
-    return NextResponse.json({
-      log,
-      myId,
-      gamestats: {
-        httpStatus: gamestatsRes.status,
-        bodyLen: gamestatsHtml.length,
-        bodyPreview,
-        embeddedJson: gamestatsEmbeddedJson,
-        ajaxCalls: gamestatsAjaxCalls,
-        controllers: gamestatsControllers,
-        dataAttrs,
-        gameResultStructures,
-        inlineScripts,
-      },
-      gamestatsAttempts,
-    })
+    return NextResponse.json({ log, myId, attempts })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, log }, { status: 500 })
   }
