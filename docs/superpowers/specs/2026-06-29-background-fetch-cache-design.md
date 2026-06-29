@@ -102,7 +102,9 @@ New props: `onRefresh: () => void`, `isRefreshing: boolean`, `lastError: string 
 ```
 flex h-screen overflow-hidden
 ├── left panel (flex-1 flex-col overflow-hidden)
-│   ├── FetchProgress (first load only, no cache)       ← replaces grid
+│   ├── FetchProgress — rendered by page.tsx, not inside GameGrid
+│   │     • no cache: shown centred, replaces grid
+│   │     • has cache + isRefreshing: shown as slim bar above grid
 │   ├── PendingUpdateBanner (when pendingData exists)   ← above grid
 │   └── GameGrid (when displayedData exists)
 └── PlaySidebar (receives empty array during first load)
