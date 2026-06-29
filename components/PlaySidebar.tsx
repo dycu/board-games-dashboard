@@ -10,8 +10,15 @@ interface Props {
 
 export default function PlaySidebar({ games, pins }: Props) {
   const [open, setOpen] = useState(false)
+  const [waitingOpen, setWaitingOpen] = useState(false)
   const myTurnGames = games.filter(g => g.myTurn)
+  const waitingGames = games.filter(g => !g.myTurn)
   const byPlatform = myTurnGames.reduce<Record<string, Game[]>>((acc, g) => {
+    acc[g.platform] = acc[g.platform] ?? []
+    acc[g.platform].push(g)
+    return acc
+  }, {})
+  const byPlatformWaiting = waitingGames.reduce<Record<string, Game[]>>((acc, g) => {
     acc[g.platform] = acc[g.platform] ?? []
     acc[g.platform].push(g)
     return acc
@@ -31,6 +38,20 @@ export default function PlaySidebar({ games, pins }: Props) {
       ))}
       {myTurnGames.length === 0 && (
         <p className="text-xs text-slate-500 text-center mt-8">No pending turns</p>
+      )}
+
+      {waitingGames.length > 0 && (
+        <div className="border-t border-slate-700 mt-2">
+          <button
+            onClick={() => setWaitingOpen(w => !w)}
+            className="w-full flex items-center justify-between px-4 py-3 text-xs text-slate-500 hover:text-slate-300 transition-colors">
+            <span>Waiting for others ({waitingGames.length})</span>
+            <span>{waitingOpen ? '▲' : '▼'}</span>
+          </button>
+          {waitingOpen && Object.entries(byPlatformWaiting).map(([platform, platformGames]) => (
+            <PlatformGroup key={platform} platform={platform} games={platformGames} pins={pins} showDoneButton={false} />
+          ))}
+        </div>
       )}
     </>
   )

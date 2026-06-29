@@ -1,6 +1,7 @@
 'use client'
-import { Game, UserPrefs, GamesApiResponse } from '@/lib/types'
+import { Game, UserPrefs, GamesApiResponse, PLATFORM_LABELS, PLATFORM_URLS } from '@/lib/types'
 import { sortAndFilter } from '@/lib/sort-filter'
+import { BADGE_COLORS } from '@/lib/platform-colors'
 import GameCard from './GameCard'
 import FilterToolbar from './FilterToolbar'
 
@@ -14,6 +15,9 @@ interface Props {
 
 export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDismiss }: Props) {
   const { games, errors, fetchedAt } = data
+  const configuredPlatforms = Array.from(
+    new Set([...games.map(g => g.platform), ...errors.map(e => e.platform)])
+  )
   const visible = games.filter(g => !dismissed.has(g.id))
   const myTurnCount = visible.filter(g => g.myTurn).length
   const myTurnGames = sortAndFilter(visible.filter(g => g.myTurn), prefs)
