@@ -1,4 +1,4 @@
-import { connectors, hasCreds } from '@/lib/connectors'
+import { makeConnectors, hasCreds } from '@/lib/connectors'
 import { Platform } from '@/lib/types'
 import { getPrefs } from '@/lib/prefs'
 
@@ -13,6 +13,7 @@ const PROXY_PATH: Partial<Record<Platform, string>> = {
 export async function GET(request?: Request) {
   const prefs = await getPrefs()
   const disabled = prefs.disabledPlatforms ?? []
+  const connectors = makeConnectors(prefs.bgaSortCapDays ?? 3)
 
   const entries = (Object.entries(connectors) as [Platform, () => Promise<any>][])
     .filter(([p]) => hasCreds(p) && !disabled.includes(p))

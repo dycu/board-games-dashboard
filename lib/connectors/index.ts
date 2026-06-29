@@ -13,6 +13,18 @@ function env(key: string): string {
   return process.env[key] ?? ''
 }
 
+export function makeConnectors(bgaSortCapDays = 3): Record<Platform, Fetcher> {
+  return {
+    bga: () => fetchBGA(env('BGA_USERNAME'), env('BGA_PASSWORD'), bgaSortCapDays),
+    eighteenxx: () => fetchEighteenXX(env('EIGHTEENXX_USERNAME'), env('EIGHTEENXX_PASSWORD')),
+    obg: () => fetchOBG(env('OBG_USERNAME'), env('OBG_PASSWORD')),
+    yucata: () => fetchYucata(env('YUCATA_USERNAME'), env('YUCATA_PASSWORD')),
+    choochoo: () => fetchChoochoo(env('CHOOCHOO_USERNAME'), env('CHOOCHOO_PASSWORD')),
+    hansa: () => fetchHansa(env('HANSA_USERNAME'), env('HANSA_PASSWORD')),
+    rally: () => fetchRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
+  }
+}
+
 export const connectors: Record<Platform, Fetcher> = {
   bga: () => fetchBGA(env('BGA_USERNAME'), env('BGA_PASSWORD')),
   eighteenxx: () => fetchEighteenXX(env('EIGHTEENXX_USERNAME'), env('EIGHTEENXX_PASSWORD')),

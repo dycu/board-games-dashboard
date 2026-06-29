@@ -29,6 +29,7 @@ export interface UserPrefs {
     platforms: Platform[]  // empty = show all
   }
   disabledPlatforms: Platform[]  // skipped entirely during fetch
+  bgaSortCapDays: number         // cap for BGA urgency sort and display (default 3)
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
@@ -36,6 +37,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   sort: 'longest-wait',
   filter: { turnStatus: 'all', platforms: [] },
   disabledPlatforms: [],
+  bgaSortCapDays: 3,
 }
 
 export interface GamesApiResponse {

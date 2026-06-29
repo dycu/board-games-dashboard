@@ -22,10 +22,12 @@ export default function SetupPage() {
   )
   const [errors, setErrors] = useState<Record<Platform, string>>({} as Record<Platform, string>)
   const [disabled, setDisabled] = useState<Set<Platform>>(new Set())
+  const [bgaSortCapDays, setBgaSortCapDays] = useState(3)
 
   useEffect(() => {
     fetch('/api/prefs').then(r => r.json()).then(prefs => {
       setDisabled(new Set(prefs.disabledPlatforms ?? []))
+      setBgaSortCapDays(prefs.bgaSortCapDays ?? 3)
     })
   }, [])
 
@@ -63,6 +65,33 @@ export default function SetupPage() {
           <li>Link project: <code className="bg-slate-800 px-1 rounded">vercel link</code></li>
           <li>Add each var below using the commands shown, then redeploy</li>
         </ol>
+      </div>
+
+      <div className="bg-slate-900 rounded-xl border border-slate-800 p-5 mb-8">
+        <h2 className="text-sm font-semibold mb-1">BGA sort cap</h2>
+        <p className="text-xs text-slate-400 mb-3">
+          BGA doesn&apos;t expose last-move time. Games within this many days of their deadline
+          are ranked by urgency; games with more time left appear as not urgent.
+        </p>
+        <div className="flex items-center gap-3">
+          <input
+            type="number"
+            min={1}
+            max={90}
+            value={bgaSortCapDays}
+            onChange={async e => {
+              const val = Math.max(1, Math.min(90, parseInt(e.target.value) || 3))
+              setBgaSortCapDays(val)
+              await fetch('/api/prefs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bgaSortCapDays: val }),
+              })
+            }}
+            className="w-20 bg-slate-800 text-white text-sm px-3 py-1.5 rounded-md border border-slate-700"
+          />
+          <span className="text-sm text-slate-400">days</span>
+        </div>
       </div>
 
       <div className="space-y-4">

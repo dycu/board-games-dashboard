@@ -75,7 +75,7 @@ async function fetchGameNames(slugs: string[], cookies: Record<string, string>):
   return new Map(pairs)
 }
 
-export async function fetchBGA(username: string, password: string): Promise<Game[]> {
+export async function fetchBGA(username: string, password: string, capDays = 3): Promise<Game[]> {
   // Step 1: follow redirect from boardgamearena.com to locale subdomain, collect PHPSESSID
   const initRes = await fetch(`${BASE}/account`, {
     redirect: 'manual',
@@ -172,19 +172,6 @@ export async function fetchBGA(username: string, password: string): Promise<Game
   const tables = Object.values(rawTables)
 
 
-  // BGA option 200 = "think time per turn"; values map to async bank sizes.
-  // Confirmed empirically from live API responses (opt200 × think_seconds cross-reference).
-  const OPT200_BANK_SEC: Record<string, number> = {
-    '13': 1 * 86400,
-    '14': 2 * 86400,
-    '15': 3 * 86400,
-    '16': 5 * 86400,
-    '17': 7 * 86400,
-    '18': 14 * 86400,
-    '19': 30 * 86400,
-    '20': 90 * 86400,
-  }
-
   // Step 5: resolve display names from gamepanel pages (game_name field is a URL slug)
   const uniqueSlugs = [...new Set(tables.map((t: any) => t.game_name as string).filter(Boolean))]
   const nameMap = uniqueSlugs.length > 0 ? await fetchGameNames(uniqueSlugs, allCookies) : new Map<string, string>()
@@ -206,11 +193,11 @@ export async function fetchBGA(username: string, password: string): Promise<Game
       : null
     const hasTimingData = thinkLimitSec != null && !isNaN(thinkLimitSec)
       && thinkRemainSec != null && !isNaN(thinkRemainSec)
-    // Derive last-move time from bank consumed: lastMoveAt = now − (bank − remaining).
-    // Bank size comes from option 200 per game; falls back to 1 day if unknown.
-    const bankSec = OPT200_BANK_SEC[t.options?.['200']] ?? 86400
+    // BGA's bank is cumulative so we can't derive actual last-move time.
+    // Use capDays as a fixed horizon: remaining < cap → some urgency; remaining > cap → "just now".
+    const capMs = capDays * 86400 * 1000
     const lastMoveAt = hasTimingData
-      ? new Date(Date.now() - Math.max(0, bankSec * 1000 - thinkRemainSec! * 1000))
+      ? new Date(Date.now() - Math.max(0, capMs - thinkRemainSec! * 1000))
       : new Date()
 
     const playerNames = Object.values(players)
@@ -224,7 +211,9 @@ export async function fetchBGA(username: string, password: string): Promise<Game
       myTurn: isMyTurn,
       currentPlayer: isMyTurn ? undefined : (activePlayerEntry?.fullname ?? undefined),
       lastMoveAt,
-      lastMoveAgo: hasTimingData ? formatTimeRemaining(thinkRemainSec!) : '–',
+      lastMoveAgo: hasTimingData && thinkRemainSec! < capDays * 86400
+        ? formatTimeRemaining(thinkRemainSec!)
+        : '–',
       urgent: hasTimingData && thinkRemainSec! < 24 * 3600,
       gameUrl: `${BASE}/${t.gameserver}/${t.game_name}?table=${t.id}`,
       platformUrl: `${BASE}/gameinprogress`,
