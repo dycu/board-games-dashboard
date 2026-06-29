@@ -1,5 +1,5 @@
 import { Game } from '../types'
-import { formatTimeAgo, formatTimeRemaining } from './utils'
+import { formatTimeRemaining } from './utils'
 
 const BASE = 'https://boardgamearena.com'
 
@@ -224,9 +224,7 @@ export async function fetchBGA(username: string, password: string): Promise<Game
       myTurn: isMyTurn,
       currentPlayer: isMyTurn ? undefined : (activePlayerEntry?.fullname ?? undefined),
       lastMoveAt,
-      lastMoveAgo: hasTimingData
-        ? `${formatTimeAgo(lastMoveAt)} · ${formatTimeRemaining(thinkRemainSec!)}`
-        : '–',
+      lastMoveAgo: hasTimingData ? formatTimeRemaining(thinkRemainSec!) : '–',
       urgent: hasTimingData && thinkRemainSec! < 24 * 3600,
       gameUrl: `${BASE}/${t.gameserver}/${t.game_name}?table=${t.id}`,
       platformUrl: `${BASE}/gameinprogress`,
