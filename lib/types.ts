@@ -46,6 +46,21 @@ export interface GamesApiResponse {
   fetchedAt: string
 }
 
+export interface FinishedGame {
+  id: string           // e.g. "eighteenxx:333"
+  platform: Platform
+  gameName: string
+  completedAt: Date
+  completedAgo: string // pre-formatted: "3h ago", "2 days ago"
+  gameUrl: string
+}
+
+export interface FinishedGamesApiResponse {
+  games: FinishedGame[]
+  errors: { platform: Platform; error: string }[]
+  fetchedAt: string
+}
+
 export const PLATFORM_LABELS: Record<Platform, string> = {
   bga: 'BGA',
   eighteenxx: '18xx.games',
