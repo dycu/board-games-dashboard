@@ -31,7 +31,7 @@ export default function OverviewPage() {
   }
 
   const navRight = data ? (
-    <span>{data.games.length} games · updated {new Date(data.fetchedAt).toLocaleTimeString()}</span>
+    <span className="hidden sm:inline">{data.games.length} games · updated {new Date(data.fetchedAt).toLocaleTimeString()}</span>
   ) : undefined
 
   return (

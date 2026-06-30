@@ -80,24 +80,25 @@ export default function SetupPage() {
             const enabled = !disabled.has(platform)
             return (
               <div key={platform} className={`bg-white rounded-xl border border-[#e5e5e5] p-5 transition-opacity ${enabled ? '' : 'opacity-50'}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
                     <button
                       onClick={() => togglePlatform(platform)}
                       title={enabled ? 'Disable platform' : 'Enable platform'}
                       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${enabled ? 'bg-[#5e6ad2]' : 'bg-[#e5e5e5]'}`}>
                       <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-5' : 'translate-x-1'}`} />
                     </button>
-                    <h3 className="font-semibold text-[#1a1a1a]">{PLATFORM_LABELS[platform]}</h3>
+                    <h3 className="font-semibold text-[#1a1a1a] truncate">{PLATFORM_LABELS[platform]}</h3>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {status === 'ok' && <span className="text-xs text-green-600">✓ Connected</span>}
-                    {status === 'error' && <span className="text-xs text-red-500">✗ {errors[platform]}</span>}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {status === 'ok' && <span className="text-xs text-green-600 hidden sm:inline">✓ Connected</span>}
+                    {status === 'ok' && <span className="text-xs text-green-600 sm:hidden">✓</span>}
+                    {status === 'error' && <span className="text-xs text-red-500 max-w-[80px] truncate" title={errors[platform]}>✗ {errors[platform]}</span>}
                     <button
                       onClick={() => test(platform)}
                       disabled={status === 'testing' || !enabled}
-                      className="text-xs bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1.5 rounded-md disabled:opacity-50">
-                      {status === 'testing' ? 'Testing…' : 'Test connection'}
+                      className="text-xs bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap">
+                      {status === 'testing' ? 'Testing…' : <><span className="hidden sm:inline">Test connection</span><span className="sm:hidden">Test</span></>}
                     </button>
                   </div>
                 </div>

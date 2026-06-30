@@ -52,7 +52,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
 
   const navRight = (
     <>
-      <span>
+      <span className="hidden sm:inline">
         {games.length}{' '}active &nbsp;·&nbsp;
         <span className="text-[#5e6ad2] font-medium">{myTurnCount}{' '}your turn</span>
       </span>
@@ -61,7 +61,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
         disabled={isRefreshing}
         className="bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] disabled:opacity-50 disabled:cursor-not-allowed px-2.5 py-1 rounded-md flex items-center gap-1">
         <span className={isRefreshing ? 'animate-spin inline-block' : ''}>↻</span>
-        Refresh
+        <span className="hidden sm:inline">Refresh</span>
       </button>
     </>
   )
