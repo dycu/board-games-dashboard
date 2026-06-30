@@ -62,7 +62,7 @@ export async function fetchChoochoo(username: string, password: string): Promise
       lastMoveAgo: formatTimeAgo(lastMoveAt),
       urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
       gameUrl: `${BASE}/app/games/${gameId}`,
-      platformUrl: `${BASE}/app/games`,
+      platformUrl: `${BASE}/`,
       players: otherPlayerIds.map(String),
     }
   })

@@ -86,7 +86,7 @@ export async function GET() {
       lastMoveAgo: formatTimeAgo(lastMoveAt),
       urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
       gameUrl: `${BASE_URL}/app/games/${gameId}`,
-      platformUrl: `${BASE_URL}/app/games`,
+      platformUrl: `${BASE_URL}/`,
       players: otherPlayerIds.map(String),
     }
   })
