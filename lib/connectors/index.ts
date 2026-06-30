@@ -7,7 +7,7 @@ import { fetchEighteenXX, fetchFinishedEighteenXX } from './eighteenxx'
 import { fetchOBG, fetchFinishedOBG } from './obg'
 import { fetchYucata } from './yucata'
 import { fetchChoochoo } from './choochoo'
-import { fetchHansa } from './hansa'
+import { fetchHansa, fetchFinishedHansa } from './hansa'
 import { fetchRally, fetchFinishedRally } from './rally'
 
 function env(key: string): string {
@@ -21,7 +21,7 @@ export function makeConnectors(bgaSortCapDays = 3): Record<Platform, Fetcher> {
     obg: () => fetchOBG(env('OBG_USERNAME'), env('OBG_PASSWORD')),
     yucata: () => fetchYucata(env('YUCATA_USERNAME'), env('YUCATA_PASSWORD')),
     choochoo: () => fetchChoochoo(env('CHOOCHOO_USERNAME'), env('CHOOCHOO_PASSWORD')),
-    hansa: () => fetchHansa(env('HANSA_USERNAME'), env('HANSA_PASSWORD')),
+    hansa: () => fetchHansa(env('HANSA_USERNAME')),
     rally: () => fetchRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
   }
 }
@@ -32,7 +32,7 @@ export const connectors: Record<Platform, Fetcher> = {
   obg: () => fetchOBG(env('OBG_USERNAME'), env('OBG_PASSWORD')),
   yucata: () => fetchYucata(env('YUCATA_USERNAME'), env('YUCATA_PASSWORD')),
   choochoo: () => fetchChoochoo(env('CHOOCHOO_USERNAME'), env('CHOOCHOO_PASSWORD')),
-  hansa: () => fetchHansa(env('HANSA_USERNAME'), env('HANSA_PASSWORD')),
+  hansa: () => fetchHansa(env('HANSA_USERNAME')),
   rally: () => fetchRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
 }
 
@@ -42,12 +42,14 @@ export function makeFinishedConnectors(): Partial<Record<Platform, FinishedFetch
     obg: () => fetchFinishedOBG(env('OBG_USERNAME'), env('OBG_PASSWORD')),
     bga: () => fetchFinishedBGA(env('BGA_USERNAME'), env('BGA_PASSWORD')),
     rally: () => fetchFinishedRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
+    hansa: () => fetchFinishedHansa(env('HANSA_USERNAME')),
     choochoo: () => { throw new Error('choochoo must be called via /api/choochoo-finished proxy') },
   }
 }
 
 export function hasCreds(platform: Platform): boolean {
   if (platform === 'bga') return !!(process.env.BGA_USERNAME && process.env.BGA_PASSWORD)
+  if (platform === 'hansa') return !!(process.env.HANSA_USERNAME)
   const prefix = platform.toUpperCase()
   return !!(process.env[`${prefix}_USERNAME`] && process.env[`${prefix}_PASSWORD`])
 }

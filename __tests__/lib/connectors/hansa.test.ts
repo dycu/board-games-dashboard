@@ -1,58 +1,77 @@
-import { fetchHansa } from '@/lib/connectors/hansa'
+import { fetchHansa, fetchFinishedHansa } from '@/lib/connectors/hansa'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
 const mockFetch = jest.fn()
 global.fetch = mockFetch
-const fixture = readFileSync(join(__dirname, '../../../__fixtures__/hansa-games.html'), 'utf8')
+
+const gamesFixture = readFileSync(join(__dirname, '../../../__fixtures__/hansa-games.json'), 'utf8')
+const finishedFixture = readFileSync(join(__dirname, '../../../__fixtures__/hansa-finished.json'), 'utf8')
+
+function mockGamesResponse(body: string) {
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    json: async () => JSON.parse(body),
+  })
+}
 
 describe('fetchHansa', () => {
   beforeEach(() => mockFetch.mockClear())
 
-  it('returns Game[] from scraped HTML', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        headers: { get: () => 'session=abc; Path=/' },
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        text: async () => fixture,
-      })
-
-    const games = await fetchHansa('testuser', 'pass')
+  it('returns only games where the user is a player', async () => {
+    mockGamesResponse(gamesFixture)
+    const games = await fetchHansa('testuser')
     expect(games).toHaveLength(2)
-    expect(games[0]).toMatchObject({
-      platform: 'hansa',
-      id: expect.stringMatching(/^hansa:/),
-      myTurn: expect.any(Boolean),
-    })
+    expect(games.every(g => g.platform === 'hansa')).toBe(true)
+    expect(games.every(g => g.id.startsWith('hansa:'))).toBe(true)
   })
 
-  it('correctly identifies my-turn from CSS class', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        headers: { get: () => 'session=abc; Path=/' },
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        text: async () => fixture,
-      })
-
-    const games = await fetchHansa('testuser', 'pass')
-    const g1 = games.find(g => g.id === 'hansa:101')!
-    expect(g1.myTurn).toBe(true)
-    const g2 = games.find(g => g.id === 'hansa:202')!
-    expect(g2.myTurn).toBe(false)
-    expect(g2.currentPlayer).toBe('alice')
+  it('correctly identifies my turn when currentPlayerId matches user userId', async () => {
+    mockGamesResponse(gamesFixture)
+    const games = await fetchHansa('testuser')
+    const myTurnGame = games.find(g => g.id === 'hansa:aabbccdd1122')!
+    expect(myTurnGame.myTurn).toBe(true)
+    expect(myTurnGame.currentPlayer).toBeUndefined()
   })
 
-  it('throws when login fails (no cookie)', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      headers: { get: () => null },
-    })
-    await expect(fetchHansa('bad', 'creds')).rejects.toThrow('Hansa Teutonica login failed')
+  it('correctly identifies waiting when currentPlayerId matches another player', async () => {
+    mockGamesResponse(gamesFixture)
+    const games = await fetchHansa('testuser')
+    const waitingGame = games.find(g => g.id === 'hansa:eeff00112233')!
+    expect(waitingGame.myTurn).toBe(false)
+    expect(waitingGame.currentPlayer).toBe('alice')
+  })
+
+  it('excludes games the user is not in', async () => {
+    mockGamesResponse(gamesFixture)
+    const games = await fetchHansa('testuser')
+    expect(games.find(g => g.id === 'hansa:ffffffffffffffff')).toBeUndefined()
+  })
+
+  it('sets gameName to Hansa Teutonica', async () => {
+    mockGamesResponse(gamesFixture)
+    const games = await fetchHansa('testuser')
+    expect(games.every(g => g.gameName === 'Hansa Teutonica')).toBe(true)
+  })
+
+  it('throws when username is missing', async () => {
+    await expect(fetchHansa('')).rejects.toThrow('HANSA_USERNAME is required')
+  })
+})
+
+describe('fetchFinishedHansa', () => {
+  beforeEach(() => mockFetch.mockClear())
+
+  it('returns only finished games where the user is a player', async () => {
+    mockGamesResponse(finishedFixture)
+    const games = await fetchFinishedHansa('testuser')
+    expect(games).toHaveLength(1)
+    expect(games[0].id).toBe('hansa:done00112233')
+    expect(games[0].platform).toBe('hansa')
+    expect(games[0].gameName).toBe('Hansa Teutonica')
+  })
+
+  it('throws when username is missing', async () => {
+    await expect(fetchFinishedHansa('')).rejects.toThrow('HANSA_USERNAME is required')
   })
 })

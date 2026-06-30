@@ -1,0 +1,60 @@
+{
+  "games": [
+    {
+      "id": "aabbccdd1122",
+      "status": "playing",
+      "players": [
+        {
+          "name": "testuser",
+          "userId": "aaaaaaaa-0000-0000-0000-bbbbbbbbbbbb",
+          "color": "blue"
+        },
+        {
+          "name": "alice",
+          "userId": "cccccccc-1111-1111-1111-dddddddddddd",
+          "color": "red"
+        }
+      ],
+      "currentPlayerId": "aaaaaaaa000000000000bbbbbbbbbbbb",
+      "turnStartedAt": "2026-06-20T10:00:00Z",
+      "updatedAt": "2026-06-20T10:00:00Z",
+      "turnTimeoutSeconds": 86400
+    },
+    {
+      "id": "eeff00112233",
+      "status": "playing",
+      "players": [
+        {
+          "name": "alice",
+          "userId": "cccccccc-1111-1111-1111-dddddddddddd",
+          "color": "blue"
+        },
+        {
+          "name": "testuser",
+          "userId": "aaaaaaaa-0000-0000-0000-bbbbbbbbbbbb",
+          "color": "red"
+        }
+      ],
+      "currentPlayerId": "cccccccc111111111111dddddddddddd",
+      "turnStartedAt": "2026-06-24T08:00:00Z",
+      "updatedAt": "2026-06-24T08:00:00Z",
+      "turnTimeoutSeconds": 86400
+    },
+    {
+      "id": "ffffffffffffffff",
+      "status": "playing",
+      "players": [
+        {
+          "name": "bob",
+          "userId": "eeeeeeee-2222-2222-2222-ffffffffffff",
+          "color": "blue"
+        }
+      ],
+      "currentPlayerId": "eeeeeeee22222222222222ffffffffffff",
+      "turnStartedAt": "2026-06-25T12:00:00Z",
+      "updatedAt": "2026-06-25T12:00:00Z",
+      "turnTimeoutSeconds": 86400
+    }
+  ],
+  "nextCursor": null
+}

@@ -77,6 +77,6 @@ export const PLATFORM_URLS: Record<Platform, string> = {
   obg: 'https://www.onlineboardgamers.com',
   yucata: 'https://www.yucata.de',
   choochoo: 'https://www.choochoo.games/',
-  hansa: 'https://www.hansa-teutonica.de',
+  hansa: 'https://hansa-teutonica-digital.onrender.com',
   rally: 'https://rally-the-troops.com',
 }
