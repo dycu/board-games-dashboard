@@ -21,7 +21,7 @@ export function makeConnectors(bgaSortCapDays = 3): Record<Platform, Fetcher> {
     obg: () => fetchOBG(env('OBG_USERNAME'), env('OBG_PASSWORD')),
     yucata: () => fetchYucata(env('YUCATA_USERNAME'), env('YUCATA_PASSWORD')),
     choochoo: () => fetchChoochoo(env('CHOOCHOO_USERNAME'), env('CHOOCHOO_PASSWORD')),
-    hansa: () => fetchHansa(env('HANSA_USERNAME')),
+    hansa: () => fetchHansa(env('HANSA_USER_ID')),
     rally: () => fetchRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
   }
 }
@@ -32,7 +32,7 @@ export const connectors: Record<Platform, Fetcher> = {
   obg: () => fetchOBG(env('OBG_USERNAME'), env('OBG_PASSWORD')),
   yucata: () => fetchYucata(env('YUCATA_USERNAME'), env('YUCATA_PASSWORD')),
   choochoo: () => fetchChoochoo(env('CHOOCHOO_USERNAME'), env('CHOOCHOO_PASSWORD')),
-  hansa: () => fetchHansa(env('HANSA_USERNAME')),
+  hansa: () => fetchHansa(env('HANSA_USER_ID')),
   rally: () => fetchRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
 }
 
@@ -42,14 +42,14 @@ export function makeFinishedConnectors(): Partial<Record<Platform, FinishedFetch
     obg: () => fetchFinishedOBG(env('OBG_USERNAME'), env('OBG_PASSWORD')),
     bga: () => fetchFinishedBGA(env('BGA_USERNAME'), env('BGA_PASSWORD')),
     rally: () => fetchFinishedRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
-    hansa: () => fetchFinishedHansa(env('HANSA_USERNAME')),
+    hansa: () => fetchFinishedHansa(env('HANSA_USER_ID')),
     choochoo: () => { throw new Error('choochoo must be called via /api/choochoo-finished proxy') },
   }
 }
 
 export function hasCreds(platform: Platform): boolean {
   if (platform === 'bga') return !!(process.env.BGA_USERNAME && process.env.BGA_PASSWORD)
-  if (platform === 'hansa') return !!(process.env.HANSA_USERNAME)
+  if (platform === 'hansa') return !!(process.env.HANSA_USER_ID)
   const prefix = platform.toUpperCase()
   return !!(process.env[`${prefix}_USERNAME`] && process.env[`${prefix}_PASSWORD`])
 }

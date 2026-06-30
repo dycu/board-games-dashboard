@@ -53,8 +53,7 @@ const ALL_ENV_VARS: Record<string, string> = {
   YUCATA_PASSWORD: 'yucata_pass',
   CHOOCHOO_USERNAME: 'choochoo_user',
   CHOOCHOO_PASSWORD: 'choochoo_pass',
-  HANSA_USERNAME: 'hansa_user',
-  HANSA_PASSWORD: 'hansa_pass',
+  HANSA_USER_ID: 'aaaaaaaa-0000-0000-0000-bbbbbbbbbbbb',
   RALLY_USERNAME: 'rally_user',
   RALLY_PASSWORD: 'rally_pass',
 }

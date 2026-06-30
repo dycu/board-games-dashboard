@@ -6,16 +6,18 @@ export const maxDuration = 30
 const BASE = 'https://hansa-teutonica-digital.onrender.com'
 
 export async function GET() {
-  const username = process.env.HANSA_USERNAME
+  const userId = process.env.HANSA_USER_ID
 
   const log: string[] = []
-  log.push(`HANSA_USERNAME present: ${!!username}`)
-  log.push(`HANSA_USERNAME length: ${username?.length ?? 0}`)
-  log.push(`HANSA_USERNAME bytes: ${username ? [...username].map(c => c.codePointAt(0)?.toString(16)).join(' ') : '(none)'}`)
+  log.push(`HANSA_USER_ID present: ${!!userId}`)
+  log.push(`HANSA_USER_ID value: ${userId ?? '(none)'}`)
 
-  if (!username) {
-    return NextResponse.json({ error: 'HANSA_USERNAME not set', log }, { status: 500 })
+  if (!userId) {
+    return NextResponse.json({ error: 'HANSA_USER_ID not set', log }, { status: 500 })
   }
+
+  const myId = userId.replace(/-/g, '')
+  log.push(`myId (no dashes): ${myId}`)
 
   try {
     const url = `${BASE}/games?limit=100&mode=all&status=playing`
@@ -27,19 +29,11 @@ export async function GET() {
 
     const data = await res.json() as { games: any[]; nextCursor: string | null }
     log.push(`total games returned: ${data.games.length}`)
-    log.push(`nextCursor: ${data.nextCursor}`)
 
     const myGames = data.games.filter((g: any) =>
-      g.players?.some((p: any) => p.name === username)
+      g.players?.some((p: any) => p.userId?.replace(/-/g, '') === myId)
     )
-    log.push(`games matching username: ${myGames.length}`)
-
-    // Show all unique player names for inspection
-    const allNames = [...new Set(data.games.flatMap((g: any) => g.players?.map((p: any) => p.name) ?? []))]
-    const namesWithBytes = allNames.map(n => ({
-      name: n,
-      bytes: [...n].map(c => c.codePointAt(0)?.toString(16)).join(' '),
-    }))
+    log.push(`games matching userId: ${myGames.length}`)
 
     return NextResponse.json({
       ok: true,
@@ -48,9 +42,9 @@ export async function GET() {
         id: g.id,
         status: g.status,
         currentPlayerId: g.currentPlayerId,
+        myTurn: g.currentPlayerId === myId,
         players: g.players,
       })),
-      allPlayerNames: namesWithBytes,
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, stack: e.stack?.slice(0, 500), log }, { status: 500 })

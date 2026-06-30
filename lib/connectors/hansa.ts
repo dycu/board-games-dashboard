@@ -43,16 +43,16 @@ async function fetchGames(status: string): Promise<HtGame[]> {
   return all
 }
 
-export async function fetchHansa(username: string): Promise<Game[]> {
-  if (!username) throw new Error('HANSA_USERNAME is required')
+export async function fetchHansa(userId: string): Promise<Game[]> {
+  if (!userId) throw new Error('HANSA_USER_ID is required')
+  const myId = userId.replace(/-/g, '')
   const games = await fetchGames('playing')
 
   return games
-    .filter(g => g.players.some(p => p.name === username))
+    .filter(g => g.players.some(p => p.userId.replace(/-/g, '') === myId))
     .map((g): Game => {
-      const myPlayer = g.players.find(p => p.name === username)!
-      const myIdStripped = myPlayer.userId.replace(/-/g, '')
-      const isMyTurn = !!g.currentPlayerId && g.currentPlayerId === myIdStripped
+      const myPlayer = g.players.find(p => p.userId.replace(/-/g, '') === myId)!
+      const isMyTurn = !!g.currentPlayerId && g.currentPlayerId === myId
       const currentPlayer = isMyTurn
         ? undefined
         : g.players.find(p => p.userId.replace(/-/g, '') === g.currentPlayerId)?.name
@@ -70,17 +70,18 @@ export async function fetchHansa(username: string): Promise<Game[]> {
         urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
         gameUrl: `${BASE}/games/${g.id}`,
         platformUrl: `${BASE}/games?limit=20&mode=my_games`,
-        players: g.players.filter(p => p.name !== username).map(p => p.name),
+        players: g.players.filter(p => p.userId.replace(/-/g, '') !== myId).map(p => p.name),
       }
     })
 }
 
-export async function fetchFinishedHansa(username: string): Promise<FinishedGame[]> {
-  if (!username) throw new Error('HANSA_USERNAME is required')
+export async function fetchFinishedHansa(userId: string): Promise<FinishedGame[]> {
+  if (!userId) throw new Error('HANSA_USER_ID is required')
+  const myId = userId.replace(/-/g, '')
   const games = await fetchGames('finished')
 
   return games
-    .filter(g => g.players.some(p => p.name === username))
+    .filter(g => g.players.some(p => p.userId.replace(/-/g, '') === myId))
     .map((g): FinishedGame => {
       const completedAt = new Date(g.updatedAt)
       return {
