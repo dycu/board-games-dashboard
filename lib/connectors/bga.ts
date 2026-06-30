@@ -323,14 +323,18 @@ export async function fetchFinishedBGA(username: string, password: string): Prom
   const tables: any[] = gamesData?.data?.tables ?? []
 
   // Response comes newest-first; take the 50 most recent
-  return tables.slice(0, 50).map((t: any): FinishedGame => {
+  const recentTables = tables.slice(0, 50)
+  const uniqueSlugs = [...new Set(recentTables.map((t: any) => t.game_name as string).filter(Boolean))]
+  const nameMap = uniqueSlugs.length > 0 ? await fetchGameNames(uniqueSlugs, allCookies) : new Map<string, string>()
+
+  return recentTables.map((t: any): FinishedGame => {
     const endSec = t.end != null ? parseInt(t.end) : null
     const completedAt = endSec && !isNaN(endSec) ? new Date(endSec * 1000) : new Date()
 
     return {
       id: `bga:${t.table_id}`,
       platform: 'bga',
-      gameName: t.game_name ?? 'Unknown',
+      gameName: nameMap.get(t.game_name) ?? t.game_name ?? 'Unknown',
       completedAt,
       completedAgo: formatTimeAgo(completedAt),
       gameUrl: `${BASE}/table?table=${t.table_id}`,
