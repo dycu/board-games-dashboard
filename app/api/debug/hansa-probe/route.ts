@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
-const BASE = 'https://hansa-teutonica-digital.onrender.com'
+const BASE = 'https://hansa-teutonica-digital.onrender.com' // API backend; UI is at playhansa.app
 
 export async function GET() {
   const userId = process.env.HANSA_USER_ID

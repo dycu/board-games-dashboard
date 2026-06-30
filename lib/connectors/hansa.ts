@@ -1,7 +1,8 @@
 import { Game, FinishedGame } from '../types'
 import { formatTimeAgo } from './utils'
 
-const BASE = 'https://hansa-teutonica-digital.onrender.com'
+const API_BASE = 'https://hansa-teutonica-digital.onrender.com'
+const UI_BASE = 'https://playhansa.app'
 
 interface HtPlayer {
   name: string
@@ -29,7 +30,7 @@ async function fetchGames(status: string): Promise<HtGame[]> {
   const all: HtGame[] = []
   let cursor: string | null = null
   do {
-    const url = new URL(`${BASE}/games`)
+    const url = new URL(`${API_BASE}/games`)
     url.searchParams.set('limit', '100')
     url.searchParams.set('mode', 'all')
     url.searchParams.set('status', status)
@@ -68,8 +69,8 @@ export async function fetchHansa(userId: string): Promise<Game[]> {
         lastMoveAt,
         lastMoveAgo: formatTimeAgo(lastMoveAt),
         urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
-        gameUrl: `${BASE}/games/${g.id}`,
-        platformUrl: `${BASE}/games?limit=20&mode=my_games`,
+        gameUrl: `${UI_BASE}/game/${g.id}`,
+        platformUrl: `${UI_BASE}/games?limit=20&mode=my_games`,
         players: g.players.filter(p => p.userId.replace(/-/g, '') !== myId).map(p => p.name),
       }
     })
@@ -90,7 +91,7 @@ export async function fetchFinishedHansa(userId: string): Promise<FinishedGame[]
         gameName: 'Hansa Teutonica',
         completedAt,
         completedAgo: formatTimeAgo(completedAt),
-        gameUrl: `${BASE}/games/${g.id}`,
+        gameUrl: `${UI_BASE}/game/${g.id}`,
       }
     })
 }
