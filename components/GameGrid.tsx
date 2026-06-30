@@ -5,6 +5,7 @@ import { BADGE_COLORS } from '@/lib/platform-colors'
 import GameCard from './GameCard'
 import FilterToolbar from './FilterToolbar'
 import TopNav from './TopNav'
+import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 interface Props {
   data: GamesApiResponse
@@ -50,6 +51,8 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
     await fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ pins }), headers: { 'Content-Type': 'application/json' } })
   }
 
+  const { intervalSeconds, setIntervalSeconds, countdown } = useAutoRefresh(onRefresh, isRefreshing)
+
   const navRight = (
     <>
       <span className="hidden sm:inline">
@@ -63,6 +66,19 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
         <span className={isRefreshing ? 'animate-spin inline-block' : ''}>↻</span>
         <span className="hidden sm:inline">Refresh</span>
       </button>
+      {intervalSeconds > 0 && (
+        <span className="hidden sm:inline">{countdown}s</span>
+      )}
+      <select
+        value={intervalSeconds}
+        onChange={e => setIntervalSeconds(Number(e.target.value))}
+        className="bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] text-xs px-2 py-1 rounded-md cursor-pointer"
+      >
+        <option value={0}>Off</option>
+        <option value={30}>30s</option>
+        <option value={60}>1m</option>
+        <option value={300}>5m</option>
+      </select>
     </>
   )
 
