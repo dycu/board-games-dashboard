@@ -97,6 +97,7 @@ export function useGamesData(): UseGamesDataResult {
 
     let allGames: Game[] = []
     let allErrors: GamesApiResponse['errors'] = []
+    let allPlatforms: Platform[] = []
 
     try {
       const res = await fetch('/api/games', { signal: controller.signal })
@@ -124,6 +125,7 @@ export function useGamesData(): UseGamesDataResult {
               window.location.href = '/setup'
               return
             }
+            allPlatforms = event.platforms
             setPlatformStatuses(
               Object.fromEntries(event.platforms.map((p: Platform) => [p, { state: 'loading' }]))
             )
@@ -148,6 +150,7 @@ export function useGamesData(): UseGamesDataResult {
               games: allGames,
               errors: allErrors,
               fetchedAt: event.fetchedAt,
+              platforms: allPlatforms,
             }
             const newCachedAt = writeCache(freshData)
             setCachedAt(newCachedAt)

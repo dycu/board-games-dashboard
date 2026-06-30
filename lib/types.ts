@@ -44,6 +44,7 @@ export interface GamesApiResponse {
   games: Game[]
   errors: { platform: Platform; error: string }[]
   fetchedAt: string
+  platforms?: Platform[]  // all queried platforms (including those with 0 games)
 }
 
 export interface FinishedGame {

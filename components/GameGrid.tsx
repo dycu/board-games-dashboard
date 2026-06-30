@@ -30,7 +30,7 @@ function timeAgo(iso: string): string {
 
 export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDismiss, onRefresh, isRefreshing, lastError, cachedAt }: Props) {
   const { games, errors, fetchedAt } = data
-  const configuredPlatforms = Array.from(
+  const configuredPlatforms = data.platforms ?? Array.from(
     new Set([...games.map(g => g.platform), ...errors.map(e => e.platform)])
   )
   const visible = games.filter(g => !dismissed.has(g.id))
