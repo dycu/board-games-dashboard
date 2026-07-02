@@ -9,10 +9,13 @@ interface Props {
   onDismiss: () => void
   opened: boolean
   onOpen: () => void
+  opponentSlowDays: number
 }
 
-export default function GameCard({ game, pinned, onTogglePin, onDismiss, opened, onOpen }: Props) {
+export default function GameCard({ game, pinned, onTogglePin, onDismiss, opened, onOpen, opponentSlowDays }: Props) {
   const badgeClass = BADGE_COLORS[game.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'
+  const opponentSlow = !game.myTurn &&
+    (Date.now() - game.lastMoveAt.getTime()) > opponentSlowDays * 86_400_000
 
   return (
     <div className={`rounded-lg border p-3.5 flex flex-col gap-2.5 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)]
@@ -49,8 +52,8 @@ export default function GameCard({ game, pinned, onTogglePin, onDismiss, opened,
       )}
 
       <div className="flex items-center justify-between mt-0.5">
-        <span className={`text-xs ${game.urgent ? 'text-amber-500 font-medium' : 'text-[#9b9b9b]'}`}>
-          {game.urgent ? '⏱ ' : ''}{game.lastMoveAgo}
+        <span className={`text-xs ${(game.urgent || opponentSlow) ? 'text-amber-500 font-medium' : 'text-[#9b9b9b]'}`}>
+          {(game.urgent || opponentSlow) ? '⏱ ' : ''}{game.lastMoveAgo}
         </span>
         <div className="flex items-center gap-2">
           {game.myTurn && (

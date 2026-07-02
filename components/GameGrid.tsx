@@ -160,7 +160,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5 mb-7">
               {myTurnGames.map(g => (
-                <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} onDismiss={() => onDismiss(g.id)} opened={opened.has(g.id)} onOpen={() => onOpen(g.id)} />
+                <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} onDismiss={() => onDismiss(g.id)} opened={opened.has(g.id)} onOpen={() => onOpen(g.id)} opponentSlowDays={prefs.opponentSlowDays ?? 5} />
               ))}
             </div>
           </>
@@ -173,7 +173,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
               {waitingGames.map(g => (
-                <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} onDismiss={() => onDismiss(g.id)} opened={opened.has(g.id)} onOpen={() => onOpen(g.id)} />
+                <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} onDismiss={() => onDismiss(g.id)} opened={opened.has(g.id)} onOpen={() => onOpen(g.id)} opponentSlowDays={prefs.opponentSlowDays ?? 5} />
               ))}
             </div>
           </>
