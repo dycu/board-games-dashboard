@@ -14,6 +14,7 @@ export default function SetupPage() {
   const [errors, setErrors] = useState<Record<Platform, string>>({} as Record<Platform, string>)
   const [disabled, setDisabled] = useState<Set<Platform>>(new Set())
   const [bgaSortCapDays, setBgaSortCapDays] = useState(3)
+  const [opponentSlowDays, setOpponentSlowDays] = useState(5)
   const [cookieInput, setCookieInput] = useState('')
   const [cookieSaving, setCookieSaving] = useState(false)
   const [cookieSaved, setCookieSaved] = useState(false)
@@ -22,6 +23,7 @@ export default function SetupPage() {
     fetch('/api/prefs').then(r => r.json()).then(prefs => {
       setDisabled(new Set(prefs.disabledPlatforms ?? []))
       setBgaSortCapDays(prefs.bgaSortCapDays ?? 3)
+      setOpponentSlowDays(prefs.opponentSlowDays ?? 5)
       setCookieSaved(!!prefs.eighteenxxSessionCookie)
     })
   }, [])
@@ -82,6 +84,32 @@ export default function SetupPage() {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ bgaSortCapDays: val }),
+                })
+              }}
+              className="w-20 bg-white text-[#1a1a1a] text-sm px-3 py-1.5 rounded-md border border-[#e5e5e5]"
+            />
+            <span className="text-sm text-[#6b6b6b]">days</span>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
+          <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">Opponent slow-play threshold</h2>
+          <p className="text-xs text-[#9b9b9b] mb-3">
+            Highlight waiting games with an urgency indicator when the opponent hasn&apos;t moved in this many days.
+          </p>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              min={1}
+              max={90}
+              value={opponentSlowDays}
+              onChange={async e => {
+                const val = Math.max(1, Math.min(90, parseInt(e.target.value) || 5))
+                setOpponentSlowDays(val)
+                await fetch('/api/prefs', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ opponentSlowDays: val }),
                 })
               }}
               className="w-20 bg-white text-[#1a1a1a] text-sm px-3 py-1.5 rounded-md border border-[#e5e5e5]"
