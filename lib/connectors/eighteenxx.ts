@@ -4,17 +4,28 @@ import { formatTimeAgo } from './utils'
 const BASE = 'https://18xx.games'
 
 export async function fetchEighteenXX(username: string, password: string, sessionCookie?: string): Promise<Game[]> {
-  // 18xx.games API uses 'email' field but accepts username too
-  const loginRes = await fetch(`${BASE}/api/user/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ email: username, password }),
-  })
-  if (!loginRes.ok) throw new Error('18xx.games login failed')
+  let myId: number
+  let cookie: string
 
-  const loginData = await loginRes.json()
-  const myId: number = loginData.user?.id
-  const cookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
+  if (sessionCookie) {
+    const userRes = await fetch(`${BASE}/api/user`, {
+      headers: { Cookie: sessionCookie, Accept: 'application/json' },
+    })
+    if (!userRes.ok) throw new Error('18xx.games session cookie is invalid or expired — update it in Settings')
+    const userData = await userRes.json()
+    myId = userData.user?.id
+    cookie = sessionCookie
+  } else {
+    const loginRes = await fetch(`${BASE}/api/user/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ email: username, password }),
+    })
+    if (!loginRes.ok) throw new Error('18xx.games login failed')
+    const loginData = await loginRes.json()
+    myId = loginData.user?.id
+    cookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
+  }
 
   const gamesRes = await fetch(`${BASE}/api/game/user`, {
     headers: { Cookie: cookie, Accept: 'application/json' },
@@ -58,16 +69,28 @@ export async function fetchEighteenXX(username: string, password: string, sessio
 }
 
 export async function fetchFinishedEighteenXX(username: string, password: string, sessionCookie?: string): Promise<FinishedGame[]> {
-  const loginRes = await fetch(`${BASE}/api/user/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ email: username, password }),
-  })
-  if (!loginRes.ok) throw new Error('18xx.games login failed')
+  let myId: number
+  let cookie: string
 
-  const loginData = await loginRes.json()
-  const myId: number = loginData.user?.id
-  const cookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
+  if (sessionCookie) {
+    const userRes = await fetch(`${BASE}/api/user`, {
+      headers: { Cookie: sessionCookie, Accept: 'application/json' },
+    })
+    if (!userRes.ok) throw new Error('18xx.games session cookie is invalid or expired — update it in Settings')
+    const userData = await userRes.json()
+    myId = userData.user?.id
+    cookie = sessionCookie
+  } else {
+    const loginRes = await fetch(`${BASE}/api/user/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ email: username, password }),
+    })
+    if (!loginRes.ok) throw new Error('18xx.games login failed')
+    const loginData = await loginRes.json()
+    myId = loginData.user?.id
+    cookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
+  }
 
   const gamesRes = await fetch(`${BASE}/api/game/user`, {
     headers: { Cookie: cookie, Accept: 'application/json' },
