@@ -14,11 +14,15 @@ export default function SetupPage() {
   const [errors, setErrors] = useState<Record<Platform, string>>({} as Record<Platform, string>)
   const [disabled, setDisabled] = useState<Set<Platform>>(new Set())
   const [bgaSortCapDays, setBgaSortCapDays] = useState(3)
+  const [cookieInput, setCookieInput] = useState('')
+  const [cookieSaving, setCookieSaving] = useState(false)
+  const [cookieSaved, setCookieSaved] = useState(false)
 
   useEffect(() => {
     fetch('/api/prefs').then(r => r.json()).then(prefs => {
       setDisabled(new Set(prefs.disabledPlatforms ?? []))
       setBgaSortCapDays(prefs.bgaSortCapDays ?? 3)
+      setCookieSaved(!!prefs.eighteenxxSessionCookie)
     })
   }, [])
 
@@ -28,6 +32,18 @@ export default function SetupPage() {
     const data = await res.json()
     setStatuses(s => ({ ...s, [platform]: data.ok ? 'ok' : 'error' }))
     if (!data.ok) setErrors(e => ({ ...e, [platform]: data.error }))
+  }
+
+  const saveCookie = async (value: string) => {
+    setCookieSaving(true)
+    await fetch('/api/prefs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eighteenxxSessionCookie: value }),
+    })
+    setCookieSaved(!!value)
+    setCookieInput('')
+    setCookieSaving(false)
   }
 
   const togglePlatform = async (platform: Platform) => {
@@ -102,6 +118,38 @@ export default function SetupPage() {
                     </button>
                   </div>
                 </div>
+                {platform === 'eighteenxx' && (
+                  <div className="mt-3 pt-3 border-t border-[#f0f0f0]">
+                    <p className="text-xs text-[#9b9b9b] mb-2">
+                      Session cookie — log in to 18xx.games in your browser, open DevTools → Application → Cookies → <code>18xx.games</code> → find the session cookie and paste its value here.
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        value={cookieInput}
+                        onChange={e => setCookieInput(e.target.value)}
+                        placeholder={cookieSaved ? '●●●●● saved' : 'Paste cookie value…'}
+                        className="flex-1 text-xs bg-white text-[#1a1a1a] px-3 py-1.5 rounded-md border border-[#e5e5e5] font-mono"
+                      />
+                      <button
+                        onClick={() => saveCookie(cookieInput)}
+                        disabled={!cookieInput || cookieSaving}
+                        className="text-xs bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] px-3 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {cookieSaving ? 'Saving…' : 'Save'}
+                      </button>
+                      {cookieSaved && (
+                        <button
+                          onClick={() => saveCookie('')}
+                          disabled={cookieSaving}
+                          className="text-xs bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1.5 rounded-md disabled:opacity-50"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}
