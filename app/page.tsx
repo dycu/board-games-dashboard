@@ -37,9 +37,9 @@ export default function DashboardPage() {
   // not clear dismissed state — only real server responses do.
   useEffect(() => {
     if (freshDataVersion === 0) return
-    setDismissed(new Set())
-    localStorage.removeItem(DISMISSED_KEY)
     if (!isInitialFetchRef.current) {
+      setDismissed(new Set())
+      localStorage.removeItem(DISMISSED_KEY)
       setOpened(new Set())
       sessionStorage.removeItem(OPENED_KEY)
     }
