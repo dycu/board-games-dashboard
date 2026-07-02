@@ -3,7 +3,7 @@ import { formatTimeAgo } from './utils'
 
 const BASE = 'https://18xx.games'
 
-export async function fetchEighteenXX(username: string, password: string): Promise<Game[]> {
+export async function fetchEighteenXX(username: string, password: string, sessionCookie?: string): Promise<Game[]> {
   // 18xx.games API uses 'email' field but accepts username too
   const loginRes = await fetch(`${BASE}/api/user/login`, {
     method: 'POST',
@@ -57,7 +57,7 @@ export async function fetchEighteenXX(username: string, password: string): Promi
     })
 }
 
-export async function fetchFinishedEighteenXX(username: string, password: string): Promise<FinishedGame[]> {
+export async function fetchFinishedEighteenXX(username: string, password: string, sessionCookie?: string): Promise<FinishedGame[]> {
   const loginRes = await fetch(`${BASE}/api/user/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },

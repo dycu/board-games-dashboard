@@ -30,6 +30,7 @@ export interface UserPrefs {
   }
   disabledPlatforms: Platform[]  // skipped entirely during fetch
   bgaSortCapDays: number         // cap for BGA urgency sort and display (default 3)
+  eighteenxxSessionCookie?: string
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
