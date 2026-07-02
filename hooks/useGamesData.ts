@@ -4,6 +4,25 @@ import { Game, GamesApiResponse, Platform } from '@/lib/types'
 
 const CACHE_KEY = 'games-cache'
 
+export interface DepartedGame {
+  id: string
+  gameName: string
+  platform: Platform
+  gameUrl: string
+}
+
+export function computeDeparted(
+  prev: Game[],
+  next: Game[],
+  errors: { platform: Platform; error: string }[]
+): DepartedGame[] {
+  const nextIds = new Set(next.map(g => g.id))
+  const errorPlatforms = new Set(errors.map(e => e.platform))
+  return prev
+    .filter(g => !nextIds.has(g.id) && !errorPlatforms.has(g.platform))
+    .map(g => ({ id: g.id, gameName: g.gameName, platform: g.platform, gameUrl: g.gameUrl }))
+}
+
 export type PlatformStatus =
   | { state: 'loading' }
   | { state: 'done'; count: number }
