@@ -38,8 +38,6 @@ export default function DashboardPage() {
     if (freshDataVersion === 0) return
     setDismissed(new Set())
     localStorage.removeItem(DISMISSED_KEY)
-    setOpened(new Set())
-    sessionStorage.removeItem(OPENED_KEY)
   }, [freshDataVersion])
 
   const handleOpen = (id: string) => {

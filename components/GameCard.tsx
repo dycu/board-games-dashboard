@@ -70,6 +70,8 @@ export default function GameCard({ game, pinned, onTogglePin, onDismiss, opened,
             rel="noopener noreferrer"
             aria-label="Open game"
             onClick={onOpen}
+            onAuxClick={onOpen}
+            onContextMenu={onOpen}
             className={`text-xs font-medium px-3 py-1 rounded-md transition-colors
               ${game.myTurn
                 ? 'bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]'
