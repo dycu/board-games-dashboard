@@ -17,6 +17,7 @@ export default function DashboardPage() {
     isRefreshing,
     lastError,
     platformStatuses,
+    freshDataVersion,
     triggerRefresh,
     applyPendingData,
     cachedAt,
@@ -28,17 +29,14 @@ export default function DashboardPage() {
     fetch('/api/prefs').then(r => r.json()).then(setPrefs).catch(() => {})
   }, [])
 
-  // Prune dismissed IDs for games that are no longer active whenever
-  // displayedData changes (same pruning logic as the original page.tsx).
+  // When fresh server data is applied to the display, clear all dismissed state
+  // so the dashboard reflects exactly what the services report. Cache loads do
+  // not clear dismissed state — only real server responses do.
   useEffect(() => {
-    if (!displayedData) return
-    const activeIds = new Set(displayedData.games.map(g => g.id))
-    setDismissed(prev => {
-      const pruned = new Set([...prev].filter(id => activeIds.has(id)))
-      localStorage.setItem(DISMISSED_KEY, JSON.stringify([...pruned]))
-      return pruned
-    })
-  }, [displayedData])
+    if (freshDataVersion === 0) return
+    setDismissed(new Set())
+    localStorage.removeItem(DISMISSED_KEY)
+  }, [freshDataVersion])
 
   const handleDismiss = (id: string) => {
     setDismissed(prev => {

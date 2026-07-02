@@ -64,6 +64,7 @@ export interface UseGamesDataResult {
   platformStatuses: Partial<Record<Platform, PlatformStatus>>
   hasCache: boolean
   cachedAt: string | null
+  freshDataVersion: number
   triggerRefresh: () => void
   applyPendingData: () => void
 }
@@ -76,6 +77,7 @@ export function useGamesData(): UseGamesDataResult {
   const [platformStatuses, setPlatformStatuses] = useState<Partial<Record<Platform, PlatformStatus>>>({})
   const [hasCache, setHasCache] = useState(false)
   const [cachedAt, setCachedAt] = useState<string | null>(null)
+  const [freshDataVersion, setFreshDataVersion] = useState(0)
 
   const fetchingRef = useRef(false)
   // true once displayedData has been shown (from cache or first fetch) — routes
@@ -156,6 +158,7 @@ export function useGamesData(): UseGamesDataResult {
             setCachedAt(newCachedAt)
             if (isManualRefreshRef.current || !hasDisplayedRef.current) {
               setDisplayedData(freshData)
+              setFreshDataVersion(v => v + 1)
               hasDisplayedRef.current = true
               isManualRefreshRef.current = false
             } else {
@@ -198,7 +201,10 @@ export function useGamesData(): UseGamesDataResult {
 
   const applyPendingData = useCallback(() => {
     setPendingData(prev => {
-      if (prev) setDisplayedData(prev)
+      if (prev) {
+        setDisplayedData(prev)
+        setFreshDataVersion(v => v + 1)
+      }
       return null
     })
     setLastError(null)
@@ -212,6 +218,7 @@ export function useGamesData(): UseGamesDataResult {
     platformStatuses,
     hasCache,
     cachedAt,
+    freshDataVersion,
     triggerRefresh,
     applyPendingData,
   }
