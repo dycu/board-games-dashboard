@@ -84,7 +84,6 @@ export default function DashboardPage() {
           onDismiss={handleDismiss}
           onRefresh={triggerRefresh}
           isRefreshing={isRefreshing}
-          hasFreshData={hasFreshData}
           lastError={lastError}
           cachedAt={cachedAt}
           opened={opened}

@@ -24,7 +24,6 @@ const defaultGridProps = {
   onDismiss: () => {},
   onRefresh: () => {},
   isRefreshing: false,
-  hasFreshData: true,
   lastError: null,
   cachedAt: null,
   opened: new Set<string>(),

@@ -17,7 +17,6 @@ interface Props {
   onDismiss: (id: string) => void
   onRefresh: () => void
   isRefreshing: boolean
-  hasFreshData: boolean
   lastError: string | null
   cachedAt: string | null
   opened: Set<string>
@@ -35,7 +34,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDismiss, onRefresh, isRefreshing, hasFreshData, lastError, cachedAt, opened, onOpen, departedGames }: Props) {
+export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDismiss, onRefresh, isRefreshing, lastError, cachedAt, opened, onOpen, departedGames }: Props) {
   const { games, errors, fetchedAt } = data
   const configuredPlatforms = data.platforms ?? Array.from(
     new Set([...games.map(g => g.platform), ...errors.map(e => e.platform)])
@@ -154,14 +153,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
 
         <FilterToolbar prefs={prefs} onChange={onPrefsChange} />
 
-        {!hasFreshData && isRefreshing ? (
-          <div className="mb-7">
-            <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b] mb-3">
-              Your turn · —
-            </p>
-            <div className="h-24 rounded-lg border border-[#e5e5e5] bg-[#fafafa] animate-pulse" />
-          </div>
-        ) : myTurnGames.length > 0 && (
+        {myTurnGames.length > 0 && (
           <>
             <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b] mb-3">
               Your turn · {myTurnGames.length}
