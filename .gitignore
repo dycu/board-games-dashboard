@@ -43,3 +43,7 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# superpowers tooling
+.superpowers/
+docs/superpowers/
