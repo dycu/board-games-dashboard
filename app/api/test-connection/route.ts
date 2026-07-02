@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Platform } from '@/lib/types'
-import { connectors } from '@/lib/connectors'
+import { makeConnectors } from '@/lib/connectors'
+import { getPrefs } from '@/lib/prefs'
 
 // Edge runtime lets OBG bypass Cloudflare (same reason the games route uses edge)
 export const runtime = 'edge'
@@ -13,6 +14,9 @@ const PROXY_PATH: Partial<Record<Platform, string>> = {
 
 export async function GET(req: NextRequest) {
   const platform = req.nextUrl.searchParams.get('platform') as Platform | null
+  const prefs = await getPrefs()
+  const connectors = makeConnectors(prefs.bgaSortCapDays ?? 3, prefs.eighteenxxSessionCookie)
+
   if (!platform || !(platform in connectors)) {
     return NextResponse.json({ ok: false, error: 'Invalid platform' }, { status: 400 })
   }
