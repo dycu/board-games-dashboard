@@ -64,8 +64,9 @@ export default function DashboardPage() {
     })
   }
 
-  const showFullProgress = !displayedData && isRefreshing
-  const showCompactProgress = !!displayedData && isRefreshing
+  const hasFreshData = freshDataVersion > 0
+  const showFullProgress = (!displayedData || !hasFreshData) && isRefreshing
+  const showCompactProgress = !!displayedData && hasFreshData && isRefreshing
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
