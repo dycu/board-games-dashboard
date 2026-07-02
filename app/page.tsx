@@ -34,7 +34,7 @@ export default function DashboardPage() {
     if (!displayedData) return
     const activeIds = new Set(displayedData.games.map(g => g.id))
     setDismissed(prev => {
-      const pruned = new Set([...prev].filter(id => !activeIds.has(id)))
+      const pruned = new Set([...prev].filter(id => activeIds.has(id)))
       localStorage.setItem(DISMISSED_KEY, JSON.stringify([...pruned]))
       return pruned
     })
