@@ -1,5 +1,6 @@
 import { makeFinishedConnectors, hasCreds } from '@/lib/connectors'
 import { Platform } from '@/lib/types'
+import { getPrefs } from '@/lib/prefs'
 
 export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
@@ -9,9 +10,10 @@ const PROXY_PATH: Partial<Record<Platform, string>> = {
 }
 
 export async function GET(request?: Request) {
-  const connectors = makeFinishedConnectors()
+  const prefs = await getPrefs()
+  const connectors = makeFinishedConnectors(prefs.eighteenxxSessionCookie)
   const entries = (Object.entries(connectors) as [Platform, () => Promise<any>][])
-    .filter(([p]) => hasCreds(p))
+    .filter(([p]) => hasCreds(p) || (p === 'eighteenxx' && !!prefs.eighteenxxSessionCookie))
 
   const encoder = new TextEncoder()
 

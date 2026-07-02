@@ -14,10 +14,10 @@ function env(key: string): string {
   return process.env[key] ?? ''
 }
 
-export function makeConnectors(bgaSortCapDays = 3): Record<Platform, Fetcher> {
+export function makeConnectors(bgaSortCapDays = 3, eighteenxxSessionCookie?: string): Record<Platform, Fetcher> {
   return {
     bga: () => fetchBGA(env('BGA_USERNAME'), env('BGA_PASSWORD'), bgaSortCapDays),
-    eighteenxx: () => fetchEighteenXX(env('EIGHTEENXX_USERNAME'), env('EIGHTEENXX_PASSWORD')),
+    eighteenxx: () => fetchEighteenXX(env('EIGHTEENXX_USERNAME'), env('EIGHTEENXX_PASSWORD'), eighteenxxSessionCookie),
     obg: () => fetchOBG(env('OBG_USERNAME'), env('OBG_PASSWORD')),
     yucata: () => fetchYucata(env('YUCATA_USERNAME'), env('YUCATA_PASSWORD')),
     choochoo: () => fetchChoochoo(env('CHOOCHOO_USERNAME'), env('CHOOCHOO_PASSWORD')),
@@ -36,9 +36,9 @@ export const connectors: Record<Platform, Fetcher> = {
   rally: () => fetchRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
 }
 
-export function makeFinishedConnectors(): Partial<Record<Platform, FinishedFetcher>> {
+export function makeFinishedConnectors(eighteenxxSessionCookie?: string): Partial<Record<Platform, FinishedFetcher>> {
   return {
-    eighteenxx: () => fetchFinishedEighteenXX(env('EIGHTEENXX_USERNAME'), env('EIGHTEENXX_PASSWORD')),
+    eighteenxx: () => fetchFinishedEighteenXX(env('EIGHTEENXX_USERNAME'), env('EIGHTEENXX_PASSWORD'), eighteenxxSessionCookie),
     obg: () => fetchFinishedOBG(env('OBG_USERNAME'), env('OBG_PASSWORD')),
     bga: () => fetchFinishedBGA(env('BGA_USERNAME'), env('BGA_PASSWORD')),
     rally: () => fetchFinishedRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
