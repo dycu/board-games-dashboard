@@ -20,6 +20,7 @@ export default function DashboardPage() {
     freshDataVersion,
     triggerRefresh,
     cachedAt,
+    departedGames,
   } = useGamesData()
 
   useEffect(() => {
@@ -82,6 +83,7 @@ export default function DashboardPage() {
           cachedAt={cachedAt}
           opened={opened}
           onOpen={handleOpen}
+          departedGames={departedGames}
         />
       ) : lastError ? (
         <div className="flex-1 flex items-center justify-center">

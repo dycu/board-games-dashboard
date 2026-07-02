@@ -1,5 +1,7 @@
 'use client'
+import { useEffect, useState } from 'react'
 import { Game, UserPrefs, GamesApiResponse, PLATFORM_LABELS, PLATFORM_URLS } from '@/lib/types'
+import { DepartedGame } from '@/hooks/useGamesData'
 import { sortAndFilter } from '@/lib/sort-filter'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import GameCard from './GameCard'
@@ -19,6 +21,7 @@ interface Props {
   cachedAt: string | null
   opened: Set<string>
   onOpen: (id: string) => void
+  departedGames: DepartedGame[]
 }
 
 function timeAgo(iso: string): string {
@@ -31,7 +34,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDismiss, onRefresh, isRefreshing, lastError, cachedAt, opened, onOpen }: Props) {
+export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDismiss, onRefresh, isRefreshing, lastError, cachedAt, opened, onOpen, departedGames }: Props) {
   const { games, errors, fetchedAt } = data
   const configuredPlatforms = data.platforms ?? Array.from(
     new Set([...games.map(g => g.platform), ...errors.map(e => e.platform)])

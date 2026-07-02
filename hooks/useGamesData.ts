@@ -83,6 +83,7 @@ export interface UseGamesDataResult {
   cachedAt: string | null
   freshDataVersion: number
   triggerRefresh: () => void
+  departedGames: DepartedGame[]
 }
 
 export function useGamesData(): UseGamesDataResult {
@@ -92,6 +93,7 @@ export function useGamesData(): UseGamesDataResult {
   const [platformStatuses, setPlatformStatuses] = useState<Partial<Record<Platform, PlatformStatus>>>({})
   const [cachedAt, setCachedAt] = useState<string | null>(null)
   const [freshDataVersion, setFreshDataVersion] = useState(0)
+  const [departedGames, setDepartedGames] = useState<DepartedGame[]>([])
 
   const fetchingRef = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
@@ -164,6 +166,9 @@ export function useGamesData(): UseGamesDataResult {
               fetchedAt: event.fetchedAt,
               platforms: allPlatforms,
             }
+            const prevCache = readCache()
+            const prevGames = prevCache?.data.games ?? []
+            setDepartedGames(computeDeparted(prevGames, allGames, allErrors))
             const newCachedAt = writeCache(freshData)
             setCachedAt(newCachedAt)
             setDisplayedData(freshData)
@@ -207,5 +212,6 @@ export function useGamesData(): UseGamesDataResult {
     cachedAt,
     freshDataVersion,
     triggerRefresh,
+    departedGames,
   }
 }
