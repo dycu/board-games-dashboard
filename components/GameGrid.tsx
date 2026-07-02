@@ -58,6 +58,11 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
 
   const { intervalSeconds, setIntervalSeconds, countdown } = useAutoRefresh(onRefresh, isRefreshing)
 
+  const [departedDismissed, setDepartedDismissed] = useState(false)
+  useEffect(() => {
+    if (departedGames.length > 0) setDepartedDismissed(false)
+  }, [departedGames])
+
   const navRight = (
     <>
       <span className="hidden sm:inline">
@@ -94,6 +99,30 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
         {lastError && cachedAt && (
           <div className="mb-3 text-xs text-amber-600">
             Last refresh failed — showing cache from {timeAgo(cachedAt)}
+          </div>
+        )}
+
+        {departedGames.length > 0 && !departedDismissed && (
+          <div className="mb-3 flex items-center gap-1.5 text-xs text-[#6b6b6b]">
+            <span>↩</span>
+            <span>
+              {departedGames.length === 1 ? '1 game' : `${departedGames.length} games`} ended since last refresh:{' '}
+              {departedGames.map((g, i) => (
+                <span key={g.id}>
+                  {i > 0 && ', '}
+                  <a href={g.gameUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-[#1a1a1a]">
+                    {g.gameName}
+                  </a>
+                </span>
+              ))}
+            </span>
+            <button
+              onClick={() => setDepartedDismissed(true)}
+              className="ml-1 text-[#9b9b9b] hover:text-[#1a1a1a] leading-none"
+              aria-label="Dismiss"
+            >
+              ×
+            </button>
           </div>
         )}
 
