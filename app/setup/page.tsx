@@ -121,7 +121,7 @@ export default function SetupPage() {
                 {platform === 'eighteenxx' && (
                   <div className="mt-3 pt-3 border-t border-[#f0f0f0]">
                     <p className="text-xs text-[#9b9b9b] mb-2">
-                      Session cookie — log in to 18xx.games in your browser, open DevTools → Application → Cookies → <code>18xx.games</code> → find the session cookie and paste its value here.
+                      Auth token — log in to 18xx.games in your browser, open DevTools → Application → Cookies → <code>18xx.games</code> → copy the value of the <code>auth_token</code> cookie and paste it here.
                     </p>
                     <div className="flex gap-2">
                       <input
