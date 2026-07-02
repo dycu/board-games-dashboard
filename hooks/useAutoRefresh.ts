@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 export function useAutoRefresh(onRefresh: () => void, isRefreshing: boolean) {
-  const [intervalSeconds, setIntervalSeconds] = useState(0)
+  const [intervalSeconds, setIntervalSeconds] = useState(60)
   const [countdown, setCountdown] = useState(0)
 
   const isRefreshingRef = useRef(isRefreshing)
