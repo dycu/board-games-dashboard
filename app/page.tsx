@@ -6,10 +6,12 @@ import GameGrid from '@/components/GameGrid'
 import FetchProgress from '@/components/FetchProgress'
 
 const DISMISSED_KEY = 'dismissed-games'
+const OPENED_KEY = 'opened-games'
 
 export default function DashboardPage() {
   const [prefs, setPrefs] = useState<UserPrefs>(DEFAULT_PREFS)
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+  const [opened, setOpened] = useState<Set<string>>(new Set())
   const {
     displayedData,
     isRefreshing,
@@ -23,6 +25,8 @@ export default function DashboardPage() {
   useEffect(() => {
     const stored = localStorage.getItem(DISMISSED_KEY)
     setDismissed(stored ? new Set(JSON.parse(stored)) : new Set())
+    const storedOpened = sessionStorage.getItem(OPENED_KEY)
+    setOpened(storedOpened ? new Set(JSON.parse(storedOpened)) : new Set())
     fetch('/api/prefs').then(r => r.json()).then(setPrefs).catch(() => {})
   }, [])
 
@@ -33,7 +37,18 @@ export default function DashboardPage() {
     if (freshDataVersion === 0) return
     setDismissed(new Set())
     localStorage.removeItem(DISMISSED_KEY)
+    setOpened(new Set())
+    sessionStorage.removeItem(OPENED_KEY)
   }, [freshDataVersion])
+
+  const handleOpen = (id: string) => {
+    setOpened(prev => {
+      const next = new Set(prev)
+      next.add(id)
+      sessionStorage.setItem(OPENED_KEY, JSON.stringify([...next]))
+      return next
+    })
+  }
 
   const handleDismiss = (id: string) => {
     setDismissed(prev => {
@@ -65,6 +80,8 @@ export default function DashboardPage() {
           isRefreshing={isRefreshing}
           lastError={lastError}
           cachedAt={cachedAt}
+          opened={opened}
+          onOpen={handleOpen}
         />
       ) : lastError ? (
         <div className="flex-1 flex items-center justify-center">

@@ -30,6 +30,8 @@ function renderGrid(games: Game[] = [], errors: GamesApiResponse['errors'] = [])
       isRefreshing={false}
       lastError={null}
       cachedAt={null}
+      opened={new Set()}
+      onOpen={() => {}}
     />
   )
 }
@@ -60,6 +62,8 @@ describe('GameGrid quick-links bar', () => {
         isRefreshing={false}
         lastError={null}
         cachedAt={null}
+        opened={new Set()}
+        onOpen={() => {}}
       />
     )
     const bgaLink = screen.getByRole('link', { name: /^BGA/ })
@@ -85,6 +89,8 @@ describe('GameGrid quick-links bar', () => {
         isRefreshing={false}
         lastError={null}
         cachedAt={null}
+        opened={new Set()}
+        onOpen={() => {}}
       />
     )
     expect(screen.getByRole('link', { name: /^Rally the Troops/ })).toHaveAttribute(
@@ -110,6 +116,8 @@ describe('GameGrid quick-links bar', () => {
         isRefreshing={false}
         lastError={null}
         cachedAt={null}
+        opened={new Set()}
+        onOpen={() => {}}
       />
     )
     expect(screen.getAllByRole('link', { name: /^BGA/ })).toHaveLength(1)

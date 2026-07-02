@@ -7,16 +7,19 @@ interface Props {
   pinned: boolean
   onTogglePin: (id: string) => void
   onDismiss: () => void
+  opened: boolean
+  onOpen: () => void
 }
 
-export default function GameCard({ game, pinned, onTogglePin, onDismiss }: Props) {
+export default function GameCard({ game, pinned, onTogglePin, onDismiss, opened, onOpen }: Props) {
   const badgeClass = BADGE_COLORS[game.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'
 
   return (
     <div className={`rounded-lg border p-3.5 flex flex-col gap-2.5 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)]
       ${game.myTurn
         ? 'bg-white border-[#e5e5e5] border-l-[3px] border-l-[#5e6ad2]'
-        : 'bg-[#fafafa] border-[#e5e5e5] hover:border-[#d5d5d5]'}`}>
+        : 'bg-[#fafafa] border-[#e5e5e5] hover:border-[#d5d5d5]'}
+      ${opened ? 'opacity-60' : ''}`}>
       <div className="flex items-center justify-between">
         <span className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${badgeClass}`}>
           {PLATFORM_LABELS[game.platform]}
@@ -63,11 +66,12 @@ export default function GameCard({ game, pinned, onTogglePin, onDismiss }: Props
             target={game.platform === 'bga' ? '_self' : '_blank'}
             rel="noopener noreferrer"
             aria-label="Open game"
+            onClick={onOpen}
             className={`text-xs font-medium px-3 py-1 rounded-md transition-colors
               ${game.myTurn
                 ? 'bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]'
                 : 'bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb]'}`}>
-            Open →
+            {opened ? '↗ Open' : 'Open →'}
           </a>
         </div>
       </div>

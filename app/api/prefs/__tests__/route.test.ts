@@ -16,6 +16,8 @@ const defaultPrefs = {
   sort: 'longest-wait' as const,
   filter: { turnStatus: 'all' as const, platforms: [] },
   disabledPlatforms: [],
+  bgaSortCapDays: 3,
+  opponentSlowDays: 5,
 }
 
 describe('GET /api/prefs', () => {
@@ -46,6 +48,8 @@ describe('POST /api/prefs', () => {
       sort: 'most-recent' as const,
       filter: { turnStatus: 'my-turn' as const, platforms: [] },
       disabledPlatforms: [],
+      bgaSortCapDays: 3,
+      opponentSlowDays: 5,
     }
     mockSavePrefs.mockResolvedValue(undefined)
     mockGetPrefs.mockResolvedValue(updatedPrefs)

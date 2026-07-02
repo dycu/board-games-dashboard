@@ -18,30 +18,31 @@ const game: Game = {
 
 describe('GameCard', () => {
   it('shows game name and platform badge', () => {
-    render(<GameCard game={game} pinned={false} onTogglePin={() => {}} onDismiss={() => {}} />)
+    render(<GameCard game={game} pinned={false} onTogglePin={() => {}} onDismiss={() => {}} opened={false} onOpen={() => {}} />)
     expect(screen.getByText('Wingspan')).toBeInTheDocument()
     expect(screen.getByText('BGA')).toBeInTheDocument()
   })
 
   it('shows "Your turn" pill when myTurn is true', () => {
-    render(<GameCard game={game} pinned={false} onTogglePin={() => {}} onDismiss={() => {}} />)
+    render(<GameCard game={game} pinned={false} onTogglePin={() => {}} onDismiss={() => {}} opened={false} onOpen={() => {}} />)
     expect(screen.getByText('Your turn')).toBeInTheDocument()
   })
 
   it('shows urgent indicator', () => {
-    render(<GameCard game={game} pinned={false} onTogglePin={() => {}} onDismiss={() => {}} />)
+    render(<GameCard game={game} pinned={false} onTogglePin={() => {}} onDismiss={() => {}} opened={false} onOpen={() => {}} />)
     expect(screen.getByText(/2 days ago/)).toBeInTheDocument()
   })
 
   it('calls onTogglePin when pin icon clicked', async () => {
     const onTogglePin = jest.fn()
-    render(<GameCard game={game} pinned={false} onTogglePin={onTogglePin} onDismiss={() => {}} />)
+    render(<GameCard game={game} pinned={false} onTogglePin={onTogglePin} onDismiss={() => {}} opened={false} onOpen={() => {}} />)
+
     await userEvent.click(screen.getByRole('button', { name: /pin/i }))
     expect(onTogglePin).toHaveBeenCalledWith('bga:1')
   })
 
   it('open button links to gameUrl', () => {
-    render(<GameCard game={game} pinned={false} onTogglePin={() => {}} onDismiss={() => {}} />)
+    render(<GameCard game={game} pinned={false} onTogglePin={() => {}} onDismiss={() => {}} opened={false} onOpen={() => {}} />)
     const link = screen.getByRole('link', { name: /open/i })
     expect(link).toHaveAttribute('href', game.gameUrl)
   })
