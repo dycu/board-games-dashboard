@@ -7,6 +7,7 @@ import FetchProgress from '@/components/FetchProgress'
 
 const DISMISSED_KEY = 'dismissed-games'
 const OPENED_KEY = 'opened-games'
+const PREFS_KEY = 'user-prefs'
 
 export default function DashboardPage() {
   const [prefs, setPrefs] = useState<UserPrefs>(DEFAULT_PREFS)
@@ -29,7 +30,12 @@ export default function DashboardPage() {
     setDismissed(stored ? new Set(JSON.parse(stored)) : new Set())
     const storedOpened = sessionStorage.getItem(OPENED_KEY)
     setOpened(storedOpened ? new Set(JSON.parse(storedOpened)) : new Set())
-    fetch('/api/prefs').then(r => r.json()).then(setPrefs).catch(() => {})
+    const cachedPrefs = localStorage.getItem(PREFS_KEY)
+    if (cachedPrefs) setPrefs(JSON.parse(cachedPrefs))
+    fetch('/api/prefs').then(r => r.json()).then(p => {
+      setPrefs(p)
+      localStorage.setItem(PREFS_KEY, JSON.stringify(p))
+    }).catch(() => {})
   }, [])
 
   // When fresh server data is applied to the display, clear all dismissed state
@@ -64,6 +70,11 @@ export default function DashboardPage() {
     })
   }
 
+  const updatePrefs = (p: UserPrefs) => {
+    setPrefs(p)
+    localStorage.setItem(PREFS_KEY, JSON.stringify(p))
+  }
+
   const hasFreshData = freshDataVersion > 0
   const showFullProgress = !displayedData && isRefreshing
   const showCompactProgress = !!displayedData && isRefreshing
@@ -79,7 +90,7 @@ export default function DashboardPage() {
         <GameGrid
           data={displayedData}
           prefs={prefs}
-          onPrefsChange={setPrefs}
+          onPrefsChange={updatePrefs}
           dismissed={dismissed}
           onDismiss={handleDismiss}
           onRefresh={triggerRefresh}
