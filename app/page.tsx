@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { UserPrefs, DEFAULT_PREFS } from '@/lib/types'
 import { useGamesData } from '@/hooks/useGamesData'
 import GameGrid from '@/components/GameGrid'
@@ -12,6 +12,7 @@ export default function DashboardPage() {
   const [prefs, setPrefs] = useState<UserPrefs>(DEFAULT_PREFS)
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
   const [opened, setOpened] = useState<Set<string>>(new Set())
+  const isInitialFetchRef = useRef(true)
   const {
     displayedData,
     isRefreshing,
@@ -38,6 +39,11 @@ export default function DashboardPage() {
     if (freshDataVersion === 0) return
     setDismissed(new Set())
     localStorage.removeItem(DISMISSED_KEY)
+    if (!isInitialFetchRef.current) {
+      setOpened(new Set())
+      sessionStorage.removeItem(OPENED_KEY)
+    }
+    isInitialFetchRef.current = false
   }, [freshDataVersion])
 
   const handleOpen = (id: string) => {
