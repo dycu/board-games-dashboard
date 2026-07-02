@@ -17,24 +17,24 @@ function makeGame(platform: Game['platform'], id: string): Game {
   }
 }
 
+const defaultGridProps = {
+  prefs: DEFAULT_PREFS,
+  onPrefsChange: () => {},
+  dismissed: new Set<string>(),
+  onDismiss: () => {},
+  onRefresh: () => {},
+  isRefreshing: false,
+  hasFreshData: true,
+  lastError: null,
+  cachedAt: null,
+  opened: new Set<string>(),
+  onOpen: () => {},
+  departedGames: [],
+}
+
 function renderGrid(games: Game[] = [], errors: GamesApiResponse['errors'] = []) {
   const data: GamesApiResponse = { games, errors, fetchedAt: new Date().toISOString() }
-  render(
-    <GameGrid
-      data={data}
-      prefs={DEFAULT_PREFS}
-      onPrefsChange={() => {}}
-      dismissed={new Set()}
-      onDismiss={() => {}}
-      onRefresh={() => {}}
-      isRefreshing={false}
-      lastError={null}
-      cachedAt={null}
-      opened={new Set()}
-      onOpen={() => {}}
-      departedGames={[]}
-    />
-  )
+  render(<GameGrid {...defaultGridProps} data={data} />)
 }
 
 describe('GameGrid header navigation', () => {
@@ -52,22 +52,7 @@ describe('GameGrid quick-links bar', () => {
       errors: [],
       fetchedAt: new Date().toISOString(),
     }
-    render(
-      <GameGrid
-        data={data}
-        prefs={DEFAULT_PREFS}
-        onPrefsChange={() => {}}
-        dismissed={new Set()}
-        onDismiss={() => {}}
-        onRefresh={() => {}}
-        isRefreshing={false}
-        lastError={null}
-        cachedAt={null}
-        opened={new Set()}
-        onOpen={() => {}}
-        departedGames={[]}
-      />
-    )
+    render(<GameGrid {...defaultGridProps} data={data} />)
     const bgaLink = screen.getByRole('link', { name: /^BGA/ })
     expect(bgaLink).toHaveAttribute('href', PLATFORM_URLS.bga)
     const yucataLink = screen.getByRole('link', { name: /^Yucata/ })
@@ -80,22 +65,7 @@ describe('GameGrid quick-links bar', () => {
       errors: [{ platform: 'rally', error: 'timeout' }],
       fetchedAt: new Date().toISOString(),
     }
-    render(
-      <GameGrid
-        data={data}
-        prefs={DEFAULT_PREFS}
-        onPrefsChange={() => {}}
-        dismissed={new Set()}
-        onDismiss={() => {}}
-        onRefresh={() => {}}
-        isRefreshing={false}
-        lastError={null}
-        cachedAt={null}
-        opened={new Set()}
-        onOpen={() => {}}
-        departedGames={[]}
-      />
-    )
+    render(<GameGrid {...defaultGridProps} data={data} />)
     expect(screen.getByRole('link', { name: /^Rally the Troops/ })).toHaveAttribute(
       'href',
       PLATFORM_URLS.rally,
@@ -108,22 +78,7 @@ describe('GameGrid quick-links bar', () => {
       errors: [{ platform: 'bga', error: 'partial' }],
       fetchedAt: new Date().toISOString(),
     }
-    render(
-      <GameGrid
-        data={data}
-        prefs={DEFAULT_PREFS}
-        onPrefsChange={() => {}}
-        dismissed={new Set()}
-        onDismiss={() => {}}
-        onRefresh={() => {}}
-        isRefreshing={false}
-        lastError={null}
-        cachedAt={null}
-        opened={new Set()}
-        onOpen={() => {}}
-        departedGames={[]}
-      />
-    )
+    render(<GameGrid {...defaultGridProps} data={data} />)
     expect(screen.getAllByRole('link', { name: /^BGA/ })).toHaveLength(1)
   })
 })

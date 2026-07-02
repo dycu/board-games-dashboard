@@ -65,8 +65,8 @@ export default function DashboardPage() {
   }
 
   const hasFreshData = freshDataVersion > 0
-  const showFullProgress = (!displayedData || !hasFreshData) && isRefreshing
-  const showCompactProgress = !!displayedData && hasFreshData && isRefreshing
+  const showFullProgress = !displayedData && isRefreshing
+  const showCompactProgress = !!displayedData && isRefreshing
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -84,6 +84,7 @@ export default function DashboardPage() {
           onDismiss={handleDismiss}
           onRefresh={triggerRefresh}
           isRefreshing={isRefreshing}
+          hasFreshData={hasFreshData}
           lastError={lastError}
           cachedAt={cachedAt}
           opened={opened}
