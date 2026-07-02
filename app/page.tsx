@@ -4,7 +4,6 @@ import { UserPrefs, DEFAULT_PREFS } from '@/lib/types'
 import { useGamesData } from '@/hooks/useGamesData'
 import GameGrid from '@/components/GameGrid'
 import FetchProgress from '@/components/FetchProgress'
-import PendingUpdateBanner from '@/components/PendingUpdateBanner'
 
 const DISMISSED_KEY = 'dismissed-games'
 
@@ -13,13 +12,11 @@ export default function DashboardPage() {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
   const {
     displayedData,
-    pendingData,
     isRefreshing,
     lastError,
     platformStatuses,
     freshDataVersion,
     triggerRefresh,
-    applyPendingData,
     cachedAt,
   } = useGamesData()
 
@@ -54,9 +51,6 @@ export default function DashboardPage() {
     <div className="flex flex-col h-screen overflow-hidden">
       {showCompactProgress && (
         <FetchProgress platformStatuses={platformStatuses} compact />
-      )}
-      {pendingData && (
-        <PendingUpdateBanner pendingData={pendingData} onApply={applyPendingData} />
       )}
       {showFullProgress ? (
         <FetchProgress platformStatuses={platformStatuses} />

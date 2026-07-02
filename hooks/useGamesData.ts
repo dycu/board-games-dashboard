@@ -58,32 +58,23 @@ function writeCache(data: GamesApiResponse): string {
 
 export interface UseGamesDataResult {
   displayedData: GamesApiResponse | null
-  pendingData: GamesApiResponse | null
   isRefreshing: boolean
   lastError: string | null
   platformStatuses: Partial<Record<Platform, PlatformStatus>>
-  hasCache: boolean
   cachedAt: string | null
   freshDataVersion: number
   triggerRefresh: () => void
-  applyPendingData: () => void
 }
 
 export function useGamesData(): UseGamesDataResult {
   const [displayedData, setDisplayedData] = useState<GamesApiResponse | null>(null)
-  const [pendingData, setPendingData] = useState<GamesApiResponse | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastError, setLastError] = useState<string | null>(null)
   const [platformStatuses, setPlatformStatuses] = useState<Partial<Record<Platform, PlatformStatus>>>({})
-  const [hasCache, setHasCache] = useState(false)
   const [cachedAt, setCachedAt] = useState<string | null>(null)
   const [freshDataVersion, setFreshDataVersion] = useState(0)
 
   const fetchingRef = useRef(false)
-  // true once displayedData has been shown (from cache or first fetch) — routes
-  // subsequent fetch completions to pendingData instead of displayedData.
-  const hasDisplayedRef = useRef(false)
-  const isManualRefreshRef = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
 
   const runFetch = useCallback(async () => {
@@ -156,14 +147,8 @@ export function useGamesData(): UseGamesDataResult {
             }
             const newCachedAt = writeCache(freshData)
             setCachedAt(newCachedAt)
-            if (isManualRefreshRef.current || !hasDisplayedRef.current) {
-              setDisplayedData(freshData)
-              setFreshDataVersion(v => v + 1)
-              hasDisplayedRef.current = true
-              isManualRefreshRef.current = false
-            } else {
-              setPendingData(freshData)
-            }
+            setDisplayedData(freshData)
+            setFreshDataVersion(v => v + 1)
           }
         }
       }
@@ -182,11 +167,8 @@ export function useGamesData(): UseGamesDataResult {
     const cached = readCache()
     if (cached) {
       setDisplayedData(cached.data)
-      setHasCache(true)
       setCachedAt(cached.cachedAt)
-      hasDisplayedRef.current = true
     }
-    isManualRefreshRef.current = true
     runFetch()
     return () => {
       abortRef.current?.abort()
@@ -195,31 +177,16 @@ export function useGamesData(): UseGamesDataResult {
   }, [runFetch])
 
   const triggerRefresh = useCallback(() => {
-    isManualRefreshRef.current = true
     runFetch()
   }, [runFetch])
 
-  const applyPendingData = useCallback(() => {
-    setPendingData(prev => {
-      if (prev) {
-        setDisplayedData(prev)
-        setFreshDataVersion(v => v + 1)
-      }
-      return null
-    })
-    setLastError(null)
-  }, [])
-
   return {
     displayedData,
-    pendingData,
     isRefreshing,
     lastError,
     platformStatuses,
-    hasCache,
     cachedAt,
     freshDataVersion,
     triggerRefresh,
-    applyPendingData,
   }
 }
