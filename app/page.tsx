@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { UserPrefs, DEFAULT_PREFS } from '@/lib/types'
 import { useGamesData } from '@/hooks/useGamesData'
 import GameGrid from '@/components/GameGrid'
@@ -13,7 +13,6 @@ export default function DashboardPage() {
   const [prefs, setPrefs] = useState<UserPrefs>(DEFAULT_PREFS)
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
   const [opened, setOpened] = useState<Set<string>>(new Set())
-  const isInitialFetchRef = useRef(true)
   const {
     displayedData,
     isRefreshing,
@@ -41,15 +40,17 @@ export default function DashboardPage() {
   // When fresh server data is applied to the display, clear all dismissed state
   // so the dashboard reflects exactly what the services report. Cache loads do
   // not clear dismissed state — only real server responses do.
+  //
+  // TEMPORARY TEST (2026-07-04): clears on every real fetch, including the
+  // page's first one, to check whether dismissed/opened games reappearing
+  // right after BGA back-navigation is still an actual problem. See if this
+  // regresses before deciding on a permanent (e.g. grace-period) fix.
   useEffect(() => {
     if (freshDataVersion === 0) return
-    if (!isInitialFetchRef.current) {
-      setDismissed(new Set())
-      localStorage.removeItem(DISMISSED_KEY)
-      setOpened(new Set())
-      sessionStorage.removeItem(OPENED_KEY)
-    }
-    isInitialFetchRef.current = false
+    setDismissed(new Set())
+    localStorage.removeItem(DISMISSED_KEY)
+    setOpened(new Set())
+    sessionStorage.removeItem(OPENED_KEY)
   }, [freshDataVersion])
 
   const handleOpen = (id: string) => {
