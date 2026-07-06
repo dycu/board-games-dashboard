@@ -15,7 +15,7 @@
           "color": "red"
         }
       ],
-      "currentPlayerId": "aaaaaaaa000000000000bbbbbbbbbbbb",
+      "currentPlayerId": "aaaaaaaa-0000-0000-0000-bbbbbbbbbbbb",
       "turnStartedAt": "2026-06-20T10:00:00Z",
       "updatedAt": "2026-06-20T10:00:00Z",
       "turnTimeoutSeconds": 86400
@@ -35,7 +35,7 @@
           "color": "red"
         }
       ],
-      "currentPlayerId": "cccccccc111111111111dddddddddddd",
+      "currentPlayerId": "cccccccc-1111-1111-1111-dddddddddddd",
       "turnStartedAt": "2026-06-24T08:00:00Z",
       "updatedAt": "2026-06-24T08:00:00Z",
       "turnTimeoutSeconds": 86400
@@ -50,7 +50,7 @@
           "color": "blue"
         }
       ],
-      "currentPlayerId": "eeeeeeee22222222222222ffffffffffff",
+      "currentPlayerId": "eeeeeeee-2222-2222-2222-ffffffffffff",
       "turnStartedAt": "2026-06-25T12:00:00Z",
       "updatedAt": "2026-06-25T12:00:00Z",
       "turnTimeoutSeconds": 86400

@@ -53,10 +53,11 @@ export async function fetchHansa(userId: string): Promise<Game[]> {
     .filter(g => g.players.some(p => p.userId.replace(/-/g, '') === myId))
     .map((g): Game => {
       const myPlayer = g.players.find(p => p.userId.replace(/-/g, '') === myId)!
-      const isMyTurn = !!g.currentPlayerId && g.currentPlayerId === myId
+      const currentPlayerId = g.currentPlayerId?.replace(/-/g, '') ?? ''
+      const isMyTurn = !!currentPlayerId && currentPlayerId === myId
       const currentPlayer = isMyTurn
         ? undefined
-        : g.players.find(p => p.userId.replace(/-/g, '') === g.currentPlayerId)?.name
+        : g.players.find(p => p.userId.replace(/-/g, '') === currentPlayerId)?.name
 
       const lastMoveAt = g.turnStartedAt ? new Date(g.turnStartedAt) : new Date(g.updatedAt)
 

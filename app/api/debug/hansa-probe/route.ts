@@ -42,7 +42,7 @@ export async function GET() {
         id: g.id,
         status: g.status,
         currentPlayerId: g.currentPlayerId,
-        myTurn: g.currentPlayerId === myId,
+        myTurn: g.currentPlayerId?.replace(/-/g, '') === myId,
         players: g.players,
       })),
     })
