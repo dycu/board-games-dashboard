@@ -261,6 +261,41 @@ describe('fetchBGA', () => {
     expect(game2.myTurn).toBe(true)
   })
 
+  it('uses my own think_seconds when another player also has a stale myturn=1 flag', async () => {
+    // Reproduces The Crew: BGA can report myturn=1 on more than one player at once
+    // (e.g. a leftover flag from the player before me). My own turn/timing data
+    // must win, not whichever player happens to come first in object key order.
+    const singleTable = {
+      status: 1,
+      data: {
+        tables: {
+          '11111': {
+            id: '11111',
+            game_name: 'thecrew',
+            status: 'asyncplay',
+            think_limit: 1783571497,
+            players: {
+              '10': { id: '10', fullname: 'overdueplayer', myturn: '1', think_seconds: '-255999' },
+              '42': { id: '42', fullname: 'testuser', myturn: '1', think_seconds: '250333' },
+            },
+          },
+        },
+      },
+    }
+    mockFetch
+      .mockResolvedValueOnce(makeInitResponse())
+      .mockResolvedValueOnce(makeRedirectFollowResponse())
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginResponse('42'))
+      .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockResolvedValueOnce(makeGamepanelResponse('The Crew'))
+
+    const games = await fetchBGA('user@example.com', 'password')
+    expect(games[0].myTurn).toBe(true)
+    expect(games[0].urgent).toBe(false)
+    expect(games[0].lastMoveAgo).not.toMatch(/overtime/)
+  })
+
   it('returns empty array when no tables exist', async () => {
     setupHappyPath('42', { status: 1, data: { tables: {} } }, [])
     const games = await fetchBGA('user@example.com', 'password')

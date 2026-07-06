@@ -204,8 +204,13 @@ export async function fetchBGA(username: string, password: string, capDays = 3):
     const myPlayer = players[myId]
     const isMyTurn = myPlayer?.myturn === '1' || myPlayer?.myturn === 1
 
-    // active player = whichever player has myturn=1
-    const activePlayerEntry = Object.values(players).find((p: any) => p.myturn === '1' || p.myturn === 1) as any
+    // active player = whichever player has myturn=1. BGA can report myturn=1 on more
+    // than one player at once (observed on The Crew — a stale flag left over from
+    // the previous player). When it's my turn, my own entry must win so the timing
+    // data shown is mine, not some other still-flagged player's.
+    const activePlayerEntry = isMyTurn
+      ? myPlayer
+      : (Object.values(players).find((p: any) => p.myturn === '1' || p.myturn === 1) as any)
 
     // think_limit   = Unix timestamp (seconds) of the active player's deadline
     // think_seconds = think_limit − now  (remaining seconds; negative = overtime)
