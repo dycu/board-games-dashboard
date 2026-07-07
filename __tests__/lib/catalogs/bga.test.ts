@@ -8,9 +8,9 @@ describe('parseBgaCatalog', () => {
   it('extracts public games with their slug-based URL', () => {
     const catalog = parseBgaCatalog(fixture)
     expect(catalog).toEqual(expect.arrayContaining([
-      { name: 'Ark Nova', url: 'https://boardgamearena.com/arknova' },
-      { name: 'CATAN', url: 'https://boardgamearena.com/catan' },
-      { name: 'Brass: Birmingham', url: 'https://boardgamearena.com/brasstrent' },
+      { name: 'Ark Nova', url: 'https://en.boardgamearena.com/gamepanel?game=arknova' },
+      { name: 'CATAN', url: 'https://en.boardgamearena.com/gamepanel?game=catan' },
+      { name: 'Brass: Birmingham', url: 'https://en.boardgamearena.com/gamepanel?game=brasstrent' },
     ]))
   })
 
