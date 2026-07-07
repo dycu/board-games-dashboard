@@ -1,0 +1,12 @@
+{
+  "d": {
+    "__type": "YucataService.GamesWithTagsAndCategoriesResponse:#",
+    "Categories": [],
+    "Games": [
+      { "__type": "YucataService.GameWithTagsModel:#", "GameTypeId": 158, "IdName": "PaxPorfiriana", "DevStatus": 4 },
+      { "__type": "YucataService.GameWithTagsModel:#", "GameTypeId": 99, "IdName": "BrassBirmingham", "DevStatus": 4 },
+      { "__type": "YucataService.GameWithTagsModel:#", "GameTypeId": 12, "IdName": "Hive", "DevStatus": 4 },
+      { "__type": "YucataService.GameWithTagsModel:#", "GameTypeId": 5, "IdName": "NoNameEntry", "DevStatus": 4 }
+    ]
+  }
+}
