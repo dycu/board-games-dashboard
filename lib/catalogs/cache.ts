@@ -10,6 +10,12 @@ export const CATALOG_PLATFORMS: CatalogPlatform[] = ['bga', 'yucata', 'rally']
 
 const TTL_SECONDS = 86400
 
+// Bump when a cached CatalogEntry's shape or content changes, so stale
+// entries from a prior deploy are bypassed instead of served for up to
+// TTL_SECONDS after the fix ships (e.g. the v1 BGA entries cached the
+// broken boardgamearena.com/<slug> URL, not the gamepanel one).
+const CACHE_VERSION = 'v2'
+
 const FETCHERS: Record<CatalogPlatform, () => Promise<CatalogEntry[]>> = {
   bga: fetchBgaCatalog,
   yucata: fetchYucataCatalog,
@@ -17,7 +23,7 @@ const FETCHERS: Record<CatalogPlatform, () => Promise<CatalogEntry[]>> = {
 }
 
 function cacheKey(platform: CatalogPlatform): string {
-  return `game-catalog:${platform}`
+  return `game-catalog:${CACHE_VERSION}:${platform}`
 }
 
 export async function getCatalog(platform: CatalogPlatform): Promise<CatalogEntry[]> {
