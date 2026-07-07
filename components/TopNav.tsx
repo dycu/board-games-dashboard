@@ -13,13 +13,13 @@ export default function TopNav({ right }: { right?: React.ReactNode }) {
   const path = usePathname()
   return (
     <nav className="bg-white border-b border-[#e5e5e5] px-5 flex items-center justify-between h-11 shrink-0">
-      <div className="flex items-center">
-        <span className="text-sm font-semibold text-[#1a1a1a] pr-4 mr-3 border-r border-[#e5e5e5]">🎲</span>
+      <div className="flex items-center overflow-x-auto">
+        <span className="text-sm font-semibold text-[#1a1a1a] pr-4 mr-3 border-r border-[#e5e5e5] shrink-0">🎲</span>
         {TABS.map(t => (
           <Link
             key={t.href}
             href={t.href}
-            className={`text-sm px-3 h-11 flex items-center border-b-2 transition-colors
+            className={`text-sm px-2 sm:px-3 h-11 flex items-center border-b-2 transition-colors whitespace-nowrap shrink-0
               ${path === t.href
                 ? 'border-[#5e6ad2] text-[#1a1a1a] font-medium'
                 : 'border-transparent text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
