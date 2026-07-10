@@ -33,4 +33,16 @@ describe('FinishedGameCard', () => {
     render(<FinishedGameCard game={game} />)
     expect(screen.getByText('18xx.games')).toBeInTheDocument()
   })
+
+  it('opens BGA links in the same tab to trigger desktop mode', () => {
+    const bgaGame: FinishedGame = {
+      ...game,
+      id: 'bga:55555',
+      platform: 'bga',
+      gameUrl: 'https://boardgamearena.com/en/brass?table=55555',
+    }
+    render(<FinishedGameCard game={bgaGame} />)
+    const link = screen.getByRole('link', { name: /view/i })
+    expect(link).toHaveAttribute('target', '_self')
+  })
 })

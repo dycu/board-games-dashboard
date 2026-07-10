@@ -22,7 +22,7 @@ export default function FinishedGameCard({ game }: Props) {
       </div>
       <a
         href={game.gameUrl}
-        target="_blank"
+        target={game.platform === 'bga' ? '_self' : '_blank'}
         rel="noopener noreferrer"
         aria-label={`View ${game.gameName}`}
         className="shrink-0 ml-4 text-xs font-medium bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1 rounded-md transition-colors"
