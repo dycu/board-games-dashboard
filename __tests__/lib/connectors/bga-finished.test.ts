@@ -55,7 +55,7 @@ describe('fetchFinishedBGA', () => {
     expect(g).toMatchObject({
       platform: 'bga',
       gameName: 'brass',
-      gameUrl: expect.stringContaining('55555'),
+      gameUrl: 'https://boardgamearena.com/en/brass?table=55555',
       completedAgo: expect.any(String),
     })
     expect(g.completedAt).toBeInstanceOf(Date)

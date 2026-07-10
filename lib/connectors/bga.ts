@@ -342,7 +342,11 @@ export async function fetchFinishedBGA(username: string, password: string): Prom
       gameName: nameMap.get(t.game_name) ?? t.game_name ?? 'Unknown',
       completedAt,
       completedAgo: formatTimeAgo(completedAt),
-      gameUrl: `${BASE}/table?table=${t.table_id}`,
+      // /table?table=ID only opens the table lobby (a stripped-down, mobile-style
+      // summary page) — the real game module path is needed for the actual desktop
+      // replay view, same as fetchBGA's gameUrl. gamestats/getGames doesn't return
+      // t.gameserver, so fall back to 'en' like the pre-gamestats implementation did.
+      gameUrl: `${BASE}/${t.gameserver ?? 'en'}/${t.game_name}?table=${t.table_id}`,
     }
   })
 }
