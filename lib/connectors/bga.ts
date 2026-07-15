@@ -73,10 +73,12 @@ async function fetchGameNames(slugs: string[], cookies: Record<string, string>):
             signal: controller.signal,
           })
           // BGA always uses double-quote delimiters on og:title, so [^"] stays inside
-          // the attribute and handles apostrophes (e.g. "Andromeda's Edge") correctly
+          // the attribute and handles apostrophes (e.g. "Andromeda's Edge") correctly.
+          // BGA has used both "online from your browser" and "online on Board Game Arena"
+          // wording over time, so match either.
           if (!res.ok) continue
           const html = await res.text()
-          const m = html.match(/content="Play ([^"]+?) online from your browser"/i)
+          const m = html.match(/content="Play ([^"]+?) online (?:from your browser|on Board Game Arena)"/i)
           if (m) return [slug, decodeHtmlEntities(m[1].replace(/\s+/g, ' ').trim())]
         } finally {
           clearTimeout(tid)

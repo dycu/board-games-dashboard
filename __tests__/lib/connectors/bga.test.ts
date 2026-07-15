@@ -68,7 +68,7 @@ function makeGamepanelResponse(displayName: string) {
     ok: true,
     status: 200,
     text: async () =>
-      `<html><head><meta property="og:title" content="Play ${displayName} online from your browser"/></head></html>`,
+      `<html><head><meta property="og:title" content="Play ${displayName} online on Board Game Arena"/></head></html>`,
     headers: makeMockHeaders([]),
   }
 }
@@ -145,12 +145,48 @@ describe('fetchBGA', () => {
         ok: true,
         status: 200,
         text: async () =>
-          `<html><head><meta property="og:title" content="Play Through the Ages: A new Story of\nCivilization online from your browser"/></head></html>`,
+          `<html><head><meta property="og:title" content="Play Through the Ages: A new Story of\nCivilization online on Board Game Arena"/></head></html>`,
         headers: makeMockHeaders([]),
       })
 
     const games = await fetchBGA('user@example.com', 'password')
     expect(games[0].gameName).toBe('Through the Ages: A new Story of Civilization')
+  })
+
+  it('still resolves display names from the older "online from your browser" og:title wording', async () => {
+    const singleTable = {
+      status: 1,
+      data: {
+        tables: {
+          '11111': {
+            id: '11111',
+            game_name: 'oldwording',
+            status: 'asyncplay',
+            gamestart: 1750000000,
+            scheduled: 1749990000,
+            players: {
+              '42': { id: '42', fullname: 'testuser', myturn: '1', think_seconds: '3600' },
+            },
+          },
+        },
+      },
+    }
+    mockFetch
+      .mockResolvedValueOnce(makeInitResponse())
+      .mockResolvedValueOnce(makeRedirectFollowResponse())
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginResponse('42'))
+      .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () =>
+          `<html><head><meta property="og:title" content="Play Old Wording Game online from your browser"/></head></html>`,
+        headers: makeMockHeaders([]),
+      })
+
+    const games = await fetchBGA('user@example.com', 'password')
+    expect(games[0].gameName).toBe('Old Wording Game')
   })
 
   it('falls back to slug when all gamepanel fetch attempts fail', async () => {
