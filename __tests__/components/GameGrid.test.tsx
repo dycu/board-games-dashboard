@@ -81,3 +81,35 @@ describe('GameGrid quick-links bar', () => {
     expect(screen.getAllByRole('link', { name: /^BGA/ })).toHaveLength(1)
   })
 })
+
+describe('GameGrid departed games banner', () => {
+  it('opens a departed BGA game in the same tab to trigger desktop mode', () => {
+    const data: GamesApiResponse = { games: [], errors: [], fetchedAt: new Date().toISOString() }
+    render(
+      <GameGrid
+        {...defaultGridProps}
+        data={data}
+        departedGames={[
+          { id: 'bga:1', gameName: 'Test Game', platform: 'bga', gameUrl: 'https://boardgamearena.com/en/thegame?table=1' },
+        ]}
+      />,
+    )
+    const link = screen.getByRole('link', { name: 'Test Game' })
+    expect(link).toHaveAttribute('target', '_self')
+  })
+
+  it('opens a departed non-BGA game in a new tab', () => {
+    const data: GamesApiResponse = { games: [], errors: [], fetchedAt: new Date().toISOString() }
+    render(
+      <GameGrid
+        {...defaultGridProps}
+        data={data}
+        departedGames={[
+          { id: 'yucata:1', gameName: 'Other Game', platform: 'yucata', gameUrl: 'https://yucata.de/game/1' },
+        ]}
+      />,
+    )
+    const link = screen.getByRole('link', { name: 'Other Game' })
+    expect(link).toHaveAttribute('target', '_blank')
+  })
+})

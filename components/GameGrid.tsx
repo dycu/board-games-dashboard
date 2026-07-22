@@ -110,7 +110,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
               {departedGames.map((g, i) => (
                 <span key={g.id}>
                   {i > 0 && ', '}
-                  <a href={g.gameUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-[#1a1a1a]">
+                  <a href={g.gameUrl} target={g.platform === 'bga' ? '_self' : '_blank'} rel="noopener noreferrer" className="underline hover:text-[#1a1a1a]">
                     {g.gameName}
                   </a>
                 </span>
