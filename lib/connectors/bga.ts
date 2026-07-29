@@ -347,8 +347,11 @@ export async function fetchFinishedBGA(username: string, password: string): Prom
       // /table?table=ID only opens the table lobby (a stripped-down, mobile-style
       // summary page) — the real game module path is needed for the actual desktop
       // replay view, same as fetchBGA's gameUrl. gamestats/getGames doesn't return
-      // t.gameserver, so fall back to 'en' like the pre-gamestats implementation did.
-      gameUrl: `${BASE}/${t.gameserver ?? 'en'}/${t.game_name}?table=${t.table_id}`,
+      // t.gameserver; prefixing a fake locale segment (e.g. 'en') 404s, so omit the
+      // segment entirely when it's missing — /{game_name}?table=ID resolves fine.
+      gameUrl: t.gameserver
+        ? `${BASE}/${t.gameserver}/${t.game_name}?table=${t.table_id}`
+        : `${BASE}/${t.game_name}?table=${t.table_id}`,
     }
   })
 }
