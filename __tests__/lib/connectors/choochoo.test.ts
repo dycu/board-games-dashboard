@@ -77,6 +77,16 @@ describe('fetchChoochoo', () => {
     expect(g2.myTurn).toBe(false)
   })
 
+  it('requests games filtered by userId server-side (not an unfiltered global pool)', async () => {
+    setupHappyPath()
+    await fetchChoochoo('testuser', 'pass')
+    const gamesCall = mockFetch.mock.calls.find(([url]) => String(url).includes('/api/games'))
+    expect(gamesCall).toBeDefined()
+    const url = String(gamesCall![0])
+    expect(url).toContain('userId=42')
+    expect(url).not.toContain('pageSize')
+  })
+
   it('excludes self from players list', async () => {
     setupHappyPath()
     const games = await fetchChoochoo('testuser', 'pass')

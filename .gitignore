@@ -47,3 +47,5 @@ next-env.d.ts
 # superpowers tooling
 .superpowers/
 docs/superpowers/
+
+.env*

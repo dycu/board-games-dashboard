@@ -37,8 +37,9 @@ export async function fetchChoochoo(username: string, password: string): Promise
   const myUserId: number = loginJson.user.id
   const authCookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? xsrfCookie
 
-  // Step 3: fetch active games (status[] must be array format; userId filters by owner so we filter locally instead)
-  const gamesRes = await fetch(`${API}/api/games?status[]=ACTIVE&pageSize=20`, {
+  // Step 3: fetch active games (status[] must be array format; userId filters server-side to games I'm a player in —
+  // without it the endpoint returns a global pool capped by pageSize, which can silently omit my active games)
+  const gamesRes = await fetch(`${API}/api/games?status[]=ACTIVE&userId=${myUserId}`, {
     headers: { Accept: 'application/json', Cookie: authCookie, 'User-Agent': 'Mozilla/5.0' },
   })
   if (!gamesRes.ok) throw new Error(`choochoo.games games fetch failed: HTTP ${gamesRes.status}`)
