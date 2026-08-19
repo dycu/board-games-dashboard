@@ -65,8 +65,9 @@ export async function GET() {
   }
   const authCookie = loginRes.cookies.map(c => c.split(';')[0]).join('; ') || xsrfCookie
 
-  // Step 3: active games — filter locally since userId param filters by owner, not participant
-  const gamesRes = await req('GET', '/api/games?status[]=ACTIVE&pageSize=20', { ...base, Cookie: authCookie })
+  // Step 3: active games — userId filters server-side to games I'm a player in. Without it the
+  // endpoint returns a global pool capped by pageSize, which can silently omit my active games.
+  const gamesRes = await req('GET', `/api/games?status[]=ACTIVE&userId=${myUserId}`, { ...base, Cookie: authCookie })
   let gamesJson: any = {}
   try { gamesJson = JSON.parse(gamesRes.body) } catch {}
   const allGames: any[] = gamesJson.games ?? (Array.isArray(gamesJson) ? gamesJson : [])
