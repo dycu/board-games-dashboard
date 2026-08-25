@@ -17,8 +17,10 @@ export async function GET() {
     'Upgrade-Insecure-Requests': '1',
   }
 
-  // Step 1: GET /login/ to obtain Django csrftoken cookie + csrfmiddlewaretoken form field
-  const loginPageRes = await fetch(`${BASE}/login/`, { headers: BROWSER })
+  // Step 1: GET /nd/login/ to obtain Django csrftoken cookie + csrfmiddlewaretoken form field
+  // (the site migrated its login/home pages under a "/nd/" prefix; the old
+  // /login/ and / paths now 301-redirect there with an empty body)
+  const loginPageRes = await fetch(`${BASE}/nd/login/`, { headers: BROWSER })
   const loginPageHtml = await loginPageRes.text()
   const rawCookies = loginPageRes.headers.get('set-cookie') ?? ''
   // Extract just the csrftoken value from cookie header
@@ -37,12 +39,12 @@ export async function GET() {
     password,
     next: '/',
   })
-  const loginRes = await fetch(`${BASE}/login/`, {
+  const loginRes = await fetch(`${BASE}/nd/login/`, {
     method: 'POST',
     headers: {
       ...BROWSER,
       'Content-Type': 'application/x-www-form-urlencoded',
-      'Referer': `${BASE}/login/`,
+      'Referer': `${BASE}/nd/login/`,
       'Origin': BASE,
       'Sec-Fetch-Site': 'same-origin',
       Cookie: `csrftoken=${csrfCookieVal}`,
@@ -57,8 +59,8 @@ export async function GET() {
   const sessionid = loginCookies.match(/\bsessionid=([^;,\s]+)/)?.[1]
   log.push(`POST login: HTTP ${loginRes.status} loc=${loginLoc} sessionid=${sessionid ? sessionid.slice(0,12)+'...' : 'none'} error="${loginError}"`)
 
-  // Successful login: got a sessionid cookie, or redirected away from /login/
-  const loginSuccess = !!sessionid || (loginRes.status >= 300 && loginRes.status < 400 && loginLoc && loginLoc !== '/login/' && loginLoc !== `${BASE}/login/`)
+  // Successful login: got a sessionid cookie, or redirected away from /nd/login/
+  const loginSuccess = !!sessionid || (loginRes.status >= 300 && loginRes.status < 400 && loginLoc && loginLoc !== '/nd/login/' && loginLoc !== `${BASE}/nd/login/`)
   log.push(`login success: ${loginSuccess}`)
 
   if (!loginSuccess) {
@@ -74,14 +76,14 @@ export async function GET() {
   const sessionCookie = allCookieParts.join('; ')
 
   // Fetch home page to extract username and "My Games" link
-  const homeRes = await fetch(`${BASE}/`, {
+  const homeRes = await fetch(`${BASE}/nd/`, {
     headers: { ...BROWSER, Cookie: sessionCookie, 'Sec-Fetch-Site': 'same-origin' },
   })
   const homeHtml = await homeRes.text()
-  log.push(`GET /: HTTP ${homeRes.status} len=${homeHtml.length}`)
+  log.push(`GET /nd/: HTTP ${homeRes.status} len=${homeHtml.length}`)
 
-  // Extract OBG profile name from nav: <a href="/profile/{name}/">My Games</a>
-  const profileHrefMatch = homeHtml.match(/href="\/profile\/([^/"]+)\/"[^>]*>\s*My Games/)
+  // Extract OBG profile name from nav: <a href="/profile/{name}/">My Games</a> (or /nd/profile/...)
+  const profileHrefMatch = homeHtml.match(/href="(?:\/nd)?\/profile\/([^/"]+)\/"[^>]*>\s*My Games/)
   const profileName = profileHrefMatch?.[1] ?? ''
   log.push(`profileName from nav: "${profileName}"`)
 
