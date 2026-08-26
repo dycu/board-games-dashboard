@@ -94,4 +94,31 @@ describe('fetchOBG', () => {
       .mockResolvedValueOnce({ ok: true, status: 200, headers: { get: () => null } })
     await expect(fetchOBG('bad', 'creds')).rejects.toThrow('OBG login failed')
   })
+
+  it('hits the /nd/-prefixed login and home paths (site migrated off the bare paths)', async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginSuccessResponse())
+      .mockResolvedValueOnce(makeHomeResponse())
+      .mockResolvedValueOnce(makeProfileResponse())
+
+    await fetchOBG('testuser', 'pass')
+    expect(mockFetch.mock.calls[0][0]).toBe('https://www.onlineboardgamers.com/nd/login/')
+    expect(mockFetch.mock.calls[1][0]).toBe('https://www.onlineboardgamers.com/nd/login/')
+    expect(mockFetch.mock.calls[2][0]).toBe('https://www.onlineboardgamers.com/nd/')
+  })
+
+  it('extracts profile name when the nav link is /nd/profile/-prefixed', async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginSuccessResponse())
+      .mockResolvedValueOnce({ ok: true, text: async () => `<html><body>
+        <a class="topBarLink" href="/nd/profile/testuser/">My Games</a>
+      </body></html>` })
+      .mockResolvedValueOnce(makeProfileResponse())
+
+    const games = await fetchOBG('testuser', 'pass')
+    expect(games).toHaveLength(2)
+    expect(mockFetch.mock.calls[3][0]).toBe('https://www.onlineboardgamers.com/profile/testuser/')
+  })
 })

@@ -10,20 +10,27 @@ const BROWSER = {
   'Accept-Language': 'en-US,en;q=0.9',
 }
 
+// Site migrated its login/home pages under a "/nd/" (new design) prefix; the
+// old paths now 301-redirect there with no body, which broke CSRF-token
+// scraping. Profile pages still 301-redirect from the old path, so those are
+// left as-is and just followed automatically.
+const LOGIN_PATH = '/nd/login/'
+const HOME_PATH = '/nd/'
+
 export async function fetchOBG(username: string, password: string): Promise<Game[]> {
-  // Step 1: GET /login/ — Django CSRF cookie + form token
-  const loginPageRes = await fetch(`${BASE}/login/`, { headers: BROWSER, redirect: 'manual' })
+  // Step 1: GET /nd/login/ — Django CSRF cookie + form token
+  const loginPageRes = await fetch(`${BASE}${LOGIN_PATH}`, { headers: BROWSER, redirect: 'manual' })
   const loginPageHtml = await loginPageRes.text()
   const csrfCookieVal = loginPageRes.headers.get('set-cookie')?.match(/\bcsrftoken=([^;,\s]+)/)?.[1] ?? ''
   const csrfMiddleware = loginPageHtml.match(/name="csrfmiddlewaretoken"\s+value="([^"]+)"/)?.[1] ?? csrfCookieVal
 
-  // Step 2: POST /login/ with credentials
-  const loginRes = await fetch(`${BASE}/login/`, {
+  // Step 2: POST /nd/login/ with credentials
+  const loginRes = await fetch(`${BASE}${LOGIN_PATH}`, {
     method: 'POST',
     headers: {
       ...BROWSER,
       'Content-Type': 'application/x-www-form-urlencoded',
-      'Referer': `${BASE}/login/`,
+      'Referer': `${BASE}${LOGIN_PATH}`,
       'Origin': BASE,
       Cookie: `csrftoken=${csrfCookieVal}`,
     },
@@ -34,17 +41,17 @@ export async function fetchOBG(username: string, password: string): Promise<Game
   const sessionidMatch = loginSetCookie.match(/\bsessionid=([^;,\s]+)/)
   const newCsrf = loginSetCookie.match(/\bcsrftoken=([^;,\s]+)/)?.[1] ?? csrfCookieVal
   const loginLoc = loginRes.headers.get('location') ?? ''
-  const loginOk = !!sessionidMatch || (loginRes.status >= 300 && loginRes.status < 400 && loginLoc && loginLoc !== '/login/' && loginLoc !== `${BASE}/login/`)
+  const loginOk = !!sessionidMatch || (loginRes.status >= 300 && loginRes.status < 400 && loginLoc && loginLoc !== LOGIN_PATH && loginLoc !== `${BASE}${LOGIN_PATH}`)
   if (!loginOk) throw new Error('OBG login failed')
 
   const cookieHeader = [`csrftoken=${newCsrf}`, ...(sessionidMatch ? [`sessionid=${sessionidMatch[1]}`] : [])].join('; ')
 
-  // Step 3: GET / — extract profile name from "My Games" nav link
-  const homeRes = await fetch(`${BASE}/`, { headers: { ...BROWSER, Cookie: cookieHeader } })
+  // Step 3: GET /nd/ — extract profile name from "My Games" nav link
+  const homeRes = await fetch(`${BASE}${HOME_PATH}`, { headers: { ...BROWSER, Cookie: cookieHeader } })
   const homeHtml = await homeRes.text()
-  const profileName = homeHtml.match(/href="\/profile\/([^/"]+)\/"[^>]*>\s*My Games/)?.[1] ?? username
+  const profileName = homeHtml.match(/href="(?:\/nd)?\/profile\/([^/"]+)\/"[^>]*>\s*My Games/)?.[1] ?? username
 
-  // Step 4: GET /profile/{name}/ — active games table
+  // Step 4: GET /profile/{name}/ — active games table (still redirects to /nd/profile/{name}/, followed automatically)
   const profileRes = await fetch(`${BASE}/profile/${profileName}/`, {
     headers: { ...BROWSER, Cookie: cookieHeader },
   })
@@ -159,17 +166,17 @@ function parseFinishedGames(html: string): FinishedGame[] {
 }
 
 export async function fetchFinishedOBG(username: string, password: string): Promise<FinishedGame[]> {
-  const loginPageRes = await fetch(`${BASE}/login/`, { headers: BROWSER, redirect: 'manual' })
+  const loginPageRes = await fetch(`${BASE}${LOGIN_PATH}`, { headers: BROWSER, redirect: 'manual' })
   const loginPageHtml = await loginPageRes.text()
   const csrfCookieVal = loginPageRes.headers.get('set-cookie')?.match(/\bcsrftoken=([^;,\s]+)/)?.[1] ?? ''
   const csrfMiddleware = loginPageHtml.match(/name="csrfmiddlewaretoken"\s+value="([^"]+)"/)?.[1] ?? csrfCookieVal
 
-  const loginRes = await fetch(`${BASE}/login/`, {
+  const loginRes = await fetch(`${BASE}${LOGIN_PATH}`, {
     method: 'POST',
     headers: {
       ...BROWSER,
       'Content-Type': 'application/x-www-form-urlencoded',
-      'Referer': `${BASE}/login/`,
+      'Referer': `${BASE}${LOGIN_PATH}`,
       'Origin': BASE,
       Cookie: `csrftoken=${csrfCookieVal}`,
     },
@@ -180,14 +187,14 @@ export async function fetchFinishedOBG(username: string, password: string): Prom
   const sessionidMatch = loginSetCookie.match(/\bsessionid=([^;,\s]+)/)
   const newCsrf = loginSetCookie.match(/\bcsrftoken=([^;,\s]+)/)?.[1] ?? csrfCookieVal
   const loginLoc = loginRes.headers.get('location') ?? ''
-  const loginOk = !!sessionidMatch || (loginRes.status >= 300 && loginRes.status < 400 && loginLoc && loginLoc !== '/login/' && loginLoc !== `${BASE}/login/`)
+  const loginOk = !!sessionidMatch || (loginRes.status >= 300 && loginRes.status < 400 && loginLoc && loginLoc !== LOGIN_PATH && loginLoc !== `${BASE}${LOGIN_PATH}`)
   if (!loginOk) throw new Error('OBG login failed')
 
   const cookieHeader = [`csrftoken=${newCsrf}`, ...(sessionidMatch ? [`sessionid=${sessionidMatch[1]}`] : [])].join('; ')
 
-  const homeRes = await fetch(`${BASE}/`, { headers: { ...BROWSER, Cookie: cookieHeader } })
+  const homeRes = await fetch(`${BASE}${HOME_PATH}`, { headers: { ...BROWSER, Cookie: cookieHeader } })
   const homeHtml = await homeRes.text()
-  const profileName = homeHtml.match(/href="\/profile\/([^/"]+)\/"[^>]*>\s*My Games/)?.[1] ?? username
+  const profileName = homeHtml.match(/href="(?:\/nd)?\/profile\/([^/"]+)\/"[^>]*>\s*My Games/)?.[1] ?? username
 
   const profileRes = await fetch(`${BASE}/profile/${profileName}/`, {
     headers: { ...BROWSER, Cookie: cookieHeader },
