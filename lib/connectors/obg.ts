@@ -73,6 +73,12 @@ const OBG_GAME_NAMES: Record<string, string> = {
   RNB: 'Roads & Boats',
 }
 
+// The redesign nests game-type-coded links under "/nd/" (e.g. "/nd/FCM/101/show/"
+// instead of "/FCM/101/show/") — strip that prefix before reading the code.
+function extractTypeCode(href: string): string {
+  return href.replace(/^\/nd(?=\/)/, '').match(/^\/([A-Z]+)\//)?.[1] ?? ''
+}
+
 function parseGames(html: string, profileName: string): Game[] {
   const $ = cheerio.load(html)
   const games: Game[] = []
@@ -85,25 +91,26 @@ function parseGames(html: string, profileName: string): Game[] {
     const gameId = ($tr.attr('id') ?? '').match(/gamesRow(\d+)/)?.[1]
     if (!gameId) return
 
-    // Game URL and name from the name cell anchor (col 0)
-    const $nameAnchor = $tr.find('td').eq(0).find('a').first()
+    // Game URL and name from the name cell anchor
+    const $nameAnchor = $tr.find('td.nd-col-game a').first()
     const href = $nameAnchor.attr('href') ?? ''
     const gameUrl = BASE + href
     const rawName = $nameAnchor.text().trim()
     const customTitle = rawName.match(/^\[(.+)\]$/)?.[1]
-    const typeCode = href.match(/^\/([A-Z]+)\//)?.[1] ?? ''
+    const typeCode = extractTypeCode(href)
     const typeName = OBG_GAME_NAMES[typeCode] ?? typeCode
     const gameName = customTitle ? `${typeName} — ${customTitle}` : (rawName || typeName || 'Unknown')
 
-    const isMyTurn = $tr.hasClass('myMove')
+    // The redesign dropped the old "myMove" row class; the status cell now just
+    // names whoever needs to act next, so compare it to our own profile name.
+    // Numeric values (e.g. "5") indicate simultaneous-move games with N players pending.
+    const statusText = $tr.find('td.nd-col-status').text().trim()
+    const isSimultaneous = /^\d+$/.test(statusText)
+    const isMyTurn = !isSimultaneous && statusText.toLowerCase() === profileName.toLowerCase()
+    const currentPlayer = isMyTurn || isSimultaneous ? undefined : (statusText || undefined)
 
-    // Col 1: current player(s) text — who can move right now
-    // Numeric values (e.g. "5") indicate simultaneous-move games with N players pending
-    const currentPlayerText = $tr.find('td').eq(1).text().trim()
-    const currentPlayer = isMyTurn || /^\d+$/.test(currentPlayerText) ? undefined : (currentPlayerText || undefined)
-
-    // Col 3: all players as profile links — exclude self
-    const allPlayers = $tr.find('td').eq(3).find('a').map((_: number, a: any) => $(a).text().trim()).get() as string[]
+    // All players as profile links — exclude self
+    const allPlayers = $tr.find('td.nd-col-players a').map((_: number, a: any) => $(a).text().trim()).get() as string[]
     const players = allPlayers.filter((p: string) => p && p !== profileName)
 
     // Last turn: timeToConvertSpan holds Unix ms timestamp
@@ -120,7 +127,7 @@ function parseGames(html: string, profileName: string): Game[] {
       lastMoveAgo: formatTimeAgo(lastMoveAt),
       urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
       gameUrl,
-      platformUrl: `${BASE}/profile/${profileName}/`,
+      platformUrl: `${BASE}/nd/profile/${profileName}/`,
       players,
     })
   })
@@ -140,12 +147,12 @@ function parseFinishedGames(html: string): FinishedGame[] {
     const gameId = ($tr.attr('id') ?? '').match(/gamesRow(\d+)/)?.[1]
     if (!gameId) return
 
-    const $nameAnchor = $tr.find('td').eq(0).find('a').first()
+    const $nameAnchor = $tr.find('td.nd-col-game a').first()
     const href = $nameAnchor.attr('href') ?? ''
     const gameUrl = BASE + href
     const rawName = $nameAnchor.text().trim()
     const customTitle = rawName.match(/^\[(.+)\]$/)?.[1]
-    const typeCode = href.match(/^\/([A-Z]+)\//)?.[1] ?? ''
+    const typeCode = extractTypeCode(href)
     const typeName = OBG_GAME_NAMES[typeCode] ?? typeCode
     const gameName = customTitle ? `${typeName} — ${customTitle}` : (rawName || typeName || 'Unknown')
 

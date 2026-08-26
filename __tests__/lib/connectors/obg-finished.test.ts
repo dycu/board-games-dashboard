@@ -45,7 +45,7 @@ describe('fetchFinishedOBG', () => {
       id: 'obg:301',
       platform: 'obg',
       gameName: 'Food Chain Magnate — Finished Match',
-      gameUrl: 'https://www.onlineboardgamers.com/FCM/301/show/',
+      gameUrl: 'https://www.onlineboardgamers.com/nd/FCM/301/show/',
       completedAgo: expect.any(String),
     })
     expect(games[0].completedAt).toBeInstanceOf(Date)

@@ -58,7 +58,7 @@ describe('fetchOBG', () => {
     })
   })
 
-  it('correctly identifies my-turn from CSS class and current player', async () => {
+  it('correctly identifies my-turn by comparing the status cell to our own profile name', async () => {
     mockFetch
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginSuccessResponse())
@@ -83,7 +83,7 @@ describe('fetchOBG', () => {
 
     const games = await fetchOBG('testuser', 'pass')
     const g1 = games.find(g => g.id === 'obg:101')!
-    expect(g1.gameUrl).toBe('https://www.onlineboardgamers.com/FCM/101/show/')
+    expect(g1.gameUrl).toBe('https://www.onlineboardgamers.com/nd/FCM/101/show/')
     expect(g1.gameName).toBe("Food Chain Magnate — Dycu's Game")
     expect(g1.players).toEqual(['alice', 'bob'])
   })
