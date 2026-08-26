@@ -2,91 +2,77 @@
 <html lang="en">
 <body>
 <h2>Current Games (2)</h2>
-<table class="gamesTable">
-  <thead>
-    <tr class="headingRow">
-      <td class="nameHeaderCurrent">Name</td>
-      <td class="currentPlayersHeader">Current Players</td>
-      <td class="currentTurnHeader">Current Turn</td>
-      <td class="playersHeader">Players</td>
-      <td class="speedHeader">Speed</td>
-      <td class="creatorHeader">Creator</td>
-      <td class="lastActivityHeader">Last Turn</td>
-    </tr>
-  </thead>
+<table class="nd-table gamesTable">
   <tbody>
-    <tr class="clickableGameRow myMove " id="FCMgamesRow101" onclick="window.location.href='/FCM/101/show/';">
-      <td class="nameTDcurrent tdWithBox" id="td1">
-        <a href="/FCM/101/show/">[Dycu&#x27;s Game]</a>
+    <tr class="nd-row09 clickableGameRow" id="FCMgamesRow101" onclick="window.location.href='/nd/FCM/101/show/';">
+      <td class="nd-col-icon"><img src="/static/FCM/images/fcm_icon.png" class="gameIcon" alt="FCM game"></td>
+      <td class="nd-col-game" data-label="Game Name">
+        <a href="/nd/FCM/101/show/"><strong>[Dycu&#x27;s Game]</strong></a>
+        <br><small>Turn 3.Operations · Standard<br/>(1-2+ moves/day) · by <a href="/nd/profile/testuser/">testuser</a></small>
       </td>
-      <td>testuser</td>
-      <td>3 - Operations</td>
-      <td>
-        <a href="/profile/testuser/">testuser</a>,
-        <a href="/profile/alice/">alice</a>,
-        <a href="/profile/bob/">bob</a>
+      <td class="nd-col-status" data-label="Current player">
+        <span class="nd-status-wrap"><a href="/nd/profile/testuser/">testuser</a></span>
       </td>
-      <td>Standard<br/>(1-2+ moves/day)</td>
-      <td><a href="/profile/testuser/">testuser</a></td>
-      <td>
-        <span class="timeToConvertSpan">1719475200000</span>
-        <br/>5h 30m
+      <td class="nd-col-players" data-label="Players">
+        <a href="/nd/profile/testuser/">testuser</a>,
+        <a href="/nd/profile/alice/">alice</a>,
+        <a href="/nd/profile/bob/">bob</a>
+      </td>
+      <td class="nd-col-options" data-label="Options"><span class="nd-no-options">No options</span></td>
+      <td class="nd-col-cta nd-last-move" data-label="Last Move">
+        <span class="nd-last-move-text"><span class="timeToConvertSpan">1719475200000</span><span>5h 30m</span></span>
       </td>
     </tr>
-    <tr class="clickableGameRow  " id="AQYgamesRow202" onclick="window.location.href='/AQY/202/show/';">
-      <td class="nameTDcurrent tdWithBox" id="td1">
-        <a href="/AQY/202/show/">Antiquity</a>
+    <tr class="nd-row09 clickableGameRow" id="AQYgamesRow202" onclick="window.location.href='/nd/AQY/202/show/';">
+      <td class="nd-col-icon"><img src="/static/AQY/images/aqy_icon.png" class="gameIcon" alt="AQY game"></td>
+      <td class="nd-col-game" data-label="Game Name">
+        <a href="/nd/AQY/202/show/"><strong>Antiquity</strong></a>
+        <br><small>Turn 7.Build · Standard<br/>(1-2+ moves/day) · by <a href="/nd/profile/alice/">alice</a></small>
       </td>
-      <td>alice</td>
-      <td>7 - Build</td>
-      <td>
-        <a href="/profile/testuser/">testuser</a>,
-        <a href="/profile/alice/">alice</a>
+      <td class="nd-col-status" data-label="Current player">
+        <span class="nd-status-wrap"><a href="/nd/profile/alice/">alice</a></span>
       </td>
-      <td>Standard<br/>(1-2+ moves/day)</td>
-      <td><a href="/profile/testuser/">testuser</a></td>
-      <td>
-        <span class="timeToConvertSpan">1719388800000</span>
-        <br/>1d 5h
+      <td class="nd-col-players" data-label="Players">
+        <a href="/nd/profile/testuser/">testuser</a>,
+        <a href="/nd/profile/alice/">alice</a>
+      </td>
+      <td class="nd-col-options" data-label="Options"><span class="nd-no-options">No options</span></td>
+      <td class="nd-col-cta nd-last-move" data-label="Last Move">
+        <span class="nd-last-move-text"><span class="timeToConvertSpan">1719388800000</span><span>1d 5h</span></span>
       </td>
     </tr>
   </tbody>
 </table>
 <h2>Finished Games (2)</h2>
-<table class="gamesTable">
-  <thead>
-    <tr class="headingRow">
-      <td class="nameHeaderCurrent">Name</td>
-      <td class="currentPlayersHeader">Players</td>
-      <td class="lastActivityHeader">Ended</td>
-    </tr>
-  </thead>
+<table class="nd-table gamesTable">
   <tbody>
-    <tr class="clickableGameRow " id="FCMgamesRow301" onclick="window.location.href='/FCM/301/show/';">
-      <td class="nameTDcurrent tdWithBox">
-        <a href="/FCM/301/show/">[Finished Match]</a>
+    <tr class="nd-row09 clickableGameRow" id="FCMgamesRow301" onclick="window.location.href='/nd/FCM/301/show/';">
+      <td class="nd-col-icon"><img src="/static/FCM/images/fcm_icon.png" class="gameIcon" alt="FCM game"></td>
+      <td class="nd-col-game" data-label="Game Name">
+        <a href="/nd/FCM/301/show/"><strong>[Finished Match]</strong></a>
+        <br><small>Winner: carol</small>
       </td>
-      <td>
-        <a href="/profile/testuser/">testuser</a>,
-        <a href="/profile/carol/">carol</a>
+      <td class="nd-col-players" data-label="Players">
+        <a href="/nd/profile/testuser/">testuser</a>,
+        <a href="/nd/profile/carol/">carol</a>
       </td>
-      <td>
-        <span class="timeToConvertSpan">1748736000000</span>
-        <br/>3 days ago
-      </td>
+      <td class="nd-col-options" data-label="Options"></td>
+      <td class="nd-col-status" data-label="Status"><span class="nd-pill">Finished</span></td>
+      <td class="nd-col-cta" data-label="Last Activity"><span class="timeToConvertSpan">1748736000000</span></td>
     </tr>
-    <tr class="clickableGameRow " id="AQYgamesRow302" onclick="window.location.href='/AQY/302/show/';">
-      <td class="nameTDcurrent tdWithBox">
-        <a href="/AQY/302/show/">Antiquity</a>
+    <tr class="nd-row09 clickableGameRow" id="AQYgamesRow302" onclick="window.location.href='/nd/AQY/302/show/';">
+      <td class="nd-col-icon"><img src="/static/AQY/images/aqy_icon.png" class="gameIcon" alt="AQY game"></td>
+      <td class="nd-col-game" data-label="Game Name">
+        <a href="/nd/AQY/302/show/"><strong>Antiquity</strong></a>
+        <br><small>Winner: dave</small>
       </td>
-      <td>
-        <a href="/profile/testuser/">testuser</a>,
-        <a href="/profile/dave/">dave</a>
+      <td class="nd-col-players" data-label="Players">
+        <a href="/nd/profile/testuser/">testuser</a>,
+        <a href="/nd/profile/dave/">dave</a>
       </td>
-      <td>
-        <span class="timeToConvertSpan">1748649600000</span>
-        <br/>4 days ago
-      </td>
+      <td class="nd-col-options" data-label="Options"></td>
+      <td class="nd-col-status" data-label="Status"><span class="nd-pill">Finished</span></td>
+      <td class="nd-col-cta" data-label="Last Activity"><span class="timeToConvertSpan">1748649600000</span></td>
     </tr>
   </tbody>
 </table>
