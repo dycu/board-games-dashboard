@@ -3,45 +3,43 @@ import { fetchYucata } from '@/lib/connectors/yucata'
 const mockFetch = jest.fn()
 global.fetch = mockFetch
 
-// Fixture matches the real CurrentGameRecord:#Yucata.Data response structure
+// Fixture matches the real /api/user/me/games/current response structure
 const FIXTURE = {
-  d: {
-    Games: [
-      {
-        ID: 101,
-        GameIDName: 'brassbirmingham',
-        GameName: 'Brass: Birmingham (Standard rules)',
-        GameShortName: 'Brass: Birmingham',
-        GameType: 99,
-        UserIsOnTurn: true,
-        PlayerOnTurn: 42,
-        LastMoveBy: 43,
-        LastMoveOn: '2024-06-20T10:00:00.000Z',
-        NumPlayers: 3,
-        Players: [
-          { PlayerID: 42, Login: 'testuser', Order: 1, Rank: 'Healer', IsOnVacation: false },
-          { PlayerID: 43, Login: 'alice', Order: 2, Rank: 'Healer', IsOnVacation: false },
-          { PlayerID: 44, Login: 'bob', Order: 3, Rank: 'Lumberjack', IsOnVacation: false },
-        ],
-      },
-      {
-        ID: 202,
-        GameIDName: 'hive',
-        GameName: 'Hive',
-        GameShortName: 'Hive',
-        GameType: 12,
-        UserIsOnTurn: false,
-        PlayerOnTurn: 43,
-        LastMoveBy: 42,
-        LastMoveOn: '2024-06-24T10:00:00.000Z',
-        NumPlayers: 2,
-        Players: [
-          { PlayerID: 42, Login: 'testuser', Order: 1, Rank: 'Healer', IsOnVacation: false },
-          { PlayerID: 43, Login: 'alice', Order: 2, Rank: 'Healer', IsOnVacation: false },
-        ],
-      },
-    ],
-  },
+  games: [
+    {
+      id: 101,
+      gameIDName: 'brassbirmingham',
+      gameName: 'Brass: Birmingham (Standard rules)',
+      gameShortName: 'Brass: Birmingham',
+      gameType: 99,
+      userIsOnTurn: true,
+      playerOnTurn: 42,
+      lastMoveBy: 43,
+      lastMoveOn: '2024-06-20T10:00:00.000Z',
+      numPlayers: 3,
+      players: [
+        { playerID: 42, login: 'testuser', since: null, isOnVacation: false },
+        { playerID: 43, login: 'alice', since: null, isOnVacation: false },
+        { playerID: 44, login: 'bob', since: null, isOnVacation: false },
+      ],
+    },
+    {
+      id: 202,
+      gameIDName: 'hive',
+      gameName: 'Hive',
+      gameShortName: 'Hive',
+      gameType: 12,
+      userIsOnTurn: false,
+      playerOnTurn: 43,
+      lastMoveBy: 42,
+      lastMoveOn: '2024-06-24T10:00:00.000Z',
+      numPlayers: 2,
+      players: [
+        { playerID: 42, login: 'testuser', since: null, isOnVacation: false },
+        { playerID: 43, login: 'alice', since: null, isOnVacation: false },
+      ],
+    },
+  ],
 }
 
 function setupHappyPath() {
@@ -52,8 +50,8 @@ function setupHappyPath() {
     })
     .mockResolvedValueOnce({
       ok: true,
-      headers: { get: () => 'Yucata=xyz; Path=/' },
-      json: async () => ({ d: true }),
+      headers: { get: () => 'YucataAuth=xyz; Path=/' },
+      json: async () => ({ success: true }),
     })
     .mockResolvedValueOnce({
       ok: true,
@@ -83,14 +81,13 @@ describe('fetchYucata', () => {
     expect(games[1].gameName).toBe('Hive')
   })
 
-  it('uses GameIDName in game URL', async () => {
+  it('builds the game URL from the game id', async () => {
     setupHappyPath()
     const games = await fetchYucata('testuser', 'pass')
-    expect(games[0].gameUrl).toContain('brassbirmingham')
-    expect(games[0].gameUrl).toContain('101')
+    expect(games[0].gameUrl).toBe('https://www.yucata.de/en/game/101')
   })
 
-  it('correctly identifies whose turn it is using UserIsOnTurn', async () => {
+  it('correctly identifies whose turn it is using userIsOnTurn', async () => {
     setupHappyPath()
     const games = await fetchYucata('testuser', 'pass')
     const g1 = games.find(g => g.id === 'yucata:101')!
@@ -108,7 +105,7 @@ describe('fetchYucata', () => {
     expect(g1.players).not.toContain('testuser')
   })
 
-  it('throws when login returns d:false', async () => {
+  it('throws when login returns success:false', async () => {
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
@@ -117,7 +114,7 @@ describe('fetchYucata', () => {
       .mockResolvedValueOnce({
         ok: true,
         headers: { get: () => null },
-        json: async () => ({ d: false }),
+        json: async () => ({ success: false }),
       })
     await expect(fetchYucata('bad', 'creds')).rejects.toThrow('Yucata login failed')
   })

@@ -38,7 +38,7 @@ describe('fetchYucataCatalog', () => {
     const catalog = await fetchYucataCatalog()
     expect(catalog.length).toBe(4)
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://www.yucata.de/Services/YucataService.svc/GetGamesWithTags',
+      'https://www.yucata.de/api/gameinfo/metatags',
       expect.anything()
     )
     expect(mockFetch).toHaveBeenCalledWith(
