@@ -118,4 +118,51 @@ describe('fetchYucata', () => {
       })
     await expect(fetchYucata('bad', 'creds')).rejects.toThrow('Yucata login failed')
   })
+
+  it('throws a distinct error when login requires additional verification', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: { get: () => 'ASP.NET_SessionId=abc; Path=/' },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: { get: () => null },
+        json: async () => ({ success: true, verificationRequired: true }),
+      })
+    await expect(fetchYucata('testuser', 'pass')).rejects.toThrow('verification')
+  })
+
+  it('preserves every cookie when a response sets more than one (getSetCookie)', async () => {
+    // fetch's headers.get('set-cookie') joins multiple cookies with ", ", which
+    // is ambiguous with the comma inside a cookie's own Expires date. Node's
+    // headers.getSetCookie() returns them as a proper array instead — make
+    // sure we use it and don't silently drop the second cookie.
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: {
+          get: () => null,
+          getSetCookie: () => ['ASP.NET_SessionId=abc; Path=/', 'lang=en; expires=Wed, 08-Sep-2027 00:00:00 GMT; Path=/'],
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: {
+          get: () => null,
+          getSetCookie: () => ['ASP.NET_SessionId=renewed; Path=/', 'YucataAuth=xyz; Path=/'],
+        },
+        json: async () => ({ success: true }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => FIXTURE,
+      })
+
+    await fetchYucata('testuser', 'pass')
+
+    const gamesCallHeaders = mockFetch.mock.calls[2][1].headers
+    expect(gamesCallHeaders.Cookie).toContain('ASP.NET_SessionId=renewed')
+    expect(gamesCallHeaders.Cookie).toContain('YucataAuth=xyz')
+  })
 })

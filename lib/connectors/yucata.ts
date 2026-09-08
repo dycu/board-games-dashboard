@@ -3,31 +3,58 @@ import { formatTimeAgo } from './utils'
 
 const BASE = 'https://www.yucata.de'
 
+// A single Set-Cookie header value looks like "name=value; Path=/; ...".
+// When a response sets *multiple* cookies, fetch's headers.get('set-cookie')
+// joins them with ", " — which is ambiguous with the comma inside a cookie's
+// own Expires date, so naive splitting silently drops all but the first
+// cookie. headers.getSetCookie() (Node 18.14+/undici) returns them as a
+// proper array; fall back to the single-header case for other runtimes.
+function collectCookies(res: Response, jar: Record<string, string>): void {
+  const getAll = res.headers.getSetCookie
+  const raw = typeof getAll === 'function'
+    ? getAll.call(res.headers)
+    : [res.headers.get('set-cookie')].filter((v): v is string => !!v)
+
+  for (const cookie of raw) {
+    const pair = cookie.split(';')[0]
+    const eq = pair.indexOf('=')
+    if (eq === -1) continue
+    jar[pair.slice(0, eq).trim()] = pair.slice(eq + 1).trim()
+  }
+}
+
+function cookieHeader(jar: Record<string, string>): string {
+  return Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ')
+}
+
 export async function fetchYucata(username: string, password: string): Promise<Game[]> {
+  const jar: Record<string, string> = {}
+
   // Step 1: get ASP.NET session cookie
   const initRes = await fetch(`${BASE}/en`, {
     headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'text/html' },
     redirect: 'manual',
   })
-  const sessionCookie = initRes.headers.get('set-cookie')?.split(';')[0] ?? ''
+  collectCookies(initRes, jar)
 
   // Step 2: login via the REST API (replaces the retired AuthenticateViaAjax WCF
-  // service) — returns {success: true} and sets an auth cookie
+  // service) — returns {success, verificationRequired} and may set/renew cookies
   const loginRes = await fetch(`${BASE}/api/auth/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
       Accept: 'application/json',
-      Cookie: sessionCookie,
+      Cookie: cookieHeader(jar),
       'User-Agent': 'Mozilla/5.0',
     },
     body: JSON.stringify({ login: username, password, remember: false }),
   })
   const loginData = await loginRes.json()
+  if (loginData.verificationRequired) {
+    throw new Error('Yucata login requires additional verification — log in via a browser once to clear it')
+  }
   if (!loginData.success) throw new Error('Yucata login failed')
-
-  const authCookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
-  const cookies = [sessionCookie, authCookie].filter(Boolean).join('; ')
+  collectCookies(loginRes, jar)
 
   // Step 3: fetch active games (replaces the retired GetLiveGames WCF service)
   // Response: {games: CurrentGameRecord[]}
@@ -37,7 +64,7 @@ export async function fetchYucata(username: string, password: string): Promise<G
   const gamesRes = await fetch(`${BASE}/api/user/me/games/current`, {
     headers: {
       Accept: 'application/json',
-      Cookie: cookies,
+      Cookie: cookieHeader(jar),
       'User-Agent': 'Mozilla/5.0',
       Referer: `${BASE}/en/Overview`,
     },
