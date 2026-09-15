@@ -10,12 +10,13 @@ const BROWSER = {
   'Accept-Language': 'en-US,en;q=0.9',
 }
 
-// Site migrated its login/home pages under a "/nd/" (new design) prefix; the
-// old paths now 301-redirect there with no body, which broke CSRF-token
-// scraping. Profile pages still 301-redirect from the old path, so those are
-// left as-is and just followed automatically.
-const LOGIN_PATH = '/nd/login/'
-const HOME_PATH = '/nd/'
+// Site briefly migrated its login/home pages under a "/nd/" (new design)
+// prefix but has since reverted the URLs — /nd/login/ and /nd/ now
+// 301-redirect back to the bare paths, and the real <form> still posts to
+// /login/. The redesigned page markup (parsed below) is unaffected and lives
+// permanently at the bare paths now.
+const LOGIN_PATH = '/login/'
+const HOME_PATH = '/'
 
 export async function fetchOBG(username: string, password: string): Promise<Game[]> {
   // Step 1: GET /nd/login/ — Django CSRF cookie + form token

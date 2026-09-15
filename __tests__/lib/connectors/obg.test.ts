@@ -95,7 +95,7 @@ describe('fetchOBG', () => {
     await expect(fetchOBG('bad', 'creds')).rejects.toThrow('OBG login failed')
   })
 
-  it('hits the /nd/-prefixed login and home paths (site migrated off the bare paths)', async () => {
+  it('hits the bare login and home paths (site reverted the /nd/-prefixed redesign URLs)', async () => {
     mockFetch
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginSuccessResponse())
@@ -103,9 +103,9 @@ describe('fetchOBG', () => {
       .mockResolvedValueOnce(makeProfileResponse())
 
     await fetchOBG('testuser', 'pass')
-    expect(mockFetch.mock.calls[0][0]).toBe('https://www.onlineboardgamers.com/nd/login/')
-    expect(mockFetch.mock.calls[1][0]).toBe('https://www.onlineboardgamers.com/nd/login/')
-    expect(mockFetch.mock.calls[2][0]).toBe('https://www.onlineboardgamers.com/nd/')
+    expect(mockFetch.mock.calls[0][0]).toBe('https://www.onlineboardgamers.com/login/')
+    expect(mockFetch.mock.calls[1][0]).toBe('https://www.onlineboardgamers.com/login/')
+    expect(mockFetch.mock.calls[2][0]).toBe('https://www.onlineboardgamers.com/')
   })
 
   it('extracts profile name when the nav link is /nd/profile/-prefixed', async () => {
