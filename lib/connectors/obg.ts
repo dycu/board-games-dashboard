@@ -13,8 +13,8 @@ const BROWSER = {
 // Site briefly migrated its login/home pages under a "/nd/" (new design)
 // prefix but has since reverted the URLs — /nd/login/ and /nd/ now
 // 301-redirect back to the bare paths, and the real <form> still posts to
-// /login/. The redesigned page markup (parsed below) is unaffected and lives
-// permanently at the bare paths now.
+// /login/. The games-table markup (parsed below) was also reverted back to
+// its pre-redesign "col-*" classes (not "nd-col-*") at the same time.
 const LOGIN_PATH = '/login/'
 const HOME_PATH = '/'
 
@@ -74,8 +74,9 @@ const OBG_GAME_NAMES: Record<string, string> = {
   RNB: 'Roads & Boats',
 }
 
-// The redesign nests game-type-coded links under "/nd/" (e.g. "/nd/FCM/101/show/"
-// instead of "/FCM/101/show/") — strip that prefix before reading the code.
+// Historically the site nested game-type-coded links under "/nd/" (e.g.
+// "/nd/FCM/101/show/" instead of "/FCM/101/show/") during a since-reverted
+// redesign — strip that prefix before reading the code in case it reappears.
 function extractTypeCode(href: string): string {
   return href.replace(/^\/nd(?=\/)/, '').match(/^\/([A-Z]+)\//)?.[1] ?? ''
 }
@@ -93,7 +94,7 @@ function parseGames(html: string, profileName: string): Game[] {
     if (!gameId) return
 
     // Game URL and name from the name cell anchor
-    const $nameAnchor = $tr.find('td.nd-col-game a').first()
+    const $nameAnchor = $tr.find('td.col-game a').first()
     const href = $nameAnchor.attr('href') ?? ''
     const gameUrl = BASE + href
     const rawName = $nameAnchor.text().trim()
@@ -102,16 +103,16 @@ function parseGames(html: string, profileName: string): Game[] {
     const typeName = OBG_GAME_NAMES[typeCode] ?? typeCode
     const gameName = customTitle ? `${typeName} — ${customTitle}` : (rawName || typeName || 'Unknown')
 
-    // The redesign dropped the old "myMove" row class; the status cell now just
-    // names whoever needs to act next, so compare it to our own profile name.
-    // Numeric values (e.g. "5") indicate simultaneous-move games with N players pending.
-    const statusText = $tr.find('td.nd-col-status').text().trim()
+    // The status cell names whoever needs to act next, so compare it to our
+    // own profile name. Numeric values (e.g. "5") indicate simultaneous-move
+    // games with N players pending.
+    const statusText = $tr.find('td.col-status').text().trim()
     const isSimultaneous = /^\d+$/.test(statusText)
     const isMyTurn = !isSimultaneous && statusText.toLowerCase() === profileName.toLowerCase()
     const currentPlayer = isMyTurn || isSimultaneous ? undefined : (statusText || undefined)
 
     // All players as profile links — exclude self
-    const allPlayers = $tr.find('td.nd-col-players a').map((_: number, a: any) => $(a).text().trim()).get() as string[]
+    const allPlayers = $tr.find('td.col-players a').map((_: number, a: any) => $(a).text().trim()).get() as string[]
     const players = allPlayers.filter((p: string) => p && p !== profileName)
 
     // Last turn: timeToConvertSpan holds Unix ms timestamp
@@ -148,7 +149,7 @@ function parseFinishedGames(html: string): FinishedGame[] {
     const gameId = ($tr.attr('id') ?? '').match(/gamesRow(\d+)/)?.[1]
     if (!gameId) return
 
-    const $nameAnchor = $tr.find('td.nd-col-game a').first()
+    const $nameAnchor = $tr.find('td.col-game a').first()
     const href = $nameAnchor.attr('href') ?? ''
     const gameUrl = BASE + href
     const rawName = $nameAnchor.text().trim()
