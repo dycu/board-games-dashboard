@@ -18,7 +18,6 @@ const defaultPrefs = {
   disabledPlatforms: [],
   bgaSortCapDays: 3,
   opponentSlowDays: 5,
-  hideStaleWaiting: false,
 }
 
 describe('GET /api/prefs', () => {
@@ -51,7 +50,6 @@ describe('POST /api/prefs', () => {
       disabledPlatforms: [],
       bgaSortCapDays: 3,
       opponentSlowDays: 5,
-      hideStaleWaiting: false,
     }
     mockSavePrefs.mockResolvedValue(undefined)
     mockGetPrefs.mockResolvedValue(updatedPrefs)

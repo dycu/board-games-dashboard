@@ -1,16 +1,12 @@
 import { Game, UserPrefs } from './types'
 
-export const STALE_WAITING_DAYS = 30
-
 export function sortAndFilter(games: Game[], prefs: UserPrefs): Game[] {
-  const { pins, sort, filter, hideStaleWaiting } = prefs
-  const staleCutoff = Date.now() - STALE_WAITING_DAYS * 24 * 60 * 60 * 1000
+  const { pins, sort, filter } = prefs
 
   let result = games.filter(g => {
     if (filter.turnStatus === 'my-turn' && !g.myTurn) return false
     if (filter.turnStatus === 'waiting' && g.myTurn) return false
     if (filter.platforms.length > 0 && !filter.platforms.includes(g.platform)) return false
-    if (hideStaleWaiting && !g.myTurn && g.lastMoveAt.getTime() < staleCutoff) return false
     return true
   })
 
