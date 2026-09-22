@@ -83,9 +83,24 @@ describe('fetchOBG', () => {
 
     const games = await fetchOBG('testuser', 'pass')
     const g1 = games.find(g => g.id === 'obg:101')!
-    expect(g1.gameUrl).toBe('https://www.onlineboardgamers.com/nd/FCM/101/show/')
+    expect(g1.gameUrl).toBe('https://www.onlineboardgamers.com/FCM/101/show/')
     expect(g1.gameName).toBe("Food Chain Magnate — Dycu's Game")
     expect(g1.players).toEqual(['alice', 'bob'])
+  })
+
+  it('never reports finished games as active, even when the finished table is the only gamesTable on the page (zero current games)', async () => {
+    const noCurrentGames = fixture.replace(
+      /<h2>Current Games[\s\S]*?<\/table>\s*/,
+      '<p>No Current Games</p>\n'
+    )
+    mockFetch
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginSuccessResponse())
+      .mockResolvedValueOnce(makeHomeResponse())
+      .mockResolvedValueOnce({ ok: true, text: async () => noCurrentGames })
+
+    const games = await fetchOBG('testuser', 'pass')
+    expect(games).toHaveLength(0)
   })
 
   it('throws when login fails (no session cookie)', async () => {

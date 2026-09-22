@@ -32,7 +32,7 @@ function makeLoginSuccessResponse() {
 describe('fetchFinishedOBG', () => {
   beforeEach(() => mockFetch.mockClear())
 
-  it('returns FinishedGame[] from second gamesTable', async () => {
+  it('returns FinishedGame[] from the finished-games-table, identified by class not position', async () => {
     mockFetch
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginSuccessResponse())
@@ -45,12 +45,27 @@ describe('fetchFinishedOBG', () => {
       id: 'obg:301',
       platform: 'obg',
       gameName: 'Food Chain Magnate — Finished Match',
-      gameUrl: 'https://www.onlineboardgamers.com/nd/FCM/301/show/',
+      gameUrl: 'https://www.onlineboardgamers.com/FCM/301/show/',
       completedAgo: expect.any(String),
     })
     expect(games[0].completedAt).toBeInstanceOf(Date)
     expect(games[1].id).toBe('obg:302')
     expect(games[1].gameName).toBe('Antiquity')
+  })
+
+  it('still finds the finished table when it is the only gamesTable on the page (zero current games)', async () => {
+    const onlyFinished = fixture.replace(
+      /<h2>Current Games[\s\S]*?<\/table>\s*/,
+      '<p>No Current Games</p>\n'
+    )
+    mockFetch
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginSuccessResponse())
+      .mockResolvedValueOnce({ ok: true, text: async () => HOME_HTML })
+      .mockResolvedValueOnce({ ok: true, text: async () => onlyFinished })
+
+    const games = await fetchFinishedOBG('testuser', 'pass')
+    expect(games).toHaveLength(2)
   })
 
   it('returns empty array when no finished games table exists', async () => {

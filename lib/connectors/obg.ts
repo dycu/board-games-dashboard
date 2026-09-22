@@ -85,8 +85,18 @@ function parseGames(html: string, profileName: string): Game[] {
   const $ = cheerio.load(html)
   const games: Game[] = []
 
-  // Profile page has two gamesTable tables: "Current Games" then "Finished Games" — take only the first
-  $('table.gamesTable').first().find('tr.clickableGameRow').each((_: number, el: any) => {
+  // Profile page may render a "Current Games" table and/or a "Finished
+  // Games" table (tagged with the finished-games-table modifier class) — or
+  // no current-games table at all when the player has none ("No Current
+  // Games" text, nothing else). Never assume the first gamesTable is the
+  // current one: when there are zero current games, the finished table is
+  // the *only* gamesTable present, and blindly taking .first() reports every
+  // finished game as active. Explicitly exclude the finished table instead.
+  const $currentTable = $('table.gamesTable')
+    .filter((_: number, el: any) => !$(el).hasClass('finished-games-table'))
+    .first()
+
+  $currentTable.find('tr.clickableGameRow').each((_: number, el: any) => {
     const $tr = $(el)
 
     // Game ID from tr id: "AQYgamesRow28424" → "28424"
@@ -139,9 +149,11 @@ function parseGames(html: string, profileName: string): Game[] {
 
 function parseFinishedGames(html: string): FinishedGame[] {
   const $ = cheerio.load(html)
-  const tables = $('table.gamesTable')
-  if (tables.length < 2) return []
-  const $table = tables.eq(1)
+  // The finished table is explicitly tagged with the finished-games-table
+  // modifier class — select it directly rather than assuming table position,
+  // since it's the *only* gamesTable on the page whenever the player has no
+  // current games (see parseGames).
+  const $table = $('table.gamesTable.finished-games-table').first()
   const games: FinishedGame[] = []
 
   $table.find('tr.clickableGameRow').each((_: number, el: any) => {
