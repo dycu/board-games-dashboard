@@ -10,6 +10,7 @@ export default function FilterToolbar({ prefs, onChange }: Props) {
   const setSort = (sort: UserPrefs['sort']) => onChange({ ...prefs, sort })
   const setTurnStatus = (turnStatus: UserPrefs['filter']['turnStatus']) =>
     onChange({ ...prefs, filter: { ...prefs.filter, turnStatus } })
+  const toggleHideStale = () => onChange({ ...prefs, hideStaleWaiting: !prefs.hideStaleWaiting })
 
   return (
     <div className="flex flex-wrap items-center gap-3 mb-5">
@@ -38,6 +39,16 @@ export default function FilterToolbar({ prefs, onChange }: Props) {
         <option value="platform">Sort: Platform</option>
         <option value="game-name">Sort: Game name</option>
       </select>
+
+      <button
+        onClick={toggleHideStale}
+        aria-pressed={prefs.hideStaleWaiting}
+        className={`text-xs px-3 py-1.5 rounded-md font-medium border transition-colors
+          ${prefs.hideStaleWaiting
+            ? 'bg-[#5e6ad2] text-white border-[#5e6ad2]'
+            : 'bg-white text-[#6b6b6b] border-[#e5e5e5] hover:text-[#1a1a1a]'}`}>
+        Hide stale (30d+)
+      </button>
     </div>
   )
 }

@@ -69,4 +69,23 @@ describe('sortAndFilter', () => {
     )
     expect(result[0].id).toBe('bga:3')
   })
+
+  it('keeps stale waiting games when hideStaleWaiting is off', () => {
+    const stale = base({ id: 'obg:1', myTurn: false, lastMoveAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000) })
+    const result = sortAndFilter([stale], prefs({ hideStaleWaiting: false }))
+    expect(result.map(g => g.id)).toEqual(['obg:1'])
+  })
+
+  it('hides waiting games with no move in 30+ days when hideStaleWaiting is on', () => {
+    const stale = base({ id: 'obg:1', myTurn: false, lastMoveAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000) })
+    const recent = base({ id: 'obg:2', myTurn: false, lastMoveAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) })
+    const result = sortAndFilter([stale, recent], prefs({ hideStaleWaiting: true }))
+    expect(result.map(g => g.id)).toEqual(['obg:2'])
+  })
+
+  it('never hides my-turn games under hideStaleWaiting, even if old', () => {
+    const staleMyTurn = base({ id: 'obg:3', myTurn: true, lastMoveAt: new Date(Date.now() - 400 * 24 * 60 * 60 * 1000) })
+    const result = sortAndFilter([staleMyTurn], prefs({ hideStaleWaiting: true }))
+    expect(result.map(g => g.id)).toEqual(['obg:3'])
+  })
 })

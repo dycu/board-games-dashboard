@@ -24,4 +24,11 @@ describe('FilterToolbar', () => {
       expect.objectContaining({ filter: expect.objectContaining({ turnStatus: 'my-turn' }) })
     )
   })
+
+  it('toggles hideStaleWaiting when the stale-games button is clicked', async () => {
+    const onChange = jest.fn()
+    render(<FilterToolbar prefs={DEFAULT_PREFS} onChange={onChange} />)
+    await userEvent.click(screen.getByRole('button', { name: /hide stale/i }))
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ hideStaleWaiting: true }))
+  })
 })
