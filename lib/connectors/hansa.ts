@@ -16,6 +16,7 @@ interface HtGame {
   status: 'waiting_for_player' | 'playing' | 'finished'
   players: HtPlayer[]
   currentPlayerId: string
+  displacedPlayerId?: string | null
   turnStartedAt: string | null
   updatedAt: string
   turnTimeoutSeconds: number | null
@@ -53,7 +54,9 @@ export async function fetchHansa(userId: string): Promise<Game[]> {
     .filter(g => g.players.some(p => p.userId.replace(/-/g, '') === myId))
     .map((g): Game => {
       const myPlayer = g.players.find(p => p.userId.replace(/-/g, '') === myId)!
-      const currentPlayerId = g.currentPlayerId?.replace(/-/g, '') ?? ''
+      // While a displacement is pending, the displaced player must act (relocate
+      // their pieces) even though currentPlayerId is still the player who moved.
+      const currentPlayerId = (g.displacedPlayerId || g.currentPlayerId)?.replace(/-/g, '') ?? ''
       const isMyTurn = !!currentPlayerId && currentPlayerId === myId
       const currentPlayer = isMyTurn
         ? undefined

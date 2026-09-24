@@ -62,6 +62,40 @@ describe('fetchHansa', () => {
     expect(games.every(g => g.gameName === 'Hansa Teutonica')).toBe(true)
   })
 
+  describe('pending displacement', () => {
+    const OTHER = 'cccccccc-1111-1111-1111-dddddddddddd'
+    const game = (currentPlayerId: string, displacedPlayerId: string | null) => ({
+      games: [{
+        id: 'disp00112233',
+        status: 'playing',
+        players: [
+          { name: 'testuser', userId: MY_USER_ID },
+          { name: 'alice', userId: OTHER },
+        ],
+        currentPlayerId,
+        displacedPlayerId,
+        turnStartedAt: '2026-06-20T10:00:00Z',
+        updatedAt: '2026-06-20T10:00:00Z',
+        turnTimeoutSeconds: 86400,
+      }],
+      nextCursor: null,
+    })
+
+    it('is my turn when I am the displaced player, even though another player is current', async () => {
+      mockGamesResponse(JSON.stringify(game(OTHER, MY_USER_ID)))
+      const [g] = await fetchHansa(MY_USER_ID)
+      expect(g.myTurn).toBe(true)
+      expect(g.currentPlayer).toBeUndefined()
+    })
+
+    it('is not my turn when I am current but another player must relocate', async () => {
+      mockGamesResponse(JSON.stringify(game(MY_USER_ID, OTHER)))
+      const [g] = await fetchHansa(MY_USER_ID)
+      expect(g.myTurn).toBe(false)
+      expect(g.currentPlayer).toBe('alice')
+    })
+  })
+
   it('throws when userId is missing', async () => {
     await expect(fetchHansa('')).rejects.toThrow('HANSA_USER_ID is required')
   })
