@@ -81,6 +81,19 @@ function extractTypeCode(href: string): string {
   return href.replace(/^\/nd(?=\/)/, '').match(/^\/([A-Z]+)\//)?.[1] ?? ''
 }
 
+// The name cell shows either the plain game type name, or a player-set custom
+// table title in its place — sometimes bracket-wrapped ("[Foo's Game]"),
+// sometimes not (just "Dycu", replacing the type name entirely with no
+// indication of the actual game). Detect a custom title either way and always
+// prefix it with the real game type so the dashboard shows which game it is.
+function buildGameName(rawName: string, href: string): string {
+  const typeCode = extractTypeCode(href)
+  const typeName = OBG_GAME_NAMES[typeCode] ?? typeCode
+  const customTitle = rawName.match(/^\[(.+)\]$/)?.[1] ?? (rawName && rawName !== typeName ? rawName : undefined)
+  if (customTitle) return typeName ? `${typeName} — ${customTitle}` : customTitle
+  return typeName || rawName || 'Unknown'
+}
+
 function parseGames(html: string, profileName: string): Game[] {
   const $ = cheerio.load(html)
   const games: Game[] = []
@@ -108,10 +121,7 @@ function parseGames(html: string, profileName: string): Game[] {
     const href = $nameAnchor.attr('href') ?? ''
     const gameUrl = BASE + href
     const rawName = $nameAnchor.text().trim()
-    const customTitle = rawName.match(/^\[(.+)\]$/)?.[1]
-    const typeCode = extractTypeCode(href)
-    const typeName = OBG_GAME_NAMES[typeCode] ?? typeCode
-    const gameName = customTitle ? `${typeName} — ${customTitle}` : (rawName || typeName || 'Unknown')
+    const gameName = buildGameName(rawName, href)
 
     // The status cell names whoever needs to act next, so compare it to our
     // own profile name. Numeric values (e.g. "5") indicate simultaneous-move
@@ -165,10 +175,7 @@ function parseFinishedGames(html: string): FinishedGame[] {
     const href = $nameAnchor.attr('href') ?? ''
     const gameUrl = BASE + href
     const rawName = $nameAnchor.text().trim()
-    const customTitle = rawName.match(/^\[(.+)\]$/)?.[1]
-    const typeCode = extractTypeCode(href)
-    const typeName = OBG_GAME_NAMES[typeCode] ?? typeCode
-    const gameName = customTitle ? `${typeName} — ${customTitle}` : (rawName || typeName || 'Unknown')
+    const gameName = buildGameName(rawName, href)
 
     const tsText = $tr.find('.timeToConvertSpan').first().text().trim()
     const completedAt = tsText ? new Date(parseInt(tsText)) : new Date()
