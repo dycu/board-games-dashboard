@@ -79,6 +79,24 @@ function extractTypeCode(href: string): string {
   return href.replace(/^\/nd(?=\/)/, '').match(/^\/([A-Z]+)\//)?.[1] ?? ''
 }
 
+// The site appears to be mid-rollout of yet another redesign: some requests get
+// "nd-col-*" cell classes, others get plain "col-*" — support both.
+const NAME_CELL_SELECTOR = 'td.nd-col-game a, td.col-game a'
+const STATUS_CELL_SELECTOR = 'td.nd-col-status, td.col-status'
+const PLAYERS_CELL_SELECTOR = 'td.nd-col-players a, td.col-players a'
+
+// The name cell shows either the plain game type name, or a player-set custom
+// table title in its place — sometimes bracket-wrapped ("[Foo's Game]"),
+// sometimes not (just "Dycu"). Either way that replaces the type name in the
+// display text, so reconstruct a name that always shows the real game type.
+function buildGameName(rawName: string, href: string, trId: string): string {
+  const typeCode = extractTypeCode(href) || (trId.match(/^([A-Z]+)gamesRow/)?.[1] ?? '')
+  const typeName = OBG_GAME_NAMES[typeCode] ?? typeCode
+  const customTitle = rawName.match(/^\[(.+)\]$/)?.[1] ?? (rawName && rawName !== typeName ? rawName : undefined)
+  if (customTitle) return typeName ? `${typeName} — ${customTitle}` : customTitle
+  return typeName || rawName || 'Unknown'
+}
+
 function parseGames(html: string, profileName: string): Game[] {
   const $ = cheerio.load(html)
   const games: Game[] = []
@@ -88,29 +106,27 @@ function parseGames(html: string, profileName: string): Game[] {
     const $tr = $(el)
 
     // Game ID from tr id: "AQYgamesRow28424" → "28424"
-    const gameId = ($tr.attr('id') ?? '').match(/gamesRow(\d+)/)?.[1]
+    const trId = $tr.attr('id') ?? ''
+    const gameId = trId.match(/gamesRow(\d+)/)?.[1]
     if (!gameId) return
 
     // Game URL and name from the name cell anchor
-    const $nameAnchor = $tr.find('td.nd-col-game a').first()
+    const $nameAnchor = $tr.find(NAME_CELL_SELECTOR).first()
     const href = $nameAnchor.attr('href') ?? ''
     const gameUrl = BASE + href
     const rawName = $nameAnchor.text().trim()
-    const customTitle = rawName.match(/^\[(.+)\]$/)?.[1]
-    const typeCode = extractTypeCode(href)
-    const typeName = OBG_GAME_NAMES[typeCode] ?? typeCode
-    const gameName = customTitle ? `${typeName} — ${customTitle}` : (rawName || typeName || 'Unknown')
+    const gameName = buildGameName(rawName, href, trId)
 
     // The redesign dropped the old "myMove" row class; the status cell now just
     // names whoever needs to act next, so compare it to our own profile name.
     // Numeric values (e.g. "5") indicate simultaneous-move games with N players pending.
-    const statusText = $tr.find('td.nd-col-status').text().trim()
+    const statusText = $tr.find(STATUS_CELL_SELECTOR).text().trim()
     const isSimultaneous = /^\d+$/.test(statusText)
     const isMyTurn = !isSimultaneous && statusText.toLowerCase() === profileName.toLowerCase()
     const currentPlayer = isMyTurn || isSimultaneous ? undefined : (statusText || undefined)
 
     // All players as profile links — exclude self
-    const allPlayers = $tr.find('td.nd-col-players a').map((_: number, a: any) => $(a).text().trim()).get() as string[]
+    const allPlayers = $tr.find(PLAYERS_CELL_SELECTOR).map((_: number, a: any) => $(a).text().trim()).get() as string[]
     const players = allPlayers.filter((p: string) => p && p !== profileName)
 
     // Last turn: timeToConvertSpan holds Unix ms timestamp
@@ -144,17 +160,15 @@ function parseFinishedGames(html: string): FinishedGame[] {
 
   $table.find('tr.clickableGameRow').each((_: number, el: any) => {
     const $tr = $(el)
-    const gameId = ($tr.attr('id') ?? '').match(/gamesRow(\d+)/)?.[1]
+    const trId = $tr.attr('id') ?? ''
+    const gameId = trId.match(/gamesRow(\d+)/)?.[1]
     if (!gameId) return
 
-    const $nameAnchor = $tr.find('td.nd-col-game a').first()
+    const $nameAnchor = $tr.find(NAME_CELL_SELECTOR).first()
     const href = $nameAnchor.attr('href') ?? ''
     const gameUrl = BASE + href
     const rawName = $nameAnchor.text().trim()
-    const customTitle = rawName.match(/^\[(.+)\]$/)?.[1]
-    const typeCode = extractTypeCode(href)
-    const typeName = OBG_GAME_NAMES[typeCode] ?? typeCode
-    const gameName = customTitle ? `${typeName} — ${customTitle}` : (rawName || typeName || 'Unknown')
+    const gameName = buildGameName(rawName, href, trId)
 
     const tsText = $tr.find('.timeToConvertSpan').first().text().trim()
     const completedAt = tsText ? new Date(parseInt(tsText)) : new Date()

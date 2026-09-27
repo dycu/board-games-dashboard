@@ -48,7 +48,7 @@ describe('fetchOBG', () => {
       .mockResolvedValueOnce(makeProfileResponse())
 
     const games = await fetchOBG('testuser', 'pass')
-    expect(games).toHaveLength(2)
+    expect(games).toHaveLength(3)
     expect(games[0]).toMatchObject({
       platform: 'obg',
       id: expect.stringMatching(/^obg:/),
@@ -88,6 +88,23 @@ describe('fetchOBG', () => {
     expect(g1.players).toEqual(['alice', 'bob'])
   })
 
+  it('prefixes the real game type when the site shows only a plain (non-bracketed) custom title', async () => {
+    // OBG's newest "col-*" (no "nd-" prefix) markup drops the "[Custom Title]"
+    // bracket convention and shows just the bare custom title, replacing the
+    // game type name entirely — leaving no way to tell which game it is.
+    mockFetch
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginSuccessResponse())
+      .mockResolvedValueOnce(makeHomeResponse())
+      .mockResolvedValueOnce(makeProfileResponse())
+
+    const games = await fetchOBG('testuser', 'pass')
+    const g3 = games.find(g => g.id === 'obg:303')!
+    expect(g3.gameName).toBe('Indonesia — testuser')
+    expect(g3.myTurn).toBe(true)
+    expect(g3.players).toEqual(['carol'])
+  })
+
   it('throws when login fails (no session cookie)', async () => {
     mockFetch
       .mockResolvedValueOnce(makeLoginPageResponse())
@@ -118,7 +135,7 @@ describe('fetchOBG', () => {
       .mockResolvedValueOnce(makeProfileResponse())
 
     const games = await fetchOBG('testuser', 'pass')
-    expect(games).toHaveLength(2)
+    expect(games).toHaveLength(3)
     expect(mockFetch.mock.calls[3][0]).toBe('https://www.onlineboardgamers.com/profile/testuser/')
   })
 })
