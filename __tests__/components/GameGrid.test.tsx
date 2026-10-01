@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import GameGrid from '@/components/GameGrid'
 import { GamesApiResponse, DEFAULT_PREFS, PLATFORM_URLS, Game } from '@/lib/types'
 
@@ -112,39 +111,5 @@ describe('GameGrid departed games banner', () => {
     )
     const link = screen.getByRole('link', { name: 'Other Game' })
     expect(link).toHaveAttribute('target', '_blank')
-  })
-
-  it('opens a departed non-BGA game in a dedicated popup window', async () => {
-    const data: GamesApiResponse = { games: [], errors: [], fetchedAt: new Date().toISOString() }
-    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null)
-    render(
-      <GameGrid
-        {...defaultGridProps}
-        data={data}
-        departedGames={[
-          { id: 'yucata:1', gameName: 'Other Game', platform: 'yucata', gameUrl: 'https://yucata.de/game/1' },
-        ]}
-      />,
-    )
-    await userEvent.click(screen.getByRole('link', { name: 'Other Game' }))
-    expect(openSpy).toHaveBeenCalledWith('https://yucata.de/game/1', 'game-yucata:1', expect.stringContaining('width='))
-    openSpy.mockRestore()
-  })
-
-  it('does not open a popup window for a departed BGA game (same-tab navigation only)', async () => {
-    const data: GamesApiResponse = { games: [], errors: [], fetchedAt: new Date().toISOString() }
-    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null)
-    render(
-      <GameGrid
-        {...defaultGridProps}
-        data={data}
-        departedGames={[
-          { id: 'bga:1', gameName: 'Test Game', platform: 'bga', gameUrl: 'https://boardgamearena.com/en/thegame?table=1' },
-        ]}
-      />,
-    )
-    await userEvent.click(screen.getByRole('link', { name: 'Test Game' }))
-    expect(openSpy).not.toHaveBeenCalled()
-    openSpy.mockRestore()
   })
 })

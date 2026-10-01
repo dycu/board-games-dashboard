@@ -3,7 +3,6 @@
  */
 import React from 'react'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import FinishedGameCard from '@/components/FinishedGameCard'
 import { FinishedGame } from '@/lib/types'
 
@@ -45,29 +44,5 @@ describe('FinishedGameCard', () => {
     render(<FinishedGameCard game={bgaGame} />)
     const link = screen.getByRole('link', { name: /view/i })
     expect(link).toHaveAttribute('target', '_self')
-  })
-
-  it('opens non-BGA games in a dedicated popup window instead of a new tab', async () => {
-    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null)
-    render(<FinishedGameCard game={game} />)
-
-    await userEvent.click(screen.getByRole('link', { name: /view/i }))
-    expect(openSpy).toHaveBeenCalledWith('https://18xx.games/game/333', 'game-eighteenxx:333', expect.stringContaining('width='))
-    openSpy.mockRestore()
-  })
-
-  it('does not open a popup window for BGA (same-tab navigation only)', async () => {
-    const bgaGame: FinishedGame = {
-      ...game,
-      id: 'bga:55555',
-      platform: 'bga',
-      gameUrl: 'https://boardgamearena.com/en/brass?table=55555',
-    }
-    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null)
-    render(<FinishedGameCard game={bgaGame} />)
-
-    await userEvent.click(screen.getByRole('link', { name: /view/i }))
-    expect(openSpy).not.toHaveBeenCalled()
-    openSpy.mockRestore()
   })
 })

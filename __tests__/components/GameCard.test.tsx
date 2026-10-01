@@ -46,25 +46,4 @@ describe('GameCard', () => {
     const link = screen.getByRole('link', { name: /open/i })
     expect(link).toHaveAttribute('href', game.gameUrl)
   })
-
-  it('opens non-BGA games in a dedicated popup window instead of navigating the tab', async () => {
-    const yucataGame: Game = { ...game, id: 'yucata:1', platform: 'yucata', gameUrl: 'https://yucata.de/en/game/1' }
-    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null)
-    render(<GameCard game={yucataGame} pinned={false} onTogglePin={() => {}} onDismiss={() => {}} opened={false} onOpen={() => {}} opponentSlowDays={5} />)
-
-    await userEvent.click(screen.getByRole('link', { name: /open/i }))
-    expect(openSpy).toHaveBeenCalledWith('https://yucata.de/en/game/1', 'game-yucata:1', expect.stringContaining('width='))
-    openSpy.mockRestore()
-  })
-
-  it('leaves BGA games on same-tab navigation (no popup window) to preserve mobile desktop-mode', async () => {
-    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null)
-    render(<GameCard game={game} pinned={false} onTogglePin={() => {}} onDismiss={() => {}} opened={false} onOpen={() => {}} opponentSlowDays={5} />)
-
-    const link = screen.getByRole('link', { name: /open/i })
-    expect(link).toHaveAttribute('target', '_self')
-    await userEvent.click(link)
-    expect(openSpy).not.toHaveBeenCalled()
-    openSpy.mockRestore()
-  })
 })

@@ -1,7 +1,6 @@
 'use client'
 import { FinishedGame, PLATFORM_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
-import { openGameWindow } from '@/lib/navigation'
 
 interface Props {
   game: FinishedGame
@@ -26,7 +25,6 @@ export default function FinishedGameCard({ game }: Props) {
         target={game.platform === 'bga' ? '_self' : '_blank'}
         rel="noopener noreferrer"
         aria-label={`View ${game.gameName}`}
-        onClick={e => { if (game.platform !== 'bga') openGameWindow(e, game.gameUrl, `game-${game.id}`) }}
         className="shrink-0 ml-4 text-xs font-medium bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1 rounded-md transition-colors"
       >
         View →
