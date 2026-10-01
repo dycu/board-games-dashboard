@@ -1,6 +1,7 @@
 'use client'
 import { Game, PLATFORM_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
+import { openGameWindow } from '@/lib/navigation'
 
 interface Props {
   game: Game
@@ -69,7 +70,7 @@ export default function GameCard({ game, pinned, onTogglePin, onDismiss, opened,
             target={game.platform === 'bga' ? '_self' : '_blank'}
             rel="noopener noreferrer"
             aria-label="Open game"
-            onClick={onOpen}
+            onClick={e => { onOpen(); if (game.platform !== 'bga') openGameWindow(e, game.gameUrl, `game-${game.id}`) }}
             onAuxClick={onOpen}
             onContextMenu={onOpen}
             className={`text-xs font-medium px-3 py-1 rounded-md transition-colors

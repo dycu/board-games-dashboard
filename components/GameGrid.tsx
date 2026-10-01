@@ -4,6 +4,7 @@ import { Game, UserPrefs, GamesApiResponse, PLATFORM_LABELS, PLATFORM_URLS } fro
 import { DepartedGame } from '@/hooks/useGamesData'
 import { sortAndFilter } from '@/lib/sort-filter'
 import { BADGE_COLORS } from '@/lib/platform-colors'
+import { openGameWindow } from '@/lib/navigation'
 import GameCard from './GameCard'
 import FilterToolbar from './FilterToolbar'
 import TopNav from './TopNav'
@@ -110,7 +111,9 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
               {departedGames.map((g, i) => (
                 <span key={g.id}>
                   {i > 0 && ', '}
-                  <a href={g.gameUrl} target={g.platform === 'bga' ? '_self' : '_blank'} rel="noopener noreferrer" className="underline hover:text-[#1a1a1a]">
+                  <a href={g.gameUrl} target={g.platform === 'bga' ? '_self' : '_blank'} rel="noopener noreferrer"
+                     onClick={e => { if (g.platform !== 'bga') openGameWindow(e, g.gameUrl, `game-${g.id}`) }}
+                     className="underline hover:text-[#1a1a1a]">
                     {g.gameName}
                   </a>
                 </span>
