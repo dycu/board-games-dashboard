@@ -47,6 +47,20 @@ export async function fetchChoochoo(username: string, password: string): Promise
   const allGames: any[] = gamesJson.games ?? (Array.isArray(gamesJson) ? gamesJson : [])
   const games = allGames.filter((g: any) => Array.isArray(g.playerIds) && g.playerIds.includes(myUserId))
 
+  // Games only carry playerIds — resolve opponents' usernames once per unique id (GET /api/users/:id
+  // requires auth, returns { user: { id, username } }); fall back to the id on failure
+  const opponentIds = [...new Set<number>(games.flatMap((g: any) => g.playerIds ?? []))].filter(id => id !== myUserId)
+  const usernames = new Map<number, string>()
+  await Promise.all(opponentIds.map(async (id) => {
+    try {
+      const res = await fetch(`${API}/api/users/${id}`, {
+        headers: { Accept: 'application/json', Cookie: authCookie, 'User-Agent': 'Mozilla/5.0' },
+      })
+      const name = ((await res.json()) as any)?.user?.username
+      if (typeof name === 'string' && name) usernames.set(id, name)
+    } catch {}
+  }))
+
   return games.map((g: any): Game => {
     const gameId = g.id ?? 0
     const isMyTurn = g.activePlayerId === myUserId
@@ -64,7 +78,7 @@ export async function fetchChoochoo(username: string, password: string): Promise
       urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
       gameUrl: `${BASE}/app/games/${gameId}`,
       platformUrl: `${BASE}/`,
-      players: otherPlayerIds.map(String),
+      players: otherPlayerIds.map(id => usernames.get(id) ?? String(id)),
     }
   })
 }

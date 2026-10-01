@@ -97,6 +97,21 @@ describe('fetchChoochoo', () => {
     expect(g2.players).toEqual(['99'])
   })
 
+  it('resolves opponent ids to usernames, falling back to the id when lookup fails', async () => {
+    setupHappyPath()
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ user: { id: 99, username: 'alice' } }) })
+      .mockResolvedValueOnce({ ok: false, json: async () => ({ success: false, error: 'please log in' }) })
+    const games = await fetchChoochoo('testuser', 'pass')
+    const userCalls = mockFetch.mock.calls.filter(([url]) => String(url).includes('/api/users/') && !String(url).includes('login'))
+    expect(userCalls.map(([url]) => String(url))).toEqual([
+      expect.stringContaining('/api/users/99'),
+      expect.stringContaining('/api/users/100'),
+    ])
+    expect(games.find(g => g.id === 'choochoo:101')!.players).toEqual(['alice', '100'])
+    expect(games.find(g => g.id === 'choochoo:202')!.players).toEqual(['alice'])
+  })
+
   it('throws when XSRF token or cookie is missing', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

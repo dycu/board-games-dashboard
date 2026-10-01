@@ -73,6 +73,18 @@ export async function GET() {
   const allGames: any[] = gamesJson.games ?? (Array.isArray(gamesJson) ? gamesJson : [])
   const myGames = allGames.filter((g: any) => Array.isArray(g.playerIds) && g.playerIds.includes(myUserId))
 
+  // Games only carry playerIds — resolve opponents' usernames once per unique id (GET /api/users/:id
+  // requires auth, returns { user: { id, username } }); fall back to the id on failure
+  const opponentIds = [...new Set<number>(myGames.flatMap((g: any) => g.playerIds ?? []))].filter(id => id !== myUserId)
+  const usernames = new Map<number, string>()
+  await Promise.all(opponentIds.map(async (id) => {
+    const res = await req('GET', `/api/users/${id}`, { ...base, Cookie: authCookie })
+    try {
+      const name = JSON.parse(res.body)?.user?.username
+      if (typeof name === 'string' && name) usernames.set(id, name)
+    } catch {}
+  }))
+
   const games: Game[] = myGames.map((g: any): Game => {
     const gameId = g.id ?? 0
     const isMyTurn = g.activePlayerId === myUserId
@@ -88,7 +100,7 @@ export async function GET() {
       urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
       gameUrl: `${BASE_URL}/app/games/${gameId}`,
       platformUrl: `${BASE_URL}/`,
-      players: otherPlayerIds.map(String),
+      players: otherPlayerIds.map(id => usernames.get(id) ?? String(id)),
     }
   })
 
