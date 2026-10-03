@@ -26,7 +26,10 @@ export async function GET(req: NextRequest) {
     const proxyPath = PROXY_PATH[platform]
     if (proxyPath) {
       const origin = new URL(req.url).origin
-      const res = await fetch(`${origin}${proxyPath}`)
+      const authHeader = req.headers.get('authorization')
+      const res = await fetch(`${origin}${proxyPath}`, {
+        headers: authHeader ? { Authorization: authHeader } : {},
+      })
       const data = await res.json() as { error: string | null }
       if (data.error) return NextResponse.json({ ok: false, error: data.error })
       return NextResponse.json({ ok: true })

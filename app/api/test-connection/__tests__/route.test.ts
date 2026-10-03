@@ -23,6 +23,7 @@ const mockConnectorMap = {
   choochoo: jest.fn(),
   hansa: jest.fn(),
   rally: jest.fn(),
+  oldkingscrown: jest.fn(),
 }
 
 beforeEach(() => {
@@ -84,5 +85,41 @@ describe('GET /api/test-connection', () => {
     await GET(req)
 
     expect(mockMakeConnectors).toHaveBeenCalledWith(expect.any(Number), 'abc123')
+  })
+
+  describe('proxied platforms (choochoo, oldkingscrown)', () => {
+    const originalFetch = global.fetch
+
+    afterEach(() => {
+      global.fetch = originalFetch
+    })
+
+    it('forwards the request Authorization header to the Node.js proxy route', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({ json: async () => ({ error: null }) })
+      global.fetch = mockFetch as any
+
+      const req = new NextRequest('http://localhost/api/test-connection?platform=oldkingscrown', {
+        headers: { Authorization: 'Basic dXNlcjpwYXNz' },
+      })
+      const res = await GET(req)
+      const data = await res.json()
+
+      expect(data).toEqual({ ok: true })
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost/api/oldkingscrown',
+        { headers: { Authorization: 'Basic dXNlcjpwYXNz' } }
+      )
+    })
+
+    it('surfaces the proxied route error', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({ json: async () => ({ error: 'boom' }) })
+      global.fetch = mockFetch as any
+
+      const req = new NextRequest('http://localhost/api/test-connection?platform=choochoo')
+      const res = await GET(req)
+      const data = await res.json()
+
+      expect(data).toEqual({ ok: false, error: 'boom' })
+    })
   })
 })
