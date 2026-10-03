@@ -105,52 +105,71 @@ function describeWaitingOn(snapshot: OkcSnapshot, mySeatId: string): string | un
   return undefined
 }
 
+// Per-configured-game status, returned alongside `games` purely so the Setup
+// page can show enough to tell games apart and know which are safe to stop
+// tracking — there's no account system, so a raw id is otherwise meaningless.
+export interface ConfiguredGameStatus {
+  gameId: string
+  status: 'active' | 'finished' | 'not-member' | 'error'
+  players: string[]       // every seated nickname, including me
+  game?: Game              // present when status === 'active'
+  error?: string           // present when status === 'error'
+}
+
 export async function GET() {
   const nickname = (process.env.OLDKINGSCROWN_NICKNAME || 'Dycu').toLowerCase()
   const prefs = await getPrefs()
   const gameIds = prefs.oldkingscrownGameIds ?? []
 
-  if (gameIds.length === 0) return Response.json({ games: [], error: null })
+  if (gameIds.length === 0) return Response.json({ games: [], error: null, configured: [] })
 
-  const results = await Promise.allSettled(gameIds.map(async (gameId): Promise<Game | null> => {
-    const snapshot = await fetchOkcSnapshot(gameId)
-    const mySeat = snapshot.seats.find(s => s.occupants.some(o => o.nickname.toLowerCase() === nickname))
-    if (!mySeat) return null
+  const configured: ConfiguredGameStatus[] = await Promise.all(gameIds.map(async (gameId): Promise<ConfiguredGameStatus> => {
+    try {
+      const snapshot = await fetchOkcSnapshot(gameId)
+      const players = snapshot.seats.flatMap(s => s.occupants.map(o => o.nickname))
+      const mySeat = snapshot.seats.find(s => s.occupants.some(o => o.nickname.toLowerCase() === nickname))
+      if (!mySeat) return { gameId, status: 'not-member', players }
 
-    const myTurn = isMyTurn(snapshot, mySeat.id)
-    const others = snapshot.seats.filter(s => s.id !== mySeat.id).flatMap(s => s.occupants.map(o => o.nickname))
+      // The site itself reports a finished game via phase.kind === 'game-over'
+      // (with final standings attached) — once that happens there's no more
+      // "my turn" to track, so drop it from the active list entirely.
+      if (snapshot.state.phase.kind === 'game-over') return { gameId, status: 'finished', players }
 
-    // The snapshot carries no wall-clock timestamps at all (this game tracks
-    // state by revision number, not by time), so there's no real "time since
-    // last move" to report — always "just now", never urgent.
-    const lastMoveAt = new Date()
+      const myTurn = isMyTurn(snapshot, mySeat.id)
+      const others = snapshot.seats.filter(s => s.id !== mySeat.id).flatMap(s => s.occupants.map(o => o.nickname))
 
-    return {
-      id: `oldkingscrown:${gameId}`,
-      platform: 'oldkingscrown',
-      gameName: "The Old King's Crown",
-      myTurn,
-      currentPlayer: myTurn ? undefined : describeWaitingOn(snapshot, mySeat.id),
-      lastMoveAt,
-      lastMoveAgo: 'just now',
-      urgent: false,
-      gameUrl: `${UI_BASE}/game/${gameId}`,
-      platformUrl: UI_BASE,
-      players: others,
+      // The snapshot carries no wall-clock timestamps at all (this game tracks
+      // state by revision number, not by time), so there's no real "time since
+      // last move" to report — always "just now", never urgent.
+      const game: Game = {
+        id: `oldkingscrown:${gameId}`,
+        platform: 'oldkingscrown',
+        gameName: "The Old King's Crown",
+        myTurn,
+        currentPlayer: myTurn ? undefined : describeWaitingOn(snapshot, mySeat.id),
+        lastMoveAt: new Date(),
+        lastMoveAgo: 'just now',
+        urgent: false,
+        gameUrl: `${UI_BASE}/game/${gameId}`,
+        platformUrl: UI_BASE,
+        players: others,
+      }
+      return { gameId, status: 'active', players, game }
+    } catch (e) {
+      return { gameId, status: 'error', players: [], error: e instanceof Error ? e.message : String(e) }
     }
   }))
 
-  const games = results
-    .filter((r): r is PromiseFulfilledResult<Game | null> => r.status === 'fulfilled')
-    .map(r => r.value)
-    .filter((g): g is Game => g !== null)
+  const games = configured
+    .filter((c): c is ConfiguredGameStatus & { game: Game } => c.status === 'active' && c.game !== undefined)
+    .map(c => c.game)
 
   // A single stale/removed game id shouldn't take down the whole platform —
   // only surface an error when every configured game failed to load.
-  const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+  const failures = configured.filter(c => c.status === 'error')
   const error = games.length === 0 && failures.length === gameIds.length
-    ? (failures[0]?.reason?.message ?? 'all configured games failed to load')
+    ? (failures[0]?.error ?? 'all configured games failed to load')
     : null
 
-  return Response.json({ games, error })
+  return Response.json({ games, error, configured })
 }

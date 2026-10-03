@@ -7,6 +7,14 @@ const PLATFORMS: Platform[] = ['bga', 'eighteenxx', 'obg', 'yucata', 'choochoo',
 
 type Status = 'idle' | 'testing' | 'ok' | 'error'
 
+interface OkcConfiguredStatus {
+  gameId: string
+  status: 'active' | 'finished' | 'not-member' | 'error'
+  players: string[]
+  game?: { myTurn: boolean; currentPlayer?: string }
+  error?: string
+}
+
 export default function SetupPage() {
   const [statuses, setStatuses] = useState<Record<Platform, Status>>(
     Object.fromEntries(PLATFORMS.map(p => [p, 'idle'])) as Record<Platform, Status>
@@ -21,6 +29,21 @@ export default function SetupPage() {
   const [okcGameIds, setOkcGameIds] = useState<string[]>([])
   const [okcInput, setOkcInput] = useState('')
   const [okcSaving, setOkcSaving] = useState(false)
+  const [okcStatus, setOkcStatus] = useState<Record<string, OkcConfiguredStatus>>({})
+  const [okcStatusLoading, setOkcStatusLoading] = useState(false)
+
+  const loadOkcStatus = async () => {
+    setOkcStatusLoading(true)
+    try {
+      const res = await fetch('/api/oldkingscrown')
+      const data = await res.json()
+      const byId: Record<string, OkcConfiguredStatus> = {}
+      for (const c of data.configured ?? []) byId[c.gameId] = c
+      setOkcStatus(byId)
+    } finally {
+      setOkcStatusLoading(false)
+    }
+  }
 
   useEffect(() => {
     fetch('/api/prefs').then(r => r.json()).then(prefs => {
@@ -28,7 +51,9 @@ export default function SetupPage() {
       setBgaSortCapDays(prefs.bgaSortCapDays ?? 3)
       setOpponentSlowDays(prefs.opponentSlowDays ?? 5)
       setCookieSaved(!!prefs.eighteenxxSessionCookie)
-      setOkcGameIds(prefs.oldkingscrownGameIds ?? [])
+      const ids = prefs.oldkingscrownGameIds ?? []
+      setOkcGameIds(ids)
+      if (ids.length > 0) loadOkcStatus()
     })
   }, [])
 
@@ -75,12 +100,18 @@ export default function SetupPage() {
     setOkcSaving(false)
   }
 
-  const addOkcGameId = () => {
+  const addOkcGameId = async () => {
     // Accept either a bare id or a full https://oldkingscrown.fly.dev/game/<id> URL
     const id = okcInput.trim().split('/').filter(Boolean).pop()
     if (!id || okcGameIds.includes(id)) { setOkcInput(''); return }
-    saveOkcGameIds([...okcGameIds, id])
+    await saveOkcGameIds([...okcGameIds, id])
     setOkcInput('')
+    loadOkcStatus()
+  }
+
+  const removeOkcGameId = async (id: string) => {
+    await saveOkcGameIds(okcGameIds.filter(g => g !== id))
+    setOkcStatus(s => { const next = { ...s }; delete next[id]; return next })
   }
 
   return (
@@ -225,21 +256,46 @@ export default function SetupPage() {
                       </button>
                     </div>
                     {okcGameIds.length > 0 && (
-                      <ul className="space-y-1">
-                        {okcGameIds.map(id => (
-                          <li key={id} className="flex items-center justify-between gap-2 text-xs bg-[#f3f3f3] px-2.5 py-1.5 rounded-md">
-                            <span className="font-mono text-[#6b6b6b] truncate">{id}</span>
-                            <button
-                              onClick={() => saveOkcGameIds(okcGameIds.filter(g => g !== id))}
-                              disabled={okcSaving}
-                              className="text-[#9b9b9b] hover:text-red-500 shrink-0"
-                              aria-label="Stop tracking"
-                            >
-                              ✕
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
+                      <>
+                        <div className="flex justify-end mb-1">
+                          <button
+                            onClick={loadOkcStatus}
+                            disabled={okcStatusLoading}
+                            className="text-[11px] text-[#5e6ad2] hover:underline disabled:opacity-50"
+                          >
+                            {okcStatusLoading ? 'Checking…' : '↻ Refresh status'}
+                          </button>
+                        </div>
+                        <ul className="space-y-1">
+                          {okcGameIds.map(id => {
+                            const info = okcStatus[id]
+                            const flagged = info?.status === 'finished' || info?.status === 'error' || info?.status === 'not-member'
+                            return (
+                              <li key={id} className={`flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded-md ${flagged ? 'bg-amber-50' : 'bg-[#f3f3f3]'}`}>
+                                <div className="min-w-0">
+                                  <div className="font-mono text-[#6b6b6b] truncate">{id}</div>
+                                  {info && (
+                                    <div className={`truncate ${info.status === 'error' ? 'text-red-600' : flagged ? 'text-amber-700' : 'text-[#9b9b9b]'}`}>
+                                      {info.status === 'active' && `vs ${info.players.join(', ') || '…'} — ${info.game?.myTurn ? 'your turn' : info.game?.currentPlayer ? `waiting for ${info.game.currentPlayer}` : 'waiting'}`}
+                                      {info.status === 'finished' && `Finished — vs ${info.players.join(', ')} · safe to remove`}
+                                      {info.status === 'not-member' && `You're not seated here (players: ${info.players.join(', ') || 'unknown'}) · safe to remove`}
+                                      {info.status === 'error' && `⚠ ${info.error}`}
+                                    </div>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => removeOkcGameId(id)}
+                                  disabled={okcSaving}
+                                  className="text-[#9b9b9b] hover:text-red-500 shrink-0"
+                                  aria-label="Stop tracking"
+                                >
+                                  ✕
+                                </button>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      </>
                     )}
                   </div>
                 )}

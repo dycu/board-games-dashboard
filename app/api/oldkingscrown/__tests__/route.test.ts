@@ -125,7 +125,7 @@ describe('GET /api/oldkingscrown', () => {
     mockGetPrefs.mockResolvedValue({ ...DEFAULT_PREFS, oldkingscrownGameIds: [] })
     const res = await GET()
     const json = await res.json()
-    expect(json).toEqual({ games: [], error: null })
+    expect(json).toEqual({ games: [], error: null, configured: [] })
   })
 
   it('returns a game with myTurn/currentPlayer derived from the snapshot', async () => {
@@ -162,6 +162,50 @@ describe('GET /api/oldkingscrown', () => {
     const json = await res.json()
     expect(json.error).toBeNull()
     expect(json.games).toEqual([])
+    expect(json.configured).toEqual([
+      { gameId: 'game-1', status: 'not-member', players: ['SomeoneElse'] },
+    ])
+  })
+
+  it('drops a finished game from the active list and reports it as finished', async () => {
+    mockGetPrefs.mockResolvedValue({ ...DEFAULT_PREFS, oldkingscrownGameIds: ['game-1'] })
+    mockBehavior['game-1'] = {
+      snapshot: makeSnapshot({ phase: { kind: 'game-over', step: '' } }),
+    }
+
+    const res = await GET()
+    const json = await res.json()
+    expect(json.error).toBeNull()
+    expect(json.games).toEqual([])
+    expect(json.configured).toEqual([
+      { gameId: 'game-1', status: 'finished', players: expect.arrayContaining(['Dycu', 'Anae', 'Brotherman']) },
+    ])
+  })
+
+  it('reports the players and status for every configured game, including the active one', async () => {
+    mockGetPrefs.mockResolvedValue({ ...DEFAULT_PREFS, oldkingscrownGameIds: ['game-1'] })
+    mockBehavior['game-1'] = { snapshot: makeSnapshot({ turnQueue: ['p0'] }) }
+
+    const res = await GET()
+    const json = await res.json()
+    expect(json.configured).toHaveLength(1)
+    expect(json.configured[0]).toMatchObject({
+      gameId: 'game-1',
+      status: 'active',
+      players: expect.arrayContaining(['Dycu', 'Anae', 'Brotherman']),
+      game: expect.objectContaining({ id: 'oldkingscrown:game-1' }),
+    })
+  })
+
+  it('reports a failed game id with its error message in configured', async () => {
+    mockGetPrefs.mockResolvedValue({ ...DEFAULT_PREFS, oldkingscrownGameIds: ['bad-game'] })
+    mockBehavior['bad-game'] = { error: 'game not found' }
+
+    const res = await GET()
+    const json = await res.json()
+    expect(json.configured).toEqual([
+      { gameId: 'bad-game', status: 'error', players: [], error: expect.stringContaining('game not found') },
+    ])
   })
 
   it('does not let one failed game id take down the others', async () => {
