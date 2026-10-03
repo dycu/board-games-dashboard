@@ -9,6 +9,7 @@ import { fetchYucata } from './yucata'
 import { fetchChoochoo } from './choochoo'
 import { fetchHansa, fetchFinishedHansa } from './hansa'
 import { fetchRally, fetchFinishedRally } from './rally'
+import { fetchOldKingsCrown } from './oldkingscrown'
 
 function env(key: string): string {
   return process.env[key] ?? ''
@@ -23,6 +24,7 @@ export function makeConnectors(bgaSortCapDays = 3, eighteenxxSessionCookie?: str
     choochoo: () => fetchChoochoo(env('CHOOCHOO_USERNAME'), env('CHOOCHOO_PASSWORD')),
     hansa: () => fetchHansa(env('HANSA_USER_ID')),
     rally: () => fetchRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
+    oldkingscrown: () => fetchOldKingsCrown(env('OLDKINGSCROWN_NICKNAME') || 'Dycu'),
   }
 }
 
@@ -34,6 +36,7 @@ export const connectors: Record<Platform, Fetcher> = {
   choochoo: () => fetchChoochoo(env('CHOOCHOO_USERNAME'), env('CHOOCHOO_PASSWORD')),
   hansa: () => fetchHansa(env('HANSA_USER_ID')),
   rally: () => fetchRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
+  oldkingscrown: () => fetchOldKingsCrown(env('OLDKINGSCROWN_NICKNAME') || 'Dycu'),
 }
 
 export function makeFinishedConnectors(eighteenxxSessionCookie?: string): Partial<Record<Platform, FinishedFetcher>> {
@@ -50,6 +53,7 @@ export function makeFinishedConnectors(eighteenxxSessionCookie?: string): Partia
 export function hasCreds(platform: Platform): boolean {
   if (platform === 'bga') return !!(process.env.BGA_USERNAME && process.env.BGA_PASSWORD)
   if (platform === 'hansa') return !!(process.env.HANSA_USER_ID)
+  if (platform === 'oldkingscrown') return true // no account system — only a nickname, defaulted in the connector itself
   const prefix = platform.toUpperCase()
   return !!(process.env[`${prefix}_USERNAME`] && process.env[`${prefix}_PASSWORD`])
 }

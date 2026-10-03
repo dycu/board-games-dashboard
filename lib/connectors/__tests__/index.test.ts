@@ -9,6 +9,7 @@ import { fetchYucata } from '../yucata'
 import { fetchChoochoo } from '../choochoo'
 import { fetchHansa } from '../hansa'
 import { fetchRally } from '../rally'
+import { fetchOldKingsCrown } from '../oldkingscrown'
 import type { Game } from '../../types'
 
 jest.mock('../bga')
@@ -18,6 +19,7 @@ jest.mock('../yucata')
 jest.mock('../choochoo')
 jest.mock('../hansa')
 jest.mock('../rally')
+jest.mock('../oldkingscrown')
 
 const mockFetchBGA = fetchBGA as jest.MockedFunction<typeof fetchBGA>
 const mockFetchEighteenXX = fetchEighteenXX as jest.MockedFunction<typeof fetchEighteenXX>
@@ -26,6 +28,7 @@ const mockFetchYucata = fetchYucata as jest.MockedFunction<typeof fetchYucata>
 const mockFetchChoochoo = fetchChoochoo as jest.MockedFunction<typeof fetchChoochoo>
 const mockFetchHansa = fetchHansa as jest.MockedFunction<typeof fetchHansa>
 const mockFetchRally = fetchRally as jest.MockedFunction<typeof fetchRally>
+const mockFetchOldKingsCrown = fetchOldKingsCrown as jest.MockedFunction<typeof fetchOldKingsCrown>
 
 function makeGame(id: string, platform: Game['platform']): Game {
   return {
@@ -86,6 +89,7 @@ describe('fetchAllPlatforms', () => {
     const choochooGame = makeGame('choochoo:1', 'choochoo')
     const hansaGame = makeGame('hansa:1', 'hansa')
     const rallyGame = makeGame('rally:1', 'rally')
+    const oldkingscrownGame = makeGame('oldkingscrown:1', 'oldkingscrown')
 
     mockFetchBGA.mockResolvedValue([bgaGame])
     mockFetchEighteenXX.mockResolvedValue([eighteenxxGame])
@@ -94,11 +98,12 @@ describe('fetchAllPlatforms', () => {
     mockFetchChoochoo.mockResolvedValue([choochooGame])
     mockFetchHansa.mockResolvedValue([hansaGame])
     mockFetchRally.mockResolvedValue([rallyGame])
+    mockFetchOldKingsCrown.mockResolvedValue([oldkingscrownGame])
 
     const result = await fetchAllPlatforms()
 
-    expect(result.games).toHaveLength(7)
-    expect(result.games).toEqual(expect.arrayContaining([bgaGame, eighteenxxGame, obgGame, yucataGame, choochooGame, hansaGame, rallyGame]))
+    expect(result.games).toHaveLength(8)
+    expect(result.games).toEqual(expect.arrayContaining([bgaGame, eighteenxxGame, obgGame, yucataGame, choochooGame, hansaGame, rallyGame, oldkingscrownGame]))
     expect(result.errors).toHaveLength(0)
   })
 
@@ -115,6 +120,7 @@ describe('fetchAllPlatforms', () => {
     mockFetchChoochoo.mockResolvedValue([])
     mockFetchHansa.mockResolvedValue([])
     mockFetchRally.mockResolvedValue([])
+    mockFetchOldKingsCrown.mockResolvedValue([])
 
     const result = await fetchAllPlatforms()
 
@@ -138,6 +144,7 @@ describe('fetchAllPlatforms', () => {
     mockFetchChoochoo.mockResolvedValue([])
     mockFetchHansa.mockResolvedValue([])
     mockFetchRally.mockResolvedValue([])
+    mockFetchOldKingsCrown.mockResolvedValue([])
 
     const result = await fetchAllPlatforms()
 
@@ -157,13 +164,14 @@ describe('fetchAllPlatforms', () => {
     mockFetchChoochoo.mockRejectedValue(new Error('Choochoo error'))
     mockFetchHansa.mockRejectedValue(new Error('Hansa error'))
     mockFetchRally.mockRejectedValue(new Error('Rally error'))
+    mockFetchOldKingsCrown.mockRejectedValue(new Error('OldKingsCrown error'))
 
     const result = await fetchAllPlatforms()
 
     expect(result.games).toHaveLength(0)
-    expect(result.errors).toHaveLength(7)
+    expect(result.errors).toHaveLength(8)
     expect(result.errors.map(e => e.platform)).toEqual(
-      expect.arrayContaining(['bga', 'eighteenxx', 'obg', 'yucata', 'choochoo', 'hansa', 'rally'])
+      expect.arrayContaining(['bga', 'eighteenxx', 'obg', 'yucata', 'choochoo', 'hansa', 'rally', 'oldkingscrown'])
     )
   })
 
@@ -177,6 +185,7 @@ describe('fetchAllPlatforms', () => {
     mockFetchChoochoo.mockResolvedValue([])
     mockFetchHansa.mockResolvedValue([])
     mockFetchRally.mockResolvedValue([])
+    mockFetchOldKingsCrown.mockResolvedValue([])
 
     const result = await fetchAllPlatforms()
 
@@ -186,6 +195,7 @@ describe('fetchAllPlatforms', () => {
 
   it('skips BGA when BGA_USERNAME is not set', async () => {
     // BGA_USERNAME intentionally not set
+    mockFetchOldKingsCrown.mockResolvedValue([])
 
     const result = await fetchAllPlatforms()
 
@@ -195,11 +205,11 @@ describe('fetchAllPlatforms', () => {
 })
 
 describe('connectors', () => {
-  it('exports a connectors map with all 7 platforms', () => {
+  it('exports a connectors map with all 8 platforms', () => {
     const platforms = Object.keys(connectors)
-    expect(platforms).toHaveLength(7)
+    expect(platforms).toHaveLength(8)
     expect(platforms).toEqual(
-      expect.arrayContaining(['bga', 'eighteenxx', 'obg', 'yucata', 'choochoo', 'hansa', 'rally'])
+      expect.arrayContaining(['bga', 'eighteenxx', 'obg', 'yucata', 'choochoo', 'hansa', 'rally', 'oldkingscrown'])
     )
   })
 

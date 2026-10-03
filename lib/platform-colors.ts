@@ -6,4 +6,5 @@ export const BADGE_COLORS: Record<string, string> = {
   choochoo: 'bg-orange-100 text-orange-700',
   hansa: 'bg-purple-100 text-purple-700',
   rally: 'bg-sky-100 text-sky-700',
+  oldkingscrown: 'bg-rose-100 text-rose-700',
 }

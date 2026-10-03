@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Platform, PLATFORM_LABELS } from '@/lib/types'
 import TopNav from '@/components/TopNav'
 
-const PLATFORMS: Platform[] = ['bga', 'eighteenxx', 'obg', 'yucata', 'choochoo', 'hansa', 'rally']
+const PLATFORMS: Platform[] = ['bga', 'eighteenxx', 'obg', 'yucata', 'choochoo', 'hansa', 'rally', 'oldkingscrown']
 
 type Status = 'idle' | 'testing' | 'ok' | 'error'
 

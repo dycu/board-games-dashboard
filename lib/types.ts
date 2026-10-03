@@ -6,6 +6,7 @@ export type Platform =
   | 'choochoo'
   | 'hansa'
   | 'rally'
+  | 'oldkingscrown'
 
 export interface Game {
   id: string              // e.g. "bga:12345"
@@ -73,6 +74,7 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
   choochoo: 'choochoo.games',
   hansa: 'Hansa Teutonica',
   rally: 'Rally the Troops',
+  oldkingscrown: "The Old King's Crown",
 }
 
 export const PLATFORM_URLS: Record<Platform, string> = {
@@ -83,4 +85,5 @@ export const PLATFORM_URLS: Record<Platform, string> = {
   choochoo: 'https://www.choochoo.games/',
   hansa: 'https://playhansa.app',
   rally: 'https://rally-the-troops.com',
+  oldkingscrown: 'https://oldkingscrown.fly.dev',
 }
