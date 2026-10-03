@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic'
 // Platforms that can't run in edge runtime — proxied through Node.js endpoints
 const PROXY_PATH: Partial<Record<Platform, string>> = {
   choochoo: '/api/choochoo',
+  oldkingscrown: '/api/oldkingscrown',
 }
 
 export async function GET(request?: Request) {

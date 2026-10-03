@@ -18,6 +18,9 @@ export default function SetupPage() {
   const [cookieInput, setCookieInput] = useState('')
   const [cookieSaving, setCookieSaving] = useState(false)
   const [cookieSaved, setCookieSaved] = useState(false)
+  const [okcGameIds, setOkcGameIds] = useState<string[]>([])
+  const [okcInput, setOkcInput] = useState('')
+  const [okcSaving, setOkcSaving] = useState(false)
 
   useEffect(() => {
     fetch('/api/prefs').then(r => r.json()).then(prefs => {
@@ -25,6 +28,7 @@ export default function SetupPage() {
       setBgaSortCapDays(prefs.bgaSortCapDays ?? 3)
       setOpponentSlowDays(prefs.opponentSlowDays ?? 5)
       setCookieSaved(!!prefs.eighteenxxSessionCookie)
+      setOkcGameIds(prefs.oldkingscrownGameIds ?? [])
     })
   }, [])
 
@@ -58,6 +62,25 @@ export default function SetupPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ disabledPlatforms: [...next] }),
     })
+  }
+
+  const saveOkcGameIds = async (ids: string[]) => {
+    setOkcSaving(true)
+    setOkcGameIds(ids)
+    await fetch('/api/prefs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oldkingscrownGameIds: ids }),
+    })
+    setOkcSaving(false)
+  }
+
+  const addOkcGameId = () => {
+    // Accept either a bare id or a full https://oldkingscrown.fly.dev/game/<id> URL
+    const id = okcInput.trim().split('/').filter(Boolean).pop()
+    if (!id || okcGameIds.includes(id)) { setOkcInput(''); return }
+    saveOkcGameIds([...okcGameIds, id])
+    setOkcInput('')
   }
 
   return (
@@ -176,6 +199,48 @@ export default function SetupPage() {
                         </button>
                       )}
                     </div>
+                  </div>
+                )}
+                {platform === 'oldkingscrown' && (
+                  <div className="mt-3 pt-3 border-t border-[#f0f0f0]">
+                    <p className="text-xs text-[#9b9b9b] mb-2">
+                      No accounts on this site, so games you&apos;re playing can&apos;t be discovered
+                      automatically — paste each game&apos;s URL (or just its id) here once to track it.
+                    </p>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={okcInput}
+                        onChange={e => setOkcInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') addOkcGameId() }}
+                        placeholder="https://oldkingscrown.fly.dev/game/…"
+                        className="flex-1 text-xs bg-white text-[#1a1a1a] px-3 py-1.5 rounded-md border border-[#e5e5e5] font-mono"
+                      />
+                      <button
+                        onClick={addOkcGameId}
+                        disabled={!okcInput.trim() || okcSaving}
+                        className="text-xs bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] px-3 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap"
+                      >
+                        Add
+                      </button>
+                    </div>
+                    {okcGameIds.length > 0 && (
+                      <ul className="space-y-1">
+                        {okcGameIds.map(id => (
+                          <li key={id} className="flex items-center justify-between gap-2 text-xs bg-[#f3f3f3] px-2.5 py-1.5 rounded-md">
+                            <span className="font-mono text-[#6b6b6b] truncate">{id}</span>
+                            <button
+                              onClick={() => saveOkcGameIds(okcGameIds.filter(g => g !== id))}
+                              disabled={okcSaving}
+                              className="text-[#9b9b9b] hover:text-red-500 shrink-0"
+                              aria-label="Stop tracking"
+                            >
+                              ✕
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 )}
               </div>

@@ -6,10 +6,12 @@ import { getPrefs } from '@/lib/prefs'
 // Edge runtime lets OBG bypass Cloudflare (same reason the games route uses edge)
 export const runtime = 'edge'
 
-// Choochoo needs rejectUnauthorized:false for SSL, so it must go through the
-// Node.js proxy route — same pattern as the games route
+// Choochoo needs rejectUnauthorized:false for SSL, and oldkingscrown needs a
+// real WebSocket client — both must go through a Node.js proxy route, same
+// pattern as the games route
 const PROXY_PATH: Partial<Record<Platform, string>> = {
   choochoo: '/api/choochoo',
+  oldkingscrown: '/api/oldkingscrown',
 }
 
 export async function GET(req: NextRequest) {
