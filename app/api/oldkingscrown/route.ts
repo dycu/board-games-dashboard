@@ -34,6 +34,7 @@ export interface OkcSnapshot {
     round: { current: number; total: number }
     table: { players: OkcPlayerState[] }
     regionCardsCommittedBy: string[]
+    pendingAbility: { remaining: string[] } | null
   }
   seats: OkcSeat[]
 }
@@ -77,15 +78,21 @@ export function fetchOkcSnapshot(gameId: string): Promise<OkcSnapshot> {
   })
 }
 
-// The bidding and region-card-placement phases are the only simultaneous
-// (non-turnQueue) phases this recognizes so far — each verified live against
-// a real game. Other simultaneous phases this game has (day reactions,
-// hand-limit discards, etc. — all visible as separate pending-player arrays
-// in the snapshot) aren't handled yet: there's no documentation of this
-// game's rules engine to generalize from safely, so myTurn stays false
-// during those rather than risk a wrong answer.
+// The bidding and region-card-placement phases, plus pendingAbility interrupts,
+// are the only simultaneous/interrupt mechanisms this recognizes so far — each
+// verified live against a real game. A pendingAbility interrupt (e.g. an
+// ability-triggered discard) can fire while turnQueue still points at a
+// different player, so it's checked before turnQueue, not after — confirmed
+// live: turnQueue=["p0"] simultaneously with pendingAbility.remaining=["p1"],
+// and it was genuinely p1's turn to respond. Other simultaneous phases this
+// game has (day reactions, hand-limit discards, location rewards, etc. — all
+// visible as separate pending-player arrays in the snapshot) aren't handled
+// yet: there's no documentation of this game's rules engine to generalize
+// from safely, so myTurn stays false during those rather than risk a wrong
+// answer.
 export function isMyTurn(snapshot: OkcSnapshot, mySeatId: string): boolean {
-  const { turnQueue, phase, table, regionCardsCommittedBy } = snapshot.state
+  const { turnQueue, phase, table, regionCardsCommittedBy, pendingAbility } = snapshot.state
+  if (pendingAbility?.remaining.includes(mySeatId)) return true
   if (turnQueue.length > 0) return turnQueue[0] === mySeatId
   if (phase.step === 'place-bids') {
     return table.players.find(p => p.id === mySeatId)?.bid === null
@@ -101,7 +108,11 @@ function nicknameOf(snapshot: OkcSnapshot, seatId: string): string {
 }
 
 function describeWaitingOn(snapshot: OkcSnapshot, mySeatId: string): string | undefined {
-  const { turnQueue, phase, table, regionCardsCommittedBy } = snapshot.state
+  const { turnQueue, phase, table, regionCardsCommittedBy, pendingAbility } = snapshot.state
+  if (pendingAbility && !pendingAbility.remaining.includes(mySeatId)) {
+    const pending = pendingAbility.remaining.map(id => nicknameOf(snapshot, id))
+    if (pending.length > 0) return pending.join(', ')
+  }
   if (turnQueue.length > 0) return nicknameOf(snapshot, turnQueue[0])
   if (phase.step === 'place-bids') {
     const pending = table.players.filter(p => p.id !== mySeatId && p.bid === null).map(p => nicknameOf(snapshot, p.id))
