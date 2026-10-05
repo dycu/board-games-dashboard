@@ -1,6 +1,12 @@
+jest.mock('@vercel/kv', () => ({ kv: { get: jest.fn(), set: jest.fn() } }))
+
+import { kv } from '@vercel/kv'
 import { fetchOBG } from '@/lib/connectors/obg'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+
+const mockKvGet = kv.get as jest.Mock
+const mockKvSet = kv.set as jest.Mock
 
 const mockFetch = jest.fn()
 global.fetch = mockFetch
@@ -38,7 +44,11 @@ function makeProfileResponse() {
 }
 
 describe('fetchOBG', () => {
-  beforeEach(() => mockFetch.mockClear())
+  beforeEach(() => {
+    mockFetch.mockClear()
+    mockKvGet.mockReset().mockResolvedValue(null)
+    mockKvSet.mockReset().mockResolvedValue(undefined)
+  })
 
   it('returns Game[] from scraped HTML', async () => {
     mockFetch
@@ -151,5 +161,51 @@ describe('fetchOBG', () => {
     const games = await fetchOBG('testuser', 'pass')
     expect(games).toHaveLength(3)
     expect(mockFetch.mock.calls[3][0]).toBe('https://www.onlineboardgamers.com/profile/testuser/')
+  })
+
+  it('reuses a cached session instead of logging in again, cutting the request down to just the profile page', async () => {
+    mockKvGet.mockResolvedValue({ cookieHeader: 'sessionid=cached123', profileName: 'testuser' })
+    mockFetch.mockResolvedValueOnce({ ok: true, url: 'https://www.onlineboardgamers.com/profile/testuser/', text: async () => fixture })
+
+    const games = await fetchOBG('testuser', 'pass')
+
+    expect(games).toHaveLength(3)
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(mockFetch.mock.calls[0][0]).toBe('https://www.onlineboardgamers.com/profile/testuser/')
+    expect(mockFetch.mock.calls[0][1]).toMatchObject({ headers: expect.objectContaining({ Cookie: 'sessionid=cached123' }) })
+  })
+
+  it('caches the session after a fresh login so the next call can skip straight to the profile page', async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginSuccessResponse())
+      .mockResolvedValueOnce(makeHomeResponse())
+      .mockResolvedValueOnce(makeProfileResponse())
+
+    await fetchOBG('testuser', 'pass')
+
+    expect(mockKvSet).toHaveBeenCalledWith(
+      'obg-session',
+      { cookieHeader: expect.stringContaining('sessionid=sess456'), profileName: 'testuser' },
+      { ex: expect.any(Number) }
+    )
+  })
+
+  it('transparently re-logs in when the cached session has gone stale (profile fetch redirects back to login)', async () => {
+    mockKvGet.mockResolvedValue({ cookieHeader: 'sessionid=stale', profileName: 'testuser' })
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, url: 'https://www.onlineboardgamers.com/login/', text: async () => '<form>login page</form>' })
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginSuccessResponse())
+      .mockResolvedValueOnce(makeHomeResponse())
+      .mockResolvedValueOnce(makeProfileResponse())
+
+    const games = await fetchOBG('testuser', 'pass')
+
+    expect(games).toHaveLength(3)
+    expect(mockFetch).toHaveBeenCalledTimes(5)
+    expect(mockFetch.mock.calls[0][0]).toBe('https://www.onlineboardgamers.com/profile/testuser/')
+    expect(mockFetch.mock.calls[1][0]).toBe('https://www.onlineboardgamers.com/login/')
+    expect(mockFetch.mock.calls[4][0]).toBe('https://www.onlineboardgamers.com/profile/testuser/')
   })
 })
