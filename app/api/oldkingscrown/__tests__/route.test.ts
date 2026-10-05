@@ -53,6 +53,7 @@ function makeSnapshot(overrides: Partial<OkcSnapshot['state']> & { seats?: OkcSn
       turnQueue: overrides.turnQueue ?? [],
       phase: overrides.phase ?? { kind: 'spring', step: 'place-bids' },
       round: overrides.round ?? { current: 1, total: 5 },
+      regionCardsCommittedBy: overrides.regionCardsCommittedBy ?? [],
       table: { players: overrides.table?.players ?? [
         { id: 'p0', bid: null },
         { id: 'p1', bid: null },
@@ -113,6 +114,22 @@ describe('fetchOkcSnapshot / isMyTurn', () => {
     const snapshot = makeSnapshot({ phase: { kind: 'summer', step: 'some-other-step' } })
     expect(isMyTurn(snapshot, 'p0')).toBe(false)
   })
+
+  it('is my turn during region-card placement when I have not committed yet', () => {
+    const snapshot = makeSnapshot({
+      phase: { kind: 'spring', step: 'place-region-cards' },
+      regionCardsCommittedBy: ['p1', 'p2'],
+    })
+    expect(isMyTurn(snapshot, 'p0')).toBe(true)
+  })
+
+  it('is not my turn during region-card placement once I have already committed', () => {
+    const snapshot = makeSnapshot({
+      phase: { kind: 'spring', step: 'place-region-cards' },
+      regionCardsCommittedBy: ['p0', 'p1'],
+    })
+    expect(isMyTurn(snapshot, 'p0')).toBe(false)
+  })
 })
 
 describe('GET /api/oldkingscrown', () => {
@@ -150,6 +167,22 @@ describe('GET /api/oldkingscrown', () => {
       gameUrl: 'https://oldkingscrown.fly.dev/game/game-1',
       players: expect.arrayContaining(['Anae', 'Brotherman']),
     })
+  })
+
+  it('returns myTurn:true with no currentPlayer when I still need to place region cards', async () => {
+    mockGetPrefs.mockResolvedValue({ ...DEFAULT_PREFS, oldkingscrownGameIds: ['game-1'] })
+    mockBehavior['game-1'] = {
+      snapshot: makeSnapshot({
+        phase: { kind: 'spring', step: 'place-region-cards' },
+        regionCardsCommittedBy: ['p1', 'p2'],
+      }),
+    }
+
+    const res = await GET()
+    const json = await res.json()
+    expect(json.games).toHaveLength(1)
+    expect(json.games[0].myTurn).toBe(true)
+    expect(json.games[0].currentPlayer).toBeUndefined()
   })
 
   it('skips a game where the configured nickname is not seated, without erroring', async () => {
