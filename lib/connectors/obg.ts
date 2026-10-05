@@ -1,3 +1,4 @@
+import { kv } from '@vercel/kv'
 import * as cheerio from 'cheerio/slim'
 import { Game, FinishedGame } from '../types'
 import { formatTimeAgo } from './utils'
@@ -18,14 +19,29 @@ const BROWSER = {
 const LOGIN_PATH = '/login/'
 const HOME_PATH = '/'
 
-export async function fetchOBG(username: string, password: string): Promise<Game[]> {
-  // Step 1: GET /nd/login/ — Django CSRF cookie + form token
+interface OBGSession {
+  cookieHeader: string
+  profileName: string
+}
+
+const SESSION_KV_KEY = 'obg-session'
+// The 4-request login dance (CSRF cookie, credentials POST, home page,
+// profile page) is what makes this connector slow, not the HTML parsing —
+// so a logged-in session is cached and reused across calls, cutting a
+// refresh down to the one profile-page request. The TTL is comfortably
+// longer than the dashboard's shortest auto-refresh interval (30s) so
+// almost every refresh hits the cache; if the real site session actually
+// expires sooner, fetchOBGProfileHtml below detects that and re-logs in.
+const SESSION_TTL_SECONDS = 60 * 60
+
+async function loginOBG(username: string, password: string): Promise<OBGSession> {
+  // Step 1: GET /login/ — Django CSRF cookie + form token
   const loginPageRes = await fetch(`${BASE}${LOGIN_PATH}`, { headers: BROWSER, redirect: 'manual' })
   const loginPageHtml = await loginPageRes.text()
   const csrfCookieVal = loginPageRes.headers.get('set-cookie')?.match(/\bcsrftoken=([^;,\s]+)/)?.[1] ?? ''
   const csrfMiddleware = loginPageHtml.match(/name="csrfmiddlewaretoken"\s+value="([^"]+)"/)?.[1] ?? csrfCookieVal
 
-  // Step 2: POST /nd/login/ with credentials
+  // Step 2: POST /login/ with credentials
   const loginRes = await fetch(`${BASE}${LOGIN_PATH}`, {
     method: 'POST',
     headers: {
@@ -47,18 +63,67 @@ export async function fetchOBG(username: string, password: string): Promise<Game
 
   const cookieHeader = [`csrftoken=${newCsrf}`, ...(sessionidMatch ? [`sessionid=${sessionidMatch[1]}`] : [])].join('; ')
 
-  // Step 3: GET /nd/ — extract profile name from "My Games" nav link
+  // Step 3: GET / — extract profile name from "My Games" nav link
   const homeRes = await fetch(`${BASE}${HOME_PATH}`, { headers: { ...BROWSER, Cookie: cookieHeader } })
   const homeHtml = await homeRes.text()
   const profileName = homeHtml.match(/href="(?:\/nd)?\/profile\/([^/"]+)\/"[^>]*>\s*My Games/)?.[1] ?? username
 
-  // Step 4: GET /profile/{name}/ — active games table (still redirects to /nd/profile/{name}/, followed automatically)
-  const profileRes = await fetch(`${BASE}/profile/${profileName}/`, {
-    headers: { ...BROWSER, Cookie: cookieHeader },
-  })
-  const profileHtml = await profileRes.text()
+  return { cookieHeader, profileName }
+}
 
-  return parseGames(profileHtml, profileName)
+async function getCachedSession(): Promise<OBGSession | null> {
+  try {
+    return await kv.get<OBGSession>(SESSION_KV_KEY)
+  } catch {
+    return null // KV unavailable — fall through to a fresh login
+  }
+}
+
+async function cacheSession(session: OBGSession): Promise<void> {
+  try {
+    await kv.set(SESSION_KV_KEY, session, { ex: SESSION_TTL_SECONDS })
+  } catch {
+    // caching is best-effort; the connector still works without it
+  }
+}
+
+// A session that's expired or been invalidated server-side still gets a 200
+// back, just a login page (or a redirect to one) instead of the profile —
+// gamesTable/"no current games" are the two markers every real profile page
+// has, so their absence means the cookie no longer works.
+function looksLoggedOut(html: string, finalUrl: string): boolean {
+  return finalUrl.includes(LOGIN_PATH) || (!html.includes('gamesTable') && !/no current games/i.test(html))
+}
+
+async function fetchProfilePage(session: OBGSession): Promise<{ html: string; finalUrl: string }> {
+  const res = await fetch(`${BASE}/profile/${session.profileName}/`, { headers: { ...BROWSER, Cookie: session.cookieHeader } })
+  return { html: await res.text(), finalUrl: res.url ?? '' }
+}
+
+// Shared by fetchOBG and fetchFinishedOBG — both just parse different
+// tables out of the same profile page, so there's no reason to log in or
+// fetch it twice.
+async function fetchOBGProfileHtml(username: string, password: string): Promise<{ html: string; profileName: string }> {
+  let session = await getCachedSession()
+  if (!session) {
+    session = await loginOBG(username, password)
+    await cacheSession(session)
+  }
+
+  let { html, finalUrl } = await fetchProfilePage(session)
+
+  if (looksLoggedOut(html, finalUrl)) {
+    session = await loginOBG(username, password)
+    await cacheSession(session)
+    ;({ html, finalUrl } = await fetchProfilePage(session))
+  }
+
+  return { html, profileName: session.profileName }
+}
+
+export async function fetchOBG(username: string, password: string): Promise<Game[]> {
+  const { html, profileName } = await fetchOBGProfileHtml(username, password)
+  return parseGames(html, profileName)
 }
 
 const OBG_GAME_NAMES: Record<string, string> = {
@@ -194,39 +259,6 @@ function parseFinishedGames(html: string): FinishedGame[] {
 }
 
 export async function fetchFinishedOBG(username: string, password: string): Promise<FinishedGame[]> {
-  const loginPageRes = await fetch(`${BASE}${LOGIN_PATH}`, { headers: BROWSER, redirect: 'manual' })
-  const loginPageHtml = await loginPageRes.text()
-  const csrfCookieVal = loginPageRes.headers.get('set-cookie')?.match(/\bcsrftoken=([^;,\s]+)/)?.[1] ?? ''
-  const csrfMiddleware = loginPageHtml.match(/name="csrfmiddlewaretoken"\s+value="([^"]+)"/)?.[1] ?? csrfCookieVal
-
-  const loginRes = await fetch(`${BASE}${LOGIN_PATH}`, {
-    method: 'POST',
-    headers: {
-      ...BROWSER,
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Referer': `${BASE}${LOGIN_PATH}`,
-      'Origin': BASE,
-      Cookie: `csrftoken=${csrfCookieVal}`,
-    },
-    body: new URLSearchParams({ csrfmiddlewaretoken: csrfMiddleware, username, password, next: '' }),
-    redirect: 'manual',
-  })
-  const loginSetCookie = loginRes.headers.get('set-cookie') ?? ''
-  const sessionidMatch = loginSetCookie.match(/\bsessionid=([^;,\s]+)/)
-  const newCsrf = loginSetCookie.match(/\bcsrftoken=([^;,\s]+)/)?.[1] ?? csrfCookieVal
-  const loginLoc = loginRes.headers.get('location') ?? ''
-  const loginOk = !!sessionidMatch || (loginRes.status >= 300 && loginRes.status < 400 && loginLoc && loginLoc !== LOGIN_PATH && loginLoc !== `${BASE}${LOGIN_PATH}`)
-  if (!loginOk) throw new Error('OBG login failed')
-
-  const cookieHeader = [`csrftoken=${newCsrf}`, ...(sessionidMatch ? [`sessionid=${sessionidMatch[1]}`] : [])].join('; ')
-
-  const homeRes = await fetch(`${BASE}${HOME_PATH}`, { headers: { ...BROWSER, Cookie: cookieHeader } })
-  const homeHtml = await homeRes.text()
-  const profileName = homeHtml.match(/href="(?:\/nd)?\/profile\/([^/"]+)\/"[^>]*>\s*My Games/)?.[1] ?? username
-
-  const profileRes = await fetch(`${BASE}/profile/${profileName}/`, {
-    headers: { ...BROWSER, Cookie: cookieHeader },
-  })
-  const profileHtml = await profileRes.text()
-  return parseFinishedGames(profileHtml)
+  const { html } = await fetchOBGProfileHtml(username, password)
+  return parseFinishedGames(html)
 }

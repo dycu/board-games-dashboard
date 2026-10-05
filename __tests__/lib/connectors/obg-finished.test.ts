@@ -1,6 +1,12 @@
+jest.mock('@vercel/kv', () => ({ kv: { get: jest.fn(), set: jest.fn() } }))
+
+import { kv } from '@vercel/kv'
 import { fetchFinishedOBG } from '@/lib/connectors/obg'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+
+const mockKvGet = kv.get as jest.Mock
+const mockKvSet = kv.set as jest.Mock
 
 const mockFetch = jest.fn()
 global.fetch = mockFetch
@@ -30,7 +36,11 @@ function makeLoginSuccessResponse() {
 }
 
 describe('fetchFinishedOBG', () => {
-  beforeEach(() => mockFetch.mockClear())
+  beforeEach(() => {
+    mockFetch.mockClear()
+    mockKvGet.mockReset().mockResolvedValue(null)
+    mockKvSet.mockReset().mockResolvedValue(undefined)
+  })
 
   it('returns FinishedGame[] from the finished-games-table, identified by class not position', async () => {
     mockFetch
@@ -78,5 +88,15 @@ describe('fetchFinishedOBG', () => {
 
     const games = await fetchFinishedOBG('testuser', 'pass')
     expect(games).toHaveLength(0)
+  })
+
+  it('reuses a cached session (shared with fetchOBG) instead of logging in again', async () => {
+    mockKvGet.mockResolvedValue({ cookieHeader: 'sessionid=cached123', profileName: 'testuser' })
+    mockFetch.mockResolvedValueOnce({ ok: true, url: 'https://www.onlineboardgamers.com/profile/testuser/', text: async () => fixture })
+
+    const games = await fetchFinishedOBG('testuser', 'pass')
+
+    expect(games).toHaveLength(2)
+    expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 })
