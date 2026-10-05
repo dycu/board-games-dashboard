@@ -54,6 +54,7 @@ function makeSnapshot(overrides: Partial<OkcSnapshot['state']> & { seats?: OkcSn
       phase: overrides.phase ?? { kind: 'spring', step: 'place-bids' },
       round: overrides.round ?? { current: 1, total: 5 },
       regionCardsCommittedBy: overrides.regionCardsCommittedBy ?? [],
+      pendingAbility: overrides.pendingAbility ?? null,
       table: { players: overrides.table?.players ?? [
         { id: 'p0', bid: null },
         { id: 'p1', bid: null },
@@ -129,6 +130,22 @@ describe('fetchOkcSnapshot / isMyTurn', () => {
       regionCardsCommittedBy: ['p0', 'p1'],
     })
     expect(isMyTurn(snapshot, 'p0')).toBe(false)
+  })
+
+  it('is my turn when a pendingAbility interrupt is waiting on me, even if the turnQueue points elsewhere', () => {
+    const snapshot = makeSnapshot({
+      turnQueue: ['p1'],
+      pendingAbility: { remaining: ['p0'] },
+    })
+    expect(isMyTurn(snapshot, 'p0')).toBe(true)
+  })
+
+  it('is not my turn when a pendingAbility interrupt is waiting on someone else and it is not my turnQueue turn either', () => {
+    const snapshot = makeSnapshot({
+      turnQueue: ['p0'],
+      pendingAbility: { remaining: ['p1'] },
+    })
+    expect(isMyTurn(snapshot, 'p2')).toBe(false)
   })
 })
 
