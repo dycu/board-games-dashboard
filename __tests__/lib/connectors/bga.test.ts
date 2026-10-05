@@ -1,8 +1,13 @@
+jest.mock('@vercel/kv', () => ({ kv: { mget: jest.fn(), set: jest.fn() } }))
+
+import { kv } from '@vercel/kv'
 import { fetchBGA } from '@/lib/connectors/bga'
 import fixture from '@/__fixtures__/bga-games.json'
 
 const mockFetch = jest.fn()
 global.fetch = mockFetch
+const mockKvMget = kv.mget as jest.Mock
+const mockKvSet = kv.set as jest.Mock
 
 const TOKEN = 'a'.repeat(64)
 
@@ -90,7 +95,11 @@ function setupHappyPath(playerId = '42', tables: object = fixture, gamepanelResp
 }
 
 describe('fetchBGA', () => {
-  beforeEach(() => mockFetch.mockClear())
+  beforeEach(() => {
+    mockFetch.mockClear()
+    mockKvMget.mockReset().mockResolvedValue([])
+    mockKvSet.mockReset().mockResolvedValue('OK')
+  })
 
   it('returns Game[] from API response', async () => {
     setupHappyPath()
@@ -395,5 +404,81 @@ describe('fetchBGA', () => {
       })
 
     await expect(fetchBGA('user@example.com', 'password')).rejects.toThrow('BGA: no request token in login response cookies')
+  })
+
+  describe('game name cache', () => {
+    const gamepanelCalls = () =>
+      mockFetch.mock.calls.filter(([url]) => String(url).includes('/gamepanel?'))
+
+    it('uses cached names and skips gamepanel fetches entirely', async () => {
+      mockKvMget.mockResolvedValue([{ name: 'Imperial Settlers' }, { name: 'Terraforming Mars' }])
+      setupHappyPath('42', fixture, [])
+      const games = await fetchBGA('user@example.com', 'password')
+
+      expect(mockKvMget).toHaveBeenCalledWith('bga-game-name:v1:imperialsettlers', 'bga-game-name:v1:terraformingmars')
+      expect(gamepanelCalls()).toHaveLength(0)
+      expect(games.find(g => g.id === 'bga:12345')!.gameName).toBe('Imperial Settlers')
+      expect(games.find(g => g.id === 'bga:67890')!.gameName).toBe('Terraforming Mars')
+      expect(mockKvSet).not.toHaveBeenCalled()
+    })
+
+    it('only fetches gamepanel for uncached slugs and caches the result permanently', async () => {
+      mockKvMget.mockResolvedValue([{ name: 'Imperial Settlers' }, null])
+      setupHappyPath('42', fixture, [{ slug: 'terraformingmars', name: 'Terraforming Mars' }])
+      const games = await fetchBGA('user@example.com', 'password')
+
+      expect(gamepanelCalls()).toHaveLength(1)
+      expect(gamepanelCalls()[0][0]).toContain('game=terraformingmars')
+      expect(games.find(g => g.id === 'bga:67890')!.gameName).toBe('Terraforming Mars')
+      expect(mockKvSet).toHaveBeenCalledTimes(1)
+      expect(mockKvSet).toHaveBeenCalledWith('bga-game-name:v1:terraformingmars', { name: 'Terraforming Mars' })
+    })
+
+    it('shows the slug for a cached unresolved entry without refetching', async () => {
+      mockKvMget.mockResolvedValue([{ name: null }, { name: 'Terraforming Mars' }])
+      setupHappyPath('42', fixture, [])
+      const games = await fetchBGA('user@example.com', 'password')
+
+      expect(gamepanelCalls()).toHaveLength(0)
+      expect(games.find(g => g.id === 'bga:12345')!.gameName).toBe('imperialsettlers')
+    })
+
+    it('caches a page without a title as unresolved for a day only', async () => {
+      mockKvMget.mockResolvedValue([null, { name: 'Terraforming Mars' }])
+      setupHappyPath('42', fixture, [])
+      // alpha games redirect to the /reviewer page, which has a different og:title
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => '<html><head><meta property="og:title" content="Become a BGA reviewer" /></head></html>',
+        headers: makeMockHeaders([]),
+      })
+      const games = await fetchBGA('user@example.com', 'password')
+
+      expect(games.find(g => g.id === 'bga:12345')!.gameName).toBe('imperialsettlers')
+      expect(mockKvSet).toHaveBeenCalledWith('bga-game-name:v1:imperialsettlers', { name: null }, { ex: 86400 })
+    })
+
+    it('does not cache slugs whose gamepanel fetch failed', async () => {
+      mockKvMget.mockResolvedValue([null, { name: 'Terraforming Mars' }])
+      setupHappyPath('42', fixture, [])
+      mockFetch
+        .mockRejectedValueOnce(new Error('network'))
+        .mockRejectedValueOnce(new Error('network'))
+      const games = await fetchBGA('user@example.com', 'password')
+
+      expect(games.find(g => g.id === 'bga:12345')!.gameName).toBe('imperialsettlers')
+      expect(mockKvSet).not.toHaveBeenCalled()
+    })
+
+    it('still resolves names live when KV is unavailable', async () => {
+      mockKvMget.mockRejectedValue(new Error('KV down'))
+      mockKvSet.mockRejectedValue(new Error('KV down'))
+      setupHappyPath()
+      const games = await fetchBGA('user@example.com', 'password')
+
+      expect(games.find(g => g.id === 'bga:12345')!.gameName).toBe('Imperial Settlers')
+      expect(games.find(g => g.id === 'bga:67890')!.gameName).toBe('Terraforming Mars')
+    })
   })
 })

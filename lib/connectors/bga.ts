@@ -1,3 +1,4 @@
+import { kv } from '@vercel/kv'
 import { Game, FinishedGame } from '../types'
 import { formatTimeRemaining, formatTimeAgo } from './utils'
 
@@ -53,8 +54,33 @@ function decodeHtmlEntities(s: string): string {
     .replace(/&([a-zA-Z]+);/g, (m, e) => HTML_ENTITIES[e] ?? m)
 }
 
+// A game's display name never changes, so resolved names are kept in KV
+// indefinitely and the ~1.9 MB gamepanel page is only fetched for slugs seen for
+// the first time. Slugs whose gamepanel page loads but carries no title (alpha
+// games redirect to the /reviewer page) are remembered as unresolved for a day,
+// so they aren't refetched on every refresh. Transient failures aren't cached.
+const NAME_CACHE_PREFIX = 'bga-game-name:v1:'
+const UNRESOLVED_TTL_SECONDS = 86400
+
+type CachedName = { name: string | null }
+
 async function fetchGameNames(slugs: string[], cookies: Record<string, string>): Promise<Map<string, string>> {
   const map = new Map<string, string>()
+
+  let cached: (CachedName | null)[] = []
+  try {
+    cached = await kv.mget<(CachedName | null)[]>(...slugs.map(s => NAME_CACHE_PREFIX + s))
+  } catch {
+    // KV unavailable — resolve everything live
+  }
+  const missing: string[] = []
+  slugs.forEach((slug, i) => {
+    const entry = cached[i]
+    if (entry) map.set(slug, entry.name ?? slug)
+    else missing.push(slug)
+  })
+  if (missing.length === 0) return map
+
   // Fetch in small batches with a gap to avoid triggering BGA rate-limiting.
   // Firing all slugs in parallel (20+ concurrent requests) causes intermittent
   // 429/503s; the immediate retry then hits the same window and also fails.
@@ -62,7 +88,8 @@ async function fetchGameNames(slugs: string[], cookies: Record<string, string>):
   const BATCH_DELAY_MS = 200
   const TIMEOUT_MS = 8000
 
-  async function fetchOne(slug: string): Promise<[string, string]> {
+  // string = resolved, null = page loaded without a title, undefined = fetch failed
+  async function fetchOne(slug: string): Promise<[string, string | null | undefined]> {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const controller = new AbortController()
@@ -79,7 +106,7 @@ async function fetchGameNames(slugs: string[], cookies: Record<string, string>):
           if (!res.ok) continue
           const html = await res.text()
           const m = html.match(/content="Play ([^"]+?) online (?:from your browser|on Board Game Arena)"/i)
-          if (m) return [slug, decodeHtmlEntities(m[1].replace(/\s+/g, ' ').trim())]
+          return [slug, m ? decodeHtmlEntities(m[1].replace(/\s+/g, ' ').trim()) : null]
         } finally {
           clearTimeout(tid)
         }
@@ -87,15 +114,27 @@ async function fetchGameNames(slugs: string[], cookies: Record<string, string>):
         // network error, timeout, or abort; retry once
       }
     }
-    return [slug, slug]
+    return [slug, undefined]
   }
 
-  for (let i = 0; i < slugs.length; i += BATCH) {
+  const writes: Promise<unknown>[] = []
+  for (let i = 0; i < missing.length; i += BATCH) {
     if (i > 0) await new Promise<void>(r => setTimeout(r, BATCH_DELAY_MS))
-    const batch = slugs.slice(i, i + BATCH)
+    const batch = missing.slice(i, i + BATCH)
     const results = await Promise.all(batch.map(fetchOne))
-    for (const [slug, name] of results) map.set(slug, name)
+    for (const [slug, name] of results) {
+      map.set(slug, name ?? slug)
+      if (name === undefined) continue
+      const value: CachedName = { name }
+      writes.push(
+        (name === null
+          ? kv.set(NAME_CACHE_PREFIX + slug, value, { ex: UNRESOLVED_TTL_SECONDS })
+          : kv.set(NAME_CACHE_PREFIX + slug, value)
+        ).catch(() => {}) // caching is best-effort
+      )
+    }
   }
+  await Promise.all(writes)
 
   return map
 }
