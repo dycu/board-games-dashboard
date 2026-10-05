@@ -55,10 +55,14 @@ function makeSnapshot(overrides: Partial<OkcSnapshot['state']> & { seats?: OkcSn
       round: overrides.round ?? { current: 1, total: 5 },
       regionCardsCommittedBy: overrides.regionCardsCommittedBy ?? [],
       pendingAbility: overrides.pendingAbility ?? null,
+      pendingLocationReward: overrides.pendingLocationReward ?? null,
+      pendingDrawOverflow: overrides.pendingDrawOverflow ?? null,
+      pendingHandLimitPlayers: overrides.pendingHandLimitPlayers ?? [],
+      loreSpendPlayer: overrides.loreSpendPlayer ?? null,
       table: { players: overrides.table?.players ?? [
-        { id: 'p0', bid: null },
-        { id: 'p1', bid: null },
-        { id: 'p2', bid: null },
+        { id: 'p0', bid: null, hand: ['CARD-0'] },
+        { id: 'p1', bid: null, hand: ['CARD-1'] },
+        { id: 'p2', bid: null, hand: ['CARD-2'] },
       ] },
     },
   }
@@ -98,7 +102,11 @@ describe('fetchOkcSnapshot / isMyTurn', () => {
   it('is my turn during the bidding phase when I have not bid yet', () => {
     const snapshot = makeSnapshot({
       phase: { kind: 'spring', step: 'place-bids' },
-      table: { players: [{ id: 'p0', bid: null }, { id: 'p1', bid: 'CARD-1' }, { id: 'p2', bid: 'CARD-2' }] },
+      table: { players: [
+        { id: 'p0', bid: null, hand: ['CARD-0'] },
+        { id: 'p1', bid: 'CARD-1', hand: [] },
+        { id: 'p2', bid: 'CARD-2', hand: [] },
+      ] },
     })
     expect(isMyTurn(snapshot, 'p0')).toBe(true)
   })
@@ -106,7 +114,23 @@ describe('fetchOkcSnapshot / isMyTurn', () => {
   it('is not my turn during the bidding phase once I have already bid', () => {
     const snapshot = makeSnapshot({
       phase: { kind: 'spring', step: 'place-bids' },
-      table: { players: [{ id: 'p0', bid: 'CARD-1' }, { id: 'p1', bid: null }, { id: 'p2', bid: 'CARD-2' }] },
+      table: { players: [
+        { id: 'p0', bid: 'CARD-1', hand: ['CARD-0'] },
+        { id: 'p1', bid: null, hand: ['CARD-1'] },
+        { id: 'p2', bid: 'CARD-2', hand: [] },
+      ] },
+    })
+    expect(isMyTurn(snapshot, 'p0')).toBe(false)
+  })
+
+  it('is not my turn during the bidding phase when my hand is empty, even with no bid recorded', () => {
+    const snapshot = makeSnapshot({
+      phase: { kind: 'spring', step: 'place-bids' },
+      table: { players: [
+        { id: 'p0', bid: null, hand: [] },
+        { id: 'p1', bid: null, hand: ['CARD-1'] },
+        { id: 'p2', bid: 'CARD-2', hand: [] },
+      ] },
     })
     expect(isMyTurn(snapshot, 'p0')).toBe(false)
   })
@@ -147,6 +171,58 @@ describe('fetchOkcSnapshot / isMyTurn', () => {
     })
     expect(isMyTurn(snapshot, 'p2')).toBe(false)
   })
+
+  it('is my turn when I am first in the sequential pendingAbility remaining queue, even before others in it', () => {
+    const snapshot = makeSnapshot({ pendingAbility: { remaining: ['p0', 'p1'] } })
+    expect(isMyTurn(snapshot, 'p0')).toBe(true)
+    expect(isMyTurn(snapshot, 'p1')).toBe(false)
+  })
+
+  it('is my turn when a hand-limit discard is pending on me, outranking the turnQueue', () => {
+    const snapshot = makeSnapshot({ turnQueue: ['p1'], pendingHandLimitPlayers: ['p0'] })
+    expect(isMyTurn(snapshot, 'p0')).toBe(true)
+    expect(isMyTurn(snapshot, 'p1')).toBe(false)
+  })
+
+  it('is my turn when a location reward is pending on me', () => {
+    const snapshot = makeSnapshot({ pendingLocationReward: { player: 'p0', stage: 'choose' } })
+    expect(isMyTurn(snapshot, 'p0')).toBe(true)
+    expect(isMyTurn(snapshot, 'p1')).toBe(false)
+  })
+
+  it('is nobody\'s turn while a location reward is mid-necropolis-shuffle', () => {
+    const snapshot = makeSnapshot({ pendingLocationReward: { player: 'p0', stage: 'shuffle-necropolis' } })
+    expect(isMyTurn(snapshot, 'p0')).toBe(false)
+  })
+
+  it('is my turn when I am the designated lore-spend player', () => {
+    const snapshot = makeSnapshot({ loreSpendPlayer: 'p0' })
+    expect(isMyTurn(snapshot, 'p0')).toBe(true)
+    expect(isMyTurn(snapshot, 'p1')).toBe(false)
+  })
+
+  it('is nobody\'s turn during a pendingDrawOverflow, even if other pending fields are set', () => {
+    const snapshot = makeSnapshot({
+      pendingDrawOverflow: { player: 'p0', cards: [] },
+      pendingHandLimitPlayers: ['p0'],
+    })
+    expect(isMyTurn(snapshot, 'p0')).toBe(false)
+  })
+
+  it('respects the engine precedence: pendingHandLimitPlayers outranks pendingAbility', () => {
+    const snapshot = makeSnapshot({
+      pendingHandLimitPlayers: ['p1'],
+      pendingAbility: { remaining: ['p0'] },
+    })
+    expect(isMyTurn(snapshot, 'p0')).toBe(false)
+    expect(isMyTurn(snapshot, 'p1')).toBe(true)
+  })
+
+  it('is everyone\'s turn during the shared start-of-year announce screen', () => {
+    const snapshot = makeSnapshot({ phase: { kind: 'start-of-year', step: 'announce' } })
+    expect(isMyTurn(snapshot, 'p0')).toBe(true)
+    expect(isMyTurn(snapshot, 'p1')).toBe(true)
+  })
 })
 
 describe('GET /api/oldkingscrown', () => {
@@ -167,7 +243,11 @@ describe('GET /api/oldkingscrown', () => {
     mockBehavior['game-1'] = {
       snapshot: makeSnapshot({
         phase: { kind: 'spring', step: 'place-bids' },
-        table: { players: [{ id: 'p0', bid: 'CARD-1' }, { id: 'p1', bid: null }, { id: 'p2', bid: 'CARD-2' }] },
+        table: { players: [
+          { id: 'p0', bid: 'CARD-1', hand: [] },
+          { id: 'p1', bid: null, hand: ['CARD-1'] },
+          { id: 'p2', bid: 'CARD-2', hand: [] },
+        ] },
       }),
     }
 

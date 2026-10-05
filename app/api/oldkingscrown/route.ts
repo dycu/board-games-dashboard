@@ -24,6 +24,7 @@ interface OkcSeat {
 interface OkcPlayerState {
   id: string
   bid: string | null
+  hand: string[]
 }
 
 export interface OkcSnapshot {
@@ -35,6 +36,10 @@ export interface OkcSnapshot {
     table: { players: OkcPlayerState[] }
     regionCardsCommittedBy: string[]
     pendingAbility: { remaining: string[] } | null
+    pendingLocationReward: { player: string; stage: string } | null
+    pendingDrawOverflow: unknown | null
+    pendingHandLimitPlayers: string[]
+    loreSpendPlayer: string | null
   }
   seats: OkcSeat[]
 }
@@ -78,24 +83,47 @@ export function fetchOkcSnapshot(gameId: string): Promise<OkcSnapshot> {
   })
 }
 
-// The bidding and region-card-placement phases, plus pendingAbility interrupts,
-// are the only simultaneous/interrupt mechanisms this recognizes so far — each
-// verified live against a real game. A pendingAbility interrupt (e.g. an
-// ability-triggered discard) can fire while turnQueue still points at a
-// different player, so it's checked before turnQueue, not after — confirmed
-// live: turnQueue=["p0"] simultaneously with pendingAbility.remaining=["p1"],
-// and it was genuinely p1's turn to respond. Other simultaneous phases this
-// game has (day reactions, hand-limit discards, location rewards, etc. — all
-// visible as separate pending-player arrays in the snapshot) aren't handled
-// yet: there's no documentation of this game's rules engine to generalize
-// from safely, so myTurn stays false during those rather than risk a wrong
-// answer.
+// Mirrors the exact precedence the game's own rules engine uses to decide
+// who may act right now — reverse-engineered from oldkingscrown.fly.dev's
+// client bundle (the `LK` function and what it dispatches to: `fK`, `pK`,
+// `FK`, `wx`), not guessed from observed behavior. Interrupts always outrank
+// the normal turnQueue/phase-step flow, highest precedence first:
+//   1. pendingDrawOverflow      -> nobody can act; the engine auto-resolves it
+//   2. pendingHandLimitPlayers  -> sequential, only the front of the array
+//   3. pendingAbility           -> sequential, only remaining[0]
+//   4. pendingLocationReward    -> that one player (unless mid-"shuffle-
+//                                  necropolis", which also auto-resolves)
+//   5. loreSpendPlayer          -> that one player
+// Confirmed live: turnQueue=["p0"] simultaneously with
+// pendingAbility.remaining=["p1"], and it was genuinely p1's turn to respond
+// — i.e. interrupts are checked independently of, and before, turnQueue.
+// Only once none of the above apply does the normal phase/turnQueue flow
+// run, including the "announce" step of start-of-year: a shared continue
+// screen where whoever clicks first advances everyone, so it's everyone's
+// turn simultaneously. The remaining start-of-year steps (draw-cards,
+// determine-order) use their own non-turnQueue player-selection logic this
+// doesn't replicate — rare (once per year) enough that myTurn staying false
+// there is an acceptable gap rather than guessed-and-possibly-wrong.
 export function isMyTurn(snapshot: OkcSnapshot, mySeatId: string): boolean {
-  const { turnQueue, phase, table, regionCardsCommittedBy, pendingAbility } = snapshot.state
-  if (pendingAbility?.remaining.includes(mySeatId)) return true
+  const { state } = snapshot
+  const { turnQueue, phase, table, regionCardsCommittedBy } = state
+  const { pendingDrawOverflow, pendingHandLimitPlayers, pendingAbility, pendingLocationReward, loreSpendPlayer } = state
+
+  if (pendingDrawOverflow !== null) return false
+  if (pendingHandLimitPlayers.length > 0) return pendingHandLimitPlayers[0] === mySeatId
+  if (pendingAbility !== null) return pendingAbility.remaining[0] === mySeatId
+  if (pendingLocationReward !== null) {
+    if (pendingLocationReward.stage === 'shuffle-necropolis') return false
+    return pendingLocationReward.player === mySeatId
+  }
+  if (loreSpendPlayer !== null) return loreSpendPlayer === mySeatId
+
+  if (phase.kind === 'start-of-year' && phase.step === 'announce') return true
+
   if (turnQueue.length > 0) return turnQueue[0] === mySeatId
   if (phase.step === 'place-bids') {
-    return table.players.find(p => p.id === mySeatId)?.bid === null
+    const me = table.players.find(p => p.id === mySeatId)
+    return me !== undefined && me.bid === null && me.hand.length > 0
   }
   if (phase.step === 'place-region-cards') {
     return !regionCardsCommittedBy.includes(mySeatId)
@@ -107,15 +135,24 @@ function nicknameOf(snapshot: OkcSnapshot, seatId: string): string {
   return snapshot.seats.find(s => s.id === seatId)?.occupants[0]?.nickname ?? seatId
 }
 
+// Mirrors isMyTurn's precedence (see its comment) so the two never disagree
+// about who's being waited on.
 function describeWaitingOn(snapshot: OkcSnapshot, mySeatId: string): string | undefined {
-  const { turnQueue, phase, table, regionCardsCommittedBy, pendingAbility } = snapshot.state
-  if (pendingAbility && !pendingAbility.remaining.includes(mySeatId)) {
-    const pending = pendingAbility.remaining.map(id => nicknameOf(snapshot, id))
-    if (pending.length > 0) return pending.join(', ')
+  const { state } = snapshot
+  const { turnQueue, phase, table, regionCardsCommittedBy } = state
+  const { pendingDrawOverflow, pendingHandLimitPlayers, pendingAbility, pendingLocationReward, loreSpendPlayer } = state
+
+  if (pendingDrawOverflow !== null) return undefined
+  if (pendingHandLimitPlayers.length > 0) return nicknameOf(snapshot, pendingHandLimitPlayers[0])
+  if (pendingAbility !== null) return nicknameOf(snapshot, pendingAbility.remaining[0])
+  if (pendingLocationReward !== null) {
+    return pendingLocationReward.stage === 'shuffle-necropolis' ? undefined : nicknameOf(snapshot, pendingLocationReward.player)
   }
+  if (loreSpendPlayer !== null) return nicknameOf(snapshot, loreSpendPlayer)
+
   if (turnQueue.length > 0) return nicknameOf(snapshot, turnQueue[0])
   if (phase.step === 'place-bids') {
-    const pending = table.players.filter(p => p.id !== mySeatId && p.bid === null).map(p => nicknameOf(snapshot, p.id))
+    const pending = table.players.filter(p => p.id !== mySeatId && p.bid === null && p.hand.length > 0).map(p => nicknameOf(snapshot, p.id))
     if (pending.length > 0) return pending.join(', ')
   }
   if (phase.step === 'place-region-cards') {
