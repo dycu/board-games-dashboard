@@ -166,3 +166,66 @@ describe('fetchYucata', () => {
     expect(gamesCallHeaders.Cookie).toContain('YucataAuth=xyz')
   })
 })
+
+describe('fetchFinishedYucata', () => {
+  beforeEach(() => mockFetch.mockReset())
+
+  // Matches the real /api/datatables/{userId}/ranking-details response structure
+  const FINISHED_FIXTURE = {
+    draw: 1,
+    recordsTotal: 2,
+    recordsFiltered: 2,
+    data: [
+      { gameId: 17029767, gameName: 'Tiletum', customGameName: 'Tiletum', finishedOn: '2026-09-22T12:14:54.503Z', finalPosition: 3 },
+      { gameId: 16869689, gameName: 'Bruges', customGameName: '', finishedOn: '2026-08-08T01:12:29.247Z', finalPosition: 1 },
+    ],
+  }
+
+  function setupLogin() {
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, headers: { get: () => 'ASP.NET_SessionId=abc; Path=/' } })
+      .mockResolvedValueOnce({ ok: true, headers: { get: () => 'YucataAuth=xyz; Path=/' }, json: async () => ({ success: true }) })
+  }
+
+  it('reads the user ID from the lobby page and returns FinishedGame[]', async () => {
+    setupLogin()
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, text: async () => "<script>\n        var UserID = '1031968';\n</script>" })
+      .mockResolvedValueOnce({ ok: true, json: async () => FINISHED_FIXTURE })
+
+    const { fetchFinishedYucata } = await import('@/lib/connectors/yucata')
+    const games = await fetchFinishedYucata('testuser', 'pass')
+
+    const [url, init] = mockFetch.mock.calls[3]
+    expect(url).toBe('https://www.yucata.de/api/datatables/1031968/ranking-details')
+    expect(init.method).toBe('POST')
+    expect(init.headers.Cookie).toContain('YucataAuth=xyz')
+
+    expect(games).toHaveLength(2)
+    expect(games[0]).toMatchObject({
+      id: 'yucata:17029767',
+      platform: 'yucata',
+      gameName: 'Tiletum',
+      gameUrl: 'https://www.yucata.de/en/game/17029767',
+      completedAgo: expect.any(String),
+    })
+    expect(games[0].completedAt.toISOString()).toBe('2026-09-22T12:14:54.503Z')
+    expect(games[1].gameName).toBe('Bruges') // falls back to gameName when customGameName is empty
+  })
+
+  it('throws when the lobby page has no user ID (not logged in)', async () => {
+    setupLogin()
+    mockFetch.mockResolvedValueOnce({ ok: true, text: async () => "var UserID = '';" })
+    const { fetchFinishedYucata } = await import('@/lib/connectors/yucata')
+    await expect(fetchFinishedYucata('testuser', 'pass')).rejects.toThrow('user ID')
+  })
+
+  it('throws on a non-OK finished games response', async () => {
+    setupLogin()
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, text: async () => "var UserID = '42';" })
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+    const { fetchFinishedYucata } = await import('@/lib/connectors/yucata')
+    await expect(fetchFinishedYucata('testuser', 'pass')).rejects.toThrow('HTTP 500')
+  })
+})

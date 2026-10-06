@@ -5,7 +5,7 @@ export type FinishedFetcher = () => Promise<FinishedGame[]>
 import { fetchBGA, fetchFinishedBGA } from './bga'
 import { fetchEighteenXX, fetchFinishedEighteenXX } from './eighteenxx'
 import { fetchOBG, fetchFinishedOBG } from './obg'
-import { fetchYucata } from './yucata'
+import { fetchYucata, fetchFinishedYucata } from './yucata'
 import { fetchChoochoo } from './choochoo'
 import { fetchHansa, fetchFinishedHansa } from './hansa'
 import { fetchRally, fetchFinishedRally } from './rally'
@@ -46,6 +46,7 @@ export function makeFinishedConnectors(eighteenxxSessionCookie?: string): Partia
     bga: () => fetchFinishedBGA(env('BGA_USERNAME'), env('BGA_PASSWORD')),
     rally: () => fetchFinishedRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
     hansa: () => fetchFinishedHansa(env('HANSA_USER_ID')),
+    yucata: () => fetchFinishedYucata(env('YUCATA_USERNAME'), env('YUCATA_PASSWORD')),
     choochoo: () => { throw new Error('choochoo must be called via /api/choochoo-finished proxy') },
   }
 }

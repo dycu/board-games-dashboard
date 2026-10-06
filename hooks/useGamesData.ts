@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Game, GamesApiResponse, Platform } from '@/lib/types'
 
 const CACHE_KEY = 'games-cache'
+const PENDING_DEPARTURES_KEY = 'pending-departures'
 
 export interface DepartedGame {
   id: string
@@ -21,6 +22,28 @@ export function computeDeparted(
   return prev
     .filter(g => !nextIds.has(g.id) && !errorPlatforms.has(g.platform))
     .map(g => ({ id: g.id, gameName: g.gameName, platform: g.platform, gameUrl: g.gameUrl }))
+}
+
+// Platforms occasionally omit a still-active game from one response without
+// reporting an error (seen on Yucata: an ongoing game vanished from the
+// current-games list and its page briefly 404'd). So a game first missing from
+// a fetch is only *pending*; it's confirmed as ended if it's still missing on
+// the next successful fetch of its platform.
+export function resolveDepartures(
+  prev: Game[],
+  pending: DepartedGame[],
+  next: Game[],
+  errors: { platform: Platform; error: string }[]
+): { confirmed: DepartedGame[]; pending: DepartedGame[] } {
+  const nextIds = new Set(next.map(g => g.id))
+  const errorPlatforms = new Set(errors.map(e => e.platform))
+  const stillMissing = pending.filter(g => !nextIds.has(g.id))
+  const confirmed = stillMissing.filter(g => !errorPlatforms.has(g.platform))
+  // Platform errored this time — can't tell yet, keep waiting
+  const deferred = stillMissing.filter(g => errorPlatforms.has(g.platform))
+  const pendingIds = new Set(pending.map(g => g.id))
+  const newlyMissing = computeDeparted(prev, next, errors).filter(g => !pendingIds.has(g.id))
+  return { confirmed, pending: [...deferred, ...newlyMissing] }
 }
 
 export type PlatformStatus =
@@ -55,6 +78,23 @@ function readCache(): { data: GamesApiResponse; cachedAt: string } | null {
     }
   } catch {
     return null
+  }
+}
+
+function readPendingDepartures(): DepartedGame[] {
+  try {
+    const raw = localStorage.getItem(PENDING_DEPARTURES_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function writePendingDepartures(pending: DepartedGame[]): void {
+  try {
+    localStorage.setItem(PENDING_DEPARTURES_KEY, JSON.stringify(pending))
+  } catch {
+    // ignore storage errors
   }
 }
 
@@ -168,7 +208,9 @@ export function useGamesData(): UseGamesDataResult {
             }
             const prevCache = readCache()
             const prevGames = prevCache?.data.games ?? []
-            setDepartedGames(computeDeparted(prevGames, allGames, allErrors))
+            const departures = resolveDepartures(prevGames, readPendingDepartures(), allGames, allErrors)
+            writePendingDepartures(departures.pending)
+            setDepartedGames(departures.confirmed)
             const newCachedAt = writeCache(freshData)
             setCachedAt(newCachedAt)
             setDisplayedData(freshData)
