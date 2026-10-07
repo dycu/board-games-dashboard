@@ -1,4 +1,4 @@
-import { loginBGA, fetchBgaTables, bgaApiHeaders, BgaSession } from '../connectors/bga'
+import { withBgaSession, fetchBgaTables, bgaApiHeaders, BgaSession } from '../connectors/bga'
 import { extractTurns, INITIAL_TURN_STATE, BgaPacket } from './bgaTurns'
 import { getMeta, setMeta, getTables, putTables, appendTurns, PaceTable } from './store'
 
@@ -58,13 +58,13 @@ export async function syncBga(username: string, password: string, budgetMs: numb
   const deadline = Date.now() + budgetMs
   const timeLeft = () => deadline - Date.now()
 
-  const session = await loginBGA(username, password)
+  // Listing running tables doubles as the check that the cached session still works
+  const { session, active } = await withBgaSession(username, password, async s => ({ session: s, active: await fetchBgaTables(s) }))
   const [meta, tables] = await Promise.all([getMeta(), getTables()])
   const changed = new Set<string>()
   const upsert = (t: PaceTable) => { tables[t.id] = t; changed.add(t.id) }
 
   // 1. Running tables
-  const active = await fetchBgaTables(session)
   const activeIds = new Set(active.map((t: any) => String(t.id)))
   for (const raw of active) {
     const id = String(raw.id)

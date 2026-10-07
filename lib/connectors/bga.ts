@@ -252,10 +252,56 @@ export async function fetchBgaTables(session: BgaSession): Promise<any[]> {
   return Object.values(rawTables)
 }
 
+// Logging in costs ~4 requests including a ~2 MB page, and BGA starts serving
+// a login page without a request token when it sees too many logins (hit on
+// 2026-10-07 by the Pace backfill re-logging in every round). So one session
+// is cached and shared by the dashboard and the Pace sync, and only replaced
+// when BGA rejects it. After a failed login, further attempts are refused for
+// a while rather than adding to the block.
+const SESSION_KV_KEY = 'bga-session:v1'
+const SESSION_TTL_SECONDS = 6 * 3600
+const LOGIN_COOLDOWN_KEY = 'bga-login-failed:v1'
+const LOGIN_COOLDOWN_SECONDS = 15 * 60
+
+// KV is best-effort here: a KV failure must never break fetching games
+async function quietly<T>(op: () => Promise<T>): Promise<T | null> {
+  try { return await op() } catch { return null }
+}
+
+async function freshSession(username: string, password: string): Promise<BgaSession> {
+  const cooling = await quietly(() => kv.get<string>(LOGIN_COOLDOWN_KEY))
+  if (cooling) throw new Error(`BGA login paused after a failed attempt: ${cooling}`)
+  try {
+    const session = await loginBGA(username, password)
+    await quietly(() => kv.set(SESSION_KV_KEY, session, { ex: SESSION_TTL_SECONDS }))
+    return session
+  } catch (e) {
+    const msg = (e instanceof Error ? e.message : String(e)).slice(0, 200)
+    await quietly(() => kv.set(LOGIN_COOLDOWN_KEY, msg, { ex: LOGIN_COOLDOWN_SECONDS }))
+    throw e
+  }
+}
+
+// Runs fn with the cached session, logging in again once if BGA rejects it
+export async function withBgaSession<T>(
+  username: string,
+  password: string,
+  fn: (session: BgaSession) => Promise<T>,
+): Promise<T> {
+  const cached = await quietly(() => kv.get<BgaSession>(SESSION_KV_KEY))
+  if (cached) {
+    try {
+      return await fn(cached)
+    } catch {
+      await quietly(() => kv.del(SESSION_KV_KEY))
+    }
+  }
+  return fn(await freshSession(username, password))
+}
+
 export async function fetchBGA(username: string, password: string, capDays = 3): Promise<Game[]> {
-  const session = await loginBGA(username, password)
+  const { session, tables } = await withBgaSession(username, password, async s => ({ session: s, tables: await fetchBgaTables(s) }))
   const { myId, cookies: allCookies } = session
-  const tables = await fetchBgaTables(session)
 
   // Step 5: resolve display names from gamepanel pages (game_name field is a URL slug)
   const uniqueSlugs = [...new Set(tables.map((t: any) => t.game_name as string).filter(Boolean))]

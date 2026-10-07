@@ -18,7 +18,8 @@ interface PaceResponse {
 
 // Re-sync automatically on open when the last sync is older than this
 const AUTO_SYNC_AFTER_S = 10 * 60
-const MAX_SYNC_ROUNDS = 60
+const MAX_SYNC_ROUNDS = 120
+const ROUND_GAP_MS = 2000
 
 function timeAgo(unix: number): string {
   const s = Date.now() / 1000 - unix
@@ -83,6 +84,7 @@ export default function PacePage() {
         if (!res.ok) throw new Error(progress.error ?? `HTTP ${res.status}`)
         await load()
         if (progress.indexComplete && progress.pendingHistory === 0) break
+        await new Promise(r => setTimeout(r, ROUND_GAP_MS)) // go easy on BGA between rounds
       }
     } catch (e) {
       setSyncError(e instanceof Error ? e.message : 'Sync failed')

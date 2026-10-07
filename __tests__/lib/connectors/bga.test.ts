@@ -1,4 +1,4 @@
-jest.mock('@vercel/kv', () => ({ kv: { mget: jest.fn(), set: jest.fn() } }))
+jest.mock('@vercel/kv', () => ({ kv: { mget: jest.fn(), set: jest.fn(), get: jest.fn(async () => null), del: jest.fn() } }))
 
 import { kv } from '@vercel/kv'
 import { fetchBGA } from '@/lib/connectors/bga'
@@ -8,6 +8,8 @@ const mockFetch = jest.fn()
 global.fetch = mockFetch
 const mockKvMget = kv.mget as jest.Mock
 const mockKvSet = kv.set as jest.Mock
+// Session caching also writes to KV; these tests are about the game-name cache
+const nameCacheSets = () => mockKvSet.mock.calls.filter(([key]) => String(key).startsWith('bga-game-name:'))
 
 const TOKEN = 'a'.repeat(64)
 
@@ -419,7 +421,7 @@ describe('fetchBGA', () => {
       expect(gamepanelCalls()).toHaveLength(0)
       expect(games.find(g => g.id === 'bga:12345')!.gameName).toBe('Imperial Settlers')
       expect(games.find(g => g.id === 'bga:67890')!.gameName).toBe('Terraforming Mars')
-      expect(mockKvSet).not.toHaveBeenCalled()
+      expect(nameCacheSets()).toHaveLength(0)
     })
 
     it('only fetches gamepanel for uncached slugs and caches the result permanently', async () => {
@@ -430,7 +432,7 @@ describe('fetchBGA', () => {
       expect(gamepanelCalls()).toHaveLength(1)
       expect(gamepanelCalls()[0][0]).toContain('game=terraformingmars')
       expect(games.find(g => g.id === 'bga:67890')!.gameName).toBe('Terraforming Mars')
-      expect(mockKvSet).toHaveBeenCalledTimes(1)
+      expect(nameCacheSets()).toHaveLength(1)
       expect(mockKvSet).toHaveBeenCalledWith('bga-game-name:v1:terraformingmars', { name: 'Terraforming Mars' })
     })
 
@@ -468,7 +470,7 @@ describe('fetchBGA', () => {
       const games = await fetchBGA('user@example.com', 'password')
 
       expect(games.find(g => g.id === 'bga:12345')!.gameName).toBe('imperialsettlers')
-      expect(mockKvSet).not.toHaveBeenCalled()
+      expect(nameCacheSets()).toHaveLength(0)
     })
 
     it('still resolves names live when KV is unavailable', async () => {
