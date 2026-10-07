@@ -7,7 +7,7 @@ import {
   SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Platform, PLATFORM_LABELS } from '@/lib/types'
+import { Platform, PLATFORM_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { BacklogItem, BacklogList, BACKLOG_LISTS, listOf } from '@/lib/backlog/list'
 import { bgaGamePanelUrl } from '@/lib/backlog/bgaSlug'
@@ -20,6 +20,8 @@ import TopNav from '@/components/TopNav'
 import AddToBacklogButton, { LIST_LABELS } from '@/components/AddToBacklogButton'
 
 type Backlog = ReturnType<typeof useBacklog>
+
+const ALL_PLATFORMS = Object.keys(PLATFORM_LABELS) as Platform[]
 
 const BADGE_FALLBACK = 'bg-[#f3f3f3] text-[#6b6b6b]'
 const SMALL_BUTTON = 'text-xs font-medium px-2.5 py-1 rounded-md bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] whitespace-nowrap'
@@ -153,7 +155,7 @@ interface SearchResult {
   matches: { name: string; url: string }[]
 }
 
-function SearchPanel({ backlog, target }: { backlog: Backlog; target: BacklogList }) {
+function SearchPanel({ backlog, target, sites }: { backlog: Backlog; target: BacklogList; sites: Set<Platform> }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[] | null>(null)
   const [errors, setErrors] = useState<{ platform: Platform }[]>([])
@@ -173,7 +175,9 @@ function SearchPanel({ backlog, target }: { backlog: Backlog; target: BacklogLis
     }
   }
 
-  const found = results?.flatMap(r => r.matches.map(m => ({ platform: r.platform, ...m }))) ?? []
+  const found = results
+    ?.filter(r => sites.has(r.platform))
+    .flatMap(r => r.matches.map(m => ({ platform: r.platform, ...m }))) ?? []
 
   return (
     <div>
@@ -194,11 +198,11 @@ function SearchPanel({ backlog, target }: { backlog: Backlog; target: BacklogLis
           {isSearching ? 'Searching…' : 'Search'}
         </button>
       </div>
-      <p className="text-xs text-[#9b9b9b] mt-2">Searches BGA, Yucata and Rally the Troops.</p>
+      <p className="text-xs text-[#9b9b9b] mt-2">Searches BGA, Yucata and Rally the Troops (the sites with a game catalog).</p>
 
-      {errors.length > 0 && (
+      {errors.some(e => sites.has(e.platform)) && (
         <div className="mt-3 flex flex-wrap gap-2">
-          {errors.map(e => (
+          {errors.filter(e => sites.has(e.platform)).map(e => (
             <span key={e.platform} className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-md">
               ⚠ {PLATFORM_LABELS[e.platform]} unavailable
             </span>
@@ -234,17 +238,19 @@ function SearchPanel({ backlog, target }: { backlog: Backlog; target: BacklogLis
 const SORTS: [PlayedSort, string][] = [['most', 'Most played'], ['least', 'Least played'], ['recent', 'Recent'], ['name', 'A–Z']]
 
 function playedNote(g: PlayedGame): string {
-  const parts = [`${g.plays} ${g.plays === 1 ? 'play' : 'plays'}`]
+  // 0 usually means the site's history can't be read (18xx), not that it was never played
+  const parts = g.plays ? [`${g.plays} ${g.plays === 1 ? 'play' : 'plays'}`] : []
   if (g.lastPlayedAt) parts.push(`last ${formatTimeAgo(g.lastPlayedAt)}`)
   if (g.playingNow) parts.push(`${g.playingNow} running`)
-  return parts.join(' · ')
+  return parts.join(' · ') || 'no history'
 }
 
-// Mounted only when opened: loading finished games asks every platform
-function PlayedPanel({ backlog, target }: { backlog: Backlog; target: BacklogList }) {
+// Loading finished games asks every platform (streamed, so the page isn't held up)
+function PlayedPanel({ backlog, target, sites }: { backlog: Backlog; target: BacklogList; sites: Set<Platform> }) {
   const finished = useFinishedGamesData()
   const [filter, setFilter] = useState('')
   const [sort, setSort] = useState<PlayedSort>('most')
+  const [finishedOnly, setFinishedOnly] = useState(false)
   // BGA's own lifetime counts; the history above only holds its latest 50 games
   const [bgaTotals, setBgaTotals] = useState<{ totals: PlayTotal[] } | { error: string } | null>(null)
 
@@ -267,7 +273,13 @@ function PlayedPanel({ backlog, target }: { backlog: Backlog; target: BacklogLis
   )
 
   const q = filter.trim().toLowerCase()
-  const shown = sortPlayed(q ? played.filter(g => g.gameName.toLowerCase().includes(q)) : played, sort)
+  const shown = sortPlayed(
+    played.filter(g =>
+      sites.has(g.platform)
+      && (!finishedOnly || g.playingNow === 0)
+      && (!q || g.gameName.toLowerCase().includes(q))),
+    sort,
+  )
 
   return (
     <div>
@@ -289,6 +301,10 @@ function PlayedPanel({ backlog, target }: { backlog: Backlog; target: BacklogLis
             {label}
           </button>
         ))}
+        <label className="ml-auto flex items-center gap-1.5 text-xs text-[#6b6b6b] cursor-pointer">
+          <input type="checkbox" checked={finishedOnly} onChange={e => setFinishedOnly(e.target.checked)} />
+          Finished only
+        </label>
       </div>
       {(finished.isLoading || !bgaTotals) && (
         <p className="text-xs text-[#9b9b9b] mt-2">Loading finished games…</p>
@@ -334,9 +350,24 @@ function PlayedPanel({ backlog, target }: { backlog: Backlog; target: BacklogLis
 
 export default function BacklogPage() {
   const backlog = useBacklog()
-  const [source, setSource] = useState<'search' | 'played'>('search')
-  const [playedOpened, setPlayedOpened] = useState(false)
+  const [source, setSource] = useState<'search' | 'played'>('played')
   const [target, setTarget] = useState<BacklogList>('play')
+  const [sites, setSites] = useState<Set<Platform>>(new Set(DEFAULT_BACKLOG_PLATFORMS))
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/prefs').then(r => r.json()).then(prefs => {
+      if (!cancelled) setSites(new Set(prefs.backlogPlatforms ?? DEFAULT_BACKLOG_PLATFORMS))
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  const toggleSite = (p: Platform) => setSites(prev => {
+    const next = new Set(prev)
+    if (next.has(p)) next.delete(p)
+    else next.add(p)
+    return next
+  })
 
   const navRight = backlog.items ? <span>{backlog.items.length} planned</span> : undefined
   const pill = (active: boolean) => `text-xs px-3 py-1 rounded-full font-medium transition-colors
@@ -362,10 +393,10 @@ export default function BacklogPage() {
         <div className="bg-white rounded-xl border border-[#e5e5e5] p-5">
           <div className="flex flex-wrap items-center gap-1 mb-3">
             <h2 className="text-sm font-semibold text-[#1a1a1a] mr-3">Add games</h2>
-            {([['search', 'Search'], ['played', 'From your games']] as const).map(([key, label]) => (
+            {([['played', 'From your games'], ['search', 'Search']] as const).map(([key, label]) => (
               <button
                 key={key}
-                onClick={() => { setSource(key); if (key === 'played') setPlayedOpened(true) }}
+                onClick={() => setSource(key)}
                 className={pill(source === key)}
               >
                 {label}
@@ -380,8 +411,23 @@ export default function BacklogPage() {
               </button>
             ))}
           </div>
-          <div className={source === 'search' ? '' : 'hidden'}><SearchPanel backlog={backlog} target={target} /></div>
-          {playedOpened && <div className={source === 'played' ? '' : 'hidden'}><PlayedPanel backlog={backlog} target={target} /></div>}
+          <div className="flex flex-wrap items-center gap-1.5 mb-4">
+            <span className="text-xs text-[#9b9b9b] mr-1">Sites</span>
+            {ALL_PLATFORMS.map(p => (
+              <button
+                key={p}
+                onClick={() => toggleSite(p)}
+                aria-pressed={sites.has(p)}
+                className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full transition-opacity
+                  ${BADGE_COLORS[p] ?? BADGE_FALLBACK}
+                  ${sites.has(p) ? 'opacity-100 ring-2 ring-[#1a1a1a]/20' : 'opacity-40 hover:opacity-70'}`}
+              >
+                {PLATFORM_LABELS[p]}
+              </button>
+            ))}
+          </div>
+          <div className={source === 'search' ? '' : 'hidden'}><SearchPanel backlog={backlog} target={target} sites={sites} /></div>
+          <div className={source === 'played' ? '' : 'hidden'}><PlayedPanel backlog={backlog} target={target} sites={sites} /></div>
         </div>
       </div>
     </div>

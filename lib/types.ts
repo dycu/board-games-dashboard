@@ -35,7 +35,10 @@ export interface UserPrefs {
   eighteenxxSessionCookie?: string
   opponentSlowDays: number       // waiting games older than this show urgency indicator (default 5)
   oldkingscrownGameIds?: string[] // manually tracked game ids — no account system to discover them automatically
+  backlogPlatforms?: Platform[]   // sites shown by default when adding games to the backlog
 }
+
+export const DEFAULT_BACKLOG_PLATFORMS: Platform[] = ['bga', 'yucata']
 
 export const DEFAULT_PREFS: UserPrefs = {
   pins: [],

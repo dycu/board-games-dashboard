@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Platform, PLATFORM_LABELS } from '@/lib/types'
+import { Platform, PLATFORM_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
+import { BADGE_COLORS } from '@/lib/platform-colors'
 import TopNav from '@/components/TopNav'
 
 const PLATFORMS: Platform[] = ['bga', 'eighteenxx', 'obg', 'yucata', 'choochoo', 'hansa', 'rally', 'oldkingscrown']
@@ -23,6 +24,7 @@ export default function SetupPage() {
   const [disabled, setDisabled] = useState<Set<Platform>>(new Set())
   const [bgaSortCapDays, setBgaSortCapDays] = useState(3)
   const [opponentSlowDays, setOpponentSlowDays] = useState(5)
+  const [backlogPlatforms, setBacklogPlatforms] = useState<Platform[]>(DEFAULT_BACKLOG_PLATFORMS)
   const [cookieInput, setCookieInput] = useState('')
   const [cookieSaving, setCookieSaving] = useState(false)
   const [cookieSaved, setCookieSaved] = useState(false)
@@ -50,6 +52,7 @@ export default function SetupPage() {
       setDisabled(new Set(prefs.disabledPlatforms ?? []))
       setBgaSortCapDays(prefs.bgaSortCapDays ?? 3)
       setOpponentSlowDays(prefs.opponentSlowDays ?? 5)
+      setBacklogPlatforms(prefs.backlogPlatforms ?? DEFAULT_BACKLOG_PLATFORMS)
       setCookieSaved(!!prefs.eighteenxxSessionCookie)
       const ids = prefs.oldkingscrownGameIds ?? []
       setOkcGameIds(ids)
@@ -86,6 +89,18 @@ export default function SetupPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ disabledPlatforms: [...next] }),
+    })
+  }
+
+  const toggleBacklogPlatform = async (platform: Platform) => {
+    const next = backlogPlatforms.includes(platform)
+      ? backlogPlatforms.filter(p => p !== platform)
+      : PLATFORMS.filter(p => p === platform || backlogPlatforms.includes(p))
+    setBacklogPlatforms(next)
+    await fetch('/api/prefs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ backlogPlatforms: next }),
     })
   }
 
@@ -169,6 +184,27 @@ export default function SetupPage() {
               className="w-20 bg-white text-[#1a1a1a] text-sm px-3 py-1.5 rounded-md border border-[#e5e5e5]"
             />
             <span className="text-sm text-[#6b6b6b]">days</span>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
+          <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">Backlog sites</h2>
+          <p className="text-xs text-[#9b9b9b] mb-3">
+            Sites shown when adding games on the Backlog page. Others can still be switched on there.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {PLATFORMS.map(p => (
+              <button
+                key={p}
+                onClick={() => toggleBacklogPlatform(p)}
+                aria-pressed={backlogPlatforms.includes(p)}
+                className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full transition-opacity
+                  ${BADGE_COLORS[p] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}
+                  ${backlogPlatforms.includes(p) ? 'opacity-100 ring-2 ring-[#1a1a1a]/20' : 'opacity-40 hover:opacity-70'}`}
+              >
+                {PLATFORM_LABELS[p]}
+              </button>
+            ))}
           </div>
         </div>
 
