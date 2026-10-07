@@ -102,9 +102,9 @@ export default function OverviewPage() {
                 game={g}
                 action={backlog.items && (
                   <AddToBacklogButton
-                    inBacklog={backlog.has(g.platform, g.gameName)}
-                    adding={backlog.isAdding(g.platform, g.gameName)}
-                    onAdd={() => backlog.add({ platform: g.platform, gameName: g.gameName, gameUrl: g.gameUrl })}
+                    inBacklog={backlog.has(g.platform, g.gameType || g.gameName)}
+                    adding={backlog.isAdding(g.platform, g.gameType || g.gameName)}
+                    onAdd={() => backlog.add({ platform: g.platform, gameName: g.gameType || g.gameName, gameUrl: g.gameUrl })}
                   />
                 )}
               />

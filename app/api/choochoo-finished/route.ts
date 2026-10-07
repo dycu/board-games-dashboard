@@ -1,6 +1,6 @@
 import { request as httpsRequest } from 'https'
 import type { FinishedGame } from '@/lib/types'
-import { formatTimeAgo } from '@/lib/connectors/utils'
+import { formatTimeAgo, choochooGameType } from '@/lib/connectors/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -87,6 +87,7 @@ export async function GET() {
       id: `choochoo:${gameId}`,
       platform: 'choochoo',
       gameName: g.name ?? g.gameKey ?? 'Unknown',
+      gameType: g.gameKey ? choochooGameType(g.gameKey) : undefined,
       completedAt,
       completedAgo: completedAt.getTime() === 0 ? 'unknown' : formatTimeAgo(completedAt),
       gameUrl: `${BASE_URL}/app/games/${gameId}`,

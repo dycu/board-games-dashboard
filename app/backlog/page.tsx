@@ -10,6 +10,8 @@ import { CSS } from '@dnd-kit/utilities'
 import { Platform, PLATFORM_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { BacklogItem } from '@/lib/backlog/list'
+import { PlayedGame, PlayedSort, aggregatePlayed, sortPlayed } from '@/lib/backlog/played'
+import { formatTimeAgo } from '@/lib/connectors/utils'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
 import { readCache } from '@/hooks/useGamesData'
@@ -205,31 +207,28 @@ function SearchPanel({ backlog }: { backlog: Backlog }) {
   )
 }
 
-interface PlayedGame {
-  platform: Platform
-  gameName: string
-  gameUrl: string
-  note: string
+const SORTS: [PlayedSort, string][] = [['most', 'Most played'], ['least', 'Least played'], ['recent', 'Recent'], ['name', 'A–Z']]
+
+function playedNote(g: PlayedGame): string {
+  const parts = [`${g.plays} ${g.plays === 1 ? 'play' : 'plays'}`]
+  if (g.lastPlayedAt) parts.push(`last ${formatTimeAgo(g.lastPlayedAt)}`)
+  if (g.playingNow) parts.push(`${g.playingNow} running`)
+  return parts.join(' · ')
 }
 
 // Mounted only when opened: loading finished games asks every platform
 function PlayedPanel({ backlog }: { backlog: Backlog }) {
   const finished = useFinishedGamesData()
   const [filter, setFilter] = useState('')
+  const [sort, setSort] = useState<PlayedSort>('most')
 
-  const played = useMemo(() => {
-    const seen = new Map<string, PlayedGame>()
-    const put = (g: PlayedGame) => {
-      const key = `${g.platform}:${g.gameName.toLowerCase()}`
-      if (!seen.has(key)) seen.set(key, g)
-    }
-    readCache()?.data.games.forEach(g => put({ platform: g.platform, gameName: g.gameName, gameUrl: g.gameUrl, note: 'playing now' }))
-    finished.data?.games.forEach(g => put({ platform: g.platform, gameName: g.gameName, gameUrl: g.gameUrl, note: `finished ${g.completedAgo}` }))
-    return [...seen.values()].sort((a, b) => a.gameName.localeCompare(b.gameName))
-  }, [finished.data])
+  const played = useMemo(
+    () => aggregatePlayed(readCache()?.data.games ?? [], finished.data?.games ?? []),
+    [finished.data],
+  )
 
   const q = filter.trim().toLowerCase()
-  const shown = q ? played.filter(g => g.gameName.toLowerCase().includes(q)) : played
+  const shown = sortPlayed(q ? played.filter(g => g.gameName.toLowerCase().includes(q)) : played, sort)
 
   return (
     <div>
@@ -240,6 +239,18 @@ function PlayedPanel({ backlog }: { backlog: Backlog }) {
         placeholder="Filter your games…"
         className="w-full bg-white text-[#1a1a1a] text-sm px-3 py-1.5 rounded-md border border-[#e5e5e5]"
       />
+      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+        {SORTS.map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setSort(key)}
+            className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium transition-colors
+              ${sort === key ? 'bg-[#5e6ad2] text-white' : 'bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb]'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {finished.isLoading && (
         <p className="text-xs text-[#9b9b9b] mt-2">Loading finished games…</p>
       )}
@@ -258,7 +269,7 @@ function PlayedPanel({ backlog }: { backlog: Backlog }) {
             <Badge platform={g.platform} />
             <div className="flex-1 min-w-0">
               <p className="text-sm text-[#1a1a1a] truncate">{g.gameName}</p>
-              <p className="text-xs text-[#9b9b9b]">{g.note}</p>
+              <p className="text-xs text-[#9b9b9b]">{playedNote(g)}</p>
             </div>
             <AddToBacklogButton
               label="+ Add"

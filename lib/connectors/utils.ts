@@ -26,3 +26,13 @@ export function formatTimeRemaining(sec: number): string {
   const m = Math.floor(sec / 60)
   return `${m}m left`
 }
+
+// choochoo.games map keys ("rust-belt", "SwedenRecycling") as a display name
+export function choochooGameType(key: string): string {
+  return key
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map(w => w[0].toUpperCase() + w.slice(1))
+    .join(' ')
+}

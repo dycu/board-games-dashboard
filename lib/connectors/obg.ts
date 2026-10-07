@@ -151,9 +151,13 @@ function extractTypeCode(href: string): string {
 // sometimes not (just "Dycu", replacing the type name entirely with no
 // indication of the actual game). Detect a custom title either way and always
 // prefix it with the real game type so the dashboard shows which game it is.
-function buildGameName(rawName: string, href: string): string {
+function gameTypeName(href: string): string {
   const typeCode = extractTypeCode(href)
-  const typeName = OBG_GAME_NAMES[typeCode] ?? typeCode
+  return OBG_GAME_NAMES[typeCode] ?? typeCode
+}
+
+function buildGameName(rawName: string, href: string): string {
+  const typeName = gameTypeName(href)
   const customTitle = rawName.match(/^\[(.+)\]$/)?.[1] ?? (rawName && rawName !== typeName ? rawName : undefined)
   if (customTitle) return typeName ? `${typeName} — ${customTitle}` : customTitle
   return typeName || rawName || 'Unknown'
@@ -208,6 +212,7 @@ function parseGames(html: string, profileName: string): Game[] {
       id: `obg:${gameId}`,
       platform: 'obg',
       gameName,
+      gameType: gameTypeName(href) || undefined,
       myTurn: isMyTurn,
       currentPlayer,
       lastMoveAt,
@@ -249,6 +254,7 @@ function parseFinishedGames(html: string): FinishedGame[] {
       id: `obg:${gameId}`,
       platform: 'obg',
       gameName,
+      gameType: gameTypeName(href) || undefined,
       completedAt,
       completedAgo: formatTimeAgo(completedAt),
       gameUrl,

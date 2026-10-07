@@ -12,6 +12,7 @@ export interface Game {
   id: string              // e.g. "bga:12345"
   platform: Platform
   gameName: string
+  gameType?: string       // the game itself, when gameName is a player-set table title
   myTurn: boolean
   currentPlayer?: string  // whose turn when myTurn is false; omit if unavailable
   lastMoveAt: Date
@@ -56,6 +57,7 @@ export interface FinishedGame {
   id: string           // e.g. "eighteenxx:333"
   platform: Platform
   gameName: string
+  gameType?: string    // the game itself, when gameName is a player-set table title
   completedAt: Date
   completedAgo: string // pre-formatted: "3h ago", "2 days ago"
   gameUrl: string
