@@ -181,7 +181,7 @@ export default function PacePage() {
                   xLabel={scope === 'bga' ? 'BGA games running when the turn started' : 'Games running on all platforms when the turn started'}
                 />
               )}
-              <p className="text-xs text-[#6b6b6b] mt-2">
+              {!(scope === 'all' && stats.byTotalLoad.length === 0) && <p className="text-xs text-[#6b6b6b] mt-2">
                 {scope === 'all'
                   ? (stats.kneeTotal !== null
                     ? <>Counting every platform, your BGA pace slips from about <strong className="text-[#1a1a1a]">{stats.kneeTotal} games in total</strong>.</>
@@ -192,7 +192,7 @@ export default function PacePage() {
                 {scope === 'bga' && stats.rule && (
                   <> Rule of thumb: each game hands you {stats.rule.turnsPerGameDay} turns/day and your best week averaged {stats.rule.bestTurnsPerDay} turns/day, so about <strong className="text-[#1a1a1a]">{stats.rule.suggestedGames} games</strong> keeps you at ~75% capacity.</>
                 )}
-              </p>
+              </p>}
               <button onClick={() => setShowTable(v => !v)} className="mt-2 text-xs text-[#5e6ad2] hover:underline">
                 {showTable ? 'Hide table' : 'Show as table'}
               </button>
