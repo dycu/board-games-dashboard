@@ -1,6 +1,7 @@
 import { Turn } from './bgaTurns'
 import { PaceTable } from './store'
 import { REALTIME_MAX_SECONDS } from './sync'
+import { LoadSample } from './loadSamples'
 
 const DAY = 86400
 const WEEK = 7 * DAY
@@ -32,6 +33,12 @@ export interface PaceStats {
   weekly: WeekPoint[]
   // Load where the median response clearly rises above the low-load baseline
   knee: number | null
+  // Same, with load = BGA games + games on every other platform. Only turns
+  // since load snapshots began (allPlatformsSince) can be placed.
+  byTotalLoad: LoadBucket[]
+  kneeTotal: number | null
+  allPlatformsSince: number | null
+  otherNow: number | null  // non-BGA games running per the latest snapshot
   rule: { turnsPerGameDay: number; bestTurnsPerDay: number; suggestedGames: number } | null
   firstTurnAt: number | null
 }
@@ -81,11 +88,71 @@ function makeLoadAt(tables: PaceTable[], now: number) {
 const hours = (sec: number) => sec / 3600
 const round1 = (x: number) => Math.round(x * 10) / 10
 
+// A snapshot's non-BGA count is trusted for this long; beyond it (dashboard
+// not opened) the other platforms' load is unknown
+const SAMPLE_HOLD_SECONDS = 48 * 3600
+
+// Non-BGA games running at time t, from load snapshots. A platform missing
+// from a snapshot (it errored) keeps its last known count.
+export function makeOtherLoadAt(samples: LoadSample[]): (t: number) => number | null {
+  const sorted = [...samples].sort((a, b) => a.t - b.t)
+  const last: Record<string, number> = {}
+  const times: number[] = []
+  const totals: number[] = []
+  for (const s of sorted) {
+    for (const [p, n] of Object.entries(s.counts)) if (n != null) last[p] = n
+    times.push(s.t)
+    totals.push(Object.entries(last).reduce((sum, [p, n]) => (p === 'bga' ? sum : sum + n), 0))
+  }
+  return (t: number) => {
+    let lo = 0, hi = times.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (times[mid] <= t) lo = mid + 1
+      else hi = mid
+    }
+    const i = lo - 1
+    if (i < 0 || t - times[i] > SAMPLE_HOLD_SECONDS) return null
+    return totals[i]
+  }
+}
+
+function bucketByLoad(turns: { load: number; resp: number }[]): LoadBucket[] {
+  const groups = new Map<number, number[]>()
+  for (const t of turns) {
+    if (!groups.has(t.load)) groups.set(t.load, [])
+    groups.get(t.load)!.push(t.resp)
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([load, rs]) => {
+      const s = rs.sort((a, b) => a - b)
+      return {
+        load,
+        n: s.length,
+        median: round1(hours(quantile(s, 0.5))),
+        p25: round1(hours(quantile(s, 0.25))),
+        p75: round1(hours(quantile(s, 0.75))),
+      }
+    })
+}
+
+// Knee: baseline = median response over the lightest-loaded quarter of turns;
+// the knee is the lowest well-sampled load whose median is 1.5× that baseline
+function findKnee(turns: { load: number; resp: number }[], buckets: LoadBucket[]): number | null {
+  if (turns.length < 40) return null
+  const byLoadAsc = [...turns].sort((a, b) => a.load - b.load)
+  const light = byLoadAsc.slice(0, Math.ceil(byLoadAsc.length / 4)).map(t => t.resp).sort((a, b) => a - b)
+  const baseline = hours(quantile(light, 0.5))
+  return buckets.find(b => b.n >= 15 && b.median > baseline * 1.5)?.load ?? null
+}
+
 export function computePaceStats(
   allTables: PaceTable[],
   turnsByTable: Record<string, Turn[]>,
   now: number,
   recentDays = 30,
+  loadSamples: LoadSample[] = [],
 ): PaceStats {
   const tables = allTables.filter(isAsync)
   const loadAt = makeLoadAt(tables, now)
@@ -122,23 +189,15 @@ export function computePaceStats(
   }
 
   // Response time by load
-  const groups = new Map<number, number[]>()
-  for (const t of turns) {
-    if (!groups.has(t.load)) groups.set(t.load, [])
-    groups.get(t.load)!.push(t.resp)
-  }
-  const byLoad: LoadBucket[] = [...groups.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([load, rs]) => {
-      const s = rs.sort((a, b) => a - b)
-      return {
-        load,
-        n: s.length,
-        median: round1(hours(quantile(s, 0.5))),
-        p25: round1(hours(quantile(s, 0.25))),
-        p75: round1(hours(quantile(s, 0.75))),
-      }
-    })
+  const byLoad = bucketByLoad(turns)
+
+  // ...and by load across all platforms, for turns a snapshot covers
+  const otherLoadAt = makeOtherLoadAt(loadSamples)
+  const totalTurns = turns.flatMap(t => {
+    const other = otherLoadAt(t.start)
+    return other === null ? [] : [{ load: t.load + other, resp: t.resp }]
+  })
+  const byTotalLoad = bucketByLoad(totalTurns)
 
   // Weekly series (Monday-aligned, UTC), from the first turn to now
   const weekly: WeekPoint[] = []
@@ -171,16 +230,8 @@ export function computePaceStats(
     }
   }
 
-  // Knee: baseline = median response over the lightest-loaded quarter of turns;
-  // the knee is the lowest well-sampled load whose median is 1.5× that baseline
-  let knee: number | null = null
-  if (turns.length >= 40) {
-    const byLoadAsc = [...turns].sort((a, b) => a.load - b.load)
-    const light = byLoadAsc.slice(0, Math.ceil(byLoadAsc.length / 4)).map(t => t.resp).sort((a, b) => a - b)
-    const baseline = hours(quantile(light, 0.5))
-    const firstHigh = byLoad.find(b => b.n >= 15 && b.median > baseline * 1.5)
-    knee = firstHigh ? firstHigh.load : null
-  }
+  const knee = findKnee(turns, byLoad)
+  const kneeTotal = findKnee(totalTurns, byTotalLoad)
 
   // Rule of thumb over the recent window: turns each game hands me per day
   // (from games with move history), and the most turns/day I've sustained in a full week
@@ -203,6 +254,10 @@ export function computePaceStats(
     byLoad,
     weekly,
     knee,
+    byTotalLoad,
+    kneeTotal,
+    allPlatformsSince: loadSamples.length ? Math.min(...loadSamples.map(s => s.t)) : null,
+    otherNow: otherLoadAt(now),
     rule,
     firstTurnAt: turns.length ? Math.min(...turns.map(t => t.start)) : null,
   }

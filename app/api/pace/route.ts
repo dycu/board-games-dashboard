@@ -1,6 +1,7 @@
 import { kv } from '@vercel/kv'
 import { getMeta, getTables, getAllTurns } from '@/lib/pace/store'
 import { computePaceStats } from '@/lib/pace/stats'
+import { getLoadSamples } from '@/lib/pace/loadSamples'
 
 export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
@@ -10,10 +11,10 @@ const NAME_CACHE_PREFIX = 'bga-game-name:v1:'
 
 export async function GET() {
   try {
-    const [meta, tableMap] = await Promise.all([getMeta(), getTables()])
+    const [meta, tableMap, samples] = await Promise.all([getMeta(), getTables(), getLoadSamples()])
     const tables = Object.values(tableMap)
     const turns = await getAllTurns(tables.map(t => t.id))
-    const stats = computePaceStats(tables, turns, Math.floor(Date.now() / 1000))
+    const stats = computePaceStats(tables, turns, Math.floor(Date.now() / 1000), 30, samples)
 
     const slugs = [...new Set(stats.waiting.map(w => w.game))]
     const names: Record<string, string> = {}

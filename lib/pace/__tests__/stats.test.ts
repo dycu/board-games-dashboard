@@ -105,3 +105,48 @@ describe('computePaceStats', () => {
     expect(s).toMatchObject({ running: 0, byLoad: [], weekly: [], knee: null, rule: null, firstTurnAt: null })
   })
 })
+
+describe('makeOtherLoadAt', () => {
+  const { makeOtherLoadAt } = jest.requireActual('../stats')
+
+  it('sums non-BGA platforms from the latest snapshot at or before t', () => {
+    const at = makeOtherLoadAt([
+      { t: 100, counts: { bga: 20, yucata: 4, obg: 2 } },
+      { t: 200, counts: { bga: 21, yucata: 5, obg: 2 } },
+    ])
+    expect(at(50)).toBeNull()   // before any snapshot
+    expect(at(150)).toBe(6)
+    expect(at(250)).toBe(7)
+  })
+
+  it('keeps the last known count for a platform that errored in a snapshot', () => {
+    const at = makeOtherLoadAt([
+      { t: 100, counts: { yucata: 4, obg: 2 } },
+      { t: 200, counts: { yucata: 5 } }, // obg errored
+    ])
+    expect(at(200)).toBe(7)
+  })
+
+  it('treats load as unknown more than 48h after the last snapshot', () => {
+    const at = makeOtherLoadAt([{ t: 0, counts: { yucata: 4 } }])
+    expect(at(47 * H)).toBe(4)
+    expect(at(49 * H)).toBeNull()
+  })
+})
+
+describe('computePaceStats with load snapshots', () => {
+  it('places turns by BGA + other-platform games, only where a snapshot covers them', () => {
+    const tables = [table('1', NOW - 20 * D, null)]
+    const turns: Record<string, Turn[]> = {
+      '1': [
+        [NOW - 10 * D, NOW - 10 * D + 2 * H], // before snapshots → BGA chart only
+        [NOW - 2 * D, NOW - 2 * D + 4 * H],
+      ],
+    }
+    const samples = [{ t: NOW - 3 * D, counts: { bga: 1, yucata: 3, obg: 2 } }]
+    const s = computePaceStats(tables, turns, NOW, 30, samples)
+    expect(s.byLoad.map(b => [b.load, b.n])).toEqual([[1, 2]])
+    expect(s.byTotalLoad).toEqual([{ load: 6, n: 1, median: 4, p25: 4, p75: 4 }])
+    expect(s.allPlatformsSince).toBe(NOW - 3 * D)
+  })
+})

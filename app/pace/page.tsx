@@ -55,6 +55,7 @@ export default function PacePage() {
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
   const [showTable, setShowTable] = useState(false)
+  const [scope, setScope] = useState<'bga' | 'all'>('bga')
   const syncingRef = useRef(false)
 
   const load = useCallback(async (): Promise<PaceResponse | null> => {
@@ -155,14 +156,40 @@ export default function PacePage() {
 
             <Section
               title="Response time by number of games running"
-              note={`How long you took to move, depending on how many async BGA games were running at the time. Dot = median, bar = middle half of turns. Faint = fewer than ${MIN_RELIABLE_N} turns.`}
+              note={scope === 'bga'
+                ? `How long you took to move on BGA, depending on how many async BGA games were running at the time. Dot = median, bar = middle half of turns. Faint = fewer than ${MIN_RELIABLE_N} turns.`
+                : `Same BGA turns, but counting your games on every platform. Other platforms are counted from dashboard refreshes${stats.allPlatformsSince ? ` since ${new Date(stats.allPlatformsSince * 1000).toLocaleDateString()}` : ''}, so only turns since then appear.`}
             >
-              <LoadChart buckets={stats.byLoad} knee={stats.knee} />
+              <div className="flex gap-1.5 mb-3" role="group" aria-label="Count games on">
+                {([['bga', 'BGA games'], ['all', 'All platforms']] as const).map(([v, label]) => (
+                  <button key={v} onClick={() => setScope(v)} aria-pressed={scope === v}
+                    className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${scope === v
+                      ? 'bg-[#1a1a1a] text-white'
+                      : 'bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb]'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {scope === 'all' && stats.byTotalLoad.length === 0 ? (
+                <p className="text-xs text-[#9b9b9b] py-8 text-center">
+                  Collecting — game counts from other platforms are recorded as you use the dashboard. Check back in a few days.
+                </p>
+              ) : (
+                <LoadChart
+                  buckets={scope === 'bga' ? stats.byLoad : stats.byTotalLoad}
+                  knee={scope === 'bga' ? stats.knee : stats.kneeTotal}
+                  xLabel={scope === 'bga' ? 'BGA games running when the turn started' : 'Games running on all platforms when the turn started'}
+                />
+              )}
               <p className="text-xs text-[#6b6b6b] mt-2">
-                {stats.knee !== null
-                  ? <>Your median response is clearly slower from about <strong className="text-[#1a1a1a]">{stats.knee} games</strong> (1.5× your light-load pace).</>
-                  : 'No clear slow-down point yet — your pace holds across the loads seen so far, or there isn\'t enough data.'}
-                {stats.rule && (
+                {scope === 'all'
+                  ? (stats.kneeTotal !== null
+                    ? <>Counting every platform, your BGA pace slips from about <strong className="text-[#1a1a1a]">{stats.kneeTotal} games in total</strong>.</>
+                    : `Not enough turns yet to find a slow-down point across all platforms (${stats.byTotalLoad.reduce((a, b) => a + b.n, 0)} turns so far).`)
+                  : stats.knee !== null
+                    ? <>Your median response is clearly slower from about <strong className="text-[#1a1a1a]">{stats.knee} BGA games</strong> (1.5× your light-load pace){stats.otherNow ? <>, alongside your games elsewhere (currently {stats.otherNow})</> : null}.</>
+                    : 'No clear slow-down point yet — your pace holds across the loads seen so far, or there isn\'t enough data.'}
+                {scope === 'bga' && stats.rule && (
                   <> Rule of thumb: each game hands you {stats.rule.turnsPerGameDay} turns/day and your best week averaged {stats.rule.bestTurnsPerDay} turns/day, so about <strong className="text-[#1a1a1a]">{stats.rule.suggestedGames} games</strong> keeps you at ~75% capacity.</>
                 )}
               </p>
@@ -180,7 +207,7 @@ export default function PacePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {stats.byLoad.map(b => (
+                    {(scope === 'bga' ? stats.byLoad : stats.byTotalLoad).map(b => (
                       <tr key={b.load} className={`border-b border-[#f3f3f3] ${b.n < MIN_RELIABLE_N ? 'text-[#9b9b9b]' : 'text-[#1a1a1a]'}`}>
                         <td className="py-1">{b.load}</td>
                         <td className="py-1 text-right">{b.n}</td>

@@ -37,7 +37,7 @@ function Tooltip({ x, top, width, children }: { x: number; top: string; width: n
 }
 
 // Median response per load level, with the middle 50% of turns as a bar
-export function LoadChart({ buckets, knee }: { buckets: LoadBucket[]; knee: number | null }) {
+export function LoadChart({ buckets, knee, xLabel }: { buckets: LoadBucket[]; knee: number | null; xLabel: string }) {
   const [hover, setHover] = useState<number | null>(null)
   const W = 640, H = 240, L = 44, R = 12, T = 12, B = 34
   if (buckets.length === 0) return null
@@ -57,7 +57,7 @@ export function LoadChart({ buckets, knee }: { buckets: LoadBucket[]; knee: numb
   return (
     <div className="relative">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img"
-        aria-label="Median response time by number of running BGA games">
+        aria-label={`Median response time by ${xLabel.toLowerCase()}`}>
         {ticks.map(t => (
           <g key={t}>
             <line x1={L} x2={W - R} y1={y(t)} y2={y(t)} stroke={GRID} />
@@ -89,7 +89,7 @@ export function LoadChart({ buckets, knee }: { buckets: LoadBucket[]; knee: numb
         {buckets.filter(b => (b.load - minLoad) % xEvery === 0).map(b => (
           <text key={b.load} x={x(b.load)} y={H - B + 14} textAnchor="middle" fontSize="10" fill={MUTED}>{b.load}</text>
         ))}
-        <text x={(L + W - R) / 2} y={H - 4} textAnchor="middle" fontSize="10" fill={MUTED}>BGA games running when the turn started</text>
+        <text x={(L + W - R) / 2} y={H - 4} textAnchor="middle" fontSize="10" fill={MUTED}>{xLabel}</text>
       </svg>
       {hovered && (
         <Tooltip x={x(hovered.load)} top={`${(y(hovered.p75) / H) * 100}%`} width={W}>

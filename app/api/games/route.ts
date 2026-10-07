@@ -1,6 +1,7 @@
 import { makeConnectors, hasCreds } from '@/lib/connectors'
 import { Platform } from '@/lib/types'
 import { getPrefs } from '@/lib/prefs'
+import { recordLoadSample, LoadSample } from '@/lib/pace/loadSamples'
 
 export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
@@ -31,6 +32,7 @@ export async function GET(request?: Request) {
       }
 
       send({ type: 'start', platforms: entries.map(([p]) => p) })
+      const counts: LoadSample['counts'] = {}
 
       await Promise.allSettled(
         entries.map(async ([platform, fetcher]) => {
@@ -49,6 +51,7 @@ export async function GET(request?: Request) {
             } else {
               games = await fetcher()
             }
+            counts[platform] = games.length
             send({ type: 'platform', platform, games, error: null })
           } catch (e) {
             send({ type: 'platform', platform, games: [], error: e instanceof Error ? e.message : String(e) })
@@ -57,6 +60,8 @@ export async function GET(request?: Request) {
       )
 
       send({ type: 'done', fetchedAt: new Date().toISOString() })
+      // After 'done' so the client isn't kept waiting; feeds the Pace page's all-platforms load
+      await recordLoadSample(counts)
       controller.close()
     },
   })
