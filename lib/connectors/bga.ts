@@ -189,7 +189,10 @@ export async function loginBGA(username: string, password: string): Promise<BgaS
 
   if (!requestToken) {
     const hexFound = [...loginPageHtml.matchAll(/[a-f0-9]{48,64}/gi)].map(m => m[0]).slice(0, 5)
-    throw new Error(`BGA: could not extract request_token. Hex strings found in page: [${hexFound.join(', ') || 'none'}]`)
+    // Say what came back instead (a block/challenge page looks different from a changed login page)
+    const title = loginPageHtml.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim() ?? ''
+    const text = loginPageHtml.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
+    throw new Error(`BGA: could not extract request_token (HTTP ${loginPageRes.status}, ${loginPageHtml.length} bytes, title "${title}", text "${text}"). Hex strings found in page: [${hexFound.join(', ') || 'none'}]`)
   }
 
   // Step 3: POST login to locale subdomain
@@ -268,7 +271,7 @@ async function quietly<T>(op: () => Promise<T>): Promise<T | null> {
   try { return await op() } catch { return null }
 }
 
-async function freshSession(username: string, password: string): Promise<BgaSession> {
+async function freshSession(username: string, password: string, why = ''): Promise<BgaSession> {
   const cooling = await quietly(() => kv.get<string>(LOGIN_COOLDOWN_KEY))
   if (cooling) throw new Error(`BGA login paused after a failed attempt: ${cooling}`)
   try {
@@ -276,9 +279,9 @@ async function freshSession(username: string, password: string): Promise<BgaSess
     await quietly(() => kv.set(SESSION_KV_KEY, session, { ex: SESSION_TTL_SECONDS }))
     return session
   } catch (e) {
-    const msg = (e instanceof Error ? e.message : String(e)).slice(0, 200)
+    const msg = (e instanceof Error ? e.message : String(e)).slice(0, 400) + (why ? ` [cached session was rejected: ${why}]` : '')
     await quietly(() => kv.set(LOGIN_COOLDOWN_KEY, msg, { ex: LOGIN_COOLDOWN_SECONDS }))
-    throw e
+    throw new Error(msg)
   }
 }
 
@@ -289,14 +292,17 @@ export async function withBgaSession<T>(
   fn: (session: BgaSession) => Promise<T>,
 ): Promise<T> {
   const cached = await quietly(() => kv.get<BgaSession>(SESSION_KV_KEY))
+  let rejection = ''
   if (cached) {
     try {
       return await fn(cached)
-    } catch {
+    } catch (e) {
+      rejection = (e instanceof Error ? e.message : String(e)).slice(0, 200)
       await quietly(() => kv.del(SESSION_KV_KEY))
     }
   }
-  return fn(await freshSession(username, password))
+  // The cooldown message keeps why the cached session was dropped — it's what led to this login
+  return fn(await freshSession(username, password, rejection))
 }
 
 export async function fetchBGA(username: string, password: string, capDays = 3): Promise<Game[]> {
