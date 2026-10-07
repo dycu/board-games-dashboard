@@ -4,6 +4,22 @@ import { Game, GamesApiResponse, Platform } from '@/lib/types'
 
 const CACHE_KEY = 'games-cache'
 const PENDING_DEPARTURES_KEY = 'pending-departures'
+const PACE_SYNC_AT_KEY = 'pace-sync-at'
+const PACE_SYNC_EVERY_MS = 30 * 60 * 1000
+
+// BGA deletes a finished game's move log within hours, so the Pace logger has
+// to read running games often enough to catch each one's last turns. Piggyback
+// on dashboard refreshes, at most every 30 minutes, fire-and-forget.
+function maybeSyncPace(): void {
+  try {
+    const last = Number(localStorage.getItem(PACE_SYNC_AT_KEY) ?? 0)
+    if (Date.now() - last < PACE_SYNC_EVERY_MS) return
+    localStorage.setItem(PACE_SYNC_AT_KEY, String(Date.now()))
+  } catch {
+    return
+  }
+  fetch('/api/pace/sync', { method: 'POST' }).catch(() => {})
+}
 
 export interface DepartedGame {
   id: string
@@ -215,6 +231,7 @@ export function useGamesData(): UseGamesDataResult {
             setCachedAt(newCachedAt)
             setDisplayedData(freshData)
             setFreshDataVersion(v => v + 1)
+            if (!allErrors.some(e => e.platform === 'bga')) maybeSyncPace()
           }
         }
       }

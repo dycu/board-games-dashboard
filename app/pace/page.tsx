@@ -149,8 +149,8 @@ export default function PacePage() {
                 sub={stats.waiting[0] ? `oldest ${timeAgo(stats.waiting[0].since)}` : 'none'} />
               <Tile label={`Median response · ${stats.recent.days}d`} value={formatHours(stats.recent.medianHours)}
                 sub={`slowest 10%: over ${formatHours(stats.recent.p90Hours)}`} />
-              <Tile label={`Turns per day · ${stats.recent.days}d`} value={String(stats.recent.turnsPerDay)}
-                sub={`${stats.recent.turns} turns`} />
+              <Tile label={`Turns per day · ${stats.recent.days}d`} value={stats.recent.turnsPerDay === null ? '–' : String(stats.recent.turnsPerDay)}
+                sub={stats.recent.coverage < 1 ? `estimated · history for ${Math.round(stats.recent.coverage * 100)}% of game time` : `${stats.recent.turns} turns`} />
             </div>
 
             <Section
@@ -197,7 +197,7 @@ export default function PacePage() {
               <div className="flex flex-col gap-4">
                 <WeekChart weeks={stats.weekly} title="Async BGA games running (average)" value={w => w.avgLoad} format={v => v.toFixed(0)} />
                 <WeekChart weeks={stats.weekly} title="Median response time" value={w => w.medianHours} format={formatHours} />
-                <WeekChart weeks={stats.weekly} title="Turns you played per day" value={w => w.turnsPerDay} format={v => v.toFixed(0)} />
+                <WeekChart weeks={stats.weekly} title="Turns you played per day (estimated where some games have no history)" value={w => w.turnsPerDay} format={v => v.toFixed(0)} />
               </div>
             </Section>
 
@@ -216,6 +216,8 @@ export default function PacePage() {
 
             <p className="text-[11px] text-[#9b9b9b] mb-6">
               Based on move timestamps from BGA. Real-time games (finished within 4 hours) are left out.
+              BGA deletes a finished game&apos;s move log within hours, so only games read while still running have turns —
+              older finished games still count toward how many games were running, and turns per day is scaled up to cover them.
             </p>
           </>
         )}

@@ -8,7 +8,7 @@ const BACKFILL_DAYS = 365
 // say nothing about async pace and it doesn't count toward async load.
 export const REALTIME_MAX_SECONDS = 4 * 3600
 const CONCURRENCY = 3
-const MAX_FAILURES = 3
+const ARCHIVE_GRACE_SECONDS = 6 * 3600
 
 export interface SyncProgress {
   tables: number
@@ -98,10 +98,14 @@ export async function syncBga(username: string, password: string, budgetMs: numb
       allKnown = false
       if (r.cancelled === '1' || r.cancelled === 1) continue
       const realtime = end - start < REALTIME_MAX_SECONDS
+      // BGA archives a finished table's move log within hours ("Cannot find
+      // gamenotifs log file of an archived table"), so the archive is only
+      // worth one try right after a game ends. Turns come from reading tables
+      // while they run; a table never read while running has none.
+      const logMayExist = Date.now() / 1000 - end < ARCHIVE_GRACE_SECONDS
       upsert({
         id, game: r.game_name, server: existing?.server, start, end,
-        // A live game's log isn't worth fetching; an async one is read (or finished) from the archive
-        history: realtime ? 'done' : 'pending',
+        history: !realtime && logMayExist ? 'pending' : 'done',
         state: existing?.state ?? INITIAL_TURN_STATE,
         realtime,
       })
@@ -145,8 +149,15 @@ export async function syncBga(username: string, password: string, budgetMs: numb
         await appendTurns(t.id, turns)
         upsert({ ...t, state, history: t.end === null ? 'synced' : 'done', failures: 0 })
       } catch {
-        const failures = (t.failures ?? 0) + 1
-        upsert({ ...t, failures, history: failures >= MAX_FAILURES && t.end !== null ? 'failed' : t.history })
+        if (t.end !== null) {
+          // Archived already: keep what was read while it ran and close my
+          // open turn (if any) at the end of the game
+          const state = { ...t.state, openStart: null }
+          if (t.state.openStart !== null && t.end > t.state.openStart) await appendTurns(t.id, [[t.state.openStart, t.end]])
+          upsert({ ...t, state, history: 'failed' })
+        } else {
+          upsert({ ...t, failures: (t.failures ?? 0) + 1 })
+        }
       }
     }
   }

@@ -7,7 +7,7 @@ const D = 86400
 const NOW = 1_800_000_000
 
 const table = (id: string, start: number, end: number | null, extra: Partial<PaceTable> = {}): PaceTable => ({
-  id, game: 'thecrew', start, end, history: 'done', state: INITIAL_TURN_STATE, ...extra,
+  id, game: 'thecrew', start, end, history: 'done', state: { ...INITIAL_TURN_STATE, lastPacketId: 1 }, ...extra,
 })
 
 describe('quantile', () => {
@@ -50,8 +50,8 @@ describe('computePaceStats', () => {
 
   it('lists games currently waiting on me, oldest first', () => {
     const tables = [
-      table('1', NOW - 5 * D, null, { state: { ...INITIAL_TURN_STATE, openStart: NOW - H } }),
-      table('2', NOW - 5 * D, null, { state: { ...INITIAL_TURN_STATE, openStart: NOW - 3 * H } }),
+      table('1', NOW - 5 * D, null, { state: { ...INITIAL_TURN_STATE, lastPacketId: 1, openStart: NOW - H } }),
+      table('2', NOW - 5 * D, null, { state: { ...INITIAL_TURN_STATE, lastPacketId: 1, openStart: NOW - 3 * H } }),
       table('3', NOW - 5 * D, null),
     ]
     const s = computePaceStats(tables, {}, NOW)
@@ -80,6 +80,24 @@ describe('computePaceStats', () => {
     for (let k = 0; k < 30; k++, t += D) (turns['5'] ??= []).push([t, t + 8 * H])   // load 12: 8h
     const s = computePaceStats(tables, turns, NOW)
     expect(s.knee).toBe(12)
+  })
+
+  it('scales turns per day up for game time without move history', () => {
+    const monday = Date.UTC(2027, 0, 4) / 1000
+    const now = monday + 7 * D
+    // Two tables all week; only one has history, so coverage is 50%
+    const tables = [table('1', monday - D, null), table('2', monday - D, null, { state: INITIAL_TURN_STATE })]
+    const turns: Record<string, Turn[]> = { '1': Array.from({ length: 7 }, (_, i): Turn => [monday + i * D, monday + i * D + H]) }
+    const s = computePaceStats(tables, turns, now)
+    expect(s.weekly[0]).toMatchObject({ coverage: 0.5, turnsPerDay: 2, n: 7 })
+  })
+
+  it('leaves turns per day empty when under half the game time has history', () => {
+    const monday = Date.UTC(2027, 0, 4) / 1000
+    const tables = [table('1', monday - D, null), table('2', monday - D, null, { state: INITIAL_TURN_STATE }), table('3', monday - D, null, { state: INITIAL_TURN_STATE })]
+    const turns: Record<string, Turn[]> = { '1': [[monday + D, monday + D + H]] }
+    const s = computePaceStats(tables, turns, monday + 7 * D)
+    expect(s.weekly[0].turnsPerDay).toBeNull()
   })
 
   it('returns empty stats when there is no data', () => {

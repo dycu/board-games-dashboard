@@ -17,20 +17,36 @@ export interface WeekPoint {
   weekStart: string        // ISO date (Monday, UTC)
   avgLoad: number          // time-averaged running async tables
   medianHours: number | null
-  turnsPerDay: number      // my turns completed per day
+  // My turns completed per day, scaled up for game time without move history.
+  // null when under half the week's game time has history.
+  turnsPerDay: number | null
+  coverage: number         // share of the week's async game time with move history
   n: number
 }
 
 export interface PaceStats {
   running: number
   waiting: { id: string; game: string; since: number }[] // as of the last sync, oldest first
-  recent: { days: number; turns: number; medianHours: number | null; p90Hours: number | null; turnsPerDay: number }
+  recent: { days: number; turns: number; medianHours: number | null; p90Hours: number | null; turnsPerDay: number | null; coverage: number }
   byLoad: LoadBucket[]
   weekly: WeekPoint[]
   // Load where the median response clearly rises above the low-load baseline
   knee: number | null
   rule: { turnsPerGameDay: number; bestTurnsPerDay: number; suggestedGames: number } | null
   firstTurnAt: number | null
+}
+
+// BGA archives a finished table's move log within hours, so only tables read
+// while running have turns. Turn counts are scaled by this coverage.
+export function hasHistory(t: PaceTable): boolean {
+  return t.state.lastPacketId > 0
+}
+
+// Coverage below this is too thin to estimate a per-day turn count from
+const MIN_COVERAGE = 0.5
+
+function gameDaysIn(tables: PaceTable[], from: number, to: number): number {
+  return tables.reduce((sum, t) => sum + Math.max(0, Math.min(t.end ?? to, to) - Math.max(t.start, from)) / DAY, 0)
 }
 
 export function isAsync(t: PaceTable): boolean {
@@ -73,6 +89,8 @@ export function computePaceStats(
 ): PaceStats {
   const tables = allTables.filter(isAsync)
   const loadAt = makeLoadAt(tables, now)
+  const covered = tables.filter(hasHistory)
+  const coveredLoadAt = makeLoadAt(covered, now)
 
   const turns = tables.flatMap(t =>
     (turnsByTable[t.id] ?? [])
@@ -91,12 +109,16 @@ export function computePaceStats(
   // Recent window
   const recentFrom = now - recentDays * DAY
   const recentResp = turns.filter(t => t.end >= recentFrom).map(t => t.resp).sort((a, b) => a - b)
+  const allGameDays = gameDaysIn(tables, recentFrom, now)
+  const coveredGameDays = gameDaysIn(covered, recentFrom, now)
+  const recentCoverage = allGameDays > 0 ? coveredGameDays / allGameDays : 0
   const recent = {
     days: recentDays,
     turns: recentResp.length,
     medianHours: recentResp.length ? round1(hours(quantile(recentResp, 0.5))) : null,
     p90Hours: recentResp.length ? round1(hours(quantile(recentResp, 0.9))) : null,
-    turnsPerDay: round1(recentResp.length / recentDays),
+    turnsPerDay: recentCoverage >= MIN_COVERAGE ? round1(recentResp.length / recentDays / recentCoverage) : null,
+    coverage: Math.round(recentCoverage * 100) / 100,
   }
 
   // Response time by load
@@ -128,8 +150,9 @@ export function computePaceStats(
     let ti = 0
     for (; ws < now; ws += WEEK) {
       const we = Math.min(ws + WEEK, now)
-      let loadSum = 0, samples = 0
-      for (let h = ws; h < we; h += 3600) { loadSum += loadAt(h); samples++ }
+      let loadSum = 0, coveredSum = 0, samples = 0
+      for (let h = ws; h < we; h += 3600) { loadSum += loadAt(h); coveredSum += coveredLoadAt(h); samples++ }
+      const coverage = loadSum > 0 ? coveredSum / loadSum : 0
       const rs: number[] = []
       while (ti < turns.length && turns[ti].end < ws + WEEK) {
         if (turns[ti].end >= ws) rs.push(turns[ti].resp)
@@ -141,7 +164,8 @@ export function computePaceStats(
         weekStart: new Date(ws * 1000).toISOString().slice(0, 10),
         avgLoad: round1(samples ? loadSum / samples : 0),
         medianHours: rs.length ? round1(hours(quantile(rs, 0.5))) : null,
-        turnsPerDay: round1(days > 0 ? rs.length / days : 0),
+        turnsPerDay: days > 0 && coverage >= MIN_COVERAGE ? round1(rs.length / days / coverage) : null,
+        coverage: Math.round(coverage * 100) / 100,
         n: rs.length,
       })
     }
@@ -158,17 +182,12 @@ export function computePaceStats(
     knee = firstHigh ? firstHigh.load : null
   }
 
-  // Rule of thumb over the recent window: turns each game hands me per day,
-  // and the most turns/day I've sustained in a full week
+  // Rule of thumb over the recent window: turns each game hands me per day
+  // (from games with move history), and the most turns/day I've sustained in a full week
   let rule: PaceStats['rule'] = null
-  const gameDays = tables.reduce((sum, t) => {
-    const from = Math.max(t.start, recentFrom)
-    const to = Math.min(t.end ?? now, now)
-    return sum + Math.max(0, to - from) / DAY
-  }, 0)
-  const fullWeeks = weekly.slice(0, -1).filter(w => w.n > 0)
-  if (gameDays > 0 && recentResp.length > 0 && fullWeeks.length > 0) {
-    const turnsPerGameDay = recentResp.length / gameDays
+  const fullWeeks = weekly.slice(0, -1).filter((w): w is WeekPoint & { turnsPerDay: number } => w.n > 0 && w.turnsPerDay !== null)
+  if (coveredGameDays > 0 && recentResp.length > 0 && fullWeeks.length > 0) {
+    const turnsPerGameDay = recentResp.length / coveredGameDays
     const bestTurnsPerDay = Math.max(...fullWeeks.map(w => w.turnsPerDay))
     rule = {
       turnsPerGameDay: Math.round(turnsPerGameDay * 100) / 100,
