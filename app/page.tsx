@@ -7,16 +7,14 @@ import GameGrid from '@/components/GameGrid'
 import FetchProgress from '@/components/FetchProgress'
 
 const DISMISSED_KEY = 'dismissed-games'
-const OPENED_KEY = 'opened-games'
 const PREFS_KEY = 'user-prefs'
 
 export default function DashboardPage() {
   const [prefs, setPrefs] = useState<UserPrefs>(DEFAULT_PREFS)
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
-  const [opened, setOpened] = useState<Set<string>>(new Set())
   const isInitialFetchRef = useRef(true)
   // Only a genuine browser Back/Forward navigation (e.g. returning from a BGA
-  // game opened in this tab) should preserve dismissed/opened state through
+  // game opened in this tab) should preserve dismissed state through
   // the page's first fetch. Any other load — fresh navigate, reload, or a
   // tablet reopening a tab the OS discarded in the background — is a real
   // new check-in and should clear stale state right away.
@@ -36,8 +34,6 @@ export default function DashboardPage() {
     preserveThroughInitialFetchRef.current = isBackForwardNavigation()
     const stored = localStorage.getItem(DISMISSED_KEY)
     setDismissed(stored ? new Set(JSON.parse(stored)) : new Set())
-    const storedOpened = sessionStorage.getItem(OPENED_KEY)
-    setOpened(storedOpened ? new Set(JSON.parse(storedOpened)) : new Set())
     const cachedPrefs = localStorage.getItem(PREFS_KEY)
     if (cachedPrefs) setPrefs(JSON.parse(cachedPrefs))
     fetch('/api/prefs').then(r => r.json()).then(p => {
@@ -50,7 +46,7 @@ export default function DashboardPage() {
   // so the dashboard reflects exactly what the services report. Cache loads do
   // not clear dismissed state — only real server responses do. The one
   // exception is this page's first fetch after a back/forward navigation,
-  // where we keep dismissed/opened state so returning from a game you just
+  // where we keep dismissed state so returning from a game you just
   // finished doesn't immediately un-hide it.
   useEffect(() => {
     if (freshDataVersion === 0) return
@@ -58,22 +54,12 @@ export default function DashboardPage() {
     if (!skipClear) {
       setDismissed(new Set())
       localStorage.removeItem(DISMISSED_KEY)
-      setOpened(new Set())
-      sessionStorage.removeItem(OPENED_KEY)
     }
     isInitialFetchRef.current = false
   }, [freshDataVersion])
 
+  // An opened game is hidden until the next real refresh shows its actual state
   const handleOpen = (id: string) => {
-    setOpened(prev => {
-      const next = new Set(prev)
-      next.add(id)
-      sessionStorage.setItem(OPENED_KEY, JSON.stringify([...next]))
-      return next
-    })
-  }
-
-  const handleDismiss = (id: string) => {
     setDismissed(prev => {
       const next = new Set(prev)
       next.add(id)
@@ -104,12 +90,10 @@ export default function DashboardPage() {
           prefs={prefs}
           onPrefsChange={updatePrefs}
           dismissed={dismissed}
-          onDismiss={handleDismiss}
           onRefresh={triggerRefresh}
           isRefreshing={isRefreshing}
           lastError={lastError}
           cachedAt={cachedAt}
-          opened={opened}
           onOpen={handleOpen}
           departedGames={departedGames}
         />

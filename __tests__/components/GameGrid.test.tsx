@@ -21,12 +21,10 @@ const defaultGridProps = {
   prefs: DEFAULT_PREFS,
   onPrefsChange: () => {},
   dismissed: new Set<string>(),
-  onDismiss: () => {},
   onRefresh: () => {},
   isRefreshing: false,
   lastError: null,
   cachedAt: null,
-  opened: new Set<string>(),
   onOpen: () => {},
   departedGames: [],
 }

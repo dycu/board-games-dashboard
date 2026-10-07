@@ -14,12 +14,10 @@ interface Props {
   prefs: UserPrefs
   onPrefsChange: (p: UserPrefs) => void
   dismissed: Set<string>
-  onDismiss: (id: string) => void
   onRefresh: () => void
   isRefreshing: boolean
   lastError: string | null
   cachedAt: string | null
-  opened: Set<string>
   onOpen: (id: string) => void
   departedGames: DepartedGame[]
 }
@@ -34,7 +32,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDismiss, onRefresh, isRefreshing, lastError, cachedAt, opened, onOpen, departedGames }: Props) {
+export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefresh, isRefreshing, lastError, cachedAt, onOpen, departedGames }: Props) {
   const { games, errors, fetchedAt } = data
   const configuredPlatforms = data.platforms ?? Array.from(
     new Set([...games.map(g => g.platform), ...errors.map(e => e.platform)])
@@ -160,7 +158,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5 mb-7">
               {myTurnGames.map(g => (
-                <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} onDismiss={() => onDismiss(g.id)} opened={opened.has(g.id)} onOpen={() => onOpen(g.id)} opponentSlowDays={prefs.opponentSlowDays ?? 5} />
+                <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} onOpen={() => onOpen(g.id)} opponentSlowDays={prefs.opponentSlowDays ?? 5} />
               ))}
             </div>
           </>
@@ -173,7 +171,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onDism
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
               {waitingGames.map(g => (
-                <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} onDismiss={() => onDismiss(g.id)} opened={opened.has(g.id)} onOpen={() => onOpen(g.id)} opponentSlowDays={prefs.opponentSlowDays ?? 5} />
+                <GameCard key={g.id} game={g} pinned={prefs.pins.includes(g.id)} onTogglePin={togglePin} onOpen={() => onOpen(g.id)} opponentSlowDays={prefs.opponentSlowDays ?? 5} />
               ))}
             </div>
           </>

@@ -3,10 +3,12 @@ import { CatalogEntry } from './types'
 import { fetchBgaCatalog } from './bga'
 import { fetchYucataCatalog } from './yucata'
 import { fetchRallyCatalog } from './rally'
+import { fetchEighteenxxCatalog } from './eighteenxx'
+import { fetchChoochooCatalog } from './choochoo'
 
-export type CatalogPlatform = 'bga' | 'yucata' | 'rally'
+export type CatalogPlatform = 'bga' | 'yucata' | 'rally' | 'eighteenxx' | 'choochoo'
 
-export const CATALOG_PLATFORMS: CatalogPlatform[] = ['bga', 'yucata', 'rally']
+export const CATALOG_PLATFORMS: CatalogPlatform[] = ['bga', 'yucata', 'rally', 'eighteenxx', 'choochoo']
 
 const TTL_SECONDS = 86400
 
@@ -14,12 +16,14 @@ const TTL_SECONDS = 86400
 // entries from a prior deploy are bypassed instead of served for up to
 // TTL_SECONDS after the fix ships (e.g. the v1 BGA entries cached the
 // broken boardgamearena.com/<slug> URL, not the gamepanel one).
-const CACHE_VERSION = 'v2'
+const CACHE_VERSION = 'v3' // v3: BGA beta games included
 
 const FETCHERS: Record<CatalogPlatform, () => Promise<CatalogEntry[]>> = {
   bga: fetchBgaCatalog,
   yucata: fetchYucataCatalog,
   rally: fetchRallyCatalog,
+  eighteenxx: fetchEighteenxxCatalog,
+  choochoo: fetchChoochooCatalog,
 }
 
 function cacheKey(platform: CatalogPlatform): string {

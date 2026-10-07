@@ -199,7 +199,7 @@ function SearchPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
           {isSearching ? 'Searching…' : 'Search'}
         </button>
       </div>
-      <p className="text-xs text-[#9b9b9b] mt-2">Searches BGA, Yucata and Rally the Troops (the sites with a game catalog).</p>
+      <p className="text-xs text-[#9b9b9b] mt-2">Searches BGA, Yucata, Rally the Troops, 18xx.games and choochoo.games.</p>
 
       {errors.some(e => sites.has(e.platform)) && (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -217,7 +217,7 @@ function SearchPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
         ) : (
           <ul className="mt-3 flex flex-col divide-y divide-[#f0f0f0]">
             {found.map(m => (
-              <li key={m.url} className="flex items-center gap-2 py-2">
+              <li key={`${m.platform}:${m.name}`} className="flex items-center gap-2 py-2">
                 <Badge platform={m.platform} />
                 <span className="text-sm text-[#1a1a1a] truncate flex-1 min-w-0">{m.name}</span>
                 <GameLink url={m.url} platform={m.platform} />
@@ -236,7 +236,7 @@ function SearchPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
   )
 }
 
-const SORTS: [PlayedSort, string][] = [['most', 'Most played'], ['least', 'Least played'], ['recent', 'Recent'], ['name', 'A–Z']]
+const SORTS: [PlayedSort, string][] = [['recent', 'Recent'], ['most', 'Most played'], ['least', 'Least played'], ['name', 'A–Z']]
 
 function playedNote(g: PlayedGame): string {
   // 0 usually means the site's history can't be read (18xx), not that it was never played
@@ -250,7 +250,7 @@ function playedNote(g: PlayedGame): string {
 function PlayedPanel({ backlog, target, sites }: { backlog: Backlog; target: BacklogList; sites: Set<Platform> }) {
   const finished = useFinishedGamesData()
   const [filter, setFilter] = useState('')
-  const [sort, setSort] = useState<PlayedSort>('most')
+  const [sort, setSort] = useState<PlayedSort>('recent')
   const [finishedOnly, setFinishedOnly] = useState(false)
   const bgaTotals = useBgaPlayTotals()
 

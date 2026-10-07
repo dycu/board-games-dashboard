@@ -25,7 +25,8 @@ export function parseBgaCatalog(html: string): CatalogEntry[] {
 
   const list: any[] = JSON.parse(html.slice(start, end))
   return list
-    .filter(g => g.name && g.display_name_en && g.status === 'public')
+    // Beta games are open to everyone too; alpha games aren't in this list at all
+    .filter(g => g.name && g.display_name_en && (g.status === 'public' || g.status === 'beta'))
     // The pretty https://boardgamearena.com/<slug> URL currently 500s for anonymous
     // visitors; gamepanel is the reliable public URL (also used in lib/connectors/bga.ts).
     .map(g => ({ name: g.display_name_en, url: `https://en.boardgamearena.com/gamepanel?game=${g.name}` }))

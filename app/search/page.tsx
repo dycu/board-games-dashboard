@@ -44,7 +44,7 @@ export default function SearchPage() {
         <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
           <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">Find a game</h2>
           <p className="text-xs text-[#9b9b9b] mb-3">
-            Search BGA, Yucata, and Rally the Troops at once to see where a game is available.
+            Search BGA, Yucata, Rally the Troops, 18xx.games and choochoo.games at once to see where a game is available.
           </p>
           <div className="flex gap-2">
             <input
@@ -85,7 +85,7 @@ export default function SearchPage() {
                   ) : (
                     <div className="flex flex-col gap-2">
                       {r.matches.map(m => (
-                        <div key={m.url} className="flex items-center justify-between gap-2">
+                        <div key={m.name} className="flex items-center justify-between gap-2">
                           <span className="text-sm text-[#1a1a1a]">{m.name}</span>
                           <a
                             href={m.url}

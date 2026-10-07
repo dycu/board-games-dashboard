@@ -59,8 +59,8 @@ describe('resolvePlayUrl', () => {
   })
 
   it('uses the platform home for platforms without a catalog', async () => {
-    const url = await resolvePlayUrl({ platform: 'eighteenxx', gameName: '1889' }, catalog)
-    expect(url).toBe('https://18xx.games')
+    const url = await resolvePlayUrl({ platform: 'obg', gameName: 'Antiquity' }, catalog)
+    expect(url).toBe('https://www.onlineboardgamers.com')
     expect(catalog).not.toHaveBeenCalled()
   })
 })
