@@ -11,7 +11,8 @@ import { Platform, PLATFORM_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/type
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { BacklogItem, BacklogList, BACKLOG_LISTS, listOf } from '@/lib/backlog/list'
 import { bgaGamePanelUrl } from '@/lib/backlog/bgaSlug'
-import { PlayedGame, PlayedSort, PlayTotal, aggregatePlayed, sortPlayed } from '@/lib/backlog/played'
+import { PlayedGame, PlayedSort, aggregatePlayed, sortPlayed } from '@/lib/backlog/played'
+import { useBgaPlayTotals, totalsOf } from '@/hooks/useBgaPlayTotals'
 import { formatTimeAgo } from '@/lib/connectors/utils'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
@@ -251,23 +252,13 @@ function PlayedPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
   const [filter, setFilter] = useState('')
   const [sort, setSort] = useState<PlayedSort>('most')
   const [finishedOnly, setFinishedOnly] = useState(false)
-  // BGA's own lifetime counts; the history above only holds its latest 50 games
-  const [bgaTotals, setBgaTotals] = useState<{ totals: PlayTotal[] } | { error: string } | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/backlog/bga-plays')
-      .then(r => r.json())
-      .then(json => { if (!cancelled) setBgaTotals(json.error ? { error: json.error } : { totals: json.totals }) })
-      .catch(e => { if (!cancelled) setBgaTotals({ error: String(e) }) })
-    return () => { cancelled = true }
-  }, [])
+  const bgaTotals = useBgaPlayTotals()
 
   const played = useMemo(
     () => aggregatePlayed(
       readCache()?.data.games ?? [],
       finished.data?.games ?? [],
-      bgaTotals && 'totals' in bgaTotals ? bgaTotals.totals : [],
+      totalsOf(bgaTotals),
     ),
     [finished.data, bgaTotals],
   )

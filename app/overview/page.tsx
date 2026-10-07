@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Platform, PLATFORM_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
@@ -8,12 +8,16 @@ import FetchProgress from '@/components/FetchProgress'
 import TopNav from '@/components/TopNav'
 import AddToBacklogButton from '@/components/AddToBacklogButton'
 import { useBacklog } from '@/hooks/useBacklog'
+import { useBgaPlayTotals, totalsOf } from '@/hooks/useBgaPlayTotals'
+import { aggregatePlayed } from '@/lib/backlog/played'
+import PlayCountChart from '@/components/PlayCountChart'
 
 const PAGE_SIZE = 20
 
 export default function OverviewPage() {
   const { data, isLoading, lastError, platformStatuses } = useFinishedGamesData()
   const backlog = useBacklog()
+  const bgaTotals = useBgaPlayTotals()
   const [platformFilter, setPlatformFilter] = useState<Platform | null>(null)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
@@ -24,6 +28,11 @@ export default function OverviewPage() {
   const filtered = data
     ? (platformFilter ? data.games.filter(g => g.platform === platformFilter) : data.games)
     : []
+
+  const playCounts = useMemo(
+    () => data ? aggregatePlayed([], data.games, totalsOf(bgaTotals)) : [],
+    [data, bgaTotals],
+  )
 
   const visible = filtered.slice(0, visibleCount)
   const hasMore = filtered.length > visibleCount
@@ -92,6 +101,10 @@ export default function OverviewPage() {
               </button>
             ))}
           </div>
+        )}
+
+        {data && (
+          <PlayCountChart games={platformFilter ? playCounts.filter(g => g.platform === platformFilter) : playCounts} />
         )}
 
         {data && visible.length > 0 && (
