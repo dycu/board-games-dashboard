@@ -1,13 +1,14 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import { Platform } from '@/lib/types'
-import { BacklogItem, backlogId } from '@/lib/backlog/list'
+import { BacklogItem, BacklogList, backlogId, listOf, moveToList, reorderItems } from '@/lib/backlog/list'
 
 export interface AddRequest {
   platform: Platform
   gameName: string
   playUrl?: string
   gameUrl?: string
+  list: BacklogList
 }
 
 async function fetchBacklog(): Promise<BacklogItem[]> {
@@ -52,8 +53,12 @@ export function useBacklog() {
     }
   }, [load])
 
-  const has = useCallback(
-    (platform: Platform, gameName: string) => !!items?.some(i => i.id === backlogId(platform, gameName)),
+  // Which list the game is in, if any
+  const listFor = useCallback(
+    (platform: Platform, gameName: string): BacklogList | null => {
+      const item = items?.find(i => i.id === backlogId(platform, gameName))
+      return item ? listOf(item) : null
+    },
     [items],
   )
 
@@ -74,10 +79,17 @@ export function useBacklog() {
     send({ op: 'remove', id })
   }, [send])
 
+  // `ordered` is one list in its new order; the other list keeps its order
   const reorder = useCallback((ordered: BacklogItem[]) => {
-    setItems(ordered)
-    send({ op: 'order', ids: ordered.map(i => i.id) })
+    const ids = ordered.map(i => i.id)
+    setItems(prev => prev && reorderItems(prev, ids))
+    send({ op: 'order', ids })
   }, [send])
 
-  return { items, error, has, add, isAdding, remove, reorder }
+  const move = useCallback((id: string, list: BacklogList) => {
+    setItems(prev => prev && moveToList(prev, id, list))
+    send({ op: 'move', id, list })
+  }, [send])
+
+  return { items, error, listFor, add, isAdding, remove, reorder, move }
 }

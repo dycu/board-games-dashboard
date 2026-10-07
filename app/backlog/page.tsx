@@ -9,14 +9,15 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Platform, PLATFORM_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
-import { BacklogItem } from '@/lib/backlog/list'
+import { BacklogItem, BacklogList, BACKLOG_LISTS, listOf } from '@/lib/backlog/list'
+import { bgaGamePanelUrl } from '@/lib/backlog/bgaSlug'
 import { PlayedGame, PlayedSort, PlayTotal, aggregatePlayed, sortPlayed } from '@/lib/backlog/played'
 import { formatTimeAgo } from '@/lib/connectors/utils'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
 import { readCache } from '@/hooks/useGamesData'
 import TopNav from '@/components/TopNav'
-import AddToBacklogButton from '@/components/AddToBacklogButton'
+import AddToBacklogButton, { LIST_LABELS } from '@/components/AddToBacklogButton'
 
 type Backlog = ReturnType<typeof useBacklog>
 
@@ -31,12 +32,28 @@ function Badge({ platform }: { platform: Platform }) {
   )
 }
 
-function Row({ item, position, onTop, onRemove }: {
+function GameLink({ url, platform }: { url: string; platform: Platform }) {
+  return (
+    <a
+      href={url}
+      target={platform === 'bga' ? '_self' : '_blank'}
+      rel="noopener noreferrer"
+      title="Open the game's page"
+      className={SMALL_BUTTON}
+    >
+      Game ↗
+    </a>
+  )
+}
+
+function Row({ item, position, onTop, onMove, onRemove }: {
   item: BacklogItem
   position: number
   onTop?: () => void
+  onMove: () => void
   onRemove: () => void
 }) {
+  const other = listOf(item) === 'play' ? 'Learn' : 'Play'
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
 
   return (
@@ -77,6 +94,9 @@ function Row({ item, position, onTop, onRemove }: {
       >
         ⤒
       </button>
+      <button onClick={onMove} title={`Move to ${other === 'Learn' ? 'Next to learn' : 'Next to play'}`} className={SMALL_BUTTON}>
+        → {other}
+      </button>
       <button onClick={onRemove} title="Remove" aria-label={`Remove ${item.gameName}`} className={SMALL_BUTTON}>
         ✕
       </button>
@@ -84,8 +104,8 @@ function Row({ item, position, onTop, onRemove }: {
   )
 }
 
-function BacklogList({ backlog }: { backlog: Backlog }) {
-  const items = backlog.items ?? []
+function ListSection({ backlog, list }: { backlog: Backlog; list: BacklogList }) {
+  const items = (backlog.items ?? []).filter(i => listOf(i) === list)
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -100,8 +120,10 @@ function BacklogList({ backlog }: { backlog: Backlog }) {
 
   if (items.length === 0) {
     return (
-      <p className="text-sm text-[#9b9b9b] text-center py-8">
-        Nothing planned yet. Add games below, or with “+ Backlog” on the History page.
+      <p className="text-sm text-[#9b9b9b] text-center py-6 rounded-lg border border-dashed border-[#e5e5e5]">
+        {list === 'play'
+          ? 'Nothing here yet. Add games below, or with “+ Backlog” on the History page.'
+          : 'No games to learn yet. Choose “Next to learn” in the box below and add some.'}
       </p>
     )
   }
@@ -116,6 +138,7 @@ function BacklogList({ backlog }: { backlog: Backlog }) {
               item={item}
               position={i + 1}
               onTop={i > 0 ? () => backlog.reorder(arrayMove(items, i, 0)) : undefined}
+              onMove={() => backlog.move(item.id, list === 'play' ? 'learn' : 'play')}
               onRemove={() => backlog.remove(item.id)}
             />
           ))}
@@ -130,7 +153,7 @@ interface SearchResult {
   matches: { name: string; url: string }[]
 }
 
-function SearchPanel({ backlog }: { backlog: Backlog }) {
+function SearchPanel({ backlog, target }: { backlog: Backlog; target: BacklogList }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[] | null>(null)
   const [errors, setErrors] = useState<{ platform: Platform }[]>([])
@@ -192,11 +215,12 @@ function SearchPanel({ backlog }: { backlog: Backlog }) {
               <li key={m.url} className="flex items-center gap-2 py-2">
                 <Badge platform={m.platform} />
                 <span className="text-sm text-[#1a1a1a] truncate flex-1 min-w-0">{m.name}</span>
+                <GameLink url={m.url} platform={m.platform} />
                 <AddToBacklogButton
                   label="+ Add"
-                  inBacklog={backlog.has(m.platform, m.name)}
+                  inList={backlog.listFor(m.platform, m.name)}
                   adding={backlog.isAdding(m.platform, m.name)}
-                  onAdd={() => backlog.add({ platform: m.platform, gameName: m.name, playUrl: m.url })}
+                  onAdd={() => backlog.add({ platform: m.platform, gameName: m.name, playUrl: m.url, list: target })}
                 />
               </li>
             ))}
@@ -217,7 +241,7 @@ function playedNote(g: PlayedGame): string {
 }
 
 // Mounted only when opened: loading finished games asks every platform
-function PlayedPanel({ backlog }: { backlog: Backlog }) {
+function PlayedPanel({ backlog, target }: { backlog: Backlog; target: BacklogList }) {
   const finished = useFinishedGamesData()
   const [filter, setFilter] = useState('')
   const [sort, setSort] = useState<PlayedSort>('most')
@@ -291,11 +315,12 @@ function PlayedPanel({ backlog }: { backlog: Backlog }) {
               <p className="text-sm text-[#1a1a1a] truncate">{g.gameName}</p>
               <p className="text-xs text-[#9b9b9b]">{playedNote(g)}</p>
             </div>
+            <GameLink url={(g.platform === 'bga' && bgaGamePanelUrl(g.gameUrl)) || g.gameUrl} platform={g.platform} />
             <AddToBacklogButton
               label="+ Add"
-              inBacklog={backlog.has(g.platform, g.gameName)}
+              inList={backlog.listFor(g.platform, g.gameName)}
               adding={backlog.isAdding(g.platform, g.gameName)}
-              onAdd={() => backlog.add({ platform: g.platform, gameName: g.gameName, gameUrl: g.gameUrl })}
+              onAdd={() => backlog.add({ platform: g.platform, gameName: g.gameName, gameUrl: g.gameUrl, list: target })}
             />
           </li>
         ))}
@@ -311,39 +336,52 @@ export default function BacklogPage() {
   const backlog = useBacklog()
   const [source, setSource] = useState<'search' | 'played'>('search')
   const [playedOpened, setPlayedOpened] = useState(false)
+  const [target, setTarget] = useState<BacklogList>('play')
 
   const navRight = backlog.items ? <span>{backlog.items.length} planned</span> : undefined
+  const pill = (active: boolean) => `text-xs px-3 py-1 rounded-full font-medium transition-colors
+    ${active ? 'bg-[#1a1a1a] text-white' : 'bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb]'}`
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <TopNav right={navRight} />
       <div className="flex-1 overflow-y-auto p-5 max-w-2xl mx-auto w-full">
-        <h2 className="text-sm font-semibold text-[#1a1a1a] mb-3">Up next</h2>
-
         {backlog.error && (
           <p className="mb-3 text-xs bg-red-100 text-red-600 px-2 py-1 rounded-md">⚠ {backlog.error}</p>
         )}
 
         {backlog.items === null
           ? !backlog.error && <p className="text-sm text-[#9b9b9b] text-center py-8">Loading…</p>
-          : <BacklogList backlog={backlog} />}
+          : BACKLOG_LISTS.map(list => (
+            <section key={list} className="mb-6">
+              <h2 className="text-sm font-semibold text-[#1a1a1a] mb-3">{LIST_LABELS[list]}</h2>
+              <ListSection backlog={backlog} list={list} />
+            </section>
+          ))}
 
-        <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mt-6">
-          <div className="flex items-center gap-1 mb-4">
+        <div className="bg-white rounded-xl border border-[#e5e5e5] p-5">
+          <div className="flex flex-wrap items-center gap-1 mb-3">
             <h2 className="text-sm font-semibold text-[#1a1a1a] mr-3">Add games</h2>
             {([['search', 'Search'], ['played', 'From your games']] as const).map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => { setSource(key); if (key === 'played') setPlayedOpened(true) }}
-                className={`text-xs px-3 py-1 rounded-full font-medium transition-colors
-                  ${source === key ? 'bg-[#1a1a1a] text-white' : 'bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb]'}`}
+                className={pill(source === key)}
               >
                 {label}
               </button>
             ))}
           </div>
-          <div className={source === 'search' ? '' : 'hidden'}><SearchPanel backlog={backlog} /></div>
-          {playedOpened && <div className={source === 'played' ? '' : 'hidden'}><PlayedPanel backlog={backlog} /></div>}
+          <div className="flex flex-wrap items-center gap-1 mb-4">
+            <span className="text-xs text-[#9b9b9b] mr-2">Add to</span>
+            {BACKLOG_LISTS.map(list => (
+              <button key={list} onClick={() => setTarget(list)} className={pill(target === list)}>
+                {LIST_LABELS[list]}
+              </button>
+            ))}
+          </div>
+          <div className={source === 'search' ? '' : 'hidden'}><SearchPanel backlog={backlog} target={target} /></div>
+          {playedOpened && <div className={source === 'played' ? '' : 'hidden'}><PlayedPanel backlog={backlog} target={target} /></div>}
         </div>
       </div>
     </div>

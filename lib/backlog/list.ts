@@ -1,11 +1,20 @@
 import { Platform } from '../types'
 
+export type BacklogList = 'play' | 'learn'
+
+export const BACKLOG_LISTS: BacklogList[] = ['play', 'learn']
+
 export interface BacklogItem {
   id: string        // `${platform}:${normalized name}` — also the duplicate check
   platform: Platform
   gameName: string
   playUrl: string   // where a new game of it is started
   addedAt: string   // ISO
+  list?: BacklogList // missing on items saved before there were two lists = 'play'
+}
+
+export function listOf(item: BacklogItem): BacklogList {
+  return item.list ?? 'play'
 }
 
 export function backlogId(platform: Platform, gameName: string): string {
@@ -27,4 +36,11 @@ export function reorderItems(list: BacklogItem[], ids: string[]): BacklogItem[] 
   const ordered = ids.flatMap(id => byId.get(id) ?? [])
   const mentioned = new Set(ids)
   return [...ordered, ...list.filter(i => !mentioned.has(i.id))]
+}
+
+// Moves to the end of the other list
+export function moveToList(list: BacklogItem[], id: string, target: BacklogList): BacklogItem[] {
+  const item = list.find(i => i.id === id)
+  if (!item) return list
+  return [...list.filter(i => i.id !== id), { ...item, list: target }]
 }

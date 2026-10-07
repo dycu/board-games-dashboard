@@ -2,6 +2,7 @@ import { Platform, PLATFORM_URLS } from '../types'
 import { CatalogEntry } from '../catalogs/types'
 import { CatalogPlatform, CATALOG_PLATFORMS } from '../catalogs/cache'
 import { matchCatalog } from '../catalogs/match'
+import { bgaGamePanelUrl } from './bgaSlug'
 
 // A catalog match below this is too loose to send someone to start a game of it
 const MIN_SCORE = 0.9
@@ -13,17 +14,7 @@ export interface PlayUrlInput {
   gameUrl?: string  // a played table's URL
 }
 
-// BGA table URLs are /{gameserver}/{slug}?table=ID or /{slug}?table=ID; game panels are /gamepanel?game={slug}
-export function bgaSlugFromTableUrl(url: string): string | null {
-  try {
-    const u = new URL(url)
-    if (u.searchParams.has('game')) return u.searchParams.get('game')
-    if (!u.searchParams.has('table')) return null
-    return u.pathname.split('/').filter(Boolean).pop() ?? null
-  } catch {
-    return null
-  }
-}
+export { bgaSlugFromTableUrl } from './bgaSlug'
 
 export async function resolvePlayUrl(
   input: PlayUrlInput,
@@ -33,8 +24,8 @@ export async function resolvePlayUrl(
   if (input.playUrl && /^https?:\/\//.test(input.playUrl)) return input.playUrl
 
   if (input.platform === 'bga' && input.gameUrl) {
-    const slug = bgaSlugFromTableUrl(input.gameUrl)
-    if (slug) return `https://boardgamearena.com/gamepanel?game=${encodeURIComponent(slug)}`
+    const panel = bgaGamePanelUrl(input.gameUrl)
+    if (panel) return panel
   }
 
   if ((CATALOG_PLATFORMS as Platform[]).includes(input.platform)) {
