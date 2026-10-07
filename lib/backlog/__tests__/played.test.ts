@@ -45,3 +45,22 @@ describe('sortPlayed', () => {
   it('recent: running games, then by last finish', () => expect(names('recent')).toEqual(['Carcassonne', 'Brass', 'Azul']))
   it('alphabetical', () => expect(names('name')).toEqual(['Azul', 'Brass', 'Carcassonne']))
 })
+
+describe('aggregatePlayed with platform totals', () => {
+  it('uses the total instead of counting the fetched history', () => {
+    const list = aggregatePlayed(
+      [],
+      [done('bga', 'Azul', 3), done('obg', 'Bus', 2)],
+      [{ platform: 'bga', gameName: 'Azul', gameUrl: 'https://boardgamearena.com/gamepanel?game=azul', plays: 40 }],
+    )
+    expect(list.find(g => g.gameName === 'Azul')).toMatchObject({ plays: 40 })
+    expect(list.find(g => g.gameName === 'Bus')).toMatchObject({ plays: 1 })
+  })
+
+  it('lists games known only from the totals', () => {
+    const [g] = aggregatePlayed([], [], [
+      { platform: 'bga', gameName: 'Marco Polo', gameUrl: 'https://boardgamearena.com/gamepanel?game=marcopolo', plays: 1 },
+    ])
+    expect(g).toMatchObject({ gameName: 'Marco Polo', plays: 1, playingNow: 0, lastPlayedAt: null })
+  })
+})

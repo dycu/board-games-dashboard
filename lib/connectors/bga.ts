@@ -1,6 +1,7 @@
 import { kv } from '@vercel/kv'
 import { Game, FinishedGame } from '../types'
 import { formatTimeRemaining, formatTimeAgo } from './utils'
+import { getCatalog } from '../catalogs/cache'
 
 const BASE = 'https://boardgamearena.com'
 
@@ -64,7 +65,27 @@ const UNRESOLVED_TTL_SECONDS = 86400
 
 type CachedName = { name: string | null }
 
-async function fetchGameNames(slugs: string[], cookies: Record<string, string>): Promise<Map<string, string>> {
+// og:title sits in the first ~1 KB of a ~1.9 MB game page, so stop reading after </head>
+async function readHead(res: Response): Promise<string> {
+  if (!res.body) return res.text()
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let html = ''
+  while (!html.includes('</head>') && html.length < 200_000) {
+    const { done, value } = await reader.read()
+    if (done) break
+    html += decoder.decode(value, { stream: true })
+  }
+  reader.cancel().catch(() => {})
+  return html
+}
+
+// `known` (e.g. catalog names) fills uncached slugs without fetching their pages
+async function fetchGameNames(
+  slugs: string[],
+  cookies: Record<string, string>,
+  known?: Map<string, string>,
+): Promise<Map<string, string>> {
   const map = new Map<string, string>()
 
   let cached: (CachedName | null)[] = []
@@ -74,11 +95,17 @@ async function fetchGameNames(slugs: string[], cookies: Record<string, string>):
     // KV unavailable — resolve everything live
   }
   const missing: string[] = []
+  const knownWrites: Promise<unknown>[] = []
   slugs.forEach((slug, i) => {
     const entry = cached[i]
+    const knownName = known?.get(slug)
     if (entry) map.set(slug, entry.name ?? slug)
-    else missing.push(slug)
+    else if (knownName) {
+      map.set(slug, knownName)
+      knownWrites.push(kv.set(NAME_CACHE_PREFIX + slug, { name: knownName } satisfies CachedName).catch(() => {}))
+    } else missing.push(slug)
   })
+  await Promise.all(knownWrites)
   if (missing.length === 0) return map
 
   // Fetch in small batches with a gap to avoid triggering BGA rate-limiting.
@@ -104,7 +131,7 @@ async function fetchGameNames(slugs: string[], cookies: Record<string, string>):
           // BGA has used both "online from your browser" and "online on Board Game Arena"
           // wording over time, so match either.
           if (!res.ok) continue
-          const html = await res.text()
+          const html = await readHead(res)
           const m = html.match(/content="Play ([^"]+?) online (?:from your browser|on Board Game Arena)"/i)
           return [slug, m ? decodeHtmlEntities(m[1].replace(/\s+/g, ' ').trim()) : null]
         } finally {
@@ -412,4 +439,32 @@ export async function fetchFinishedBGA(username: string, password: string): Prom
         : `${BASE}/${t.game_name}?table=${t.table_id}`,
     }
   })
+}
+
+// Lifetime finished-game count per game. getGames with updateStats=1 adds
+// stats.games: one row per game ever played, whose cnt values add up to the
+// player's total — unlike the table list, which pages 10 at a time.
+export async function fetchBgaPlayTotals(username: string, password: string): Promise<{ slug: string; name: string; plays: number }[]> {
+  const { session, rows } = await withBgaSession(username, password, async s => {
+    const url = `${BASE}/gamestats/gamestats/getGames.html?player=${s.myId}&opponent_id=0&finished=1&page=1&updateStats=1`
+    const res = await fetch(url, { headers: bgaApiHeaders(s, `${BASE}/gamestats?player=${s.myId}`) })
+    const text = await res.text()
+    let json: any
+    try { json = JSON.parse(text) } catch {
+      throw new Error(`BGA gamestats HTTP ${res.status}: ${text.slice(0, 300)}`)
+    }
+    if (String(json.status) !== '1') throw new Error(`BGA gamestats failed: ${json.error ?? JSON.stringify(json).slice(0, 300)}`)
+    return { session: s, rows: (json.data?.stats?.games ?? []) as any[] }
+  })
+
+  const slugs = [...new Set(rows.map(r => r.game_name as string).filter(Boolean))]
+  const catalog = await getCatalog('bga').catch(() => [])
+  const catalogNames = new Map(catalog.flatMap(e => {
+    const slug = new URL(e.url).searchParams.get('game')
+    return slug ? [[slug, e.name] as [string, string]] : []
+  }))
+  const names = slugs.length > 0 ? await fetchGameNames(slugs, session.cookies, catalogNames) : new Map<string, string>()
+  return rows
+    .filter(r => r.game_name)
+    .map(r => ({ slug: r.game_name, name: names.get(r.game_name) ?? r.game_name, plays: Number(r.cnt) || 0 }))
 }

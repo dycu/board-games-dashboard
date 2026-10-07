@@ -13,10 +13,11 @@ export interface PlayUrlInput {
   gameUrl?: string  // a played table's URL
 }
 
-// BGA table URLs are /{gameserver}/{slug}?table=ID or /{slug}?table=ID
+// BGA table URLs are /{gameserver}/{slug}?table=ID or /{slug}?table=ID; game panels are /gamepanel?game={slug}
 export function bgaSlugFromTableUrl(url: string): string | null {
   try {
     const u = new URL(url)
+    if (u.searchParams.has('game')) return u.searchParams.get('game')
     if (!u.searchParams.has('table')) return null
     return u.pathname.split('/').filter(Boolean).pop() ?? null
   } catch {

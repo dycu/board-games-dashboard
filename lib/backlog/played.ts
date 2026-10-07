@@ -16,6 +16,14 @@ export interface PlayedGame {
   lastPlayedAt: Date | null   // latest known finish
 }
 
+// A platform's own lifetime count for a game, when it reports one (BGA does)
+export interface PlayTotal {
+  platform: Platform
+  gameName: string
+  gameUrl: string
+  plays: number
+}
+
 export type PlayedSort = 'most' | 'least' | 'recent' | 'name'
 
 // One entry per platform and game. Table titles (OBG, choochoo) are grouped under
@@ -23,6 +31,7 @@ export type PlayedSort = 'most' | 'least' | 'recent' | 'name'
 export function aggregatePlayed(
   active: PlayedInput[],
   finished: (PlayedInput & { completedAt: Date })[],
+  totals: PlayTotal[] = [],
 ): PlayedGame[] {
   const byKey = new Map<string, PlayedGame>()
   const entry = (g: PlayedInput) => {
@@ -45,6 +54,10 @@ export function aggregatePlayed(
       if (!e.playingNow) e.gameUrl = g.gameUrl
     }
   })
+  // The fetched history is only the latest games; a platform's own total is complete
+  const totalled = new Set(totals.map(t => t.platform))
+  byKey.forEach(e => { if (totalled.has(e.platform)) e.plays = 0 })
+  totals.forEach(t => { entry(t).plays += t.plays })
   return [...byKey.values()]
 }
 

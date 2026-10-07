@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent,
 } from '@dnd-kit/core'
@@ -10,7 +10,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { Platform, PLATFORM_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { BacklogItem } from '@/lib/backlog/list'
-import { PlayedGame, PlayedSort, aggregatePlayed, sortPlayed } from '@/lib/backlog/played'
+import { PlayedGame, PlayedSort, PlayTotal, aggregatePlayed, sortPlayed } from '@/lib/backlog/played'
 import { formatTimeAgo } from '@/lib/connectors/utils'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
@@ -221,10 +221,25 @@ function PlayedPanel({ backlog }: { backlog: Backlog }) {
   const finished = useFinishedGamesData()
   const [filter, setFilter] = useState('')
   const [sort, setSort] = useState<PlayedSort>('most')
+  // BGA's own lifetime counts; the history above only holds its latest 50 games
+  const [bgaTotals, setBgaTotals] = useState<{ totals: PlayTotal[] } | { error: string } | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/backlog/bga-plays')
+      .then(r => r.json())
+      .then(json => { if (!cancelled) setBgaTotals(json.error ? { error: json.error } : { totals: json.totals }) })
+      .catch(e => { if (!cancelled) setBgaTotals({ error: String(e) }) })
+    return () => { cancelled = true }
+  }, [])
 
   const played = useMemo(
-    () => aggregatePlayed(readCache()?.data.games ?? [], finished.data?.games ?? []),
-    [finished.data],
+    () => aggregatePlayed(
+      readCache()?.data.games ?? [],
+      finished.data?.games ?? [],
+      bgaTotals && 'totals' in bgaTotals ? bgaTotals.totals : [],
+    ),
+    [finished.data, bgaTotals],
   )
 
   const q = filter.trim().toLowerCase()
@@ -251,8 +266,13 @@ function PlayedPanel({ backlog }: { backlog: Backlog }) {
           </button>
         ))}
       </div>
-      {finished.isLoading && (
+      {(finished.isLoading || !bgaTotals) && (
         <p className="text-xs text-[#9b9b9b] mt-2">Loading finished games…</p>
+      )}
+      {bgaTotals && 'error' in bgaTotals && (
+        <p className="mt-2 text-xs bg-red-100 text-red-600 px-2 py-1 rounded-md">
+          ⚠ BGA play counts unavailable, so BGA shows only its latest 50 games: {bgaTotals.error}
+        </p>
       )}
       {finished.data && finished.data.errors.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">

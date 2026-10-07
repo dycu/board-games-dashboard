@@ -9,6 +9,9 @@ describe('bgaSlugFromTableUrl', () => {
   it('reads the slug without a gameserver segment', () => {
     expect(bgaSlugFromTableUrl('https://boardgamearena.com/arknova?table=123')).toBe('arknova')
   })
+  it('reads the slug from a game panel URL', () => {
+    expect(bgaSlugFromTableUrl('https://boardgamearena.com/gamepanel?game=azul')).toBe('azul')
+  })
   it('returns null for other URLs', () => {
     expect(bgaSlugFromTableUrl('https://boardgamearena.com/gameinprogress')).toBeNull()
   })
