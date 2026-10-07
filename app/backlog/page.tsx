@@ -161,6 +161,7 @@ function SearchPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
   const [results, setResults] = useState<SearchResult[] | null>(null)
   const [errors, setErrors] = useState<{ platform: Platform }[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [searched, setSearched] = useState('') // the query the results belong to
 
   const runSearch = async () => {
     const q = query.trim()
@@ -171,6 +172,7 @@ function SearchPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
       const json = await res.json()
       setResults(json.results ?? [])
       setErrors(json.errors ?? [])
+      setSearched(q)
     } finally {
       setIsSearching(false)
     }
@@ -231,6 +233,26 @@ function SearchPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
             ))}
           </ul>
         )
+      )}
+
+      {results && searched && sites.size > 0 && (
+        // For games no catalog lists, e.g. BGA alpha games
+        <div className="mt-3 pt-3 border-t border-[#f0f0f0] flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-[#9b9b9b] mr-1">Not there? Add “{searched}” on</span>
+          {ALL_PLATFORMS.filter(p => sites.has(p)).map(p => {
+            const inList = backlog.listFor(p, searched)
+            return (
+              <button
+                key={p}
+                onClick={() => backlog.add({ platform: p, gameName: searched, list: target })}
+                disabled={!!inList || backlog.isAdding(p, searched)}
+                className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[p] ?? BADGE_FALLBACK} disabled:opacity-50`}
+              >
+                {inList ? '✓ ' : '+ '}{PLATFORM_LABELS[p]}
+              </button>
+            )
+          })}
+        </div>
       )}
     </div>
   )

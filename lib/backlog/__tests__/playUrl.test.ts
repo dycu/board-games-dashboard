@@ -46,6 +46,12 @@ describe('resolvePlayUrl', () => {
     expect(url).toBe('https://www.yucata.de/en/GameInfo/ArkNova')
   })
 
+  it('guesses the BGA game page from the name when the catalog has no match (alpha games)', async () => {
+    catalog.mockResolvedValue([{ name: 'Agricola', url: 'https://en.boardgamearena.com/gamepanel?game=agricola' }])
+    const url = await resolvePlayUrl({ platform: 'bga', gameName: 'Civolution' }, catalog)
+    expect(url).toBe('https://boardgamearena.com/gamepanel?game=civolution')
+  })
+
   it('falls back to the platform home without a close match', async () => {
     catalog.mockResolvedValue([{ name: 'Agricola', url: 'https://www.yucata.de/en/GameInfo/Agricola' }])
     const url = await resolvePlayUrl({ platform: 'yucata', gameName: 'Ark Nova' }, catalog)

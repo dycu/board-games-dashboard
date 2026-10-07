@@ -36,5 +36,11 @@ export async function resolvePlayUrl(
       // catalog unavailable — the home page still works
     }
   }
+  // Alpha games aren't in BGA's public list, but their slug is usually the
+  // name squashed to lowercase letters and digits (Civolution -> civolution)
+  if (input.platform === 'bga') {
+    const slug = input.gameName.toLowerCase().replace(/[^a-z0-9]/g, '')
+    if (slug) return `https://boardgamearena.com/gamepanel?game=${slug}`
+  }
   return home
 }
