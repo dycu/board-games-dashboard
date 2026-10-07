@@ -6,11 +6,14 @@ import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
 import FinishedGameCard from '@/components/FinishedGameCard'
 import FetchProgress from '@/components/FetchProgress'
 import TopNav from '@/components/TopNav'
+import AddToBacklogButton from '@/components/AddToBacklogButton'
+import { useBacklog } from '@/hooks/useBacklog'
 
 const PAGE_SIZE = 20
 
 export default function OverviewPage() {
   const { data, isLoading, lastError, platformStatuses } = useFinishedGamesData()
+  const backlog = useBacklog()
   const [platformFilter, setPlatformFilter] = useState<Platform | null>(null)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
@@ -94,7 +97,17 @@ export default function OverviewPage() {
         {data && visible.length > 0 && (
           <div className="flex flex-col gap-2">
             {visible.map(g => (
-              <FinishedGameCard key={g.id} game={g} />
+              <FinishedGameCard
+                key={g.id}
+                game={g}
+                action={backlog.items && (
+                  <AddToBacklogButton
+                    inBacklog={backlog.has(g.platform, g.gameName)}
+                    adding={backlog.isAdding(g.platform, g.gameName)}
+                    onAdd={() => backlog.add({ platform: g.platform, gameName: g.gameName, gameUrl: g.gameUrl })}
+                  />
+                )}
+              />
             ))}
           </div>
         )}

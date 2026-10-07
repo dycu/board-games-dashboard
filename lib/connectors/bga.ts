@@ -364,89 +364,35 @@ export async function fetchBGA(username: string, password: string, capDays = 3):
   })
 }
 
+// gamestats/getGames lists finished tables 10 per page, newest first, without
+// the DB timeouts of tableinfos status=finished. Uses the shared cached session:
+// a separate login here is what BGA's login rate limit punishes.
+const FINISHED_PAGES = 5
+
 export async function fetchFinishedBGA(username: string, password: string): Promise<FinishedGame[]> {
-  const initRes = await fetch(`${BASE}/account`, {
-    redirect: 'manual',
-    headers: { ...BROWSER_HEADERS, Accept: 'text/html,application/xhtml+xml,*/*' },
-  })
-  let cookies = parseCookies(initRes.headers)
-  let loginBase = BASE
-
-  if (initRes.status >= 300 && initRes.status < 400) {
-    const location = initRes.headers.get('location') ?? ''
-    if (location) {
-      const redirectUrl = new URL(location.startsWith('http') ? location : `${BASE}${location}`)
-      loginBase = redirectUrl.origin
-      const followRes = await fetch(redirectUrl.href, {
-        redirect: 'manual',
-        headers: { ...BROWSER_HEADERS, Accept: 'text/html,application/xhtml+xml,*/*', Cookie: cookieString(cookies) },
-      })
-      cookies = { ...cookies, ...parseCookies(followRes.headers) }
+  const { session, rows } = await withBgaSession(username, password, async s => {
+    const rows: any[] = []
+    for (let page = 1; page <= FINISHED_PAGES; page++) {
+      const url = `${BASE}/gamestats/gamestats/getGames.html?player=${s.myId}&opponent_id=0&finished=1&page=${page}&updateStats=0`
+      const res = await fetch(url, { headers: bgaApiHeaders(s, `${BASE}/gamestats?player=${s.myId}`) })
+      const text = await res.text()
+      let json: any
+      try { json = JSON.parse(text) } catch {
+        throw new Error(`BGA gamestats HTTP ${res.status}: ${text.slice(0, 300)}`)
+      }
+      if (String(json.status) !== '1') throw new Error(`BGA gamestats failed: ${json.error ?? JSON.stringify(json).slice(0, 300)}`)
+      const tables: any[] = json.data?.tables ?? []
+      rows.push(...tables)
+      if (tables.length < 10) break
     }
-  }
-
-  const loginPageRes = await fetch(`${loginBase}/?page=login`, {
-    headers: { ...BROWSER_HEADERS, Accept: 'text/html,application/xhtml+xml,*/*', Cookie: cookieString(cookies) },
-  })
-  cookies = { ...cookies, ...parseCookies(loginPageRes.headers) }
-  const loginPageHtml = await loginPageRes.text()
-  const requestToken = extractRequestToken(loginPageHtml)
-  if (!requestToken) throw new Error(`BGA: could not extract request_token`)
-
-  const loginRes = await fetch(`${loginBase}/account/auth/loginUserWithPassword.html`, {
-    method: 'POST',
-    headers: {
-      ...BROWSER_HEADERS,
-      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-      Accept: '*/*',
-      'X-Requested-With': 'XMLHttpRequest',
-      'X-Request-Token': requestToken,
-      Origin: loginBase,
-      Referer: `${loginBase}/?step=2&page=login`,
-      Cookie: cookieString(cookies),
-    },
-    body: new URLSearchParams({ username, password, remember_me: 'true', request_token: requestToken }),
-  })
-  const loginText = await loginRes.text()
-  let loginData: any
-  try { loginData = JSON.parse(loginText) } catch {
-    throw new Error(`BGA login HTTP ${loginRes.status}: ${loginText.slice(0, 300)}`)
-  }
-  if (loginData.status !== 1) throw new Error(`BGA login failed: ${loginData.error ?? JSON.stringify(loginData)}`)
-
-  const allCookies = { ...cookies, ...parseCookies(loginRes.headers) }
-  const myId = String(loginData.data?.user_id ?? loginData.data?.id ?? '')
-  const postLoginToken = allCookies['TournoiEnLigneidt'] ?? allCookies['TournoiEnLigneid'] ?? ''
-  if (!postLoginToken) throw new Error(`BGA: no request token in login response cookies`)
-
-  // gamestats/getGames returns full game history without DB timeouts (unlike tablemanager status=finished)
-  const gamesRes = await fetch(`${BASE}/gamestats/gamestats/getGames.html?player=${myId}&updateStats=0`, {
-    headers: {
-      ...BROWSER_HEADERS,
-      Accept: 'application/json, */*',
-      'X-Requested-With': 'XMLHttpRequest',
-      'X-Request-Token': postLoginToken,
-      Origin: BASE,
-      Referer: `${BASE}/gamestats?player=${myId}`,
-      Cookie: cookieString(allCookies),
-    },
+    return { session: s, rows }
   })
 
-  const gamesText = await gamesRes.text()
-  let gamesData: any
-  try { gamesData = JSON.parse(gamesText) } catch {
-    throw new Error(`BGA gamestats HTTP ${gamesRes.status}: ${gamesText.slice(0, 300)}`)
-  }
-  if (gamesData.status !== 1) throw new Error(`BGA gamestats failed: ${JSON.stringify(gamesData).slice(0, 400)}`)
+  const finished = rows.filter(t => t.cancelled !== '1' && t.cancelled !== 1)
+  const uniqueSlugs = [...new Set(finished.map((t: any) => t.game_name as string).filter(Boolean))]
+  const nameMap = uniqueSlugs.length > 0 ? await fetchGameNames(uniqueSlugs, session.cookies) : new Map<string, string>()
 
-  const tables: any[] = gamesData?.data?.tables ?? []
-
-  // Response comes newest-first; take the 50 most recent
-  const recentTables = tables.slice(0, 50)
-  const uniqueSlugs = [...new Set(recentTables.map((t: any) => t.game_name as string).filter(Boolean))]
-  const nameMap = uniqueSlugs.length > 0 ? await fetchGameNames(uniqueSlugs, allCookies) : new Map<string, string>()
-
-  return recentTables.map((t: any): FinishedGame => {
+  return finished.map((t: any): FinishedGame => {
     const endSec = t.end != null ? parseInt(t.end) : null
     const completedAt = endSec && !isNaN(endSec) ? new Date(endSec * 1000) : new Date()
 

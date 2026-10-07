@@ -80,7 +80,7 @@ interface GamesCache {
   cachedAt: string
 }
 
-function readCache(): { data: GamesApiResponse; cachedAt: string } | null {
+export function readCache(): { data: GamesApiResponse; cachedAt: string } | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY)
     if (!raw) return null

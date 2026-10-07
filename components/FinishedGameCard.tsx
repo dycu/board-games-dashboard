@@ -4,9 +4,10 @@ import { BADGE_COLORS } from '@/lib/platform-colors'
 
 interface Props {
   game: FinishedGame
+  action?: React.ReactNode // shown before the View link
 }
 
-export default function FinishedGameCard({ game }: Props) {
+export default function FinishedGameCard({ game, action }: Props) {
   const badgeClass = BADGE_COLORS[game.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'
 
   return (
@@ -20,15 +21,18 @@ export default function FinishedGameCard({ game }: Props) {
           <p className="text-xs text-[#9b9b9b]">Completed {game.completedAgo}</p>
         </div>
       </div>
-      <a
-        href={game.gameUrl}
-        target={game.platform === 'bga' ? '_self' : '_blank'}
-        rel="noopener noreferrer"
-        aria-label={`View ${game.gameName}`}
-        className="shrink-0 ml-4 text-xs font-medium bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1 rounded-md transition-colors"
-      >
-        View →
-      </a>
+      <div className="shrink-0 ml-4 flex items-center gap-2">
+        {action}
+        <a
+          href={game.gameUrl}
+          target={game.platform === 'bga' ? '_self' : '_blank'}
+          rel="noopener noreferrer"
+          aria-label={`View ${game.gameName}`}
+          className="text-xs font-medium bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1 rounded-md transition-colors"
+        >
+          View →
+        </a>
+      </div>
     </div>
   )
 }
