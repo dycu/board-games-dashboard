@@ -139,7 +139,25 @@ async function fetchGameNames(slugs: string[], cookies: Record<string, string>):
   return map
 }
 
-export async function fetchBGA(username: string, password: string, capDays = 3): Promise<Game[]> {
+export interface BgaSession {
+  cookies: Record<string, string>
+  myId: string
+  token: string // X-Request-Token for API calls after login
+}
+
+export function bgaApiHeaders(session: BgaSession, referer = `${BASE}/gameinprogress`): Record<string, string> {
+  return {
+    ...BROWSER_HEADERS,
+    Accept: 'application/json, */*',
+    'X-Requested-With': 'XMLHttpRequest',
+    'X-Request-Token': session.token,
+    Origin: BASE,
+    Referer: referer,
+    Cookie: cookieString(session.cookies),
+  }
+}
+
+export async function loginBGA(username: string, password: string): Promise<BgaSession> {
   // Step 1: follow redirect from boardgamearena.com to locale subdomain, collect PHPSESSID
   const initRes = await fetch(`${BASE}/account`, {
     redirect: 'manual',
@@ -206,18 +224,16 @@ export async function fetchBGA(username: string, password: string, capDays = 3):
   const postLoginToken = allCookies['TournoiEnLigneidt'] ?? allCookies['TournoiEnLigneid'] ?? ''
   if (!postLoginToken) throw new Error(`BGA: no request token in login response cookies (keys: ${Object.keys(allCookies).join(', ')})`)
 
-  // Step 4: fetch active in-progress async games via tablemanager
+  return { cookies: allCookies, myId, token: postLoginToken }
+}
+
+// Raw in-progress tables, keyed by table id in BGA's response
+export async function fetchBgaTables(session: BgaSession): Promise<any[]> {
   const tablesRes = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, {
     method: 'POST',
     headers: {
-      ...BROWSER_HEADERS,
+      ...bgaApiHeaders(session),
       'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-      Accept: 'application/json, */*',
-      'X-Requested-With': 'XMLHttpRequest',
-      'X-Request-Token': postLoginToken,
-      Origin: BASE,
-      Referer: `${BASE}/gameinprogress`,
-      Cookie: cookieString(allCookies),
     },
     body: 'status=play&turninfo=true',
   })
@@ -233,8 +249,13 @@ export async function fetchBGA(username: string, password: string, capDays = 3):
 
   // tables is an object keyed by table id
   const rawTables: Record<string, any> = tablesData?.data?.tables ?? {}
-  const tables = Object.values(rawTables)
+  return Object.values(rawTables)
+}
 
+export async function fetchBGA(username: string, password: string, capDays = 3): Promise<Game[]> {
+  const session = await loginBGA(username, password)
+  const { myId, cookies: allCookies } = session
+  const tables = await fetchBgaTables(session)
 
   // Step 5: resolve display names from gamepanel pages (game_name field is a URL slug)
   const uniqueSlugs = [...new Set(tables.map((t: any) => t.game_name as string).filter(Boolean))]

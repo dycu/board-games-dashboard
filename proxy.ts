@@ -14,6 +14,9 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 export function proxy(request: NextRequest) {
+  // Vercel Cron can't send Basic Auth; cron routes check CRON_SECRET themselves
+  if (request.nextUrl.pathname.startsWith('/api/cron/')) return NextResponse.next()
+
   const authHeader = request.headers.get('authorization')
 
   if (authHeader?.startsWith('Basic ')) {
