@@ -438,12 +438,13 @@ export async function fetchBGA(username: string, password: string): Promise<Game
 // gamestats/getGames lists finished tables 10 per page, newest first, without
 // the DB timeouts of tableinfos status=finished. Uses the shared cached session:
 // a separate login here is what BGA's login rate limit punishes.
-const FINISHED_PAGES = 5
+// 150 games reach back far enough for the History page's period summaries
+const FINISHED_PAGES = 15
+const PAGE_BATCH = 5
 
 export async function fetchFinishedBGA(username: string, password: string): Promise<FinishedGame[]> {
   const { session, rows } = await withBgaSession(username, password, async s => {
-    const rows: any[] = []
-    for (let page = 1; page <= FINISHED_PAGES; page++) {
+    const fetchPage = async (page: number): Promise<any[]> => {
       const url = `${BASE}/gamestats/gamestats/getGames.html?player=${s.myId}&opponent_id=0&finished=1&page=${page}&updateStats=0`
       const res = await fetch(url, { headers: bgaApiHeaders(s, `${BASE}/gamestats?player=${s.myId}`) })
       const text = await res.text()
@@ -452,9 +453,17 @@ export async function fetchFinishedBGA(username: string, password: string): Prom
         throw new Error(`BGA gamestats HTTP ${res.status}: ${text.slice(0, 300)}`)
       }
       if (String(json.status) !== '1') throw new Error(`BGA gamestats failed: ${json.error ?? JSON.stringify(json).slice(0, 300)}`)
-      const tables: any[] = json.data?.tables ?? []
-      rows.push(...tables)
-      if (tables.length < 10) break
+      return json.data?.tables ?? []
+    }
+    // Page 1 alone (most histories end there), then the rest a few at a time
+    const rows: any[] = await fetchPage(1)
+    for (let first = 2; rows.length === (first - 1) * 10 && first <= FINISHED_PAGES; first += PAGE_BATCH) {
+      const pages = Array.from({ length: Math.min(PAGE_BATCH, FINISHED_PAGES - first + 1) }, (_, i) => first + i)
+      const batch = await Promise.all(pages.map(fetchPage))
+      for (const tables of batch) {
+        rows.push(...tables)
+        if (tables.length < 10) break
+      }
     }
     return { session: s, rows }
   })

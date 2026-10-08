@@ -175,7 +175,8 @@ export function computePaceStats(
 
   // Recent window
   const recentFrom = now - recentDays * DAY
-  const recentResp = turns.filter(t => t.end >= recentFrom).map(t => t.resp).sort((a, b) => a - b)
+  // `now` may be the end of a past period (History's summaries), so later turns are left out
+  const recentResp = turns.filter(t => t.end >= recentFrom && t.end <= now).map(t => t.resp).sort((a, b) => a - b)
   const allGameDays = gameDaysIn(tables, recentFrom, now)
   const coveredGameDays = gameDaysIn(covered, recentFrom, now)
   const recentCoverage = allGameDays > 0 ? coveredGameDays / allGameDays : 0

@@ -147,7 +147,7 @@ export async function fetchFinishedYucata(username: string, password: string): P
   const res = await fetch(`${BASE}/api/datatables/${userId}/ranking-details`, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json; charset=utf-8', Accept: 'application/json' },
-    body: JSON.stringify({ draw: 1, start: 0, length: 100, oppId: -1, gameType: -1, fromDate: '', toDate: '' }),
+    body: JSON.stringify({ draw: 1, start: 0, length: 300, oppId: -1, gameType: -1, fromDate: '', toDate: '' }),
   })
   if (!res.ok) throw new Error(`Yucata finished games fetch failed: HTTP ${res.status}`)
 

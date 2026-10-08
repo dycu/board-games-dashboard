@@ -37,10 +37,11 @@ export function parseGamesStream(body: string): { results: PlatformResult[]; gam
   return { results, games }
 }
 
-// The dashboard's own fetch, so proxies, prefs and validation all apply
-export async function fetchGamesStream(origin: string, authorization: string): Promise<{ results: PlatformResult[]; games: StreamedGame[] }> {
-  const res = await fetch(`${origin}/api/games`, { headers: { Authorization: authorization } })
-  if (!res.ok) throw new Error(`/api/games HTTP ${res.status}`)
+// The dashboard's own fetch, so proxies, prefs and validation all apply.
+// /api/finished-games streams the same way (its games are FinishedGames).
+export async function fetchGamesStream(origin: string, authorization: string, path = '/api/games'): Promise<{ results: PlatformResult[]; games: StreamedGame[] }> {
+  const res = await fetch(`${origin}${path}`, { headers: { Authorization: authorization } })
+  if (!res.ok) throw new Error(`${path} HTTP ${res.status}`)
   return parseGamesStream(await res.text())
 }
 

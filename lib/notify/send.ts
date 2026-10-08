@@ -6,6 +6,10 @@ import { sendAlertEmail } from '../health/email'
 import { buildDigest } from './digest'
 import { dueSoon, deadlineEmail, Warned } from './deadlines'
 import { StreamedGame } from './types'
+import { buildWeekly } from './weekly'
+import { FinishedGame } from '../types'
+import { getTables, getAllTurns } from '../pace/store'
+import { computePaceStats } from '../pace/stats'
 
 const WARNED_KEY = 'deadline-warned:v1'
 
@@ -15,6 +19,22 @@ export async function sendDigest(games: StreamedGame[], now = Date.now()) {
     && !games.some(g => backlogId(g.platform, g.gameName) === item.id))
   const digest = buildDigest(games, { now, opponentSlowDays: prefs.opponentSlowDays ?? 5, nextFromBacklog })
   return { subject: digest.subject, email: await sendAlertEmail(digest.subject, digest.text, digest.html) }
+}
+
+// `finished` comes from /api/finished-games, with completedAt as an ISO string
+export async function sendWeekly(finished: unknown[], active: StreamedGame[], now = Date.now()) {
+  const games = (finished as (Omit<FinishedGame, 'completedAt'> & { completedAt: string })[])
+    .map(g => ({ ...g, completedAt: new Date(g.completedAt) }))
+  let pace = null
+  try {
+    const tables = Object.values(await getTables())
+    const turns = await getAllTurns(tables.map(t => t.id))
+    pace = computePaceStats(tables, turns, Math.floor(now / 1000), 7).recent
+  } catch {
+    // the email works without the pace line
+  }
+  const weekly = buildWeekly(games, active, { now, pace })
+  return { subject: weekly.subject, email: await sendAlertEmail(weekly.subject, weekly.text, weekly.html) }
 }
 
 export async function sendDeadlineWarnings(games: StreamedGame[], now = Date.now()) {

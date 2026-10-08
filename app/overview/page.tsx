@@ -13,7 +13,7 @@ import { aggregatePlayed, playedKey, playedNote } from '@/lib/backlog/played'
 import { readCache } from '@/hooks/useGamesData'
 import GameLink, { playedGameUrl } from '@/components/GameLink'
 import PlayCountChart from '@/components/PlayCountChart'
-import { summarizeResults } from '@/lib/results'
+import PeriodSummary from '@/components/PeriodSummary'
 
 const PAGE_SIZE = 20
 
@@ -45,7 +45,6 @@ export default function OverviewPage() {
     [data, bgaTotals],
   )
 
-  const results = summarizeResults(filtered)
   const visible = filtered.slice(0, visibleCount)
   const hasMore = filtered.length > visibleCount
 
@@ -115,16 +114,7 @@ export default function OverviewPage() {
           </div>
         )}
 
-        {results.played > 0 && (
-          <p className="mb-4 text-xs text-[#6b6b6b]">
-            Results in this history ({results.played} {results.played === 1 ? 'game' : 'games'} with a known result):{' '}
-            <span className="text-green-700 font-medium">{results.won} won</span>
-            {' · '}{results.lost} lost
-            {results.draws > 0 && ` · ${results.draws} drawn`}
-            {results.coop > 0 && ` · ${results.coop} co-op`}
-            {results.won + results.lost > 0 && ` — ${Math.round(100 * results.won / (results.won + results.lost))}% of competitive games won`}
-          </p>
-        )}
+        {data && <PeriodSummary games={filtered} />}
 
         {data && (
           <PlayCountChart games={platformFilter ? playCounts.filter(g => g.platform === platformFilter) : playCounts} />

@@ -9,11 +9,21 @@ export const dynamic = 'force-dynamic'
 // Same cache the BGA connector fills when resolving slugs to display names
 const NAME_CACHE_PREFIX = 'bga-game-name:v1:'
 
-export async function GET() {
+// ?from=&to= (Unix seconds): only my BGA pace over that period, for History's summaries
+export async function GET(request?: Request) {
   try {
     const [meta, tableMap, samples] = await Promise.all([getMeta(), getTables(), getLoadSamples()])
     const tables = Object.values(tableMap)
     const turns = await getAllTurns(tables.map(t => t.id))
+
+    const params = request ? new URL(request.url).searchParams : null
+    const from = Number(params?.get('from'))
+    const to = Number(params?.get('to'))
+    if (from > 0 && to > from) {
+      const { recent } = computePaceStats(tables, turns, to, (to - from) / 86400, samples)
+      return Response.json({ recent, trackingStartedAt: meta.trackingStartedAt })
+    }
+
     const stats = computePaceStats(tables, turns, Math.floor(Date.now() / 1000), 30, samples)
 
     const slugs = [...new Set(stats.waiting.map(w => w.game))]
