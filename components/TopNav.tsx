@@ -12,8 +12,8 @@ const TABS = [
 export default function TopNav({ right }: { right?: React.ReactNode }) {
   const path = usePathname()
   return (
-    <nav className="bg-white border-b border-[#e5e5e5] px-5 flex items-center justify-between h-11 shrink-0">
-      <div className="flex items-center overflow-x-auto">
+    <nav className="bg-white border-b border-[#e5e5e5] px-5 flex flex-col sm:flex-row sm:items-center sm:justify-between sm:h-11 shrink-0">
+      <div className="flex items-center overflow-x-auto h-11 shrink-0">
         <span className="text-sm font-semibold text-[#1a1a1a] pr-4 mr-3 border-r border-[#e5e5e5] shrink-0">🎲</span>
         {TABS.map(t => (
           <Link
@@ -28,7 +28,7 @@ export default function TopNav({ right }: { right?: React.ReactNode }) {
           </Link>
         ))}
       </div>
-      {right && <div className="text-xs text-[#9b9b9b] flex items-center gap-3">{right}</div>}
+      {right && <div className="text-xs text-[#9b9b9b] flex items-center gap-3 pb-2 sm:pb-0">{right}</div>}
     </nav>
   )
 }
