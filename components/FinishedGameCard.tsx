@@ -5,9 +5,10 @@ import { BADGE_COLORS } from '@/lib/platform-colors'
 interface Props {
   game: FinishedGame
   action?: React.ReactNode // shown before the View link
+  details?: string         // shown after the completion time
 }
 
-export default function FinishedGameCard({ game, action }: Props) {
+export default function FinishedGameCard({ game, action, details }: Props) {
   const badgeClass = BADGE_COLORS[game.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'
 
   return (
@@ -18,7 +19,7 @@ export default function FinishedGameCard({ game, action }: Props) {
         </span>
         <div className="min-w-0">
           <p className="text-sm font-medium text-[#1a1a1a] truncate">{game.gameName}</p>
-          <p className="text-xs text-[#9b9b9b]">Completed {game.completedAgo}</p>
+          <p className="text-xs text-[#9b9b9b]">Completed {game.completedAgo}{details && ` · ${details}`}</p>
         </div>
       </div>
       <div className="shrink-0 ml-4 flex items-center gap-2">

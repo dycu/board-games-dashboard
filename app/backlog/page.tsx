@@ -10,42 +10,26 @@ import { CSS } from '@dnd-kit/utilities'
 import { Platform, PLATFORM_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { BacklogItem, BacklogList, BACKLOG_LISTS, listOf } from '@/lib/backlog/list'
-import { bgaGamePanelUrl } from '@/lib/backlog/bgaSlug'
-import { PlayedGame, PlayedSort, aggregatePlayed, sortPlayed } from '@/lib/backlog/played'
+import { PlayedSort, aggregatePlayed, sortPlayed, playedNote } from '@/lib/backlog/played'
 import { useBgaPlayTotals, totalsOf } from '@/hooks/useBgaPlayTotals'
-import { formatTimeAgo } from '@/lib/connectors/utils'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
 import { readCache } from '@/hooks/useGamesData'
 import TopNav from '@/components/TopNav'
 import AddToBacklogButton, { LIST_LABELS } from '@/components/AddToBacklogButton'
+import GameLink, { SMALL_BUTTON, playedGameUrl } from '@/components/GameLink'
 
 type Backlog = ReturnType<typeof useBacklog>
 
 const ALL_PLATFORMS = Object.keys(PLATFORM_LABELS) as Platform[]
 
 const BADGE_FALLBACK = 'bg-[#f3f3f3] text-[#6b6b6b]'
-const SMALL_BUTTON = 'text-xs font-medium px-2.5 py-1 rounded-md bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] whitespace-nowrap'
 
 function Badge({ platform }: { platform: Platform }) {
   return (
     <span className={`shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[platform] ?? BADGE_FALLBACK}`}>
       {PLATFORM_LABELS[platform]}
     </span>
-  )
-}
-
-function GameLink({ url, platform }: { url: string; platform: Platform }) {
-  return (
-    <a
-      href={url}
-      target={platform === 'bga' ? '_self' : '_blank'}
-      rel="noopener noreferrer"
-      title="Open the game's page"
-      className={SMALL_BUTTON}
-    >
-      Game ↗
-    </a>
   )
 }
 
@@ -260,14 +244,6 @@ function SearchPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
 
 const SORTS: [PlayedSort, string][] = [['recent', 'Recent'], ['most', 'Most played'], ['least', 'Least played'], ['name', 'A–Z']]
 
-function playedNote(g: PlayedGame): string {
-  // 0 usually means the site's history can't be read (18xx), not that it was never played
-  const parts = g.plays ? [`${g.plays} ${g.plays === 1 ? 'play' : 'plays'}`] : []
-  if (g.lastPlayedAt) parts.push(`last ${formatTimeAgo(g.lastPlayedAt)}`)
-  if (g.playingNow) parts.push(`${g.playingNow} running`)
-  return parts.join(' · ') || 'no history'
-}
-
 // Loading finished games asks every platform (streamed, so the page isn't held up)
 function PlayedPanel({ backlog, target, sites }: { backlog: Backlog; target: BacklogList; sites: Set<Platform> }) {
   const finished = useFinishedGamesData()
@@ -344,7 +320,7 @@ function PlayedPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
               <p className="text-sm text-[#1a1a1a] truncate">{g.gameName}</p>
               <p className="text-xs text-[#9b9b9b]">{playedNote(g)}</p>
             </div>
-            <GameLink url={(g.platform === 'bga' && bgaGamePanelUrl(g.gameUrl)) || g.gameUrl} platform={g.platform} />
+            <GameLink url={playedGameUrl(g)} platform={g.platform} />
             <AddToBacklogButton
               label="+ Add"
               inList={backlog.listFor(g.platform, g.gameName)}

@@ -1,4 +1,4 @@
-import { aggregatePlayed, sortPlayed } from '../played'
+import { aggregatePlayed, sortPlayed, playedKey, playedNote } from '../played'
 import { Platform } from '../../types'
 
 const active = (platform: Platform, gameName: string, gameType?: string) =>
@@ -62,5 +62,25 @@ describe('aggregatePlayed with platform totals', () => {
       { platform: 'bga', gameName: 'Marco Polo', gameUrl: 'https://boardgamearena.com/gamepanel?game=marcopolo', plays: 1 },
     ])
     expect(g).toMatchObject({ gameName: 'Marco Polo', plays: 1, playingNow: 0, lastPlayedAt: null })
+  })
+})
+
+describe('playedKey', () => {
+  it('groups a table title under its game type, ignoring case', () => {
+    expect(playedKey({ platform: 'obg', gameName: 'Antiquity — Grave farm', gameType: 'Antiquity' }))
+      .toBe(playedKey({ platform: 'obg', gameName: 'antiquity' }))
+  })
+})
+
+describe('playedNote', () => {
+  const base = { platform: 'bga' as const, gameName: 'Avio', gameUrl: '' }
+
+  it('lists plays, last play and running games', () => {
+    const note = playedNote({ ...base, plays: 3, playingNow: 2, lastPlayedAt: new Date(Date.now() - 3 * 86400_000) })
+    expect(note).toMatch(/^3 plays · last .+ · 2 running$/)
+  })
+
+  it('says "no history" when nothing is known', () => {
+    expect(playedNote({ ...base, plays: 0, playingNow: 0, lastPlayedAt: null })).toBe('no history')
   })
 })

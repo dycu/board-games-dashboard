@@ -1,4 +1,5 @@
 import { Platform } from '../types'
+import { formatTimeAgo } from '../connectors/utils'
 
 interface PlayedInput {
   platform: Platform
@@ -24,7 +25,20 @@ export interface PlayTotal {
   plays: number
 }
 
-export type PlayedSort = 'most' | 'least' | 'recent' | 'name'
+// The aggregatePlayed entry a game (active, finished or totalled) belongs to
+export function playedKey(g: { platform: Platform; gameName: string; gameType?: string }): string {
+  return `${g.platform}:${(g.gameType || g.gameName).toLowerCase()}`
+}
+
+export function playedNote(g: PlayedGame): string {
+  // 0 usually means the site's history can't be read (18xx), not that it was never played
+  const parts = g.plays ? [`${g.plays} ${g.plays === 1 ? 'play' : 'plays'}`] : []
+  if (g.lastPlayedAt) parts.push(`last ${formatTimeAgo(g.lastPlayedAt)}`)
+  if (g.playingNow) parts.push(`${g.playingNow} running`)
+  return parts.join(' · ') || 'no history'
+}
+
+export type PlayedSort ='most' | 'least' | 'recent' | 'name'
 
 // One entry per platform and game. Table titles (OBG, choochoo) are grouped under
 // their game type so "Antiquity — Grave farm" counts as a play of Antiquity.
@@ -36,7 +50,7 @@ export function aggregatePlayed(
   const byKey = new Map<string, PlayedGame>()
   const entry = (g: PlayedInput) => {
     const gameName = g.gameType || g.gameName
-    const key = `${g.platform}:${gameName.toLowerCase()}`
+    const key = playedKey(g)
     let e = byKey.get(key)
     if (!e) {
       e = { platform: g.platform, gameName, gameUrl: g.gameUrl, plays: 0, playingNow: 0, lastPlayedAt: null }

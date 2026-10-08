@@ -9,7 +9,9 @@ import TopNav from '@/components/TopNav'
 import AddToBacklogButton from '@/components/AddToBacklogButton'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useBgaPlayTotals, totalsOf } from '@/hooks/useBgaPlayTotals'
-import { aggregatePlayed } from '@/lib/backlog/played'
+import { aggregatePlayed, playedKey, playedNote } from '@/lib/backlog/played'
+import { readCache } from '@/hooks/useGamesData'
+import GameLink, { playedGameUrl } from '@/components/GameLink'
 import PlayCountChart from '@/components/PlayCountChart'
 
 const PAGE_SIZE = 20
@@ -31,6 +33,14 @@ export default function OverviewPage() {
 
   const playCounts = useMemo(
     () => data ? aggregatePlayed([], data.games, totalsOf(bgaTotals)) : [],
+    [data, bgaTotals],
+  )
+
+  // The same per-game details as Backlog's "From your games", running games included
+  const playedByKey = useMemo(
+    () => new Map(data
+      ? aggregatePlayed(readCache()?.data.games ?? [], data.games, totalsOf(bgaTotals)).map(p => [playedKey(p), p])
+      : []),
     [data, bgaTotals],
   )
 
@@ -109,19 +119,28 @@ export default function OverviewPage() {
 
         {data && visible.length > 0 && (
           <div className="flex flex-col gap-2">
-            {visible.map(g => (
-              <FinishedGameCard
-                key={g.id}
-                game={g}
-                action={backlog.items && (
-                  <AddToBacklogButton
-                    inList={backlog.listFor(g.platform, g.gameType || g.gameName)}
-                    adding={backlog.isAdding(g.platform, g.gameType || g.gameName)}
-                    onAdd={() => backlog.add({ platform: g.platform, gameName: g.gameType || g.gameName, gameUrl: g.gameUrl, list: 'play' })}
-                  />
-                )}
-              />
-            ))}
+            {visible.map(g => {
+              const played = playedByKey.get(playedKey(g))
+              const gameUrl = playedGameUrl(g)
+              return (
+                <FinishedGameCard
+                  key={g.id}
+                  game={g}
+                  details={played && playedNote(played)}
+                  action={<>
+                    {/* elsewhere the game's page is this table, already linked by View */}
+                    {gameUrl !== g.gameUrl && <GameLink url={gameUrl} platform={g.platform} />}
+                    {backlog.items && (
+                      <AddToBacklogButton
+                        inList={backlog.listFor(g.platform, g.gameType || g.gameName)}
+                        adding={backlog.isAdding(g.platform, g.gameType || g.gameName)}
+                        onAdd={() => backlog.add({ platform: g.platform, gameName: g.gameType || g.gameName, gameUrl: g.gameUrl, list: 'play' })}
+                      />
+                    )}
+                  </>}
+                />
+              )
+            })}
           </div>
         )}
 
