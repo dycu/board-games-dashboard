@@ -80,11 +80,18 @@ export default function PeriodSummary({ games }: { games: FinishedGame[] }) {
             {eloChange !== null && <Stat value={signed(eloChange)} label="ELO (BGA)" accent={eloChange >= 0 ? 'text-green-700' : 'text-red-600'} />}
           </div>
 
-          <table className="w-full text-sm">
+          {/* Fixed column widths, so long names are cut off instead of widening the table */}
+          <table className="w-full table-fixed text-sm">
+            <colgroup>
+              <col />
+              <col className="w-14" />
+              <col className="w-14" />
+              <col className="w-28 hidden sm:table-column" />
+            </colgroup>
             <thead>
               <tr className="text-[11px] uppercase tracking-wide text-[#9b9b9b] text-left">
                 <th className="font-medium py-1">Game</th>
-                <th className="font-medium py-1 text-right">Played</th>
+                <th className="font-medium py-1 text-right">Plays</th>
                 <th className="font-medium py-1 pl-3 text-right">W–L</th>
                 <th className="font-medium py-1 pl-4 text-right hidden sm:table-cell">ELO</th>
               </tr>
@@ -92,7 +99,7 @@ export default function PeriodSummary({ games }: { games: FinishedGame[] }) {
             <tbody>
               {(showAllGames ? byGame : byGame.slice(0, TABLE_ROWS)).map(g => (
                 <tr key={`${g.platform}:${g.gameName}`} className="border-t border-[#f0f0f0]">
-                  <td className="py-1.5 pr-2">
+                  <td className="py-1.5 pr-2 overflow-hidden" title={g.gameName}>
                     <span className="flex items-center gap-2 min-w-0">
                       <span title={PLATFORM_LABELS[g.platform]} className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[g.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
                         {PLATFORM_SHORT_LABELS[g.platform]}

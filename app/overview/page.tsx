@@ -132,7 +132,9 @@ export default function OverviewPage() {
 
         {/* Wide screens: the games on the left, summary and chart beside them.
             Narrow: summary, then the games, then the chart. */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-5 items-start">
+        {/* auto/1fr rows: when the games list is taller than the side column,
+            the extra height goes below the chart instead of between the panels */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[auto_1fr] gap-5 items-start">
           <div className="lg:col-start-2 lg:row-start-1">
             <PeriodSummary games={filtered} />
           </div>
