@@ -5,7 +5,7 @@ import { PlayedGame } from '@/lib/backlog/played'
 import { formatTimeAgo } from '@/lib/connectors/utils'
 
 const ACCENT = '#5e6ad2'
-const TOP_N = 15
+const DEFAULT_TOP_N = 15
 
 function summary(g: PlayedGame): string {
   return [
@@ -17,7 +17,9 @@ function summary(g: PlayedGame): string {
 
 // Finished plays per game, most played first. One measure, so one color and no
 // legend; the site is part of each label.
-export default function PlayCountChart({ games }: { games: PlayedGame[] }) {
+// `compact`: for a narrow side column — fewer rows, narrower labels
+export default function PlayCountChart({ games, compact = false }: { games: PlayedGame[]; compact?: boolean }) {
+  const TOP_N = compact ? 10 : DEFAULT_TOP_N
   const [showAll, setShowAll] = useState(false)
   const [hover, setHover] = useState<string | null>(null)
 
@@ -32,7 +34,7 @@ export default function PlayCountChart({ games }: { games: PlayedGame[] }) {
   const hovered = shown.find(g => `${g.platform}:${g.gameName}` === hover)
 
   return (
-    <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
+    <div className={`bg-white rounded-xl border border-[#e5e5e5] ${compact ? 'p-4' : 'p-5 mb-5'}`}>
       <div className="flex items-baseline justify-between mb-3">
         <h2 className="text-sm font-semibold text-[#1a1a1a]">Plays per game</h2>
         <span className="text-xs text-[#9b9b9b]">{total} plays · {ranked.length} games</span>
@@ -47,7 +49,7 @@ export default function PlayCountChart({ games }: { games: PlayedGame[] }) {
               onMouseEnter={() => setHover(key)}
               onMouseLeave={() => setHover(null)}
               title={`${g.gameName} (${PLATFORM_LABELS[g.platform]}): ${summary(g)}`}
-              className={`grid grid-cols-[minmax(0,11rem)_1fr_2.5rem] sm:grid-cols-[minmax(0,15rem)_1fr_2.5rem] items-center gap-3 px-1.5 py-1 rounded-md
+              className={`grid ${compact ? 'grid-cols-[minmax(0,10rem)_1fr_2rem]' : 'grid-cols-[minmax(0,11rem)_1fr_2.5rem] sm:grid-cols-[minmax(0,15rem)_1fr_2.5rem]'} items-center gap-3 px-1.5 py-1 rounded-md
                 ${active ? 'bg-[#f5f5f5]' : ''}`}
             >
               <span className="min-w-0 truncate text-xs text-[#1a1a1a]">

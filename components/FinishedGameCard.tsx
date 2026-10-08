@@ -1,5 +1,5 @@
 'use client'
-import { FinishedGame, PLATFORM_LABELS } from '@/lib/types'
+import { FinishedGame, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { placeLabel } from '@/lib/results'
 
@@ -36,10 +36,10 @@ export default function FinishedGameCard({ game, action, details }: Props) {
   const badgeClass = BADGE_COLORS[game.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'
 
   return (
-    <div className="flex items-center justify-between py-3 px-4 rounded-lg border border-[#e5e5e5] bg-white hover:border-[#d5d5d5] transition-colors">
+    <div className="flex items-center justify-between py-2 px-3 rounded-lg border border-[#e5e5e5] bg-white hover:border-[#d5d5d5] transition-colors">
       <div className="flex items-center gap-3 min-w-0">
-        <span className={`shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${badgeClass}`}>
-          {PLATFORM_LABELS[game.platform]}
+        <span title={PLATFORM_LABELS[game.platform]} className={`shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${badgeClass}`}>
+          {PLATFORM_SHORT_LABELS[game.platform]}
         </span>
         <div className="min-w-0">
           <div className="flex items-center gap-2 min-w-0">

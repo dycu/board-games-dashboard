@@ -274,15 +274,16 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                   <span className="shrink-0">▶</span>
                 </a>
               )}
+              {myTurnGames.length === 0 && (
+                // Where Next would be, the same size
+                <span className="text-xs font-medium px-3 py-1 rounded-md bg-green-50 text-green-700 border border-green-200">
+                  All caught up ✓
+                </span>
+              )}
               <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b]">
                 Your turn · {myTurnGames.length}
               </p>
             </div>
-            {myTurnGames.length === 0 && (
-              <p className="text-sm text-[#6b6b6b] text-center py-6 mb-2.5 rounded-lg border border-dashed border-[#e5e5e5]">
-                All caught up ✓
-              </p>
-            )}
             {myTurnGames.length + openedMyTurnGames.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
                 {[...myTurnGames, ...openedMyTurnGames].map(g => <GameCard key={g.id} {...itemProps(g)} />)}

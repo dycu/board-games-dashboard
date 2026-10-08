@@ -31,7 +31,7 @@ describe('PeriodSummary', () => {
 
   it('widens to 30 days', async () => {
     render(<PeriodSummary games={games} />)
-    await userEvent.click(screen.getByRole('button', { name: '30 days' }))
+    await userEvent.click(screen.getByRole('button', { name: '30d' }))
     expect(screen.getByText('Navegador')).toBeInTheDocument()
     expect(screen.getByText('finished').previousSibling).toHaveTextContent('3')
   })

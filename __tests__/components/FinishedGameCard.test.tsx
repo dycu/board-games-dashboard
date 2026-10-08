@@ -31,7 +31,8 @@ describe('FinishedGameCard', () => {
 
   it('renders platform badge label', () => {
     render(<FinishedGameCard game={game} />)
-    expect(screen.getByText('18xx.games')).toBeInTheDocument()
+    // short label, full name on hover
+    expect(screen.getByText('18xx')).toHaveAttribute('title', '18xx.games')
   })
 
   it('opens BGA links in the same tab to trigger desktop mode', () => {
