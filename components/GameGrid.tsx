@@ -259,8 +259,11 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                   href={next.gameUrl}
                   target={openTarget(next)}
                   rel="noopener noreferrer"
-                  onClick={() => openGame(next.id)}
-                  onAuxClick={() => openGame(next.id)}
+                  // Marking it opened re-renders this link with the following
+                  // game's URL; doing that synchronously would make the browser
+                  // follow the new URL, so wait until the click has been handled
+                  onClick={() => { const id = next.id; setTimeout(() => openGame(id), 0) }}
+                  onAuxClick={() => { const id = next.id; setTimeout(() => openGame(id), 0) }}
                   title={`Open ${next.gameName}`}
                   className="min-w-0 max-w-[70%] flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]">
                   <span className="truncate">Next: {next.gameName}</span>

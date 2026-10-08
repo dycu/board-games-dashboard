@@ -1,3 +1,4 @@
+import React from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import GameGrid from '@/components/GameGrid'
@@ -195,5 +196,28 @@ describe('GameGrid opened game after the move', () => {
     render(<GameGrid {...defaultGridProps} dismissed={new Set(['bga:1'])} data={{ games: [played], errors: [], fetchedAt: '' }} />)
     expect(screen.getByText('opened')).toBeInTheDocument()
     expect(screen.queryByText(/Waiting for others/)).toBeNull()
+  })
+})
+
+describe('GameGrid Next link', () => {
+  it('keeps pointing at the shown game while the click is handled', async () => {
+    const first = { ...makeGame('bga', '1'), gameName: 'First', lastMoveAt: new Date(Date.now() - 9 * 3600_000) }
+    const second = { ...makeGame('bga', '2'), gameName: 'Second' }
+    let hrefAtClick = ''
+    function Wrapper() {
+      const [dismissed, setDismissed] = React.useState(new Set<string>())
+      return <GameGrid {...defaultGridProps} dismissed={dismissed} onOpen={id => setDismissed(new Set([id]))} data={{ games: [first, second], errors: [], fetchedAt: '' }} />
+    }
+    render(<Wrapper />)
+    const link = screen.getByRole('link', { name: /Next: First/ })
+    // In a real browser React re-renders (in a microtask) before the link is
+    // followed; jsdom's synthetic click can't reproduce that timing, so this only
+    // guards that the href is still the shown game's when the click is handled
+    const onDocClick = (e: MouseEvent) => { hrefAtClick = (e.target as HTMLElement).closest('a')!.href; e.preventDefault() }
+    document.addEventListener('click', onDocClick)
+    await userEvent.click(link)
+    document.removeEventListener('click', onDocClick)
+    expect(hrefAtClick).toBe('https://example.com/game/1')
+    expect(await screen.findByRole('link', { name: /Next: Second/ })).toBeInTheDocument()
   })
 })
