@@ -46,7 +46,7 @@ describe('GET /api/games', () => {
 
   it('emits start, platform, and done events over SSE', async () => {
     mockHasCreds.mockReturnValue(true)
-    mockBgaFetch.mockResolvedValue([{ id: 'bga:1', platform: 'bga', gameName: 'Chess' }])
+    mockBgaFetch.mockResolvedValue([{ id: 'bga:1', platform: 'bga', gameName: 'Chess', gameUrl: 'https://boardgamearena.com/1/chess?table=1' }])
 
     const res = await GET()
     expect(res.headers.get('Content-Type')).toBe('text/event-stream')

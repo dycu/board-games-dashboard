@@ -178,7 +178,20 @@ function parseGames(html: string, profileName: string): Game[] {
     .filter((_: number, el: any) => !$(el).hasClass('finished-games-table'))
     .first()
 
-  $currentTable.find('tr.clickableGameRow').each((_: number, el: any) => {
+  // OBG has changed this markup several times, each time silently breaking the
+  // parser — so a page whose shape doesn't match is an error, not "no games"
+  if ($currentTable.length === 0 && !/no current games/i.test(html)) {
+    throw new Error('OBG: no current-games table and no "No Current Games" text, so the profile page layout has changed')
+  }
+  const $rows = $currentTable.find('tr.clickableGameRow')
+  if ($currentTable.length > 0 && $rows.length === 0) {
+    throw new Error('OBG: current-games table has no tr.clickableGameRow rows, so the table markup has changed')
+  }
+  if ($rows.length > 0 && $rows.find('td.col-status').length === 0) {
+    throw new Error('OBG: game rows have no td.col-status cell, so the table markup has changed')
+  }
+
+  $rows.each((_: number, el: any) => {
     const $tr = $(el)
 
     // Game ID from tr id: "AQYgamesRow28424" → "28424"
@@ -224,6 +237,9 @@ function parseGames(html: string, profileName: string): Game[] {
     })
   })
 
+  if (games.length < $rows.length) {
+    throw new Error(`OBG: parsed ${games.length} of ${$rows.length} game rows, so the row markup has changed`)
+  }
   return games
 }
 

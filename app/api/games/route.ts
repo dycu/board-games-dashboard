@@ -2,6 +2,7 @@ import { makeConnectors, hasCreds } from '@/lib/connectors'
 import { Platform } from '@/lib/types'
 import { getPrefs } from '@/lib/prefs'
 import { recordLoadSample, LoadSample } from '@/lib/pace/loadSamples'
+import { checkGames } from '@/lib/connectors/validate'
 
 export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
@@ -51,6 +52,7 @@ export async function GET(request?: Request) {
             } else {
               games = await fetcher()
             }
+            checkGames(platform, games)
             counts[platform] = games.length
             send({ type: 'platform', platform, games, error: null })
           } catch (e) {

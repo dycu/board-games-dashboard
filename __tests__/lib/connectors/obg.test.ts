@@ -129,6 +129,29 @@ describe('fetchOBG', () => {
     expect(games).toHaveLength(0)
   })
 
+  it('throws instead of returning no games when the table markup changes', async () => {
+    // e.g. OBG's 2026 nd-col-* redesign: rows still there, but the status cell renamed
+    const changed = fixture.replace(/col-status/g, 'nd-col-status')
+    mockFetch
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginSuccessResponse())
+      .mockResolvedValueOnce(makeHomeResponse())
+      .mockResolvedValueOnce({ ok: true, text: async () => changed })
+
+    await expect(fetchOBG('testuser', 'pass')).rejects.toThrow('markup has changed')
+  })
+
+  it('throws when the current-games table has rows of an unknown kind', async () => {
+    const changed = fixture.replace(/clickableGameRow/g, 'gameRow')
+    mockFetch
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginSuccessResponse())
+      .mockResolvedValueOnce(makeHomeResponse())
+      .mockResolvedValueOnce({ ok: true, text: async () => changed })
+
+    await expect(fetchOBG('testuser', 'pass')).rejects.toThrow('markup has changed')
+  })
+
   it('throws when login fails (no session cookie)', async () => {
     mockFetch
       .mockResolvedValueOnce(makeLoginPageResponse())
