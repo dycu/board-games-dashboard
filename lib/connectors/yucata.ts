@@ -1,5 +1,6 @@
 import { Game, FinishedGame } from '../types'
 import { formatTimeAgo } from './utils'
+import { resultFromRanks } from '../results'
 
 const BASE = 'https://www.yucata.de'
 
@@ -155,7 +156,10 @@ export async function fetchFinishedYucata(username: string, password: string): P
 
   return rows.map((g: any): FinishedGame => {
     const completedAt = new Date(g.finishedOn)
+    const rank = Number(g.finalPosition)
+    const ranks = [rank, ...(g.opponents ?? []).map((o: any) => Number(o.finalPosition))]
     return {
+      ...(rank > 0 && { result: resultFromRanks(rank, ranks), rank, playerCount: Number(g.numPlayers) || ranks.length }),
       id: `yucata:${g.gameId}`,
       platform: 'yucata',
       gameName: g.customGameName || g.gameName || 'Unknown',

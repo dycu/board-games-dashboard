@@ -1,6 +1,30 @@
 'use client'
 import { FinishedGame, PLATFORM_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
+import { placeLabel } from '@/lib/results'
+
+const RESULT_STYLE = {
+  won: 'bg-green-50 text-green-700',
+  lost: 'bg-[#f3f3f3] text-[#6b6b6b]',
+  draw: 'bg-sky-50 text-sky-700',
+  coop: 'bg-violet-50 text-violet-700',
+} as const
+
+function Result({ game }: { game: FinishedGame }) {
+  const place = placeLabel(game)
+  if (!game.result || !place) return null
+  return (
+    <span className={`shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded ${RESULT_STYLE[game.result]}`}>
+      {game.result === 'won' ? '🏆 ' : ''}{place}
+    </span>
+  )
+}
+
+function eloText(game: FinishedGame): string | null {
+  if (game.elo === undefined) return null
+  const d = game.eloDelta
+  return `ELO ${game.elo}${d ? ` (${d > 0 ? '+' : ''}${d})` : ''}`
+}
 
 interface Props {
   game: FinishedGame
@@ -18,8 +42,13 @@ export default function FinishedGameCard({ game, action, details }: Props) {
           {PLATFORM_LABELS[game.platform]}
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-[#1a1a1a] truncate">{game.gameName}</p>
-          <p className="text-xs text-[#9b9b9b]">Completed {game.completedAgo}{details && ` · ${details}`}</p>
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="text-sm font-medium text-[#1a1a1a] truncate">{game.gameName}</p>
+            <Result game={game} />
+          </div>
+          <p className="text-xs text-[#9b9b9b]">
+            Completed {game.completedAgo}{eloText(game) && ` · ${eloText(game)}`}{details && ` · ${details}`}
+          </p>
         </div>
       </div>
       <div className="shrink-0 ml-4 flex items-center gap-2">

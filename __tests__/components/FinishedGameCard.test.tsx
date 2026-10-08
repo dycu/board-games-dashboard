@@ -46,3 +46,11 @@ describe('FinishedGameCard', () => {
     expect(link).toHaveAttribute('target', '_self')
   })
 })
+
+describe('FinishedGameCard results', () => {
+  it('shows place and ELO change', () => {
+    render(<FinishedGameCard game={{ ...game, platform: 'bga', result: 'won', rank: 1, playerCount: 3, elo: 1339, eloDelta: 38 }} />)
+    expect(screen.getByText(/1st of 3/)).toBeInTheDocument()
+    expect(screen.getByText(/ELO 1339 \(\+38\)/)).toBeInTheDocument()
+  })
+})

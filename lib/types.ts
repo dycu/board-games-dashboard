@@ -63,6 +63,11 @@ export interface FinishedGame {
   completedAt: Date
   completedAgo: string // pre-formatted: "3h ago", "2 days ago"
   gameUrl: string
+  result?: 'won' | 'lost' | 'draw' | 'coop' // my result, where the site reports it
+  rank?: number        // my place, 1 = first
+  playerCount?: number
+  elo?: number         // my rating for this game after it (BGA, ranked games)
+  eloDelta?: number    // change since my previous game of it in the fetched history
 }
 
 export interface FinishedGamesApiResponse {

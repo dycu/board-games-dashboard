@@ -4,6 +4,7 @@ import { formatTimeRemaining, formatTimeAgo } from './utils'
 import { getCatalog } from '../catalogs/cache'
 import { resolveLastMoves, Seed } from './bgaLastMove'
 import { getTables } from '../pace/store'
+import { resultFromRanks, withEloDeltas } from '../results'
 
 const BASE = 'https://boardgamearena.com'
 
@@ -462,11 +463,25 @@ export async function fetchFinishedBGA(username: string, password: string): Prom
   const uniqueSlugs = [...new Set(finished.map((t: any) => t.game_name as string).filter(Boolean))]
   const nameMap = uniqueSlugs.length > 0 ? await fetchGameNames(uniqueSlugs, session.cookies) : new Map<string, string>()
 
-  return finished.map((t: any): FinishedGame => {
+  return withEloDeltas(finished.map((t: any): FinishedGame => {
     const endSec = t.end != null ? parseInt(t.end) : null
     const completedAt = endSec && !isNaN(endSec) ? new Date(endSec * 1000) : new Date()
 
+    // players and ranks are parallel comma lists; co-op games rank everyone 1st
+    const playerIds = String(t.players ?? '').split(',')
+    const ranks = String(t.ranks ?? '').split(',').map(Number)
+    const myIdx = playerIds.indexOf(session.myId)
+    const myRank = myIdx >= 0 ? ranks[myIdx] : NaN
+    const isCoop = t.is_coop === '1' || t.is_coop === 1
+    const elo = t.unranked !== '1' && t.elo_after != null ? parseInt(t.elo_after) : NaN
+
     return {
+      ...(Number.isFinite(myRank) && {
+        result: isCoop ? 'coop' as const : resultFromRanks(myRank, ranks),
+        rank: myRank,
+        playerCount: playerIds.length,
+      }),
+      ...(Number.isFinite(elo) && { elo }),
       id: `bga:${t.table_id}`,
       platform: 'bga',
       gameName: nameMap.get(t.game_name) ?? t.game_name ?? 'Unknown',
@@ -481,7 +496,7 @@ export async function fetchFinishedBGA(username: string, password: string): Prom
         ? `${BASE}/${t.gameserver}/${t.game_name}?table=${t.table_id}`
         : `${BASE}/${t.game_name}?table=${t.table_id}`,
     }
-  })
+  }))
 }
 
 // Lifetime finished-game count per game. getGames with updateStats=1 adds
