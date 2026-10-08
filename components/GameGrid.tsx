@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import { Game, Platform, UserPrefs, GamesApiResponse, PLATFORM_LABELS } from '@/lib/types'
+import { Game, Platform, UserPrefs, GamesApiResponse, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { DepartedGame } from '@/hooks/useGamesData'
 import { sortAndFilter } from '@/lib/sort-filter'
 import { BADGE_COLORS } from '@/lib/platform-colors'
@@ -225,12 +225,14 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+        <div className="flex items-center gap-3 mb-3">
+          {/* one line: the chips scroll sideways rather than push the sort controls down */}
+          <div className="flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto py-1 [scrollbar-width:none]">
           {configuredPlatforms.length > 1 && (
             <>
               <button
                 onClick={() => setPlatformFilter([])}
-                className={`text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors
+                className={`shrink-0 whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors
                   ${platformFilter.length === 0 ? 'bg-[#1a1a1a] text-white' : 'bg-[#f3f3f3] text-[#6b6b6b] hover:bg-[#ebebeb]'}`}>
                 All ({visible.length})
               </button>
@@ -239,15 +241,17 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                   key={p}
                   onClick={() => togglePlatform(p)}
                   aria-pressed={platformFilter.includes(p)}
-                  className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full transition-opacity ${BADGE_COLORS[p] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}
+                  title={PLATFORM_LABELS[p]}
+                  className={`shrink-0 whitespace-nowrap text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full transition-opacity ${BADGE_COLORS[p] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}
                     ${platformFilter.length === 0 || platformFilter.includes(p) ? 'opacity-100' : 'opacity-40 hover:opacity-70'}
                     ${platformFilter.includes(p) ? 'ring-2 ring-[#1a1a1a]/20' : ''}`}>
-                  {PLATFORM_LABELS[p]} ({countByPlatform[p] ?? 0})
+                  {PLATFORM_SHORT_LABELS[p]} ({countByPlatform[p] ?? 0})
                 </button>
               ))}
             </>
           )}
-          <div className="ml-auto"><FilterToolbar prefs={prefs} onChange={onPrefsChange} /></div>
+          </div>
+          <div className="shrink-0"><FilterToolbar prefs={prefs} onChange={onPrefsChange} /></div>
         </div>
 
         {showMine && (

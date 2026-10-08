@@ -1,5 +1,5 @@
 'use client'
-import { Platform, PLATFORM_LABELS } from '@/lib/types'
+import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { PlatformStatus } from '@/hooks/useGamesData'
 
 interface Props {
@@ -11,28 +11,23 @@ export default function FetchProgress({ platformStatuses, compact = false }: Pro
   const platforms = Object.keys(platformStatuses) as Platform[]
 
   if (compact) {
+    // Floats over the page, so a refresh never shifts the content: a thin bar
+    // along the top edge and a small note of what's still loading
+    const done = platforms.filter(p => platformStatuses[p]?.state !== 'loading').length
+    const loading = platforms.filter(p => (platformStatuses[p]?.state ?? 'loading') === 'loading')
+    const failed = platforms.filter(p => platformStatuses[p]?.state === 'error')
+    const pct = platforms.length ? Math.max(8, Math.round(100 * done / platforms.length)) : 8
     return (
-      <div className="flex items-center gap-3 px-6 py-2 bg-white border-b border-[#e5e5e5] text-xs text-[#9b9b9b]">
-        <span className="animate-pulse">⟳ Refreshing…</span>
-        {platforms.map(p => {
-          const status = platformStatuses[p]
-          const state = status?.state ?? 'loading'
-          return (
-            <span key={p} className="flex items-center gap-1">
-              <span className={
-                state === 'done' ? 'text-green-500' :
-                state === 'error' ? 'text-red-500' :
-                'text-[#9b9b9b]'
-              }>
-                {state === 'done' ? '✓' : state === 'error' ? '✗' : '⟳'}
-              </span>
-              <span className={state === 'loading' ? 'animate-pulse' : ''}>
-                {PLATFORM_LABELS[p]}
-              </span>
-            </span>
-          )
-        })}
-      </div>
+      <>
+        <div className="fixed top-0 left-0 right-0 h-0.5 z-50 pointer-events-none" role="progressbar" aria-label="Refreshing" aria-valuenow={pct}>
+          <div className="h-full bg-[#5e6ad2] transition-[width] duration-300" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="fixed bottom-3 right-3 z-50 pointer-events-none text-[11px] text-[#6b6b6b] bg-white/90 border border-[#e5e5e5] rounded-full px-2.5 py-1 shadow-sm">
+          <span className="animate-pulse">⟳</span>{' '}
+          {loading.length > 0 ? `Updating ${loading.map(p => PLATFORM_SHORT_LABELS[p]).join(', ')}` : 'Updating…'}
+          {failed.length > 0 && <span className="text-red-500"> · {failed.map(p => PLATFORM_SHORT_LABELS[p]).join(', ')} failed</span>}
+        </div>
+      </>
     )
   }
 

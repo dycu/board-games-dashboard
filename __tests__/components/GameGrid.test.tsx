@@ -59,7 +59,8 @@ describe('GameGrid platform filter', () => {
     render(<GameGrid {...defaultGridProps} data={data} />)
     expect(screen.getAllByRole('button', { name: /^BGA \(2\)/ })).toHaveLength(1)
     expect(screen.getByRole('button', { name: /^Yucata \(1\)/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Rally the Troops \(0\)/ })).toBeInTheDocument()
+    // short labels on the chips, the full name on hover
+    expect(screen.getByRole('button', { name: /^Rally \(0\)/ })).toHaveAttribute('title', 'Rally the Troops')
   })
 
   it('filters to a platform when its chip is clicked', async () => {

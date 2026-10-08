@@ -76,6 +76,18 @@ export interface FinishedGamesApiResponse {
   fetchedAt: string
 }
 
+// For tight spots like the dashboard's filter chips
+export const PLATFORM_SHORT_LABELS: Record<Platform, string> = {
+  bga: 'BGA',
+  eighteenxx: '18xx',
+  obg: 'OBG',
+  yucata: 'Yucata',
+  choochoo: 'choochoo',
+  hansa: 'Hansa',
+  rally: 'Rally',
+  oldkingscrown: 'OKC',
+}
+
 export const PLATFORM_LABELS: Record<Platform, string> = {
   bga: 'BGA',
   eighteenxx: '18xx.games',
