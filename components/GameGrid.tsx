@@ -7,7 +7,7 @@ import { BADGE_COLORS } from '@/lib/platform-colors'
 import GameCard, { GameRow, GameItemProps, isOpponentSlow, openTarget } from './GameCard'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useNotes } from '@/hooks/useNotes'
-import { backlogId, listOf } from '@/lib/backlog/list'
+import { BacklogItem, backlogId, listOf } from '@/lib/backlog/list'
 import FilterToolbar from './FilterToolbar'
 import TopNav from './TopNav'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
@@ -114,10 +114,10 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
 
   // With few games going, suggest the top of "Next to play" that isn't already running
   const backlog = useBacklog()
-  const suggestion = games.length < FEW_GAMES
-    ? (backlog.items ?? []).find(item => listOf(item) === 'play'
-      && !games.some(g => backlogId(g.platform, g.gameType || g.gameName) === item.id))
-    : undefined
+  // Shown above Waiting when few games are going, else as a slim line at the bottom
+  const suggestion = (backlog.items ?? []).find(item => listOf(item) === 'play'
+    && !games.some(g => backlogId(g.platform, g.gameType || g.gameName) === item.id))
+  const suggestionOnTop = games.length < FEW_GAMES
 
   const togglePin = async (id: string) => {
     const pins = prefs.pins.includes(id)
@@ -254,10 +254,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
 
         {showMine && (
           <section className="mb-7">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b]">
-                Your turn · {myTurnGames.length}
-              </p>
+            <div className="flex items-center gap-3 mb-3">
               {myTurnGames.length > 0 && (
                 // A real link, so middle-click / ctrl-click open it in a new tab
                 <a
@@ -267,11 +264,14 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                   onClick={() => openGame(next.id)}
                   onAuxClick={() => openGame(next.id)}
                   title={`Open ${next.gameName}`}
-                  className="min-w-0 max-w-[60%] flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]">
+                  className="min-w-0 max-w-[70%] flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]">
                   <span className="truncate">Next: {next.gameName}</span>
                   <span className="shrink-0">▶</span>
                 </a>
               )}
+              <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b]">
+                Your turn · {myTurnGames.length}
+              </p>
             </div>
             {myTurnGames.length === 0 && (
               <p className="text-sm text-[#6b6b6b] text-center py-6 mb-2.5 rounded-lg border border-dashed border-[#e5e5e5]">
@@ -286,24 +286,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
           </section>
         )}
 
-        {suggestion && (
-          <div className="mb-7 flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-[#c5c9f0] bg-[#f7f8fd]">
-            <span className="hidden sm:inline text-xs text-[#6b6b6b]">
-              {games.length} active {games.length === 1 ? 'game' : 'games'}. Next from your backlog:
-            </span>
-            <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[suggestion.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
-              {PLATFORM_LABELS[suggestion.platform]}
-            </span>
-            <span className="text-sm font-medium text-[#1a1a1a] truncate flex-1 min-w-0">{suggestion.gameName}</span>
-            <a
-              href={suggestion.playUrl}
-              target={suggestion.platform === 'bga' ? '_self' : '_blank'}
-              rel="noopener noreferrer"
-              className="shrink-0 text-xs font-medium px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]">
-              Play ↗
-            </a>
-          </div>
-        )}
+        {suggestion && suggestionOnTop && <BacklogSuggestion item={suggestion} activeCount={games.length} className="mb-7" />}
 
         {showWaiting && waitingGames.length > 0 && (
           <section>
@@ -327,7 +310,29 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
             )}
           </section>
         )}
+        {suggestion && !suggestionOnTop && <BacklogSuggestion item={suggestion} activeCount={games.length} className="mt-7" />}
       </div>
+    </div>
+  )
+}
+
+function BacklogSuggestion({ item, activeCount, className }: { item: BacklogItem; activeCount: number; className: string }) {
+  return (
+    <div className={`${className} flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-[#c5c9f0] bg-[#f7f8fd]`}>
+      <span className="hidden sm:inline text-xs text-[#6b6b6b]">
+        {activeCount} active {activeCount === 1 ? 'game' : 'games'}. Next from your backlog:
+      </span>
+      <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[item.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
+        {PLATFORM_LABELS[item.platform]}
+      </span>
+      <span className="text-sm font-medium text-[#1a1a1a] truncate flex-1 min-w-0">{item.gameName}</span>
+      <a
+        href={item.playUrl}
+        target={item.platform === 'bga' ? '_self' : '_blank'}
+        rel="noopener noreferrer"
+        className="shrink-0 text-xs font-medium px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]">
+        Play ↗
+      </a>
     </div>
   )
 }

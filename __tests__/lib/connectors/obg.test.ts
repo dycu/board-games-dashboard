@@ -129,6 +129,25 @@ describe('fetchOBG', () => {
     expect(games).toHaveLength(0)
   })
 
+  it('treats a status listing several players (a simultaneous step) as my turn when I am among them', async () => {
+    // the status cell of game 202 (alice to act) also lists me
+    const multi = fixture.replace(
+      /(<td class="col-status"[^>]*>\s*<a href="\/profile\/alice\/">alice<\/a>)(\s*<\/td>)/,
+      '$1, <a href="/profile/testuser/">testuser</a>$2',
+    )
+    expect(multi).not.toBe(fixture)
+    mockFetch
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginSuccessResponse())
+      .mockResolvedValueOnce(makeHomeResponse())
+      .mockResolvedValueOnce({ ok: true, text: async () => multi })
+
+    const games = await fetchOBG('testuser', 'pass')
+    const changed = games.find(g => g.myTurn && g.id !== 'obg:101' && g.id !== 'obg:303')
+    expect(changed).toBeDefined()
+    expect(changed!.currentPlayer).toBeUndefined()
+  })
+
   it('throws instead of returning no games when the table markup changes', async () => {
     // e.g. OBG's 2026 nd-col-* redesign: rows still there, but the status cell renamed
     const changed = fixture.replace(/col-status/g, 'nd-col-status')

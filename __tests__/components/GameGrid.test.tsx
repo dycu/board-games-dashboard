@@ -179,3 +179,12 @@ describe('GameGrid recently opened games', () => {
     expect(screen.queryByText('Other Recent')).toBeNull()
   })
 })
+
+describe('GameGrid backlog suggestion with many games', () => {
+  it('still shows the suggestion, at the bottom, when many games are active', async () => {
+    const items = [{ id: 'yucata:navegador', platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/3', addedAt: '', list: 'play' }]
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    renderGrid(Array.from({ length: 12 }, (_, i) => makeGame('bga', String(i))))
+    expect(await screen.findByText('Navegador')).toBeInTheDocument()
+  })
+})

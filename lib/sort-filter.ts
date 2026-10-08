@@ -20,15 +20,6 @@ export function sortAndFilter(games: Game[], prefs: UserPrefs, now = Date.now())
   })
 
   result.sort((a, b) => {
-    // A move about to time out comes before everything else, pins included, soonest first
-    const aSoon = deadlineSoon(a, now)
-    const bSoon = deadlineSoon(b, now)
-    if (aSoon !== null || bSoon !== null) {
-      if (aSoon === null) return 1
-      if (bSoon === null) return -1
-      return aSoon - bSoon
-    }
-
     const aPinned = pins.includes(a.id)
     const bPinned = pins.includes(b.id)
 
@@ -43,6 +34,15 @@ export function sortAndFilter(games: Game[], prefs: UserPrefs, now = Date.now())
     // Then myTurn before waiting
     if (a.myTurn && !b.myTurn) return -1
     if (b.myTurn && !a.myTurn) return 1
+
+    // Within a group, a move about to time out comes first, soonest first
+    const aSoon = deadlineSoon(a, now)
+    const bSoon = deadlineSoon(b, now)
+    if (aSoon !== null || bSoon !== null) {
+      if (aSoon === null) return 1
+      if (bSoon === null) return -1
+      return aSoon - bSoon
+    }
 
     // Within same group, apply sort
     if (sort === 'most-recent') {

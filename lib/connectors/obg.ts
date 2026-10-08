@@ -210,8 +210,12 @@ function parseGames(html: string, profileName: string): Game[] {
     // games with N players pending.
     const statusText = $tr.find('td.col-status').text().trim()
     const isSimultaneous = /^\d+$/.test(statusText)
-    const isMyTurn = !isSimultaneous && statusText.toLowerCase() === profileName.toLowerCase()
-    const currentPlayer = isMyTurn || isSimultaneous ? undefined : (statusText || undefined)
+    // Simultaneous steps (e.g. Indonesia's merger bidding) list every player
+    // still to act: "Dycu, MinaSky" — it's my turn if I'm among them
+    const toAct = isSimultaneous ? [] : statusText.split(',').map(n => n.trim()).filter(Boolean)
+    const isMyTurn = toAct.some(n => n.toLowerCase() === profileName.toLowerCase())
+    const others = toAct.filter(n => n.toLowerCase() !== profileName.toLowerCase())
+    const currentPlayer = isMyTurn || others.length === 0 ? undefined : others.join(', ')
 
     // All players as profile links — exclude self
     const allPlayers = $tr.find('td.col-players a').map((_: number, a: any) => $(a).text().trim()).get() as string[]

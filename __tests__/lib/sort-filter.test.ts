@@ -70,13 +70,13 @@ describe('sortAndFilter', () => {
     expect(result[0].id).toBe('bga:3')
   })
 
-  it('puts my games about to time out first, soonest first, even before pins', () => {
+  it('puts pinned games first, then games about to time out, soonest first', () => {
     const now = Date.parse('2026-10-08T12:00:00Z')
     const in5h = base({ id: 'bga:10', myTurn: true, deadlineAt: '2026-10-08T17:00:00Z' })
     const in2h = base({ id: 'bga:11', myTurn: true, deadlineAt: '2026-10-08T14:00:00Z' })
     const in3d = base({ id: 'bga:12', myTurn: true, deadlineAt: '2026-10-11T12:00:00Z' })
     const pinned = base({ id: 'bga:13', myTurn: true })
     const result = sortAndFilter([pinned, in3d, in5h, in2h], prefs({ pins: ['bga:13'] }), now)
-    expect(result.map(g => g.id)).toEqual(['bga:11', 'bga:10', 'bga:13', 'bga:12'])
+    expect(result.map(g => g.id)).toEqual(['bga:13', 'bga:11', 'bga:10', 'bga:12'])
   })
 })
