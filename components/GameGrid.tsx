@@ -26,6 +26,10 @@ interface Props {
 }
 
 const WAITING_EXPANDED_KEY = 'waiting-expanded'
+// Games opened this long ago or less stay in the collapsed Waiting list, so
+// one just played can still get a note after the move
+const RECENTLY_OPENED_KEY = 'recently-opened'
+const RECENTLY_OPENED_MS = 12 * 3600 * 1000
 // Below this many active games the dashboard suggests the next backlog game
 const FEW_GAMES = 10
 
@@ -80,7 +84,26 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     return !prev
   })
   const opponentSlowDays = prefs.opponentSlowDays ?? 5
-  const alwaysShownWaiting = waitingGames.filter(g => prefs.pins.includes(g.id) || isOpponentSlow(g, opponentSlowDays, now))
+  const [recentlyOpened, setRecentlyOpened] = useState<Record<string, number>>({})
+  useEffect(() => {
+    try {
+      const stored: Record<string, number> = JSON.parse(localStorage.getItem(RECENTLY_OPENED_KEY) ?? '{}')
+      const cutoff = Date.now() - RECENTLY_OPENED_MS
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after hydration
+      setRecentlyOpened(Object.fromEntries(Object.entries(stored).filter(([, t]) => t > cutoff)))
+    } catch { /* storage unavailable */ }
+  }, [])
+  const openGame = (id: string) => {
+    setRecentlyOpened(prev => {
+      const next = { ...prev, [id]: Date.now() }
+      try { localStorage.setItem(RECENTLY_OPENED_KEY, JSON.stringify(next)) } catch { /* storage unavailable */ }
+      return next
+    })
+    onOpen(id)
+  }
+  const openedRecently = (g: Game) => (recentlyOpened[g.id] ?? 0) > now - RECENTLY_OPENED_MS
+  const alwaysShownWaiting = waitingGames.filter(g =>
+    prefs.pins.includes(g.id) || isOpponentSlow(g, opponentSlowDays, now) || openedRecently(g))
   const shownWaiting = waitingExpanded ? waitingGames : alwaysShownWaiting
   const hiddenWhenCollapsed = waitingGames.length - alwaysShownWaiting.length
 
@@ -111,7 +134,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     game: g,
     pinned: prefs.pins.includes(g.id),
     onTogglePin: togglePin,
-    onOpen: () => onOpen(g.id),
+    onOpen: () => openGame(g.id),
     opponentSlowDays,
     note: notes[g.id],
     onSaveNote: saveNote,
@@ -241,8 +264,8 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                   href={next.gameUrl}
                   target={openTarget(next)}
                   rel="noopener noreferrer"
-                  onClick={() => onOpen(next.id)}
-                  onAuxClick={() => onOpen(next.id)}
+                  onClick={() => openGame(next.id)}
+                  onAuxClick={() => openGame(next.id)}
                   title={`Open ${next.gameName}`}
                   className="min-w-0 max-w-[60%] flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]">
                   <span className="truncate">Next: {next.gameName}</span>
@@ -299,7 +322,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
             </div>
             {!waitingExpanded && hiddenWhenCollapsed > 0 && (
               <button onClick={toggleWaiting} className="mt-2 w-full text-xs text-[#9b9b9b] hover:text-[#1a1a1a] py-1.5 rounded-md border border-dashed border-[#e5e5e5]">
-                Show {hiddenWhenCollapsed} more, where the opponent moved recently
+                Show {hiddenWhenCollapsed} more
               </button>
             )}
           </section>

@@ -163,3 +163,19 @@ describe('GameGrid opened games', () => {
     expect(document.title).toBe('(1) Board Games Dashboard')
   })
 })
+
+describe('GameGrid recently opened games', () => {
+  it('keeps a game I opened in the collapsed Waiting list after my move', async () => {
+    localStorage.clear()
+    const mine = { ...makeGame('bga', '1'), gameName: 'Just Played' }
+    const other = { ...makeGame('bga', '2'), gameName: 'Other Recent', myTurn: false }
+    const { rerender } = render(<GameGrid {...defaultGridProps} data={{ games: [mine, other], errors: [], fetchedAt: '1' }} />)
+    const link = screen.getByRole('link', { name: 'Open Just Played' })
+    link.addEventListener('click', e => e.preventDefault())
+    await userEvent.click(link)
+    // the refresh after my move: it's the opponent's turn now
+    rerender(<GameGrid {...defaultGridProps} data={{ games: [{ ...mine, myTurn: false }, other], errors: [], fetchedAt: '2' }} />)
+    expect(screen.getByText('Just Played')).toBeInTheDocument()
+    expect(screen.queryByText('Other Recent')).toBeNull()
+  })
+})
