@@ -256,7 +256,7 @@ function parseGames(html: string, profileName: string): Game[] {
   return games
 }
 
-function parseFinishedGames(html: string): FinishedGame[] {
+function parseFinishedGames(html: string, profileName = ''): FinishedGame[] {
   const $ = cheerio.load(html)
   // The finished table is explicitly tagged with the finished-games-table
   // modifier class — select it directly rather than assuming table position,
@@ -279,7 +279,19 @@ function parseFinishedGames(html: string): FinishedGame[] {
     const tsText = $tr.find('.timeToConvertSpan').first().text().trim()
     const completedAt = tsText ? new Date(parseInt(tsText)) : new Date()
 
+    // The winner column names the winner(s); OBG gives no other places
+    const me = profileName.toLowerCase()
+    const players = $tr.find('td.col-players a').map((_: number, a: any) => $(a).text().trim()).get() as string[]
+    const winners = $tr.find('td.col-winner a').map((_: number, a: any) => $(a).text().trim().toLowerCase()).get() as string[]
+    const opponents = players.filter(p => p && p.toLowerCase() !== me).map(name => ({ name, rank: winners.includes(name.toLowerCase()) ? 1 : undefined }))
+    const result = me && winners.length > 0
+      ? (winners.includes(me) ? (winners.length === players.length ? 'draw' as const : 'won' as const) : 'lost' as const)
+      : undefined
+
     games.push({
+      ...(result && { result, ...(result !== 'lost' && { rank: 1 }) }),
+      ...(players.length > 0 && { playerCount: players.length }),
+      ...(opponents.length > 0 && { opponents }),
       id: `obg:${gameId}`,
       platform: 'obg',
       gameName,
@@ -294,6 +306,6 @@ function parseFinishedGames(html: string): FinishedGame[] {
 }
 
 export async function fetchFinishedOBG(username: string, password: string): Promise<FinishedGame[]> {
-  const { html } = await fetchOBGProfileHtml(username, password)
-  return parseFinishedGames(html)
+  const { html, profileName } = await fetchOBGProfileHtml(username, password)
+  return parseFinishedGames(html, profileName)
 }

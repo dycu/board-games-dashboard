@@ -68,6 +68,10 @@ export interface FinishedGame {
   playerCount?: number
   elo?: number         // my rating for this game after it (BGA, ranked games)
   eloDelta?: number    // change since my previous game of it in the fetched history
+  opponents?: { name: string; rank?: number }[] // where the site lists them
+  score?: string       // my final score (BGA)
+  startedAt?: string   // ISO (BGA)
+  gameKey?: string     // the site's id for the game itself (BGA game_id), for its full history
 }
 
 export interface FinishedGamesApiResponse {

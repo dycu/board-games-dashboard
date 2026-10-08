@@ -472,40 +472,84 @@ export async function fetchFinishedBGA(username: string, password: string): Prom
   const uniqueSlugs = [...new Set(finished.map((t: any) => t.game_name as string).filter(Boolean))]
   const nameMap = uniqueSlugs.length > 0 ? await fetchGameNames(uniqueSlugs, session.cookies) : new Map<string, string>()
 
-  return withEloDeltas(finished.map((t: any): FinishedGame => {
-    const endSec = t.end != null ? parseInt(t.end) : null
-    const completedAt = endSec && !isNaN(endSec) ? new Date(endSec * 1000) : new Date()
+  return withEloDeltas(finished.map((t: any) => bgaFinishedRow(t, session.myId, nameMap)))
+}
 
-    // players and ranks are parallel comma lists; co-op games rank everyone 1st
-    const playerIds = String(t.players ?? '').split(',')
-    const ranks = String(t.ranks ?? '').split(',').map(Number)
-    const myIdx = playerIds.indexOf(session.myId)
-    const myRank = myIdx >= 0 ? ranks[myIdx] : NaN
-    const isCoop = t.is_coop === '1' || t.is_coop === 1
-    const elo = t.unranked !== '1' && t.elo_after != null ? parseInt(t.elo_after) : NaN
+// One getGames row as a FinishedGame — also used for a single game's full history
+export function bgaFinishedRow(t: any, myId: string, nameMap: Map<string, string>): FinishedGame {
+  const endSec = t.end != null ? parseInt(t.end) : null
+  const completedAt = endSec && !isNaN(endSec) ? new Date(endSec * 1000) : new Date()
 
-    return {
-      ...(Number.isFinite(myRank) && {
-        result: isCoop ? 'coop' as const : resultFromRanks(myRank, ranks),
-        rank: myRank,
-        playerCount: playerIds.length,
-      }),
-      ...(Number.isFinite(elo) && { elo }),
-      id: `bga:${t.table_id}`,
-      platform: 'bga',
-      gameName: nameMap.get(t.game_name) ?? t.game_name ?? 'Unknown',
-      completedAt,
-      completedAgo: formatTimeAgo(completedAt),
-      // /table?table=ID only opens the table lobby (a stripped-down, mobile-style
-      // summary page) — the real game module path is needed for the actual desktop
-      // replay view, same as fetchBGA's gameUrl. gamestats/getGames doesn't return
-      // t.gameserver; prefixing a fake locale segment (e.g. 'en') 404s, so omit the
-      // segment entirely when it's missing — /{game_name}?table=ID resolves fine.
-      gameUrl: t.gameserver
-        ? `${BASE}/${t.gameserver}/${t.game_name}?table=${t.table_id}`
-        : `${BASE}/${t.game_name}?table=${t.table_id}`,
+  // players and ranks are parallel comma lists; co-op games rank everyone 1st
+  const playerIds = String(t.players ?? '').split(',')
+  const ranks = String(t.ranks ?? '').split(',').map(Number)
+  const myIdx = playerIds.indexOf(myId)
+  const myRank = myIdx >= 0 ? ranks[myIdx] : NaN
+  const names = String(t.player_names ?? '').split(',')
+  const scores = String(t.scores ?? '').split(',')
+  const startSec = t.start != null ? parseInt(t.start) : NaN
+  const isCoop = t.is_coop === '1' || t.is_coop === 1
+  const elo = t.unranked !== '1' && t.elo_after != null ? parseInt(t.elo_after) : NaN
+
+  return {
+    ...(Number.isFinite(myRank) && {
+      result: isCoop ? 'coop' as const : resultFromRanks(myRank, ranks),
+      rank: myRank,
+      playerCount: playerIds.length,
+    }),
+    ...(Number.isFinite(elo) && { elo }),
+    ...(names.length === playerIds.length && myIdx >= 0 && {
+      opponents: names
+        .map((name, i) => ({ name, rank: Number.isFinite(ranks[i]) ? ranks[i] : undefined }))
+        .filter((_, i) => i !== myIdx),
+    }),
+    ...(myIdx >= 0 && scores[myIdx] !== undefined && scores[myIdx] !== '' && { score: scores[myIdx] }),
+    ...(Number.isFinite(startSec) && startSec > 0 && { startedAt: new Date(startSec * 1000).toISOString() }),
+    ...(t.game_id != null && { gameKey: String(t.game_id) }),
+    id: `bga:${t.table_id}`,
+    platform: 'bga',
+    gameName: nameMap.get(t.game_name) ?? t.game_name ?? 'Unknown',
+    completedAt,
+    completedAgo: formatTimeAgo(completedAt),
+    // /table?table=ID only opens the table lobby (a stripped-down, mobile-style
+    // summary page) — the real game module path is needed for the actual desktop
+    // replay view, same as fetchBGA's gameUrl. gamestats/getGames doesn't return
+    // t.gameserver; prefixing a fake locale segment (e.g. 'en') 404s, so omit the
+    // segment entirely when it's missing — /{game_name}?table=ID resolves fine.
+    gameUrl: t.gameserver
+      ? `${BASE}/${t.gameserver}/${t.game_name}?table=${t.table_id}`
+      : `${BASE}/${t.game_name}?table=${t.table_id}`,
+  }
+}
+
+// Every finished game of one game (getGames filtered by game_id reaches back
+// to the start of the account), for the per-game history page
+const GAME_HISTORY_MAX_PAGES = 40
+
+export async function fetchBgaGameHistory(username: string, password: string, gameId: string): Promise<FinishedGame[]> {
+  if (!/^\d+$/.test(gameId)) throw new Error('BGA game id must be numeric')
+  const { session, rows } = await withBgaSession(username, password, async s => {
+    const fetchPage = async (page: number): Promise<any[]> => {
+      const url = `${BASE}/gamestats/gamestats/getGames.html?player=${s.myId}&opponent_id=0&finished=1&game_id=${gameId}&page=${page}&updateStats=0`
+      const res = await fetch(url, { headers: bgaApiHeaders(s, `${BASE}/gamestats?player=${s.myId}`) })
+      const json: any = JSON.parse(await res.text())
+      if (String(json.status) !== '1') throw new Error(`BGA gamestats failed: ${json.error ?? json.status}`)
+      return json.data?.tables ?? []
     }
-  }))
+    const rows: any[] = await fetchPage(1)
+    for (let first = 2; rows.length === (first - 1) * 10 && first <= GAME_HISTORY_MAX_PAGES; first += PAGE_BATCH) {
+      const pages = Array.from({ length: Math.min(PAGE_BATCH, GAME_HISTORY_MAX_PAGES - first + 1) }, (_, i) => first + i)
+      for (const tables of await Promise.all(pages.map(fetchPage))) {
+        rows.push(...tables)
+        if (tables.length < 10) break
+      }
+    }
+    return { session: s, rows }
+  })
+  const finished = rows.filter(t => t.cancelled !== '1' && t.cancelled !== 1)
+  const slugs = [...new Set(finished.map((t: any) => t.game_name as string).filter(Boolean))]
+  const nameMap = slugs.length > 0 ? await fetchGameNames(slugs, session.cookies) : new Map<string, string>()
+  return withEloDeltas(finished.map((t: any) => bgaFinishedRow(t, session.myId, nameMap)))
 }
 
 // Lifetime finished-game count per game. getGames with updateStats=1 adds

@@ -158,8 +158,12 @@ export async function fetchFinishedYucata(username: string, password: string): P
     const completedAt = new Date(g.finishedOn)
     const rank = Number(g.finalPosition)
     const ranks = [rank, ...(g.opponents ?? []).map((o: any) => Number(o.finalPosition))]
+    const opponents = (g.opponents ?? [])
+      .filter((o: any) => o?.login)
+      .map((o: any) => ({ name: String(o.login), rank: Number(o.finalPosition) || undefined }))
     return {
       ...(rank > 0 && { result: resultFromRanks(rank, ranks), rank, playerCount: Number(g.numPlayers) || ranks.length }),
+      ...(opponents.length > 0 && { opponents }),
       id: `yucata:${g.gameId}`,
       platform: 'yucata',
       gameName: g.customGameName || g.gameName || 'Unknown',

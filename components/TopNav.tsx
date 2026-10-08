@@ -22,7 +22,7 @@ export default function TopNav({ right }: { right?: React.ReactNode }) {
             key={t.href}
             href={t.href}
             className={`text-sm px-2 sm:px-3 h-11 flex items-center border-b-2 transition-colors whitespace-nowrap shrink-0
-              ${path === t.href
+              ${path === t.href || (t.href === '/overview' && !!path?.startsWith('/history'))
                 ? 'border-[#5e6ad2] text-[#1a1a1a] font-medium'
                 : 'border-transparent text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
           >

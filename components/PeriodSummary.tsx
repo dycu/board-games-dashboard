@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { FinishedGame, PLATFORM_SHORT_LABELS, PLATFORM_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { summarizePeriod, presetRange, PeriodPreset } from '@/lib/summary'
+import Link from 'next/link'
+import { gameHistoryHref } from '@/lib/gameStats'
 
 interface Pace { turns: number; medianHours: number | null; turnsPerDay: number | null }
 
@@ -105,7 +107,7 @@ export default function PeriodSummary({ games }: { games: FinishedGame[] }) {
                         {PLATFORM_SHORT_LABELS[g.platform]}
                       </span>
                       {/* up to two lines: one cuts names like "Next Station: Tokyo" too short */}
-                      <span className="text-[#1a1a1a] leading-snug break-words line-clamp-2">{g.gameName}</span>
+                      <Link href={gameHistoryHref(g)} className="text-[#1a1a1a] leading-snug break-words line-clamp-2 hover:text-[#5e6ad2] hover:underline">{g.gameName}</Link>
                     </span>
                   </td>
                   <td className="py-1.5 text-right tabular-nums align-top">{g.played}</td>

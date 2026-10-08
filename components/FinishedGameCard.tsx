@@ -2,6 +2,8 @@
 import { FinishedGame, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { placeLabel } from '@/lib/results'
+import Link from 'next/link'
+import { gameHistoryHref } from '@/lib/gameStats'
 
 const RESULT_STYLE = {
   won: 'bg-green-50 text-green-700',
@@ -43,7 +45,7 @@ export default function FinishedGameCard({ game, action, details }: Props) {
         </span>
         <div className="min-w-0">
           <div className="flex items-center gap-2 min-w-0">
-            <p className="text-sm font-medium text-[#1a1a1a] truncate">{game.gameName}</p>
+            <Link href={gameHistoryHref(game)} title="All your games of it" className="text-sm font-medium text-[#1a1a1a] truncate hover:text-[#5e6ad2] hover:underline">{game.gameName}</Link>
             <Result game={game} />
           </div>
           <p className="text-xs text-[#9b9b9b]">

@@ -9,6 +9,7 @@ export interface GameBreakdown {
   lost: number
   eloChange?: number  // sum of this period's changes (BGA ranked games)
   eloNow?: number     // rating after the period's last game of it
+  gameKey?: string    // BGA game_id, for the per-game page
 }
 
 export interface PeriodSummary {
@@ -48,6 +49,7 @@ export function summarizePeriod(all: FinishedGame[], from: Date, to: Date): Peri
     if (g.result === 'lost') e.lost++
     if (g.eloDelta !== undefined) e.eloChange = (e.eloChange ?? 0) + g.eloDelta
     if (g.elo !== undefined && g.completedAt.getTime() > e.lastAt) { e.eloNow = g.elo; e.lastAt = g.completedAt.getTime() }
+    if (g.gameKey && !e.gameKey) e.gameKey = g.gameKey
   }
   const byGame = [...byKey.values()]
     .map(({ lastAt: _lastAt, ...rest }) => rest)

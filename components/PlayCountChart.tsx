@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { PLATFORM_LABELS } from '@/lib/types'
 import { PlayedGame } from '@/lib/backlog/played'
 import { formatTimeAgo } from '@/lib/connectors/utils'
+import Link from 'next/link'
+import { gameHistoryHref } from '@/lib/gameStats'
 
 const ACCENT = '#5e6ad2'
 const DEFAULT_TOP_N = 15
@@ -52,10 +54,10 @@ export default function PlayCountChart({ games, compact = false }: { games: Play
               className={`grid ${compact ? 'grid-cols-[minmax(0,10rem)_1fr_2rem]' : 'grid-cols-[minmax(0,11rem)_1fr_2.5rem] sm:grid-cols-[minmax(0,15rem)_1fr_2.5rem]'} items-center gap-3 px-1.5 py-1 rounded-md
                 ${active ? 'bg-[#f5f5f5]' : ''}`}
             >
-              <span className="min-w-0 truncate text-xs text-[#1a1a1a]">
+              <Link href={gameHistoryHref(g)} className="min-w-0 truncate text-xs text-[#1a1a1a] hover:text-[#5e6ad2] hover:underline">
                 {g.gameName}
                 <span className="text-[#9b9b9b]"> · {PLATFORM_LABELS[g.platform]}</span>
-              </span>
+              </Link>
               <span className="h-3 relative">
                 <span
                   className="absolute inset-y-0 left-0 rounded-r"
