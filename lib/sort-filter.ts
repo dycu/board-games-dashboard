@@ -3,7 +3,7 @@ import { Game, UserPrefs } from './types'
 export function sortAndFilter(games: Game[], prefs: UserPrefs): Game[] {
   const { pins, sort, filter } = prefs
 
-  let result = games.filter(g => {
+  const result = games.filter(g => {
     if (filter.turnStatus === 'my-turn' && !g.myTurn) return false
     if (filter.turnStatus === 'waiting' && g.myTurn) return false
     if (filter.platforms.length > 0 && !filter.platforms.includes(g.platform)) return false

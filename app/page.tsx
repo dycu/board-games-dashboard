@@ -65,6 +65,7 @@ export default function DashboardPage() {
   useEffect(() => {
     preserveThroughInitialFetchRef.current = isBackForwardNavigation()
     const stored = localStorage.getItem(DISMISSED_KEY)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after hydration
     setDismissed(stored ? new Set(JSON.parse(stored)) : new Set())
     const cachedPrefs = localStorage.getItem(PREFS_KEY)
     if (cachedPrefs) setPrefs(JSON.parse(cachedPrefs))

@@ -23,6 +23,7 @@ export function useAutoRefresh(onRefresh: () => void, isRefreshing: boolean) {
   // Start/restart ticker whenever the selected interval changes
   useEffect(() => {
     if (intervalSeconds === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- interval turned off
       setCountdown(0)
       return
     }

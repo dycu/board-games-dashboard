@@ -96,6 +96,7 @@ export default function PacePage() {
   }, [load])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads the page's data on mount
     load().then(d => {
       const s = d?.sync
       if (!s || !s.lastSyncAt || !s.indexComplete || s.pendingHistory > 0

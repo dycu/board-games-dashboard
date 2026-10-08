@@ -58,6 +58,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
 
   const [departedDismissed, setDepartedDismissed] = useState(false)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- re-show the notice when new departures arrive
     if (departedGames.length > 0) setDepartedDismissed(false)
   }, [departedGames])
 

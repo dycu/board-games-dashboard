@@ -170,7 +170,7 @@ export function useGamesData(): UseGamesDataResult {
     setLastError(null)
 
     let allGames: Game[] = []
-    let allErrors: GamesApiResponse['errors'] = []
+    const allErrors: GamesApiResponse['errors'] = []
     let allPlatforms: Platform[] = []
 
     try {
@@ -257,6 +257,7 @@ export function useGamesData(): UseGamesDataResult {
   useEffect(() => {
     const cached = readCache()
     if (cached) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after hydration
       setDisplayedData(cached.data)
       setCachedAt(cached.cachedAt)
     }

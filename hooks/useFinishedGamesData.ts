@@ -20,7 +20,7 @@ export function useFinishedGamesData() {
     abortRef.current = controller
 
     let allGames: FinishedGame[] = []
-    let allErrors: FinishedGamesApiResponse['errors'] = []
+    const allErrors: FinishedGamesApiResponse['errors'] = []
 
     ;(async () => {
       try {

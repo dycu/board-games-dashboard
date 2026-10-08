@@ -13,6 +13,7 @@ interface Props {
 export default function GameCard({ game, pinned, onTogglePin, onOpen, opponentSlowDays }: Props) {
   const badgeClass = BADGE_COLORS[game.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'
   const opponentSlow = !game.myTurn &&
+    // eslint-disable-next-line react-hooks/purity -- an age check; cards re-render on every refresh anyway
     (Date.now() - game.lastMoveAt.getTime()) > opponentSlowDays * 86_400_000
 
   return (
