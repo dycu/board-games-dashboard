@@ -93,7 +93,7 @@ export default function DashboardPage() {
     isInitialFetchRef.current = false
   }, [freshDataVersion, freshDataStartedAt])
 
-  // An opened game is hidden until the next real refresh shows its actual state
+  // An opened game is dimmed (and skipped by Next) until the next real refresh shows its actual state
   const handleOpen = (id: string) => {
     setDismissed(prev => {
       const next = new Set(prev)

@@ -44,14 +44,18 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   const configuredPlatforms = data.platforms ?? Array.from(
     new Set([...games.map(g => g.platform), ...errors.map(e => e.platform)])
   )
-  const visible = games.filter(g => !dismissed.has(g.id))
+  // Opened games stay on the page, dimmed, so a note can still be added
+  // after the move; they no longer count as waiting for me
+  const visible = games
+  const isOpened = (g: Game) => dismissed.has(g.id)
   const countByPlatform = Object.fromEntries(
     configuredPlatforms.map(p => [p, visible.filter(g => g.platform === p).length])
   )
-  const myTurnCount = visible.filter(g => g.myTurn).length
+  const myTurnCount = visible.filter(g => g.myTurn && !isOpened(g)).length
   // eslint-disable-next-line react-hooks/purity -- ages and deadlines are as of this data; recomputed on every refresh
   const now = useMemo(() => Date.now(), [data])
-  const myTurnGames = sortAndFilter(visible.filter(g => g.myTurn), prefs, now)
+  const myTurnGames = sortAndFilter(visible.filter(g => g.myTurn && !isOpened(g)), prefs, now)
+  const openedMyTurnGames = sortAndFilter(visible.filter(g => g.myTurn && isOpened(g)), prefs, now)
   const waitingGames = sortAndFilter(visible.filter(g => !g.myTurn), prefs, now)
   const showMine = prefs.filter.turnStatus !== 'waiting'
   const showWaiting = prefs.filter.turnStatus !== 'my-turn'
@@ -112,6 +116,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     note: notes[g.id],
     onSaveNote: saveNote,
     now,
+    opened: isOpened(g),
   })
 
   // Your-turn count in the browser tab, readable without switching to it
@@ -245,14 +250,15 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                 </a>
               )}
             </div>
-            {myTurnGames.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
-                {myTurnGames.map(g => <GameCard key={g.id} {...itemProps(g)} />)}
-              </div>
-            ) : (
-              <p className="text-sm text-[#6b6b6b] text-center py-6 rounded-lg border border-dashed border-[#e5e5e5]">
+            {myTurnGames.length === 0 && (
+              <p className="text-sm text-[#6b6b6b] text-center py-6 mb-2.5 rounded-lg border border-dashed border-[#e5e5e5]">
                 All caught up ✓
               </p>
+            )}
+            {myTurnGames.length + openedMyTurnGames.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
+                {[...myTurnGames, ...openedMyTurnGames].map(g => <GameCard key={g.id} {...itemProps(g)} />)}
+              </div>
             )}
           </section>
         )}

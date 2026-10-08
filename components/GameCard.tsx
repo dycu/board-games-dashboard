@@ -9,11 +9,12 @@ export interface GameItemProps {
   game: Game
   pinned: boolean
   onTogglePin: (id: string) => void
-  onOpen: () => void // the dashboard hides an opened game until the next refresh
+  onOpen: () => void // the dashboard dims an opened game until the next refresh
   opponentSlowDays: number
   note?: string
   onSaveNote?: (id: string, text: string) => void
   now: number
+  opened?: boolean // opened since the last refresh that saw me back: dimmed until then
 }
 
 const BADGE_FALLBACK = 'bg-[#f3f3f3] text-[#6b6b6b]'
@@ -119,18 +120,19 @@ export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemPro
 }
 
 // A game waiting for my move: a full card
-export default function GameCard({ game, pinned, onTogglePin, onOpen, opponentSlowDays, note, onSaveNote, now }: GameItemProps) {
+export default function GameCard({ game, pinned, onTogglePin, onOpen, opponentSlowDays, note, onSaveNote, now, opened }: GameItemProps) {
   const soon = deadlineSoon(game, now)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
   return (
     <div className={`relative rounded-lg border p-3.5 flex flex-col gap-2 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] bg-white hover:border-[#c5c9f0]
-      ${soon !== null ? 'border-[#e5e5e5] border-l-[3px] border-l-red-500' : 'border-[#e5e5e5] border-l-[3px] border-l-[#5e6ad2]'}`}>
+      ${opened ? 'opacity-55 hover:opacity-100 border-[#e5e5e5]' : soon !== null ? 'border-[#e5e5e5] border-l-[3px] border-l-red-500' : 'border-[#e5e5e5] border-l-[3px] border-l-[#5e6ad2]'}`}>
       <CoverLink game={game} onOpen={onOpen} />
       <div className="flex items-center justify-between gap-2">
         <Badge game={game} />
         <div className="flex items-center gap-2">
-          {soon !== null && (
+          {opened && <span className="text-[11px] text-[#9b9b9b]">opened</span>}
+          {soon !== null && !opened && (
             <span className="text-[11px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
               ⏱ {formatTimeRemaining(Math.round(soon / 1000))}
             </span>
@@ -157,11 +159,11 @@ export default function GameCard({ game, pinned, onTogglePin, onOpen, opponentSl
 }
 
 // A game waiting for someone else: one compact row
-export function GameRow({ game, pinned, onTogglePin, onOpen, opponentSlowDays, note, onSaveNote, now }: GameItemProps) {
+export function GameRow({ game, pinned, onTogglePin, onOpen, opponentSlowDays, note, onSaveNote, now, opened }: GameItemProps) {
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   return (
     <div className={`relative flex items-center gap-2 px-3 py-2 rounded-md border bg-white hover:border-[#c5c9f0] transition-colors
-      ${slow ? 'border-amber-200 bg-amber-50/40' : 'border-[#ececec]'}`}>
+      ${slow ? 'border-amber-200 bg-amber-50/40' : 'border-[#ececec]'} ${opened ? 'opacity-55 hover:opacity-100' : ''}`}>
       <CoverLink game={game} onOpen={onOpen} />
       <Badge game={game} small />
       <div className="min-w-0 flex-1 flex items-baseline gap-2">

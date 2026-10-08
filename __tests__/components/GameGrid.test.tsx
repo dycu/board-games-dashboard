@@ -150,3 +150,16 @@ describe('GameGrid backlog suggestion', () => {
     expect(screen.getByRole('link', { name: /Play/ })).toHaveAttribute('href', 'https://x/3')
   })
 })
+
+describe('GameGrid opened games', () => {
+  it('keeps an opened game, dimmed, after the others; Next and the count skip it', () => {
+    const a = { ...makeGame('bga', '1'), gameName: 'Opened One' }
+    const b = { ...makeGame('bga', '2'), gameName: 'Still To Play' }
+    render(<GameGrid {...defaultGridProps} dismissed={new Set(['bga:1'])} data={{ games: [a, b], errors: [], fetchedAt: '' }} />)
+    expect(screen.getByText('Opened One')).toBeInTheDocument()
+    expect(screen.getByText('opened')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Next: Still To Play/ })).toBeInTheDocument()
+    expect(screen.getByText(/Your turn · 1/)).toBeInTheDocument()
+    expect(document.title).toBe('(1) Board Games Dashboard')
+  })
+})
