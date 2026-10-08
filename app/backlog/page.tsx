@@ -48,7 +48,7 @@ function Row({ item, position, onTop, onMove, onRemove }: {
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-center gap-2 py-2.5 pl-1.5 pr-3 rounded-lg border bg-white
+      className={`flex flex-wrap items-center gap-2 py-2.5 pl-1.5 pr-3 rounded-lg border bg-white
         ${isDragging ? 'border-[#5e6ad2] shadow-lg relative z-10' : 'border-[#e5e5e5]'}`}
     >
       <button
@@ -61,43 +61,49 @@ function Row({ item, position, onTop, onMove, onRemove }: {
         ⠿
       </button>
       <span className="shrink-0 w-6 text-right text-xs tabular-nums text-[#9b9b9b]">{position}</span>
-      <div className="flex items-center gap-2 min-w-[70px] flex-1">
+      {/* Wide enough: everything shares one line. Too narrow for both this
+          and the action buttons (phone widths): the min-width floor forces
+          the actions below onto their own line instead of squeezing the
+          game name down to one letter. */}
+      <div className="flex items-center gap-2 min-w-[140px] flex-1">
         <Badge platform={item.platform} />
         <span className="text-sm font-medium text-[#1a1a1a] truncate">{item.gameName}</span>
         <HistoryLink game={item} />
       </div>
-      <a
-        href={item.playUrl}
-        target={item.platform === 'bga' ? '_self' : '_blank'}
-        rel="noopener noreferrer"
-        aria-label={`Play ${item.gameName}`}
-        title="Play"
-        className="shrink-0 text-xs font-medium px-2 sm:px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] whitespace-nowrap"
-      >
-        <span className="sm:hidden" aria-hidden="true">↗</span>
-        <span className="hidden sm:inline" aria-hidden="true">Play ↗</span>
-      </a>
-      <button
-        onClick={onTop}
-        disabled={!onTop}
-        title="Move to top"
-        aria-label={`Move ${item.gameName} to top`}
-        className={`${SMALL_BUTTON} disabled:invisible`}
-      >
-        ⤒
-      </button>
-      <button
-        onClick={onMove}
-        aria-label={`Move ${item.gameName} to ${other === 'Learn' ? 'Next to learn' : 'Next to play'}`}
-        title={`Move to ${other === 'Learn' ? 'Next to learn' : 'Next to play'}`}
-        className={SMALL_BUTTON}
-      >
-        <span className="sm:hidden" aria-hidden="true">→</span>
-        <span className="hidden sm:inline" aria-hidden="true">→ {other}</span>
-      </button>
-      <button onClick={onRemove} title="Remove" aria-label={`Remove ${item.gameName}`} className={SMALL_BUTTON}>
-        ✕
-      </button>
+      <div className="shrink-0 flex items-center gap-2 ml-auto">
+        <a
+          href={item.playUrl}
+          target={item.platform === 'bga' ? '_self' : '_blank'}
+          rel="noopener noreferrer"
+          aria-label={`Play ${item.gameName}`}
+          title="Play"
+          className="shrink-0 text-xs font-medium px-2 sm:px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] whitespace-nowrap"
+        >
+          <span className="sm:hidden" aria-hidden="true">↗</span>
+          <span className="hidden sm:inline" aria-hidden="true">Play ↗</span>
+        </a>
+        <button
+          onClick={onTop}
+          disabled={!onTop}
+          title="Move to top"
+          aria-label={`Move ${item.gameName} to top`}
+          className={`${SMALL_BUTTON} disabled:invisible`}
+        >
+          ⤒
+        </button>
+        <button
+          onClick={onMove}
+          aria-label={`Move ${item.gameName} to ${other === 'Learn' ? 'Next to learn' : 'Next to play'}`}
+          title={`Move to ${other === 'Learn' ? 'Next to learn' : 'Next to play'}`}
+          className={SMALL_BUTTON}
+        >
+          <span className="sm:hidden" aria-hidden="true">→</span>
+          <span className="hidden sm:inline" aria-hidden="true">→ {other}</span>
+        </button>
+        <button onClick={onRemove} title="Remove" aria-label={`Remove ${item.gameName}`} className={SMALL_BUTTON}>
+          ✕
+        </button>
+      </div>
     </li>
   )
 }
@@ -326,20 +332,22 @@ function PlayedPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
       )}
       <ul className="mt-2 flex flex-col divide-y divide-[#f0f0f0] max-h-96 overflow-y-auto">
         {shown.map(g => (
-          <li key={`${g.platform}:${g.gameName}`} className="flex items-center gap-2 py-2">
+          <li key={`${g.platform}:${g.gameName}`} className="flex flex-wrap items-center gap-2 py-2">
             <Badge platform={g.platform} />
-            <div className="flex-1 min-w-0">
+            <div className="min-w-[140px] flex-1">
               <p className="text-sm text-[#1a1a1a] truncate">{g.gameName}</p>
               <p className="text-xs text-[#9b9b9b]">{playedNote(g)}</p>
             </div>
-            <HistoryLink game={g} />
-            <GameLink url={playedGameUrl(g)} platform={g.platform} />
-            <AddToBacklogButton
-              label="+ Add"
-              inList={backlog.listFor(g.platform, g.gameName)}
-              adding={backlog.isAdding(g.platform, g.gameName)}
-              onAdd={() => backlog.add({ platform: g.platform, gameName: g.gameName, gameUrl: g.gameUrl, list: target })}
-            />
+            <div className="shrink-0 flex items-center gap-2 ml-auto">
+              <HistoryLink game={g} />
+              <GameLink url={playedGameUrl(g)} platform={g.platform} />
+              <AddToBacklogButton
+                label="+ Add"
+                inList={backlog.listFor(g.platform, g.gameName)}
+                adding={backlog.isAdding(g.platform, g.gameName)}
+                onAdd={() => backlog.add({ platform: g.platform, gameName: g.gameName, gameUrl: g.gameUrl, list: target })}
+              />
+            </div>
           </li>
         ))}
       </ul>

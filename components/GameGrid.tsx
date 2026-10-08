@@ -225,9 +225,12 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
           </div>
         )}
 
-        <div className="flex items-center gap-3 mb-3">
-          {/* one line: the chips scroll sideways rather than push the sort controls down */}
-          <div className="flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto py-1 [scrollbar-width:none]">
+        <div className="flex flex-wrap items-center gap-3 mb-3">
+          {/* Wide enough: the chips scroll sideways rather than push the sort
+              controls down. Too narrow for both (phone widths): the min-width
+              floor forces the sort controls to wrap to their own line below
+              instead of squeezing the chips down to an unreadable sliver. */}
+          <div className="flex-1 min-w-[140px] flex items-center gap-1.5 overflow-x-auto py-1 [scrollbar-width:none]">
           {configuredPlatforms.length > 1 && (
             <>
               <button
