@@ -61,7 +61,7 @@ function Row({ item, position, onTop, onMove, onRemove }: {
         ⠿
       </button>
       <span className="shrink-0 w-6 text-right text-xs tabular-nums text-[#9b9b9b]">{position}</span>
-      <div className="flex items-center gap-2 min-w-0 flex-1">
+      <div className="flex items-center gap-2 min-w-[70px] flex-1">
         <Badge platform={item.platform} />
         <span className="text-sm font-medium text-[#1a1a1a] truncate">{item.gameName}</span>
         <HistoryLink game={item} />
@@ -70,9 +70,12 @@ function Row({ item, position, onTop, onMove, onRemove }: {
         href={item.playUrl}
         target={item.platform === 'bga' ? '_self' : '_blank'}
         rel="noopener noreferrer"
-        className="shrink-0 text-xs font-medium px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] whitespace-nowrap"
+        aria-label={`Play ${item.gameName}`}
+        title="Play"
+        className="shrink-0 text-xs font-medium px-2 sm:px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] whitespace-nowrap"
       >
-        Play ↗
+        <span className="sm:hidden" aria-hidden="true">↗</span>
+        <span className="hidden sm:inline" aria-hidden="true">Play ↗</span>
       </a>
       <button
         onClick={onTop}
@@ -83,8 +86,14 @@ function Row({ item, position, onTop, onMove, onRemove }: {
       >
         ⤒
       </button>
-      <button onClick={onMove} title={`Move to ${other === 'Learn' ? 'Next to learn' : 'Next to play'}`} className={SMALL_BUTTON}>
-        → {other}
+      <button
+        onClick={onMove}
+        aria-label={`Move ${item.gameName} to ${other === 'Learn' ? 'Next to learn' : 'Next to play'}`}
+        title={`Move to ${other === 'Learn' ? 'Next to learn' : 'Next to play'}`}
+        className={SMALL_BUTTON}
+      >
+        <span className="sm:hidden" aria-hidden="true">→</span>
+        <span className="hidden sm:inline" aria-hidden="true">→ {other}</span>
       </button>
       <button onClick={onRemove} title="Remove" aria-label={`Remove ${item.gameName}`} className={SMALL_BUTTON}>
         ✕

@@ -38,8 +38,8 @@ export default function FinishedGameCard({ game, action, details }: Props) {
   const badgeClass = BADGE_COLORS[game.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'
 
   return (
-    <div className="flex items-center justify-between py-2 px-3 rounded-lg border border-[#e5e5e5] bg-white hover:border-[#d5d5d5] transition-colors">
-      <div className="flex items-center gap-3 min-w-0">
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 py-2 px-3 rounded-lg border border-[#e5e5e5] bg-white hover:border-[#d5d5d5] transition-colors">
+      <div className="flex items-center gap-3 min-w-[160px] flex-1">
         <span title={PLATFORM_LABELS[game.platform]} className={`shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${badgeClass}`}>
           {PLATFORM_SHORT_LABELS[game.platform]}
         </span>
@@ -53,7 +53,7 @@ export default function FinishedGameCard({ game, action, details }: Props) {
           </p>
         </div>
       </div>
-      <div className="shrink-0 ml-4 flex items-center gap-2">
+      <div className="shrink-0 flex items-center gap-2">
         {action}
         <a
           href={game.gameUrl}
