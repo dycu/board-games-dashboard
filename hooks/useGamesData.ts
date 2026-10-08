@@ -138,7 +138,9 @@ export interface UseGamesDataResult {
   platformStatuses: Partial<Record<Platform, PlatformStatus>>
   cachedAt: string | null
   freshDataVersion: number
-  triggerRefresh: () => void
+  freshDataStartedAt: number // when the fetch behind the latest fresh data started
+  // force: abort a fetch already running and start over (its data may predate a change)
+  triggerRefresh: (force?: boolean) => void
   departedGames: DepartedGame[]
 }
 
@@ -149,18 +151,20 @@ export function useGamesData(): UseGamesDataResult {
   const [platformStatuses, setPlatformStatuses] = useState<Partial<Record<Platform, PlatformStatus>>>({})
   const [cachedAt, setCachedAt] = useState<string | null>(null)
   const [freshDataVersion, setFreshDataVersion] = useState(0)
+  const [freshDataStartedAt, setFreshDataStartedAt] = useState(0)
   const [departedGames, setDepartedGames] = useState<DepartedGame[]>([])
 
   const fetchingRef = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
 
-  const runFetch = useCallback(async () => {
-    if (fetchingRef.current) return
+  const runFetch = useCallback(async (force = false) => {
+    if (fetchingRef.current && !force) return
     fetchingRef.current = true
 
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
+    const startedAt = Date.now()
 
     setIsRefreshing(true)
     setLastError(null)
@@ -230,6 +234,7 @@ export function useGamesData(): UseGamesDataResult {
             const newCachedAt = writeCache(freshData)
             setCachedAt(newCachedAt)
             setDisplayedData(freshData)
+            setFreshDataStartedAt(startedAt)
             setFreshDataVersion(v => v + 1)
             if (!allErrors.some(e => e.platform === 'bga')) maybeSyncPace()
           }
@@ -241,8 +246,11 @@ export function useGamesData(): UseGamesDataResult {
       if (e instanceof Error && e.name === 'AbortError') return
       setLastError(e instanceof Error ? e.message : 'Fetch failed')
     } finally {
-      setIsRefreshing(false)
-      fetchingRef.current = false
+      // A forced refresh replaced this fetch — the new one owns the flags now
+      if (abortRef.current === controller) {
+        setIsRefreshing(false)
+        fetchingRef.current = false
+      }
     }
   }, [])
 
@@ -259,8 +267,8 @@ export function useGamesData(): UseGamesDataResult {
     }
   }, [runFetch])
 
-  const triggerRefresh = useCallback(() => {
-    runFetch()
+  const triggerRefresh = useCallback((force = false) => {
+    runFetch(force)
   }, [runFetch])
 
   return {
@@ -270,6 +278,7 @@ export function useGamesData(): UseGamesDataResult {
     platformStatuses,
     cachedAt,
     freshDataVersion,
+    freshDataStartedAt,
     triggerRefresh,
     departedGames,
   }
