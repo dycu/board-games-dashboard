@@ -2,35 +2,46 @@ import { kv } from '@vercel/kv'
 import { PLATFORM_LABELS } from '../types'
 import { evaluateHealth, HealthState, PlatformResult, Alert } from './evaluate'
 import { sendAlertEmail } from './email'
+import { StreamedGame } from '../notify/types'
 
 const STATE_KEY = 'health:v1'
 
 export interface HealthReport {
   checkedAt: string
   results: PlatformResult[]
+  games: StreamedGame[]
   alerts: Alert[]
   email: { sent: boolean; reason?: string } | null
   state: HealthState
 }
 
 // Reads /api/games' event stream: one 'platform' event per site
-export function parseGamesStream(body: string): PlatformResult[] {
+export function parseGamesStream(body: string): { results: PlatformResult[]; games: StreamedGame[] } {
   const results: PlatformResult[] = []
+  const games: StreamedGame[] = []
   let done = false
   for (const chunk of body.split('\n\n')) {
     if (!chunk.startsWith('data: ')) continue
-    let event: { type?: string; platform?: PlatformResult['platform']; games?: unknown[]; error?: string | null }
+    let event: { type?: string; platform?: PlatformResult['platform']; games?: StreamedGame[]; error?: string | null }
     try { event = JSON.parse(chunk.slice(6)) } catch { continue }
     if (event.type === 'platform' && event.platform) {
       results.push(event.error
         ? { platform: event.platform, error: event.error }
         : { platform: event.platform, count: event.games?.length ?? 0 })
+      games.push(...(event.games ?? []))
     } else if (event.type === 'done') {
       done = true
     }
   }
   if (!done) throw new Error('/api/games stream ended without a done event')
-  return results
+  return { results, games }
+}
+
+// The dashboard's own fetch, so proxies, prefs and validation all apply
+export async function fetchGamesStream(origin: string, authorization: string): Promise<{ results: PlatformResult[]; games: StreamedGame[] }> {
+  const res = await fetch(`${origin}/api/games`, { headers: { Authorization: authorization } })
+  if (!res.ok) throw new Error(`/api/games HTTP ${res.status}`)
+  return parseGamesStream(await res.text())
 }
 
 // Runs the same fetch the dashboard does (so proxies, prefs and validation all
@@ -38,14 +49,13 @@ export function parseGamesStream(body: string): PlatformResult[] {
 export async function runHealthCheck(origin: string, authorization: string, options: { forceEmail?: boolean } = {}): Promise<HealthReport> {
   const checkedAt = new Date().toISOString()
   let results: PlatformResult[]
+  let games: StreamedGame[]
   try {
-    const res = await fetch(`${origin}/api/games`, { headers: { Authorization: authorization } })
-    if (!res.ok) throw new Error(`/api/games HTTP ${res.status}`)
-    results = parseGamesStream(await res.text())
+    ;({ results, games } = await fetchGamesStream(origin, authorization))
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     const email = await sendAlertEmail('Board games dashboard: health check failed', `The daily check couldn't load the dashboard's games at all:\n\n${message}`)
-    return { checkedAt, results: [], alerts: [], email, state: {} }
+    return { checkedAt, results: [], games: [], alerts: [], email, state: {} }
   }
 
   const prev = (await kv.get<HealthState>(STATE_KEY).catch(() => null)) ?? {}
@@ -65,7 +75,7 @@ export async function runHealthCheck(origin: string, authorization: string, opti
     email = await sendAlertEmail(subject, `${lines.join('\n')}\n\nAll platforms:\n${status.join('\n')}`)
   }
 
-  return { checkedAt, results, alerts, email, state }
+  return { checkedAt, results, games, alerts, email, state }
 }
 
 export async function readHealthState(): Promise<HealthState> {

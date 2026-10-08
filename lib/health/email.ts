@@ -1,7 +1,7 @@
 // Alert emails go through Resend (resend.com): a single HTTPS call, no SMTP.
 // Without a verified domain Resend only delivers to the account's own address,
 // which is all a personal dashboard needs.
-export async function sendAlertEmail(subject: string, text: string): Promise<{ sent: boolean; reason?: string }> {
+export async function sendAlertEmail(subject: string, text: string, html?: string): Promise<{ sent: boolean; reason?: string }> {
   const apiKey = process.env.RESEND_API_KEY
   const to = process.env.ALERT_EMAIL
   if (!apiKey || !to) return { sent: false, reason: 'RESEND_API_KEY or ALERT_EMAIL not set' }
@@ -14,6 +14,7 @@ export async function sendAlertEmail(subject: string, text: string): Promise<{ s
       to: [to],
       subject,
       text,
+      ...(html && { html }),
     }),
   })
   if (!res.ok) return { sent: false, reason: `Resend HTTP ${res.status}: ${(await res.text()).slice(0, 300)}` }

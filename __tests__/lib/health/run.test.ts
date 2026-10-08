@@ -10,10 +10,13 @@ describe('parseGamesStream', () => {
       + ev({ type: 'platform', platform: 'bga', games: [{}, {}], error: null })
       + ev({ type: 'platform', platform: 'obg', games: [], error: 'OBG: markup has changed' })
       + ev({ type: 'done', fetchedAt: 'x' })
-    expect(parseGamesStream(body)).toEqual([
-      { platform: 'bga', count: 2 },
-      { platform: 'obg', error: 'OBG: markup has changed' },
-    ])
+    expect(parseGamesStream(body)).toEqual({
+      results: [
+        { platform: 'bga', count: 2 },
+        { platform: 'obg', error: 'OBG: markup has changed' },
+      ],
+      games: [{}, {}],
+    })
   })
 
   it('throws on a stream cut short', () => {
