@@ -6,15 +6,14 @@ jest.mock('@/lib/connectors', () => {
   const bga = jest.fn()
   return {
     makeConnectors: jest.fn(() => ({ bga })),
-    connectors: { bga },
     hasCreds: jest.fn(),
   }
 })
 
 import { GET, dynamic } from '../route'
-import { connectors, hasCreds } from '@/lib/connectors'
+import { makeConnectors, hasCreds } from '@/lib/connectors'
 
-const mockBgaFetch = connectors.bga as jest.MockedFunction<() => Promise<any[]>>
+const mockBgaFetch = makeConnectors().bga as jest.MockedFunction<() => Promise<any[]>>
 const mockHasCreds = hasCreds as jest.MockedFunction<typeof hasCreds>
 
 async function consumeSSE(body: ReadableStream<Uint8Array>): Promise<any[]> {

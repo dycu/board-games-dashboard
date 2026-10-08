@@ -1,4 +1,4 @@
-import { Game, Platform, GamesApiResponse, FinishedGame } from '../types'
+import { Game, Platform, FinishedGame } from '../types'
 
 export type Fetcher = () => Promise<Game[]>
 export type FinishedFetcher = () => Promise<FinishedGame[]>
@@ -6,7 +6,6 @@ import { fetchBGA, fetchFinishedBGA } from './bga'
 import { fetchEighteenXX, fetchFinishedEighteenXX } from './eighteenxx'
 import { fetchOBG, fetchFinishedOBG } from './obg'
 import { fetchYucata, fetchFinishedYucata } from './yucata'
-import { fetchChoochoo } from './choochoo'
 import { fetchHansa, fetchFinishedHansa } from './hansa'
 import { fetchRally, fetchFinishedRally } from './rally'
 import { fetchOldKingsCrown } from './oldkingscrown'
@@ -15,28 +14,23 @@ function env(key: string): string {
   return process.env[key] ?? ''
 }
 
+// choochoo needs Node's https module, so callers on the edge runtime go through
+// the /api/choochoo and /api/choochoo-finished routes instead (PROXY_PATH)
+function viaProxy(route: string): never {
+  throw new Error(`choochoo must be called via the ${route} proxy`)
+}
+
 export function makeConnectors(bgaSortCapDays = 3, eighteenxxSessionCookie?: string): Record<Platform, Fetcher> {
   return {
     bga: () => fetchBGA(env('BGA_USERNAME'), env('BGA_PASSWORD'), bgaSortCapDays),
     eighteenxx: () => fetchEighteenXX(env('EIGHTEENXX_USERNAME'), env('EIGHTEENXX_PASSWORD'), eighteenxxSessionCookie),
     obg: () => fetchOBG(env('OBG_USERNAME'), env('OBG_PASSWORD')),
     yucata: () => fetchYucata(env('YUCATA_USERNAME'), env('YUCATA_PASSWORD')),
-    choochoo: () => fetchChoochoo(env('CHOOCHOO_USERNAME'), env('CHOOCHOO_PASSWORD')),
+    choochoo: () => viaProxy('/api/choochoo'),
     hansa: () => fetchHansa(env('HANSA_USER_ID')),
     rally: () => fetchRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
     oldkingscrown: () => fetchOldKingsCrown(env('OLDKINGSCROWN_NICKNAME') || 'Dycu'),
   }
-}
-
-export const connectors: Record<Platform, Fetcher> = {
-  bga: () => fetchBGA(env('BGA_USERNAME'), env('BGA_PASSWORD')),
-  eighteenxx: () => fetchEighteenXX(env('EIGHTEENXX_USERNAME'), env('EIGHTEENXX_PASSWORD')),
-  obg: () => fetchOBG(env('OBG_USERNAME'), env('OBG_PASSWORD')),
-  yucata: () => fetchYucata(env('YUCATA_USERNAME'), env('YUCATA_PASSWORD')),
-  choochoo: () => fetchChoochoo(env('CHOOCHOO_USERNAME'), env('CHOOCHOO_PASSWORD')),
-  hansa: () => fetchHansa(env('HANSA_USER_ID')),
-  rally: () => fetchRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
-  oldkingscrown: () => fetchOldKingsCrown(env('OLDKINGSCROWN_NICKNAME') || 'Dycu'),
 }
 
 export function makeFinishedConnectors(eighteenxxSessionCookie?: string): Partial<Record<Platform, FinishedFetcher>> {
@@ -47,7 +41,7 @@ export function makeFinishedConnectors(eighteenxxSessionCookie?: string): Partia
     rally: () => fetchFinishedRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
     hansa: () => fetchFinishedHansa(env('HANSA_USER_ID')),
     yucata: () => fetchFinishedYucata(env('YUCATA_USERNAME'), env('YUCATA_PASSWORD')),
-    choochoo: () => { throw new Error('choochoo must be called via /api/choochoo-finished proxy') },
+    choochoo: () => viaProxy('/api/choochoo-finished'),
   }
 }
 
@@ -57,32 +51,4 @@ export function hasCreds(platform: Platform): boolean {
   if (platform === 'oldkingscrown') return true // no account system — only a nickname, defaulted in the connector itself
   const prefix = platform.toUpperCase()
   return !!(process.env[`${prefix}_USERNAME`] && process.env[`${prefix}_PASSWORD`])
-}
-
-export async function fetchAllPlatforms(disabledPlatforms: Platform[] = []): Promise<GamesApiResponse> {
-  const entries = (Object.entries(connectors) as [Platform, Fetcher][])
-    .filter(([platform]) => hasCreds(platform) && !disabledPlatforms.includes(platform))
-
-  const results = await Promise.allSettled(
-    entries.map(async ([platform, fetch]) => {
-      const games = await fetch()
-      return { platform, games }
-    })
-  )
-
-  const games: Game[] = []
-  const errors: GamesApiResponse['errors'] = []
-
-  results.forEach((result, i) => {
-    if (result.status === 'fulfilled') {
-      games.push(...result.value.games)
-    } else {
-      errors.push({
-        platform: entries[i][0],
-        error: result.reason?.message ?? 'Unknown error',
-      })
-    }
-  })
-
-  return { games, errors, fetchedAt: new Date().toISOString() }
 }
