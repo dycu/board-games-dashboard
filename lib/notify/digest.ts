@@ -9,6 +9,8 @@ function since(iso: string, now: number): string {
 import { StreamedGame } from './types'
 
 const DEADLINE_SOON_MS = 24 * 3600 * 1000
+// Only this close a deadline jumps the queue (see lib/sort-filter.ts)
+const DEADLINE_URGENT_MS = 6 * 3600 * 1000
 const MAX_STALLED = 5
 
 export interface Digest { subject: string; text: string; html: string }
@@ -23,7 +25,7 @@ export function buildDigest(games: StreamedGame[], options: { now: number; oppon
   const { now, opponentSlowDays } = options
   const left = (g: StreamedGame) => (g.deadlineAt ? new Date(g.deadlineAt).getTime() - now : Infinity)
   const mine = games.filter(g => g.myTurn).sort((a, b) =>
-    Math.min(left(a), DEADLINE_SOON_MS) - Math.min(left(b), DEADLINE_SOON_MS)
+    Math.min(left(a), DEADLINE_URGENT_MS) - Math.min(left(b), DEADLINE_URGENT_MS)
     || new Date(a.lastMoveAt).getTime() - new Date(b.lastMoveAt).getTime())
   const stalled = games
     .filter(g => !g.myTurn && now - new Date(g.lastMoveAt).getTime() > opponentSlowDays * 86_400_000)

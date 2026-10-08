@@ -1,12 +1,17 @@
 import { Game, UserPrefs } from './types'
 
+// Shown as a "Xh left" chip from a day out…
 export const DEADLINE_SOON_MS = 24 * 3600 * 1000
+// …but only moved ahead of the other games once really close (or overdue):
+// BGA's async turns nearly always have under a day left, so a 24h cut-off
+// put every BGA game ahead of everything else
+export const DEADLINE_URGENT_MS = 6 * 3600 * 1000
 
-// Ms until this game's deadline when it's my move and the deadline is near, else null
-export function deadlineSoon(g: Game, now: number): number | null {
+// Ms until this game's deadline when it's my move and the deadline is within `within`, else null
+export function deadlineSoon(g: Game, now: number, within = DEADLINE_SOON_MS): number | null {
   if (!g.myTurn || !g.deadlineAt) return null
   const left = new Date(g.deadlineAt).getTime() - now
-  return left < DEADLINE_SOON_MS ? left : null
+  return left < within ? left : null
 }
 
 export function sortAndFilter(games: Game[], prefs: UserPrefs, now = Date.now()): Game[] {
@@ -35,9 +40,9 @@ export function sortAndFilter(games: Game[], prefs: UserPrefs, now = Date.now())
     if (a.myTurn && !b.myTurn) return -1
     if (b.myTurn && !a.myTurn) return 1
 
-    // Within a group, a move about to time out comes first, soonest first
-    const aSoon = deadlineSoon(a, now)
-    const bSoon = deadlineSoon(b, now)
+    // Within a group, a move about to time out (or overdue) comes first, soonest first
+    const aSoon = deadlineSoon(a, now, DEADLINE_URGENT_MS)
+    const bSoon = deadlineSoon(b, now, DEADLINE_URGENT_MS)
     if (aSoon !== null || bSoon !== null) {
       if (aSoon === null) return 1
       if (bSoon === null) return -1

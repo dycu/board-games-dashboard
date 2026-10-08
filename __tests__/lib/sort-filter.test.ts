@@ -79,4 +79,18 @@ describe('sortAndFilter', () => {
     const result = sortAndFilter([pinned, in3d, in5h, in2h], prefs({ pins: ['bga:13'] }), now)
     expect(result.map(g => g.id)).toEqual(['bga:13', 'bga:11', 'bga:10', 'bga:12'])
   })
+
+  it('does not move a game with most of a day left ahead of games that waited longer', () => {
+    const now = Date.parse('2026-10-08T12:00:00Z')
+    const bgaDay = base({ id: 'bga:20', myTurn: true, deadlineAt: '2026-10-09T08:00:00Z', lastMoveAt: new Date('2026-10-08T10:00:00Z') })
+    const obgOld = base({ id: 'obg:21', platform: 'obg', myTurn: true, lastMoveAt: new Date('2026-10-06T10:00:00Z') })
+    expect(sortAndFilter([bgaDay, obgOld], prefs(), now).map(g => g.id)).toEqual(['obg:21', 'bga:20'])
+  })
+
+  it('puts an overdue game first', () => {
+    const now = Date.parse('2026-10-08T12:00:00Z')
+    const overdue = base({ id: 'obg:30', platform: 'obg', myTurn: true, deadlineAt: '2026-10-07T21:00:00Z', lastMoveAt: new Date('2026-10-07T09:00:00Z') })
+    const older = base({ id: 'bga:31', myTurn: true, lastMoveAt: new Date('2026-10-01T10:00:00Z') })
+    expect(sortAndFilter([older, overdue], prefs(), now).map(g => g.id)).toEqual(['obg:30', 'bga:31'])
+  })
 })
