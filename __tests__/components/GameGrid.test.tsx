@@ -1,6 +1,12 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import GameGrid from '@/components/GameGrid'
-import { GamesApiResponse, DEFAULT_PREFS, PLATFORM_URLS, Game } from '@/lib/types'
+import { GamesApiResponse, DEFAULT_PREFS, PLATFORM_URLS, Game, UserPrefs } from '@/lib/types'
+
+beforeEach(() => {
+  // notes and backlog load on mount
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items: [] }) })) as unknown as typeof fetch
+})
 
 function makeGame(platform: Game['platform'], id: string): Game {
   return {
@@ -42,41 +48,59 @@ describe('GameGrid header navigation', () => {
   })
 })
 
-describe('GameGrid quick-links bar', () => {
-  it('renders a link for each platform present in games', () => {
+describe('GameGrid platform filter', () => {
+  it('shows a filter chip per platform, including ones that errored, once each', () => {
     const data: GamesApiResponse = {
-      games: [makeGame('bga', '1'), makeGame('yucata', '2')],
-      errors: [],
+      games: [makeGame('bga', '1'), makeGame('bga', '2'), makeGame('yucata', '3')],
+      errors: [{ platform: 'bga', error: 'partial' }, { platform: 'rally', error: 'timeout' }],
       fetchedAt: new Date().toISOString(),
     }
     render(<GameGrid {...defaultGridProps} data={data} />)
-    const bgaLink = screen.getByRole('link', { name: /^BGA/ })
-    expect(bgaLink).toHaveAttribute('href', PLATFORM_URLS.bga)
-    const yucataLink = screen.getByRole('link', { name: /^Yucata/ })
-    expect(yucataLink).toHaveAttribute('href', PLATFORM_URLS.yucata)
+    expect(screen.getAllByRole('button', { name: /^BGA \(2\)/ })).toHaveLength(1)
+    expect(screen.getByRole('button', { name: /^Yucata \(1\)/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Rally the Troops \(0\)/ })).toBeInTheDocument()
   })
 
-  it('includes platforms that errored (no games returned)', () => {
-    const data: GamesApiResponse = {
-      games: [makeGame('bga', '1')],
-      errors: [{ platform: 'rally', error: 'timeout' }],
-      fetchedAt: new Date().toISOString(),
-    }
-    render(<GameGrid {...defaultGridProps} data={data} />)
-    expect(screen.getByRole('link', { name: /^Rally the Troops/ })).toHaveAttribute(
-      'href',
-      PLATFORM_URLS.rally,
-    )
+  it('filters to a platform when its chip is clicked', async () => {
+    const onPrefsChange = jest.fn()
+    const data: GamesApiResponse = { games: [makeGame('bga', '1'), makeGame('yucata', '2')], errors: [], fetchedAt: new Date().toISOString() }
+    render(<GameGrid {...defaultGridProps} onPrefsChange={onPrefsChange} data={data} />)
+    await userEvent.click(screen.getByRole('button', { name: /^Yucata/ }))
+    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ filter: expect.objectContaining({ platforms: ['yucata'] }) }))
+  })
+})
+
+describe('GameGrid sections', () => {
+  const waiting = (id: string, daysAgo: number, name = `Waiting ${id}`): Game => ({
+    ...makeGame('bga', id),
+    gameName: name,
+    myTurn: false,
+    lastMoveAt: new Date(Date.now() - daysAgo * 86_400_000),
   })
 
-  it('does not duplicate a platform that has both games and an error entry', () => {
-    const data: GamesApiResponse = {
-      games: [makeGame('bga', '1'), makeGame('bga', '2')],
-      errors: [{ platform: 'bga', error: 'partial' }],
-      fetchedAt: new Date().toISOString(),
-    }
-    render(<GameGrid {...defaultGridProps} data={data} />)
-    expect(screen.getAllByRole('link', { name: /^BGA/ })).toHaveLength(1)
+  it('offers the first your-turn game as "Next"', () => {
+    const urgent = { ...makeGame('bga', '9'), gameName: 'Urgent One', deadlineAt: new Date(Date.now() + 3600_000).toISOString() }
+    renderGrid([makeGame('bga', '1'), urgent])
+    expect(screen.getByRole('button', { name: /Next: Urgent One/ })).toBeInTheDocument()
+  })
+
+  it('says all caught up when nothing is waiting for me', () => {
+    renderGrid([waiting('1', 1)])
+    expect(screen.getByText(/All caught up/)).toBeInTheDocument()
+  })
+
+  it('shows only slow-opponent waiting games until expanded', async () => {
+    renderGrid([waiting('1', 1, 'Recent'), waiting('2', 9, 'Stalled')])
+    expect(screen.getByText('Stalled')).toBeInTheDocument()
+    expect(screen.queryByText('Recent')).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: /Show 1 more/ }))
+    expect(screen.getByText('Recent')).toBeInTheDocument()
+  })
+
+  it('hides the your-turn section when filtered to waiting', () => {
+    const prefs: UserPrefs = { ...DEFAULT_PREFS, filter: { turnStatus: 'waiting', platforms: [] } }
+    render(<GameGrid {...defaultGridProps} prefs={prefs} data={{ games: [makeGame('bga', '1')], errors: [], fetchedAt: '' }} />)
+    expect(screen.queryByText(/Your turn ·/)).toBeNull()
   })
 })
 
@@ -109,5 +133,19 @@ describe('GameGrid departed games banner', () => {
     )
     const link = screen.getByRole('link', { name: 'Other Game' })
     expect(link).toHaveAttribute('target', '_blank')
+  })
+})
+
+describe('GameGrid backlog suggestion', () => {
+  it('suggests the top "Next to play" game not already running when few games are active', async () => {
+    const items = [
+      { id: 'bga:testgame', platform: 'bga', gameName: 'Test Game', playUrl: 'https://x/1', addedAt: '', list: 'play' },
+      { id: 'bga:learnme', platform: 'bga', gameName: 'Learn Me', playUrl: 'https://x/2', addedAt: '', list: 'learn' },
+      { id: 'yucata:navegador', platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/3', addedAt: '', list: 'play' },
+    ]
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    renderGrid([makeGame('bga', '1')])
+    expect(await screen.findByText('Navegador')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Play/ })).toHaveAttribute('href', 'https://x/3')
   })
 })

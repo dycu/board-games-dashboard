@@ -21,6 +21,7 @@ export interface Game {
   gameUrl: string
   platformUrl: string
   players: string[]       // other players; empty array if unavailable
+  deadlineAt?: string     // ISO; when the active player's time runs out (BGA)
 }
 
 export interface UserPrefs {

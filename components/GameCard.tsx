@@ -1,73 +1,179 @@
 'use client'
+import { useState } from 'react'
 import { Game, PLATFORM_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
+import { formatTimeRemaining } from '@/lib/connectors/utils'
+import { deadlineSoon } from '@/lib/sort-filter'
 
-interface Props {
+export interface GameItemProps {
   game: Game
   pinned: boolean
   onTogglePin: (id: string) => void
   onOpen: () => void // the dashboard hides an opened game until the next refresh
   opponentSlowDays: number
+  note?: string
+  onSaveNote?: (id: string, text: string) => void
+  now: number
 }
 
-export default function GameCard({ game, pinned, onTogglePin, onOpen, opponentSlowDays }: Props) {
-  const badgeClass = BADGE_COLORS[game.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'
-  const opponentSlow = !game.myTurn &&
-    // eslint-disable-next-line react-hooks/purity -- an age check; cards re-render on every refresh anyway
-    (Date.now() - game.lastMoveAt.getTime()) > opponentSlowDays * 86_400_000
+const BADGE_FALLBACK = 'bg-[#f3f3f3] text-[#6b6b6b]'
+
+export function openTarget(game: Game): string {
+  // BGA opens in this tab (desktop mode on tablets); other sites in a new one
+  return game.platform === 'bga' ? '_self' : '_blank'
+}
+
+export function isOpponentSlow(game: Game, opponentSlowDays: number, now: number): boolean {
+  return !game.myTurn && now - game.lastMoveAt.getTime() > opponentSlowDays * 86_400_000
+}
+
+// The whole card/row is the link: an invisible layer over it, with the
+// buttons raised above it so they stay clickable
+function CoverLink({ game, onOpen }: { game: Game; onOpen: () => void }) {
+  return (
+    <a
+      href={game.gameUrl}
+      target={openTarget(game)}
+      rel="noopener noreferrer"
+      aria-label={`Open ${game.gameName}`}
+      onClick={onOpen}
+      onAuxClick={onOpen}
+      onContextMenu={onOpen}
+      className="absolute inset-0 rounded-[inherit] focus-visible:outline-2 focus-visible:outline-[#5e6ad2]"
+    />
+  )
+}
+
+function PinButton({ game, pinned, onTogglePin }: Pick<GameItemProps, 'game' | 'pinned' | 'onTogglePin'>) {
+  return (
+    <button
+      aria-label={pinned ? 'Unpin game' : 'Pin game'}
+      onClick={() => onTogglePin(game.id)}
+      className={`relative z-10 text-sm transition-colors ${pinned ? 'text-amber-400' : 'text-[#c5c5c5] hover:text-amber-400'}`}>
+      {pinned ? '★' : '☆'}
+    </button>
+  )
+}
+
+export function Badge({ game, small }: { game: Game; small?: boolean }) {
+  return (
+    <span className={`shrink-0 font-bold uppercase tracking-wide rounded-full ${small ? 'text-[10px] px-1.5 py-px' : 'text-[11px] px-2 py-0.5'} ${BADGE_COLORS[game.platform] ?? BADGE_FALLBACK}`}>
+      {PLATFORM_LABELS[game.platform]}
+    </span>
+  )
+}
+
+export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemProps, 'game' | 'note' | 'onSaveNote'> & { compact?: boolean }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  if (!onSaveNote) return note ? <p className="text-xs text-[#6b6b6b] italic truncate">{note}</p> : null
+
+  if (editing) {
+    const save = () => { onSaveNote(game.id, draft); setEditing(false) }
+    return (
+      <input
+        autoFocus
+        value={draft}
+        maxLength={300}
+        onChange={e => setDraft(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') save()
+          if (e.key === 'Escape') setEditing(false)
+        }}
+        onBlur={save}
+        placeholder="Note for this game…"
+        aria-label={`Note for ${game.gameName}`}
+        className={`relative z-10 text-xs bg-white text-[#1a1a1a] px-2 py-1 rounded border border-[#5e6ad2] ${compact ? 'w-40 sm:w-56' : 'w-full'}`}
+      />
+    )
+  }
+  const startEditing = () => { setDraft(note ?? ''); setEditing(true) }
+  if (compact) {
+    // Rows show the note's text themselves; this is just the edit control
+    return (
+      <button
+        onClick={startEditing}
+        aria-label={note ? `Edit the note on ${game.gameName}` : `Add a note to ${game.gameName}`}
+        title={note ?? 'Add a note'}
+        className={`relative z-10 text-xs ${note ? 'text-[#6b6b6b]' : 'text-[#c5c5c5]'} hover:text-[#1a1a1a]`}>
+        ✎
+      </button>
+    )
+  }
+  return note ? (
+    <button
+      onClick={startEditing}
+      title="Edit note"
+      className="relative z-10 block max-w-full text-left text-xs text-[#6b6b6b] italic truncate hover:text-[#1a1a1a]">
+      ✎ {note}
+    </button>
+  ) : (
+    <button
+      onClick={startEditing}
+      aria-label={`Add a note to ${game.gameName}`}
+      title="Add a note"
+      className="relative z-10 self-start text-xs text-[#c5c5c5] hover:text-[#6b6b6b]">
+      ✎ note
+    </button>
+  )
+}
+
+// A game waiting for my move: a full card
+export default function GameCard({ game, pinned, onTogglePin, onOpen, opponentSlowDays, note, onSaveNote, now }: GameItemProps) {
+  const soon = deadlineSoon(game, now)
+  const slow = isOpponentSlow(game, opponentSlowDays, now)
 
   return (
-    <div className={`rounded-lg border p-3.5 flex flex-col gap-2.5 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)]
-      ${game.myTurn
-        ? 'bg-white border-[#e5e5e5] border-l-[3px] border-l-[#5e6ad2]'
-        : 'bg-[#fafafa] border-[#e5e5e5] hover:border-[#d5d5d5]'}`}>
-      <div className="flex items-center justify-between">
-        <span className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${badgeClass}`}>
-          {PLATFORM_LABELS[game.platform]}
-        </span>
+    <div className={`relative rounded-lg border p-3.5 flex flex-col gap-2 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] bg-white hover:border-[#c5c9f0]
+      ${soon !== null ? 'border-[#e5e5e5] border-l-[3px] border-l-red-500' : 'border-[#e5e5e5] border-l-[3px] border-l-[#5e6ad2]'}`}>
+      <CoverLink game={game} onOpen={onOpen} />
+      <div className="flex items-center justify-between gap-2">
+        <Badge game={game} />
         <div className="flex items-center gap-2">
-          {game.myTurn
-            ? <span className="text-[11px] font-semibold text-[#5e6ad2]">Your turn</span>
-            : <span className="text-[11px] text-[#9b9b9b]">
-                {game.currentPlayer ? `Waiting for ${game.currentPlayer}` : 'Waiting'}
-              </span>
-          }
-          <button
-            aria-label={pinned ? 'Unpin game' : 'Pin game'}
-            onClick={() => onTogglePin(game.id)}
-            className={`text-sm transition-colors ${pinned ? 'text-amber-400' : 'text-[#9b9b9b] hover:text-amber-400'}`}>
-            {pinned ? '★' : '☆'}
-          </button>
+          {soon !== null && (
+            <span className="text-[11px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+              ⏱ {formatTimeRemaining(Math.round(soon / 1000))}
+            </span>
+          )}
+          <PinButton game={game} pinned={pinned} onTogglePin={onTogglePin} />
         </div>
       </div>
 
       <div className="font-semibold text-[14px] text-[#1a1a1a]">{game.gameName}</div>
 
       {game.players.length > 0 && (
-        <div className="text-xs text-[#9b9b9b] hidden sm:block">
+        <div className="text-xs text-[#9b9b9b] hidden sm:block truncate">
           with {game.players.join(', ')}
         </div>
       )}
 
-      <div className="flex items-center justify-between mt-0.5">
-        <span className={`text-xs ${(game.urgent || opponentSlow) ? 'text-amber-500 font-medium' : 'text-[#9b9b9b]'}`}>
-          {(game.urgent || opponentSlow) ? '⏱ ' : ''}{game.lastMoveAgo}
-        </span>
-        <a
-            href={game.gameUrl}
-            target={game.platform === 'bga' ? '_self' : '_blank'}
-            rel="noopener noreferrer"
-            aria-label="Open game"
-            onClick={onOpen}
-            onAuxClick={onOpen}
-            onContextMenu={onOpen}
-            className={`text-xs font-medium px-3 py-1 rounded-md transition-colors
-              ${game.myTurn
-                ? 'bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]'
-                : 'bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb]'}`}>
-            Open →
-          </a>
+      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} />
+
+      <span className={`text-xs ${(game.urgent || slow) && soon === null ? 'text-amber-500 font-medium' : 'text-[#9b9b9b]'}`}>
+        {game.lastMoveAgo}
+      </span>
+    </div>
+  )
+}
+
+// A game waiting for someone else: one compact row
+export function GameRow({ game, pinned, onTogglePin, onOpen, opponentSlowDays, note, onSaveNote, now }: GameItemProps) {
+  const slow = isOpponentSlow(game, opponentSlowDays, now)
+  return (
+    <div className={`relative flex items-center gap-2 px-3 py-2 rounded-md border bg-white hover:border-[#c5c9f0] transition-colors
+      ${slow ? 'border-amber-200 bg-amber-50/40' : 'border-[#ececec]'}`}>
+      <CoverLink game={game} onOpen={onOpen} />
+      <Badge game={game} small />
+      <div className="min-w-0 flex-1 flex items-baseline gap-2">
+        <span className="text-sm text-[#1a1a1a] truncate">{game.gameName}</span>
+        {game.currentPlayer && <span className="hidden sm:inline text-xs text-[#9b9b9b] truncate">waiting for {game.currentPlayer}</span>}
+        {note && <span className="hidden md:inline text-xs text-[#6b6b6b] italic truncate">✎ {note}</span>}
       </div>
+      <span className={`shrink-0 text-xs ${slow ? 'text-amber-600 font-medium' : 'text-[#9b9b9b]'}`}>
+        {slow ? '⏱ ' : ''}{game.lastMoveAgo}
+      </span>
+      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact />
+      <PinButton game={game} pinned={pinned} onTogglePin={onTogglePin} />
     </div>
   )
 }

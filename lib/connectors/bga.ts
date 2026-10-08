@@ -410,10 +410,8 @@ export async function fetchBGA(username: string, password: string): Promise<Game
         ? new Date(Date.now() - Math.max(0, capMs - thinkRemainSec! * 1000))
         : new Date()
     const remaining = hasTimingData && thinkRemainSec! < ESTIMATE_CAP_DAYS * 86400 ? formatTimeRemaining(thinkRemainSec!) : null
-    const lastMoveAgo = realSec !== undefined
-      // The deadline still matters once it's close
-      ? [formatTimeAgo(lastMoveAt), hasTimingData && thinkRemainSec! < 24 * 3600 ? remaining : null].filter(Boolean).join(' · ')
-      : remaining ?? '–'
+    // The deadline is shown from deadlineAt, so only the fallback puts it here
+    const lastMoveAgo = realSec !== undefined ? formatTimeAgo(lastMoveAt) : remaining ?? '–'
 
     const playerNames = Object.values(players)
       .map((p: any) => p.fullname)
@@ -427,6 +425,7 @@ export async function fetchBGA(username: string, password: string): Promise<Game
       currentPlayer: isMyTurn ? undefined : (activePlayerEntry?.fullname ?? undefined),
       lastMoveAt,
       lastMoveAgo,
+      deadlineAt: hasTimingData ? new Date(Date.now() + thinkRemainSec! * 1000).toISOString() : undefined,
       urgent: hasTimingData && thinkRemainSec! < 24 * 3600,
       gameUrl: `${BASE}/${t.gameserver}/${t.game_name}?table=${t.id}`,
       platformUrl: `${BASE}/gameinprogress`,

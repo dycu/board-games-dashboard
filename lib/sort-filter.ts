@@ -1,6 +1,15 @@
 import { Game, UserPrefs } from './types'
 
-export function sortAndFilter(games: Game[], prefs: UserPrefs): Game[] {
+export const DEADLINE_SOON_MS = 24 * 3600 * 1000
+
+// Ms until this game's deadline when it's my move and the deadline is near, else null
+export function deadlineSoon(g: Game, now: number): number | null {
+  if (!g.myTurn || !g.deadlineAt) return null
+  const left = new Date(g.deadlineAt).getTime() - now
+  return left < DEADLINE_SOON_MS ? left : null
+}
+
+export function sortAndFilter(games: Game[], prefs: UserPrefs, now = Date.now()): Game[] {
   const { pins, sort, filter } = prefs
 
   const result = games.filter(g => {
@@ -11,6 +20,15 @@ export function sortAndFilter(games: Game[], prefs: UserPrefs): Game[] {
   })
 
   result.sort((a, b) => {
+    // A move about to time out comes before everything else, pins included, soonest first
+    const aSoon = deadlineSoon(a, now)
+    const bSoon = deadlineSoon(b, now)
+    if (aSoon !== null || bSoon !== null) {
+      if (aSoon === null) return 1
+      if (bSoon === null) return -1
+      return aSoon - bSoon
+    }
+
     const aPinned = pins.includes(a.id)
     const bPinned = pins.includes(b.id)
 
