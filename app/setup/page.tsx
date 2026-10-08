@@ -22,7 +22,6 @@ export default function SetupPage() {
   )
   const [errors, setErrors] = useState<Record<Platform, string>>({} as Record<Platform, string>)
   const [disabled, setDisabled] = useState<Set<Platform>>(new Set())
-  const [bgaSortCapDays, setBgaSortCapDays] = useState(3)
   const [opponentSlowDays, setOpponentSlowDays] = useState(5)
   const [backlogPlatforms, setBacklogPlatforms] = useState<Platform[]>(DEFAULT_BACKLOG_PLATFORMS)
   const [cookieInput, setCookieInput] = useState('')
@@ -50,7 +49,6 @@ export default function SetupPage() {
   useEffect(() => {
     fetch('/api/prefs').then(r => r.json()).then(prefs => {
       setDisabled(new Set(prefs.disabledPlatforms ?? []))
-      setBgaSortCapDays(prefs.bgaSortCapDays ?? 3)
       setOpponentSlowDays(prefs.opponentSlowDays ?? 5)
       setBacklogPlatforms(prefs.backlogPlatforms ?? DEFAULT_BACKLOG_PLATFORMS)
       setCookieSaved(!!prefs.eighteenxxSessionCookie)
@@ -133,33 +131,6 @@ export default function SetupPage() {
     <div className="flex flex-col h-screen overflow-hidden">
       <TopNav />
       <div className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
-
-        <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
-          <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">BGA sort cap</h2>
-          <p className="text-xs text-[#9b9b9b] mb-3">
-            BGA doesn&apos;t expose last-move time. Games within this many days of their deadline
-            are ranked by urgency; games with more time left appear as not urgent.
-          </p>
-          <div className="flex items-center gap-3">
-            <input
-              type="number"
-              min={1}
-              max={90}
-              value={bgaSortCapDays}
-              onChange={async e => {
-                const val = Math.max(1, Math.min(90, parseInt(e.target.value) || 3))
-                setBgaSortCapDays(val)
-                await fetch('/api/prefs', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ bgaSortCapDays: val }),
-                })
-              }}
-              className="w-20 bg-white text-[#1a1a1a] text-sm px-3 py-1.5 rounded-md border border-[#e5e5e5]"
-            />
-            <span className="text-sm text-[#6b6b6b]">days</span>
-          </div>
-        </div>
 
         <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
           <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">Opponent slow-play threshold</h2>

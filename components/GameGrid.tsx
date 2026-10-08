@@ -56,6 +56,12 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
 
   const { intervalSeconds, setIntervalSeconds, countdown } = useAutoRefresh(onRefresh, isRefreshing)
 
+  // Your-turn count in the browser tab, readable without switching to it
+  useEffect(() => {
+    document.title = myTurnCount > 0 ? `(${myTurnCount}) Board Games Dashboard` : 'Board Games Dashboard'
+    return () => { document.title = 'Board Games Dashboard' }
+  }, [myTurnCount])
+
   const [departedDismissed, setDepartedDismissed] = useState(false)
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- re-show the notice when new departures arrive

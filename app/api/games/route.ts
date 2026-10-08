@@ -16,7 +16,7 @@ const PROXY_PATH: Partial<Record<Platform, string>> = {
 export async function GET(request?: Request) {
   const prefs = await getPrefs()
   const disabled = prefs.disabledPlatforms ?? []
-  const connectors = makeConnectors(prefs.bgaSortCapDays ?? 3, prefs.eighteenxxSessionCookie)
+  const connectors = makeConnectors(prefs.eighteenxxSessionCookie)
 
   const entries = (Object.entries(connectors) as [Platform, () => Promise<any>][])
     .filter(([p]) =>

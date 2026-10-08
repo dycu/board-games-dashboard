@@ -20,9 +20,9 @@ function viaProxy(route: string): never {
   throw new Error(`choochoo must be called via the ${route} proxy`)
 }
 
-export function makeConnectors(bgaSortCapDays = 3, eighteenxxSessionCookie?: string): Record<Platform, Fetcher> {
+export function makeConnectors(eighteenxxSessionCookie?: string): Record<Platform, Fetcher> {
   return {
-    bga: () => fetchBGA(env('BGA_USERNAME'), env('BGA_PASSWORD'), bgaSortCapDays),
+    bga: () => fetchBGA(env('BGA_USERNAME'), env('BGA_PASSWORD')),
     eighteenxx: () => fetchEighteenXX(env('EIGHTEENXX_USERNAME'), env('EIGHTEENXX_PASSWORD'), eighteenxxSessionCookie),
     obg: () => fetchOBG(env('OBG_USERNAME'), env('OBG_PASSWORD')),
     yucata: () => fetchYucata(env('YUCATA_USERNAME'), env('YUCATA_PASSWORD')),

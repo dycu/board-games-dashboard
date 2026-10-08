@@ -2,6 +2,8 @@ import { kv } from '@vercel/kv'
 import { Game, FinishedGame } from '../types'
 import { formatTimeRemaining, formatTimeAgo } from './utils'
 import { getCatalog } from '../catalogs/cache'
+import { resolveLastMoves, Seed } from './bgaLastMove'
+import { getTables } from '../pace/store'
 
 const BASE = 'https://boardgamearena.com'
 
@@ -332,13 +334,47 @@ export async function withBgaSession<T>(
   return fn(await freshSession(username, password, rejection))
 }
 
-export async function fetchBGA(username: string, password: string, capDays = 3): Promise<Game[]> {
+// table id → Unix seconds of its last move; tables it can't work out are left out
+async function fetchLastMoves(session: BgaSession, tables: any[]): Promise<Map<string, number>> {
+  try {
+    // The Pace sync already tracks each running table's latest packet, so
+    // histories never have to be read from the start
+    const paceTables = await getTables().catch(() => ({}))
+    const seeds: Record<string, Seed> = {}
+    for (const [id, p] of Object.entries(paceTables)) {
+      if (p.end === null && p.state.lastPacketId > 0) seeds[id] = p.state
+    }
+    return await resolveLastMoves(
+      tables.map(t => ({ id: String(t.id), gameserver: String(t.gameserver), game_name: t.game_name, players: t.players ?? {} })),
+      async (t, from) => {
+        const res = await fetch(
+          `${BASE}/${t.gameserver}/${t.game_name}/${t.game_name}/notificationHistory.html?table=${t.id}&from=${from}&privateinc=1&history=1`,
+          { headers: bgaApiHeaders(session) },
+        )
+        const json = await res.json()
+        if (String(json.status) !== '1') throw new Error(`BGA notificationHistory: ${json.error ?? json.status}`)
+        return json.data?.data ?? []
+      },
+      seeds,
+    )
+  } catch {
+    return new Map()
+  }
+}
+
+// Fallback horizon for the time-bank estimate, used only when a table's history can't be read
+const ESTIMATE_CAP_DAYS = 3
+
+export async function fetchBGA(username: string, password: string): Promise<Game[]> {
   const { session, tables } = await withBgaSession(username, password, async s => ({ session: s, tables: await fetchBgaTables(s) }))
   const { myId, cookies: allCookies } = session
 
   // Step 5: resolve display names from gamepanel pages (game_name field is a URL slug)
   const uniqueSlugs = [...new Set(tables.map((t: any) => t.game_name as string).filter(Boolean))]
-  const nameMap = uniqueSlugs.length > 0 ? await fetchGameNames(uniqueSlugs, allCookies) : new Map<string, string>()
+  const [nameMap, lastMoves] = await Promise.all([
+    uniqueSlugs.length > 0 ? fetchGameNames(uniqueSlugs, allCookies) : new Map<string, string>(),
+    fetchLastMoves(session, tables),
+  ])
 
   return tables.map((t: any): Game => {
     const players: Record<string, any> = t.players ?? {}
@@ -362,12 +398,22 @@ export async function fetchBGA(username: string, password: string, capDays = 3):
       : null
     const hasTimingData = thinkLimitSec != null && !isNaN(thinkLimitSec)
       && thinkRemainSec != null && !isNaN(thinkRemainSec)
-    // BGA's bank is cumulative so we can't derive actual last-move time.
-    // Use capDays as a fixed horizon: remaining < cap → some urgency; remaining > cap → "just now".
-    const capMs = capDays * 86400 * 1000
-    const lastMoveAt = hasTimingData
-      ? new Date(Date.now() - Math.max(0, capMs - thinkRemainSec! * 1000))
-      : new Date()
+    // The real last-move time comes from the table's history (fetchLastMoves).
+    // When that's unavailable, fall back to an estimate from the time bank, which is
+    // cumulative so it can't give the real time: ESTIMATE_CAP_DAYS is a fixed horizon,
+    // remaining < cap → some urgency; remaining > cap → "just now".
+    const realSec = lastMoves.get(String(t.id))
+    const capMs = ESTIMATE_CAP_DAYS * 86400 * 1000
+    const lastMoveAt = realSec !== undefined
+      ? new Date(realSec * 1000)
+      : hasTimingData
+        ? new Date(Date.now() - Math.max(0, capMs - thinkRemainSec! * 1000))
+        : new Date()
+    const remaining = hasTimingData && thinkRemainSec! < ESTIMATE_CAP_DAYS * 86400 ? formatTimeRemaining(thinkRemainSec!) : null
+    const lastMoveAgo = realSec !== undefined
+      // The deadline still matters once it's close
+      ? [formatTimeAgo(lastMoveAt), hasTimingData && thinkRemainSec! < 24 * 3600 ? remaining : null].filter(Boolean).join(' · ')
+      : remaining ?? '–'
 
     const playerNames = Object.values(players)
       .map((p: any) => p.fullname)
@@ -380,9 +426,7 @@ export async function fetchBGA(username: string, password: string, capDays = 3):
       myTurn: isMyTurn,
       currentPlayer: isMyTurn ? undefined : (activePlayerEntry?.fullname ?? undefined),
       lastMoveAt,
-      lastMoveAgo: hasTimingData && thinkRemainSec! < capDays * 86400
-        ? formatTimeRemaining(thinkRemainSec!)
-        : '–',
+      lastMoveAgo,
       urgent: hasTimingData && thinkRemainSec! < 24 * 3600,
       gameUrl: `${BASE}/${t.gameserver}/${t.game_name}?table=${t.id}`,
       platformUrl: `${BASE}/gameinprogress`,

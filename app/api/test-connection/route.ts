@@ -17,7 +17,7 @@ const PROXY_PATH: Partial<Record<Platform, string>> = {
 export async function GET(req: NextRequest) {
   const platform = req.nextUrl.searchParams.get('platform') as Platform | null
   const prefs = await getPrefs()
-  const connectors = makeConnectors(prefs.bgaSortCapDays ?? 3, prefs.eighteenxxSessionCookie)
+  const connectors = makeConnectors(prefs.eighteenxxSessionCookie)
 
   if (!platform || !(platform in connectors)) {
     return NextResponse.json({ ok: false, error: 'Invalid platform' }, { status: 400 })

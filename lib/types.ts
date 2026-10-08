@@ -31,7 +31,6 @@ export interface UserPrefs {
     platforms: Platform[]  // empty = show all
   }
   disabledPlatforms: Platform[]  // skipped entirely during fetch
-  bgaSortCapDays: number         // cap for BGA urgency sort and display (default 3)
   eighteenxxSessionCookie?: string
   opponentSlowDays: number       // waiting games older than this show urgency indicator (default 5)
   oldkingscrownGameIds?: string[] // manually tracked game ids — no account system to discover them automatically
@@ -45,7 +44,6 @@ export const DEFAULT_PREFS: UserPrefs = {
   sort: 'longest-wait',
   filter: { turnStatus: 'all', platforms: [] },
   disabledPlatforms: [],
-  bgaSortCapDays: 3,
   opponentSlowDays: 5,
 }
 
