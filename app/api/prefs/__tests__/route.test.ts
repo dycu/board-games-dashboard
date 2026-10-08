@@ -17,6 +17,7 @@ const defaultPrefs = {
   filter: { turnStatus: 'all' as const, platforms: [] },
   disabledPlatforms: [],
   opponentSlowDays: 5,
+  deadlineSoonHours: 24,
 }
 
 describe('GET /api/prefs', () => {
@@ -48,6 +49,7 @@ describe('POST /api/prefs', () => {
       filter: { turnStatus: 'my-turn' as const, platforms: [] },
       disabledPlatforms: [],
       opponentSlowDays: 5,
+      deadlineSoonHours: 24,
     }
     mockSavePrefs.mockResolvedValue(undefined)
     mockGetPrefs.mockResolvedValue(updatedPrefs)

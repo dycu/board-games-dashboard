@@ -19,7 +19,7 @@ const game: Game = {
 }
 
 const props = (over: Partial<GameItemProps> = {}): GameItemProps =>
-  ({ game, pinned: false, onTogglePin: () => {}, onOpen: () => {}, opponentSlowDays: 5, now: NOW, ...over })
+  ({ game, pinned: false, onTogglePin: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, ...over })
 
 describe('GameCard', () => {
   it('shows game name, platform badge and time', () => {
@@ -42,6 +42,20 @@ describe('GameCard', () => {
   it('does not show a deadline days away', () => {
     render(<GameCard {...props({ game: { ...game, deadlineAt: '2026-06-30T10:00:00Z' } })} />)
     expect(screen.queryByText(/left/)).toBeNull()
+  })
+
+  it('honors a configured deadlineSoonHours threshold instead of the 24h default', () => {
+    // 5h away: shows by default, but not once the threshold is lowered below it
+    const deadlineAt = '2026-06-26T15:00:00Z'
+    render(<GameCard {...props({ game: { ...game, deadlineAt }, deadlineSoonHours: 4 })} />)
+    expect(screen.queryByText(/left/)).toBeNull()
+  })
+
+  it('flags a deadline that a raised threshold now covers', () => {
+    // 2 days (48h) away: hidden by default, but shown once the threshold covers it
+    const deadlineAt = '2026-06-28T10:00:00Z'
+    render(<GameCard {...props({ game: { ...game, deadlineAt }, deadlineSoonHours: 72 })} />)
+    expect(screen.getByText(/left/)).toBeInTheDocument()
   })
 
   it('calls onTogglePin when pin icon clicked', async () => {
