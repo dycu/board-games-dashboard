@@ -30,7 +30,7 @@ describe('getCatalog', () => {
     const result = await getCatalog('bga')
 
     expect(result).toEqual(fresh)
-    expect(mockSet).toHaveBeenCalledWith('game-catalog:v3:bga', fresh, { ex: 86400 })
+    expect(mockSet).toHaveBeenCalledWith('game-catalog:v4:bga', fresh, { ex: 86400 })
   })
 
   it('falls back to a live fetch when kv.get throws', async () => {

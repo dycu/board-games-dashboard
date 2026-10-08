@@ -21,7 +21,7 @@ function parseCookies(headers: Headers): Record<string, string> {
   return cookies
 }
 
-function cookieString(cookies: Record<string, string>): string {
+export function cookieString(cookies: Record<string, string>): string {
   return Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ')
 }
 
