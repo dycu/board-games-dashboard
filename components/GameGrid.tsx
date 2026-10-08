@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import { Game, Platform, UserPrefs, GamesApiResponse, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
+import { Game, Platform, UserPrefs, GamesApiResponse, PLATFORM_LABELS, PLATFORM_SHORT_LABELS, PLATFORM_URLS } from '@/lib/types'
 import { DepartedGame } from '@/hooks/useGamesData'
 import { sortAndFilter } from '@/lib/sort-filter'
 import { BADGE_COLORS } from '@/lib/platform-colors'
@@ -242,16 +242,28 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                 All ({visible.length})
               </button>
               {configuredPlatforms.map(p => (
-                <button
+                <span
                   key={p}
-                  onClick={() => togglePlatform(p)}
-                  aria-pressed={platformFilter.includes(p)}
-                  title={PLATFORM_LABELS[p]}
-                  className={`shrink-0 whitespace-nowrap text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full transition-opacity ${BADGE_COLORS[p] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}
+                  className={`shrink-0 inline-flex items-center whitespace-nowrap text-[11px] font-bold uppercase tracking-wide rounded-full transition-opacity ${BADGE_COLORS[p] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}
                     ${platformFilter.length === 0 || platformFilter.includes(p) ? 'opacity-100' : 'opacity-40 hover:opacity-70'}
                     ${platformFilter.includes(p) ? 'ring-2 ring-[#1a1a1a]/20' : ''}`}>
-                  {PLATFORM_SHORT_LABELS[p]} ({countByPlatform[p] ?? 0})
-                </button>
+                  <button
+                    onClick={() => togglePlatform(p)}
+                    aria-pressed={platformFilter.includes(p)}
+                    title={`Filter to ${PLATFORM_LABELS[p]}`}
+                    className="pl-2 pr-1 py-0.5">
+                    {PLATFORM_SHORT_LABELS[p]} ({countByPlatform[p] ?? 0})
+                  </button>
+                  <a
+                    href={PLATFORM_URLS[p]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Open ${PLATFORM_LABELS[p]}`}
+                    title={`Open ${PLATFORM_LABELS[p]}`}
+                    className="pl-0.5 pr-2 py-0.5 opacity-70 hover:opacity-100">
+                    ↗
+                  </a>
+                </span>
               ))}
             </>
           )}
