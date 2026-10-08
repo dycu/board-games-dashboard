@@ -23,6 +23,7 @@ export default function SetupPage() {
   const [errors, setErrors] = useState<Record<Platform, string>>({} as Record<Platform, string>)
   const [disabled, setDisabled] = useState<Set<Platform>>(new Set())
   const [opponentSlowDays, setOpponentSlowDays] = useState(5)
+  const [deadlineSoonHours, setDeadlineSoonHours] = useState(24)
   const [backlogPlatforms, setBacklogPlatforms] = useState<Platform[]>(DEFAULT_BACKLOG_PLATFORMS)
   const [cookieInput, setCookieInput] = useState('')
   const [cookieSaving, setCookieSaving] = useState(false)
@@ -50,6 +51,7 @@ export default function SetupPage() {
     fetch('/api/prefs').then(r => r.json()).then(prefs => {
       setDisabled(new Set(prefs.disabledPlatforms ?? []))
       setOpponentSlowDays(prefs.opponentSlowDays ?? 5)
+      setDeadlineSoonHours(prefs.deadlineSoonHours ?? 24)
       setBacklogPlatforms(prefs.backlogPlatforms ?? DEFAULT_BACKLOG_PLATFORMS)
       setCookieSaved(!!prefs.eighteenxxSessionCookie)
       const ids = prefs.oldkingscrownGameIds ?? []
@@ -155,6 +157,32 @@ export default function SetupPage() {
               className="w-20 bg-white text-[#1a1a1a] text-sm px-3 py-1.5 rounded-md border border-[#e5e5e5]"
             />
             <span className="text-sm text-[#6b6b6b]">days</span>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
+          <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">Deadline soon threshold</h2>
+          <p className="text-xs text-[#9b9b9b] mb-3">
+            Flag a my-turn game with the red &quot;time&apos;s running out&quot; indicator once its deadline is under this many hours away.
+          </p>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              min={1}
+              max={72}
+              value={deadlineSoonHours}
+              onChange={async e => {
+                const val = Math.max(1, Math.min(72, parseInt(e.target.value) || 24))
+                setDeadlineSoonHours(val)
+                await fetch('/api/prefs', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ deadlineSoonHours: val }),
+                })
+              }}
+              className="w-20 bg-white text-[#1a1a1a] text-sm px-3 py-1.5 rounded-md border border-[#e5e5e5]"
+            />
+            <span className="text-sm text-[#6b6b6b]">hours</span>
           </div>
         </div>
 

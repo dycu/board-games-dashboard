@@ -83,6 +83,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     return !prev
   })
   const opponentSlowDays = prefs.opponentSlowDays ?? 5
+  const deadlineSoonHours = prefs.deadlineSoonHours ?? 24
   const [recentlyOpened, setRecentlyOpened] = useState<Record<string, number>>({})
   useEffect(() => {
     try {
@@ -134,6 +135,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     onTogglePin: togglePin,
     onOpen: () => openGame(g.id),
     opponentSlowDays,
+    deadlineSoonHours,
     note: notes[g.id],
     onSaveNote: saveNote,
     now,

@@ -35,6 +35,7 @@ export interface UserPrefs {
   disabledPlatforms: Platform[]  // skipped entirely during fetch
   eighteenxxSessionCookie?: string
   opponentSlowDays: number       // waiting games older than this show urgency indicator (default 5)
+  deadlineSoonHours: number      // my-turn games with a deadline under this show the red "time's running out" indicator (default 24)
   oldkingscrownGameIds?: string[] // manually tracked game ids — no account system to discover them automatically
   backlogPlatforms?: Platform[]   // sites shown by default when adding games to the backlog
 }
@@ -47,6 +48,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   filter: { turnStatus: 'all', platforms: [] },
   disabledPlatforms: [],
   opponentSlowDays: 5,
+  deadlineSoonHours: 24,
 }
 
 export interface GamesApiResponse {

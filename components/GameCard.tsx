@@ -12,6 +12,7 @@ export interface GameItemProps {
   onTogglePin: (id: string) => void
   onOpen: () => void // the dashboard dims an opened game until the next refresh
   opponentSlowDays: number
+  deadlineSoonHours: number
   note?: string
   onSaveNote?: (id: string, text: string) => void
   now: number
@@ -136,8 +137,8 @@ function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string,
 }
 
 // A game waiting for my move: a full card
-export default function GameCard({ game, pinned, onTogglePin, onOpen, opponentSlowDays, note, onSaveNote, now, opened }: GameItemProps) {
-  const soon = deadlineSoon(game, now)
+export default function GameCard({ game, pinned, onTogglePin, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, now, opened }: GameItemProps) {
+  const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
   return (
