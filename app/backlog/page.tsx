@@ -18,6 +18,7 @@ import { readCache } from '@/hooks/useGamesData'
 import TopNav from '@/components/TopNav'
 import AddToBacklogButton, { LIST_LABELS } from '@/components/AddToBacklogButton'
 import GameLink, { SMALL_BUTTON, playedGameUrl } from '@/components/GameLink'
+import HistoryLink from '@/components/HistoryLink'
 
 type Backlog = ReturnType<typeof useBacklog>
 
@@ -63,6 +64,7 @@ function Row({ item, position, onTop, onMove, onRemove }: {
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <Badge platform={item.platform} />
         <span className="text-sm font-medium text-[#1a1a1a] truncate">{item.gameName}</span>
+        <HistoryLink game={item} />
       </div>
       <a
         href={item.playUrl}
@@ -206,6 +208,7 @@ function SearchPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
               <li key={`${m.platform}:${m.name}`} className="flex items-center gap-2 py-2">
                 <Badge platform={m.platform} />
                 <span className="text-sm text-[#1a1a1a] truncate flex-1 min-w-0">{m.name}</span>
+                <HistoryLink game={{ platform: m.platform, gameName: m.name }} />
                 <GameLink url={m.url} platform={m.platform} />
                 <AddToBacklogButton
                   label="+ Add"
@@ -320,6 +323,7 @@ function PlayedPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
               <p className="text-sm text-[#1a1a1a] truncate">{g.gameName}</p>
               <p className="text-xs text-[#9b9b9b]">{playedNote(g)}</p>
             </div>
+            <HistoryLink game={g} />
             <GameLink url={playedGameUrl(g)} platform={g.platform} />
             <AddToBacklogButton
               label="+ Add"
