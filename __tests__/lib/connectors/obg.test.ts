@@ -148,6 +148,24 @@ describe('fetchOBG', () => {
     expect(changed!.currentPlayer).toBeUndefined()
   })
 
+  it('sets a deadline from the kickout option, counted from the last move', async () => {
+    const withKickout = fixture.replace(
+      '<td class="col-options"><span class="no-options">No options</span></td>',
+      '<td class="col-options"><img class="startingOption" title="Kickout after 12 hours" alt="12 hour kickout"></td>',
+    )
+    mockFetch
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginSuccessResponse())
+      .mockResolvedValueOnce(makeHomeResponse())
+      .mockResolvedValueOnce({ ok: true, text: async () => withKickout })
+
+    const games = await fetchOBG('testuser', 'pass')
+    const withDeadline = games.filter(g => g.deadlineAt)
+    expect(withDeadline).toHaveLength(1)
+    const g = withDeadline[0]
+    expect(new Date(g.deadlineAt!).getTime() - g.lastMoveAt.getTime()).toBe(12 * 3600 * 1000)
+  })
+
   it('throws instead of returning no games when the table markup changes', async () => {
     // e.g. OBG's 2026 nd-col-* redesign: rows still there, but the status cell renamed
     const changed = fixture.replace(/col-status/g, 'nd-col-status')

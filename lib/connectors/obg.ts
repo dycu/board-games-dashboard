@@ -225,6 +225,14 @@ function parseGames(html: string, profileName: string): Game[] {
     const tsText = $tr.find('.timeToConvertSpan').first().text().trim()
     const lastMoveAt = tsText ? new Date(parseInt(tsText)) : new Date()
 
+    // A game with a kickout option ("Kickout after 12 hours") kicks whoever
+    // hasn't moved that long after the last move
+    const kickout = ($tr.find('td.col-options img[title*="ickout"]').attr('title') ?? '')
+      .match(/kickout after (\d+)\s*(hour|day)/i)
+    const deadlineAt = kickout && tsText
+      ? new Date(lastMoveAt.getTime() + Number(kickout[1]) * (/day/i.test(kickout[2]) ? 86_400_000 : 3_600_000)).toISOString()
+      : undefined
+
     games.push({
       id: `obg:${gameId}`,
       platform: 'obg',
@@ -238,6 +246,7 @@ function parseGames(html: string, profileName: string): Game[] {
       gameUrl,
       platformUrl: `${BASE}/nd/profile/${profileName}/`,
       players,
+      deadlineAt,
     })
   })
 
