@@ -1,4 +1,4 @@
-import { fetchSeesReturn } from '../dismissal'
+import { fetchSeesReturn, openedAfterFetch } from '../dismissal'
 
 describe('fetchSeesReturn (no grace)', () => {
   it('counts a fetch started after returning', () => {
@@ -26,5 +26,23 @@ describe('fetchSeesReturn grace period', () => {
 
   it('needs no grace when the user has been here since the page loaded', () => {
     expect(fetchSeesReturn(50, { returnedAt: 0, leftAt: null })).toBe(true)
+  })
+})
+
+describe('openedAfterFetch', () => {
+  const back = { returnedAt: 1_000_000, leftAt: null }
+  const opened = new Set(['moved', 'notMoved', 'ended'])
+  const games = [{ id: 'moved', myTurn: false }, { id: 'notMoved', myTurn: true }]
+
+  it('keeps everything for a fetch made while away', () => {
+    expect(openedAfterFetch(opened, games, back.returnedAt - 1, back)).toBe(opened)
+  })
+
+  it('right after coming back, brings back games still waiting for me and keeps played ones dimmed', () => {
+    expect([...openedAfterFetch(opened, games, back.returnedAt + 1000, back)]).toEqual(['moved'])
+  })
+
+  it('clears everything once the grace period is over', () => {
+    expect(openedAfterFetch(opened, games, back.returnedAt + 6 * 60_000, back).size).toBe(0)
   })
 })

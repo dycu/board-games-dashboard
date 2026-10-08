@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { UserPrefs, DEFAULT_PREFS } from '@/lib/types'
 import { useGamesData } from '@/hooks/useGamesData'
 import { isBackForwardNavigation } from '@/lib/navigation'
-import { Presence, fetchSeesReturn, AWAY_REFRESH_MS } from '@/lib/dismissal'
+import { Presence, openedAfterFetch, AWAY_REFRESH_MS } from '@/lib/dismissal'
 import GameGrid from '@/components/GameGrid'
 import FetchProgress from '@/components/FetchProgress'
 
@@ -13,13 +13,6 @@ const PREFS_KEY = 'user-prefs'
 export default function DashboardPage() {
   const [prefs, setPrefs] = useState<UserPrefs>(DEFAULT_PREFS)
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
-  const isInitialFetchRef = useRef(true)
-  // Only a genuine browser Back/Forward navigation (e.g. returning from a BGA
-  // game opened in this tab) should preserve dismissed state through
-  // the page's first fetch. Any other load — fresh navigate, reload, or a
-  // tablet reopening a tab the OS discarded in the background — is a real
-  // new check-in and should clear stale state right away.
-  const preserveThroughInitialFetchRef = useRef(false)
   const {
     displayedData,
     isRefreshing,
@@ -39,10 +32,11 @@ export default function DashboardPage() {
   // they're back so the hidden game shows its state after their move.
   useEffect(() => {
     const isHere = () => document.visibilityState === 'visible' && document.hasFocus()
-    // returnedAt stays 0 on a normal load, so the first fetch (already started)
-    // counts; coming Back from a game opened in this tab is a return
+    // returnedAt stays 0 on a normal load, so the first fetch counts fully.
+    // Coming Back from a game opened in this tab is a return, from when the
+    // navigation started (before the page's first fetch)
     if (!isHere()) presenceRef.current = { returnedAt: 0, leftAt: Date.now() }
-    else if (isBackForwardNavigation()) presenceRef.current = { returnedAt: Date.now(), leftAt: null }
+    else if (isBackForwardNavigation()) presenceRef.current = { returnedAt: Math.floor(performance.timeOrigin), leftAt: null }
     const onChange = () => {
       const p = presenceRef.current
       const now = Date.now()
@@ -65,7 +59,6 @@ export default function DashboardPage() {
   }, [triggerRefresh])
 
   useEffect(() => {
-    preserveThroughInitialFetchRef.current = isBackForwardNavigation()
     const stored = localStorage.getItem(DISMISSED_KEY)
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after hydration
     setDismissed(stored ? new Set(JSON.parse(stored)) : new Set())
@@ -77,22 +70,19 @@ export default function DashboardPage() {
     }).catch(() => {})
   }, [])
 
-  // When fresh server data is applied to the display, clear all dismissed state
-  // so the dashboard reflects exactly what the services report. Cache loads do
-  // not clear dismissed state — only real server responses do, and only ones
-  // fetched while the user was here: data fetched while they were away playing
-  // predates their move and would bring the game straight back. Also kept
-  // through this page's first fetch after a back/forward navigation, so
-  // returning from a game you just finished doesn't immediately un-hide it.
+  // Fresh server data (not cache loads) decides which opened games stay dimmed;
+  // see openedAfterFetch
   useEffect(() => {
-    if (freshDataVersion === 0) return
-    const skipClear = (isInitialFetchRef.current && preserveThroughInitialFetchRef.current)
-      || !fetchSeesReturn(freshDataStartedAt, presenceRef.current)
-    if (!skipClear) {
-      setDismissed(new Set())
-      localStorage.removeItem(DISMISSED_KEY)
-    }
-    isInitialFetchRef.current = false
+    if (freshDataVersion === 0 || !displayedData) return
+    setDismissed(prev => {
+      const next = openedAfterFetch(prev, displayedData.games, freshDataStartedAt, presenceRef.current)
+      if (next.size === prev.size) return prev
+      if (next.size === 0) localStorage.removeItem(DISMISSED_KEY)
+      else localStorage.setItem(DISMISSED_KEY, JSON.stringify([...next]))
+      return next
+    })
+    // displayedData changes together with freshDataVersion
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freshDataVersion, freshDataStartedAt])
 
   // An opened game is dimmed (and skipped by Next) until the next real refresh shows its actual state

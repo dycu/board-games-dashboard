@@ -18,5 +18,23 @@ export function fetchSeesReturn(fetchStartedAt: number, presence: Presence, grac
   return true
 }
 
+// Which opened games stay dimmed after a fresh fetch:
+// - fetched while away → all of them (the data predates my move)
+// - fetched since I'm back → the ones where I made my move stay dimmed for
+//   the grace period (time for a note); ones still waiting for me come back
+// - fetched after the grace period → none
+export function openedAfterFetch(
+  opened: Set<string>,
+  games: { id: string; myTurn: boolean }[],
+  fetchStartedAt: number,
+  presence: Presence,
+): Set<string> {
+  if (!fetchSeesReturn(fetchStartedAt, presence, 0)) return opened
+  if (fetchSeesReturn(fetchStartedAt, presence)) return new Set()
+  const stillMine = new Set(games.filter(g => g.myTurn).map(g => g.id))
+  const present = new Set(games.map(g => g.id))
+  return new Set([...opened].filter(id => present.has(id) && !stillMine.has(id)))
+}
+
 // A short glance away (alt-tab and back) isn't worth a refresh
 export const AWAY_REFRESH_MS = 3000
