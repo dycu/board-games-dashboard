@@ -84,32 +84,33 @@ export default function PeriodSummary({ games }: { games: FinishedGame[] }) {
           <table className="w-full table-fixed text-sm">
             <colgroup>
               <col />
-              <col className="w-14" />
-              <col className="w-14" />
-              <col className="w-28 hidden sm:table-column" />
+              <col className="w-11" />
+              <col className="w-11" />
+              <col className="w-[5.5rem] hidden sm:table-column" />
             </colgroup>
             <thead>
               <tr className="text-[11px] uppercase tracking-wide text-[#9b9b9b] text-left">
                 <th className="font-medium py-1">Game</th>
                 <th className="font-medium py-1 text-right">Plays</th>
-                <th className="font-medium py-1 pl-3 text-right">W–L</th>
-                <th className="font-medium py-1 pl-4 text-right hidden sm:table-cell">ELO</th>
+                <th className="font-medium py-1 text-right">W–L</th>
+                <th className="font-medium py-1 text-right hidden sm:table-cell">ELO</th>
               </tr>
             </thead>
             <tbody>
               {(showAllGames ? byGame : byGame.slice(0, TABLE_ROWS)).map(g => (
                 <tr key={`${g.platform}:${g.gameName}`} className="border-t border-[#f0f0f0]">
                   <td className="py-1.5 pr-2 overflow-hidden" title={g.gameName}>
-                    <span className="flex items-center gap-2 min-w-0">
-                      <span title={PLATFORM_LABELS[g.platform]} className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[g.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
+                    <span className="flex items-start gap-2 min-w-0">
+                      <span title={PLATFORM_LABELS[g.platform]} className={`shrink-0 mt-0.5 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[g.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
                         {PLATFORM_SHORT_LABELS[g.platform]}
                       </span>
-                      <span className="truncate text-[#1a1a1a]">{g.gameName}</span>
+                      {/* up to two lines: one cuts names like "Next Station: Tokyo" too short */}
+                      <span className="text-[#1a1a1a] leading-snug break-words line-clamp-2">{g.gameName}</span>
                     </span>
                   </td>
-                  <td className="py-1.5 text-right tabular-nums">{g.played}</td>
-                  <td className="py-1.5 pl-3 text-right tabular-nums text-[#6b6b6b]">{g.won + g.lost > 0 ? `${g.won}–${g.lost}` : '—'}</td>
-                  <td className="py-1.5 pl-4 text-right tabular-nums whitespace-nowrap hidden sm:table-cell text-[#6b6b6b]">
+                  <td className="py-1.5 text-right tabular-nums align-top">{g.played}</td>
+                  <td className="py-1.5 text-right tabular-nums text-[#6b6b6b] align-top">{g.won + g.lost > 0 ? `${g.won}–${g.lost}` : '—'}</td>
+                  <td className="py-1.5 text-right tabular-nums whitespace-nowrap hidden sm:table-cell text-[#6b6b6b] align-top">
                     {g.eloNow !== undefined ? <>{g.eloNow}{g.eloChange ? <span className={g.eloChange > 0 ? ' text-green-700' : ' text-red-600'}> ({signed(g.eloChange)})</span> : null}</> : '—'}
                   </td>
                 </tr>
