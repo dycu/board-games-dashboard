@@ -4,6 +4,8 @@ import { Game, PLATFORM_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { formatTimeRemaining } from '@/lib/connectors/utils'
 import { deadlineSoon } from '@/lib/sort-filter'
+import Link from 'next/link'
+import { gameHistoryHref } from '@/lib/gameStats'
 
 export interface GameItemProps {
   game: Game
@@ -42,6 +44,18 @@ function CoverLink({ game, onOpen }: { game: Game; onOpen: () => void }) {
       onContextMenu={onOpen}
       className="absolute inset-0 rounded-[inherit] focus-visible:outline-2 focus-visible:outline-[#5e6ad2]"
     />
+  )
+}
+
+function HistoryLink({ game }: { game: Game }) {
+  return (
+    <Link
+      href={gameHistoryHref(game)}
+      aria-label={`Your history of ${game.gameType || game.gameName}`}
+      title="Your history of this game"
+      className="relative z-10 text-xs text-[#c5c5c5] hover:text-[#5e6ad2]">
+      🕘
+    </Link>
   )
 }
 
@@ -152,6 +166,7 @@ export default function GameCard({ game, pinned, onTogglePin, onOpen, opponentSl
               ⏱ {formatTimeRemaining(Math.round(soon / 1000))}
             </span>
           )}
+          <HistoryLink game={game} />
           <PinButton game={game} pinned={pinned} onTogglePin={onTogglePin} />
         </div>
       </div>
@@ -191,6 +206,7 @@ export function GameRow({ game, pinned, onTogglePin, onOpen, opponentSlowDays, n
         {slow ? '⏱ ' : ''}{game.lastMoveAgo}
       </span>
       <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact />
+      <HistoryLink game={game} />
       <PinButton game={game} pinned={pinned} onTogglePin={onTogglePin} />
     </div>
   )

@@ -427,6 +427,7 @@ export async function fetchBGA(username: string, password: string): Promise<Game
       lastMoveAt,
       lastMoveAgo,
       deadlineAt: hasTimingData ? new Date(Date.now() + thinkRemainSec! * 1000).toISOString() : undefined,
+      ...(t.game_id != null && { gameKey: String(t.game_id) }),
       urgent: hasTimingData && thinkRemainSec! < 24 * 3600,
       gameUrl: `${BASE}/${t.gameserver}/${t.game_name}?table=${t.id}`,
       platformUrl: `${BASE}/gameinprogress`,

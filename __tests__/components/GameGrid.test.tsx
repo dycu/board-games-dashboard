@@ -44,7 +44,7 @@ function renderGrid(games: Game[] = [], errors: GamesApiResponse['errors'] = [])
 describe('GameGrid header navigation', () => {
   it('renders History navigation link', () => {
     renderGrid([makeGame('bga', '1')])
-    const historyLink = screen.getByRole('link', { name: /history/i })
+    const historyLink = screen.getByRole('link', { name: /^history$/i })
     expect(historyLink).toHaveAttribute('href', '/overview')
   })
 })

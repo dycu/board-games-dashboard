@@ -98,3 +98,14 @@ describe('note deletion', () => {
     expect(onSaveNote).toHaveBeenCalledWith('bga:1', '')
   })
 })
+
+describe('history link', () => {
+  it('links a card and a row to the game history page, with the BGA game id', () => {
+    const withKey = { ...game, gameKey: '1248' }
+    const { unmount } = render(<GameCard {...props({ game: withKey })} />)
+    expect(screen.getByRole('link', { name: /your history of wingspan/i })).toHaveAttribute('href', '/history/game?platform=bga&name=Wingspan&key=1248')
+    unmount()
+    render(<GameRow {...props({ game: { ...withKey, myTurn: false } })} />)
+    expect(screen.getByRole('link', { name: /your history of wingspan/i })).toBeInTheDocument()
+  })
+})
