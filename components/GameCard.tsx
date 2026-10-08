@@ -102,12 +102,15 @@ export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemPro
     )
   }
   return note ? (
-    <button
-      onClick={startEditing}
-      title="Edit note"
-      className="relative z-10 block max-w-full text-left text-xs text-[#6b6b6b] italic truncate hover:text-[#1a1a1a]">
-      ✎ {note}
-    </button>
+    <div className="relative z-10 flex items-center gap-1.5 min-w-0">
+      <button
+        onClick={startEditing}
+        title="Edit note"
+        className="min-w-0 text-left text-xs text-[#6b6b6b] italic truncate hover:text-[#1a1a1a]">
+        ✎ {note}
+      </button>
+      <DeleteNote game={game} onSaveNote={onSaveNote} />
+    </div>
   ) : (
     <button
       onClick={startEditing}
@@ -115,6 +118,18 @@ export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemPro
       title="Add a note"
       className="relative z-10 self-start text-xs text-[#c5c5c5] hover:text-[#6b6b6b]">
       ✎ note
+    </button>
+  )
+}
+
+function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string, text: string) => void }) {
+  return (
+    <button
+      onClick={() => onSaveNote(game.id, '')}
+      aria-label={`Delete the note on ${game.gameName}`}
+      title="Delete note"
+      className="relative z-10 shrink-0 text-[11px] leading-none text-[#c5c5c5] hover:text-red-500">
+      ✕
     </button>
   )
 }
@@ -170,6 +185,7 @@ export function GameRow({ game, pinned, onTogglePin, onOpen, opponentSlowDays, n
         <span className="text-sm text-[#1a1a1a] truncate">{game.gameName}</span>
         {game.currentPlayer && <span className="hidden sm:inline text-xs text-[#9b9b9b] truncate">waiting for {game.currentPlayer}</span>}
         {note && <span className="hidden md:inline text-xs text-[#6b6b6b] italic truncate">✎ {note}</span>}
+        {note && onSaveNote && <span className="hidden md:inline"><DeleteNote game={game} onSaveNote={onSaveNote} /></span>}
       </div>
       <span className={`shrink-0 text-xs ${slow ? 'text-amber-600 font-medium' : 'text-[#9b9b9b]'}`}>
         {slow ? '⏱ ' : ''}{game.lastMoveAgo}

@@ -138,7 +138,7 @@ describe('GameGrid departed games banner', () => {
 })
 
 describe('GameGrid backlog suggestion', () => {
-  it('suggests the top "Next to play" game not already running when few games are active', async () => {
+  it('suggests the top "Next to play" game not already running', async () => {
     const items = [
       { id: 'bga:testgame', platform: 'bga', gameName: 'Test Game', playUrl: 'https://x/1', addedAt: '', list: 'play' },
       { id: 'bga:learnme', platform: 'bga', gameName: 'Learn Me', playUrl: 'https://x/2', addedAt: '', list: 'learn' },
@@ -181,10 +181,19 @@ describe('GameGrid recently opened games', () => {
 })
 
 describe('GameGrid backlog suggestion with many games', () => {
-  it('still shows the suggestion, at the bottom, when many games are active', async () => {
+  it('still shows the suggestion when many games are active', async () => {
     const items = [{ id: 'yucata:navegador', platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/3', addedAt: '', list: 'play' }]
     global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
     renderGrid(Array.from({ length: 12 }, (_, i) => makeGame('bga', String(i))))
     expect(await screen.findByText('Navegador')).toBeInTheDocument()
+  })
+})
+
+describe('GameGrid opened game after the move', () => {
+  it('keeps an opened game with my games even once it is the opponent\'s turn', () => {
+    const played = { ...makeGame('bga', '1'), gameName: 'Played', myTurn: false }
+    render(<GameGrid {...defaultGridProps} dismissed={new Set(['bga:1'])} data={{ games: [played], errors: [], fetchedAt: '' }} />)
+    expect(screen.getByText('opened')).toBeInTheDocument()
+    expect(screen.queryByText(/Waiting for others/)).toBeNull()
   })
 })

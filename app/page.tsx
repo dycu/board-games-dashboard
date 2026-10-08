@@ -39,8 +39,10 @@ export default function DashboardPage() {
   // they're back so the hidden game shows its state after their move.
   useEffect(() => {
     const isHere = () => document.visibilityState === 'visible' && document.hasFocus()
-    // returnedAt stays 0 on load, so the first fetch (already started) counts
+    // returnedAt stays 0 on a normal load, so the first fetch (already started)
+    // counts; coming Back from a game opened in this tab is a return
     if (!isHere()) presenceRef.current = { returnedAt: 0, leftAt: Date.now() }
+    else if (isBackForwardNavigation()) presenceRef.current = { returnedAt: Date.now(), leftAt: null }
     const onChange = () => {
       const p = presenceRef.current
       const now = Date.now()

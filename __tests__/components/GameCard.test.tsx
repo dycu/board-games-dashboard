@@ -89,3 +89,12 @@ describe('GameRow', () => {
     expect(onSaveNote).toHaveBeenCalledWith('bga:1', 'ask alice')
   })
 })
+
+describe('note deletion', () => {
+  it('deletes a note with the small ✕ button', async () => {
+    const onSaveNote = jest.fn()
+    render(<GameCard {...props({ note: 'build mines', onSaveNote })} />)
+    await userEvent.click(screen.getByRole('button', { name: /delete the note/i }))
+    expect(onSaveNote).toHaveBeenCalledWith('bga:1', '')
+  })
+})

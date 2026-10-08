@@ -30,9 +30,6 @@ const WAITING_EXPANDED_KEY = 'waiting-expanded'
 // one just played can still get a note after the move
 const RECENTLY_OPENED_KEY = 'recently-opened'
 const RECENTLY_OPENED_MS = 12 * 3600 * 1000
-// Below this many active games the dashboard suggests the next backlog game
-const FEW_GAMES = 10
-
 function timeAgo(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(ms / 60_000)
@@ -59,8 +56,10 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   // eslint-disable-next-line react-hooks/purity -- ages and deadlines are as of this data; recomputed on every refresh
   const now = useMemo(() => Date.now(), [data])
   const myTurnGames = sortAndFilter(visible.filter(g => g.myTurn && !isOpened(g)), prefs, now)
-  const openedMyTurnGames = sortAndFilter(visible.filter(g => g.myTurn && isOpened(g)), prefs, now)
-  const waitingGames = sortAndFilter(visible.filter(g => !g.myTurn), prefs, now)
+  // An opened game stays with my games even once it's the opponent's turn, until
+  // the dashboard stops treating it as opened (a few minutes after I'm back)
+  const openedMyTurnGames = sortAndFilter(visible.filter(isOpened), prefs, now)
+  const waitingGames = sortAndFilter(visible.filter(g => !g.myTurn && !isOpened(g)), prefs, now)
   const showMine = prefs.filter.turnStatus !== 'waiting'
   const showWaiting = prefs.filter.turnStatus !== 'my-turn'
   const platformFilter = prefs.filter.platforms
@@ -114,10 +113,9 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
 
   // With few games going, suggest the top of "Next to play" that isn't already running
   const backlog = useBacklog()
-  // Shown above Waiting when few games are going, else as a slim line at the bottom
+  // Shown right under my games: the top "Next to play" game that isn't already running
   const suggestion = (backlog.items ?? []).find(item => listOf(item) === 'play'
     && !games.some(g => backlogId(g.platform, g.gameType || g.gameName) === item.id))
-  const suggestionOnTop = games.length < FEW_GAMES
 
   const togglePin = async (id: string) => {
     const pins = prefs.pins.includes(id)
@@ -286,7 +284,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
           </section>
         )}
 
-        {suggestion && suggestionOnTop && <BacklogSuggestion item={suggestion} activeCount={games.length} className="mb-7" />}
+        {suggestion && <BacklogSuggestion item={suggestion} activeCount={games.length} className="mb-7" />}
 
         {showWaiting && waitingGames.length > 0 && (
           <section>
@@ -310,7 +308,6 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
             )}
           </section>
         )}
-        {suggestion && !suggestionOnTop && <BacklogSuggestion item={suggestion} activeCount={games.length} className="mt-7" />}
       </div>
     </div>
   )
