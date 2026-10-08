@@ -60,7 +60,7 @@ describe('GameGrid platform filter', () => {
     expect(screen.getAllByRole('button', { name: /^BGA \(2\)/ })).toHaveLength(1)
     expect(screen.getByRole('button', { name: /^Yucata \(1\)/ })).toBeInTheDocument()
     // short labels on the chips, the full name on hover
-    expect(screen.getByRole('button', { name: /^Rally \(0\)/ })).toHaveAttribute('title', 'Rally the Troops')
+    expect(screen.getByRole('button', { name: /^Rally \(0\)/ })).toHaveAttribute('title', 'Filter to Rally the Troops')
   })
 
   it('filters to a platform when its chip is clicked', async () => {
@@ -69,6 +69,13 @@ describe('GameGrid platform filter', () => {
     render(<GameGrid {...defaultGridProps} onPrefsChange={onPrefsChange} data={data} />)
     await userEvent.click(screen.getByRole('button', { name: /^Yucata/ }))
     expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ filter: expect.objectContaining({ platforms: ['yucata'] }) }))
+  })
+
+  it('each chip also offers a link to open the platform site itself, separate from the filter toggle', () => {
+    const data: GamesApiResponse = { games: [makeGame('bga', '1'), makeGame('yucata', '2')], errors: [], fetchedAt: new Date().toISOString() }
+    render(<GameGrid {...defaultGridProps} data={data} />)
+    expect(screen.getByRole('link', { name: /Open BGA/ })).toHaveAttribute('href', PLATFORM_URLS.bga)
+    expect(screen.getByRole('link', { name: /Open Yucata/ })).toHaveAttribute('href', PLATFORM_URLS.yucata)
   })
 })
 
