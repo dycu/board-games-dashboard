@@ -81,7 +81,8 @@ describe('GameGrid sections', () => {
   it('offers the first your-turn game as "Next"', () => {
     const urgent = { ...makeGame('bga', '9'), gameName: 'Urgent One', deadlineAt: new Date(Date.now() + 3600_000).toISOString() }
     renderGrid([makeGame('bga', '1'), urgent])
-    expect(screen.getByRole('button', { name: /Next: Urgent One/ })).toBeInTheDocument()
+    // a link, so middle-click opens it in a new tab
+    expect(screen.getByRole('link', { name: /Next: Urgent One/ })).toHaveAttribute('href', 'https://example.com/game/9')
   })
 
   it('says all caught up when nothing is waiting for me', () => {

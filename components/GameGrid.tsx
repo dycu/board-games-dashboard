@@ -4,7 +4,7 @@ import { Game, Platform, UserPrefs, GamesApiResponse, PLATFORM_LABELS } from '@/
 import { DepartedGame } from '@/hooks/useGamesData'
 import { sortAndFilter } from '@/lib/sort-filter'
 import { BADGE_COLORS } from '@/lib/platform-colors'
-import GameCard, { GameRow, GameItemProps, isOpponentSlow } from './GameCard'
+import GameCard, { GameRow, GameItemProps, isOpponentSlow, openTarget } from './GameCard'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useNotes } from '@/hooks/useNotes'
 import { backlogId, listOf } from '@/lib/backlog/list'
@@ -82,14 +82,8 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
 
   const { notes, saveNote } = useNotes()
 
-  // Opens the first game of "Your turn" (most urgent, then the chosen sort)
-  const openNext = () => {
-    const g = myTurnGames[0]
-    if (!g) return
-    onOpen(g.id)
-    if (g.platform === 'bga') window.location.assign(g.gameUrl)
-    else window.open(g.gameUrl, '_blank', 'noopener')
-  }
+  // "Next" opens the first game of "Your turn" (most urgent, then the chosen sort)
+  const next = myTurnGames[0]
 
   // With few games going, suggest the top of "Next to play" that isn't already running
   const backlog = useBacklog()
@@ -237,13 +231,18 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                 Your turn · {myTurnGames.length}
               </p>
               {myTurnGames.length > 0 && (
-                <button
-                  onClick={openNext}
-                  title={`Open ${myTurnGames[0].gameName}`}
+                // A real link, so middle-click / ctrl-click open it in a new tab
+                <a
+                  href={next.gameUrl}
+                  target={openTarget(next)}
+                  rel="noopener noreferrer"
+                  onClick={() => onOpen(next.id)}
+                  onAuxClick={() => onOpen(next.id)}
+                  title={`Open ${next.gameName}`}
                   className="min-w-0 max-w-[60%] flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]">
-                  <span className="truncate">Next: {myTurnGames[0].gameName}</span>
+                  <span className="truncate">Next: {next.gameName}</span>
                   <span className="shrink-0">▶</span>
-                </button>
+                </a>
               )}
             </div>
             {myTurnGames.length > 0 ? (
