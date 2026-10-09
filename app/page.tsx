@@ -1,19 +1,19 @@
 'use client'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { UserPrefs, DEFAULT_PREFS } from '@/lib/types'
 import { useGamesData } from '@/hooks/useGamesData'
 import { isBackForwardNavigation } from '@/lib/navigation'
-import { Presence, openedAfterFetch, AWAY_REFRESH_MS } from '@/lib/dismissal'
+import { Presence, Opened, resolveOpened, readStoredOpened, writeStoredOpened, storeOpenedNow, AWAY_REFRESH_MS } from '@/lib/dismissal'
 import GameGrid from '@/components/GameGrid'
 import FetchProgress from '@/components/FetchProgress'
 import NewGamesPopup from '@/components/NewGamesPopup'
 
-const DISMISSED_KEY = 'dismissed-games'
 const PREFS_KEY = 'user-prefs'
 
 export default function DashboardPage() {
   const [prefs, setPrefs] = useState<UserPrefs>(DEFAULT_PREFS)
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+  const [opened, setOpened] = useState<Opened>({})
+  const dismissed = useMemo(() => new Set(Object.keys(opened)), [opened])
   const {
     displayedData,
     isRefreshing,
@@ -60,9 +60,8 @@ export default function DashboardPage() {
   }, [triggerRefresh])
 
   useEffect(() => {
-    const stored = localStorage.getItem(DISMISSED_KEY)
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after hydration
-    setDismissed(stored ? new Set(JSON.parse(stored)) : new Set())
+    setOpened(readStoredOpened())
     const cachedPrefs = localStorage.getItem(PREFS_KEY)
     if (cachedPrefs) setPrefs(JSON.parse(cachedPrefs))
     fetch('/api/prefs').then(r => r.json()).then(p => {
@@ -72,28 +71,21 @@ export default function DashboardPage() {
   }, [])
 
   // Fresh server data (not cache loads) decides which opened games stay dimmed;
-  // see openedAfterFetch
+  // see resolveOpened
   useEffect(() => {
     if (freshDataVersion === 0 || !displayedData) return
-    setDismissed(prev => {
-      const next = openedAfterFetch(prev, displayedData.games, freshDataStartedAt, presenceRef.current)
-      if (next.size === prev.size) return prev
-      if (next.size === 0) localStorage.removeItem(DISMISSED_KEY)
-      else localStorage.setItem(DISMISSED_KEY, JSON.stringify([...next]))
+    setOpened(prev => {
+      const next = resolveOpened(prev, displayedData.games, freshDataStartedAt, presenceRef.current)
+      if (next !== prev) writeStoredOpened(next)
       return next
     })
     // displayedData changes together with freshDataVersion
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freshDataVersion, freshDataStartedAt])
 
-  // An opened game is dimmed (and skipped by Next) until the next real refresh shows its actual state
+  // An opened game is dimmed (and skipped by Next) until fresh data shows its actual state
   const handleOpen = (id: string) => {
-    setDismissed(prev => {
-      const next = new Set(prev)
-      next.add(id)
-      localStorage.setItem(DISMISSED_KEY, JSON.stringify([...next]))
-      return next
-    })
+    setOpened(storeOpenedNow(id))
   }
 
   const updatePrefs = (p: UserPrefs) => {

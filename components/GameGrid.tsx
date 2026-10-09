@@ -11,6 +11,7 @@ import { BacklogItem, backlogId, listOf } from '@/lib/backlog/list'
 import FilterToolbar from './FilterToolbar'
 import TopNav from './TopNav'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
+import { storeOpenedNow } from '@/lib/dismissal'
 
 interface Props {
   data: GamesApiResponse
@@ -30,6 +31,21 @@ const WAITING_EXPANDED_KEY = 'waiting-expanded'
 // one just played can still get a note after the move
 const RECENTLY_OPENED_KEY = 'recently-opened'
 const RECENTLY_OPENED_MS = 12 * 3600 * 1000
+
+function storeRecentlyOpened(id: string, prev?: Record<string, number>): Record<string, number> {
+  let next: Record<string, number> = { [id]: Date.now() }
+  try {
+    next = { ...(prev ?? JSON.parse(localStorage.getItem(RECENTLY_OPENED_KEY) ?? '{}')), [id]: Date.now() }
+    localStorage.setItem(RECENTLY_OPENED_KEY, JSON.stringify(next))
+  } catch { /* storage unavailable */ }
+  return next
+}
+
+// Both "opened" records, written synchronously (see the Next link)
+function markOpenedInStorage(id: string) {
+  storeOpenedNow(id)
+  storeRecentlyOpened(id)
+}
 function timeAgo(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(ms / 60_000)
@@ -94,11 +110,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     } catch { /* storage unavailable */ }
   }, [])
   const openGame = (id: string) => {
-    setRecentlyOpened(prev => {
-      const next = { ...prev, [id]: Date.now() }
-      try { localStorage.setItem(RECENTLY_OPENED_KEY, JSON.stringify(next)) } catch { /* storage unavailable */ }
-      return next
-    })
+    setRecentlyOpened(prev => storeRecentlyOpened(id, prev))
     onOpen(id)
   }
   const openedRecently = (g: Game) => (recentlyOpened[g.id] ?? 0) > now - RECENTLY_OPENED_MS
@@ -282,9 +294,11 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                   rel="noopener noreferrer"
                   // Marking it opened re-renders this link with the following
                   // game's URL; doing that synchronously would make the browser
-                  // follow the new URL, so wait until the click has been handled
-                  onClick={() => { const id = next.id; setTimeout(() => openGame(id), 0) }}
-                  onAuxClick={() => { const id = next.id; setTimeout(() => openGame(id), 0) }}
+                  // follow the new URL, so the state update waits until the click
+                  // has been handled. Storage is written now: a BGA game opens in
+                  // this tab and the page may unload before the timeout runs.
+                  onClick={() => { const id = next.id; markOpenedInStorage(id); setTimeout(() => openGame(id), 0) }}
+                  onAuxClick={() => { const id = next.id; markOpenedInStorage(id); setTimeout(() => openGame(id), 0) }}
                   title={`Open ${next.gameName}`}
                   className="min-w-0 max-w-[70%] flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]">
                   <span className="truncate">Next: {next.gameName}</span>
