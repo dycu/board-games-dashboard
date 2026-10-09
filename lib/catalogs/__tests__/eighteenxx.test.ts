@@ -30,6 +30,16 @@ describe('parseEighteenxxCatalog', () => {
     expect(entries.map(e => e.name)).toEqual(['1817NA', '1822Africa', '1830', '18Chesapeake'])
   })
 
+  it('carries the release stage, production when unset', () => {
+    expect(entries.map(e => e.status)).toEqual(['production', 'beta', 'production', 'production'])
+  })
+
+  it('reads the minified bundle Node gets', () => {
+    const min = 'Opal.modules["engine/game/g_1804/meta"]=function(e){return V.$include(i(B("Game"),"Meta")),m($[0],"DEV_STAGE","alpha"),m($[0],"GAME_TITLE","1804 Lite")};'
+      + 'Opal.modules["engine/game/g_1807/meta"]=function(e){return m($[0],"DEV_STAGE","prealpha")};'
+    expect(parseEighteenxxCatalog(min)).toEqual([{ name: '1804 Lite', url: 'https://18xx.games/new_game', status: 'alpha' }])
+  })
+
   it('links to the new game page', () => {
     expect(entries[0].url).toBe('https://18xx.games/new_game')
   })

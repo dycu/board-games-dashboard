@@ -42,7 +42,7 @@ export function parseBgaCatalog(html: string): CatalogEntry[] {
     .filter(g => g.name && g.display_name_en && LISTED_STATUSES.has(g.status ?? ''))
     // The pretty https://boardgamearena.com/<slug> URL currently 500s for anonymous
     // visitors; gamepanel is the reliable public URL (also used in lib/connectors/bga.ts).
-    .map(g => ({ name: g.display_name_en!, url: `https://en.boardgamearena.com/gamepanel?game=${g.name}` }))
+    .map(g => ({ name: g.display_name_en!, url: `https://en.boardgamearena.com/gamepanel?game=${g.name}`, status: g.status }))
 }
 
 async function fetchGamelist(cookie?: string): Promise<string> {
@@ -69,20 +69,27 @@ async function fetchGamelist(cookie?: string): Promise<string> {
   throw new Error('BGA gamelist: too many redirects')
 }
 
-export async function fetchBgaCatalog(): Promise<CatalogEntry[]> {
+// The full list, alpha games included; throws instead of falling back to the
+// public list, for callers that must not mistake missing alpha games for removed ones
+export async function fetchBgaCatalogLoggedIn(): Promise<CatalogEntry[]> {
   const username = process.env.BGA_USERNAME
   const password = process.env.BGA_PASSWORD
-  if (username && password) {
+  if (!username || !password) throw new Error('BGA_USERNAME / BGA_PASSWORD not set')
+  // Uses the shared cached session, so this normally costs no extra login
+  return withBgaSession(username, password, async session => {
+    const html = await fetchGamelist(cookieString(session.cookies))
+    const games = parseGameList(html)
+    // A logged-out page has no alpha games — treat that as an expired session
+    if (!games.some(g => g.status === 'alpha')) throw new Error('BGA gamelist: session not logged in (no alpha games)')
+    return parseBgaCatalog(html)
+  })
+}
+
+export async function fetchBgaCatalog(): Promise<CatalogEntry[]> {
+  if (process.env.BGA_USERNAME && process.env.BGA_PASSWORD) {
     try {
-      // Uses the shared cached session, so this normally costs no extra login.
-      // The catalog is cached for a day, so at most one re-login per day comes from here.
-      return await withBgaSession(username, password, async session => {
-        const html = await fetchGamelist(cookieString(session.cookies))
-        const games = parseGameList(html)
-        // A logged-out page has no alpha games — treat that as an expired session
-        if (!games.some(g => g.status === 'alpha')) throw new Error('BGA gamelist: session not logged in (no alpha games)')
-        return parseBgaCatalog(html)
-      })
+      // The catalog is cached for a day, so at most one re-login per day comes from here
+      return await fetchBgaCatalogLoggedIn()
     } catch {
       // Login trouble must not break search — fall back to the public list
     }

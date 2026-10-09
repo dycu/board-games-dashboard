@@ -6,6 +6,7 @@ import { isBackForwardNavigation } from '@/lib/navigation'
 import { Presence, openedAfterFetch, AWAY_REFRESH_MS } from '@/lib/dismissal'
 import GameGrid from '@/components/GameGrid'
 import FetchProgress from '@/components/FetchProgress'
+import NewGamesPopup from '@/components/NewGamesPopup'
 
 const DISMISSED_KEY = 'dismissed-games'
 const PREFS_KEY = 'user-prefs'
@@ -106,6 +107,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
+      <NewGamesPopup />
       {showCompactProgress && (
         <FetchProgress platformStatuses={platformStatuses} compact />
       )}

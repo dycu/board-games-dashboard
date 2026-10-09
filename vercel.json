@@ -3,6 +3,8 @@
     { "path": "/api/cron/pace", "schedule": "0 5 * * *" },
     { "path": "/api/cron/health", "schedule": "0 6 * * *" },
     { "path": "/api/cron/weekly", "schedule": "0 17 * * 0" },
+    { "path": "/api/cron/new-games?run=am", "schedule": "0 7 * * *" },
+    { "path": "/api/cron/new-games?run=pm", "schedule": "0 19 * * *" },
     { "path": "/api/cron/deadlines?slot=2", "schedule": "30 2 * * *" },
     { "path": "/api/cron/deadlines?slot=6", "schedule": "30 6 * * *" },
     { "path": "/api/cron/deadlines?slot=10", "schedule": "30 10 * * *" },

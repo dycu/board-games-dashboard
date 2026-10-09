@@ -16,7 +16,7 @@ const TTL_SECONDS = 86400
 // entries from a prior deploy are bypassed instead of served for up to
 // TTL_SECONDS after the fix ships (e.g. the v1 BGA entries cached the
 // broken boardgamearena.com/<slug> URL, not the gamepanel one).
-const CACHE_VERSION = 'v4' // v4: BGA alpha games included (logged-in list)
+const CACHE_VERSION = 'v5' // v5: release stages; 18xx prealpha dropped from the minified bundle too
 
 const FETCHERS: Record<CatalogPlatform, () => Promise<CatalogEntry[]>> = {
   bga: fetchBgaCatalog,
