@@ -2,7 +2,8 @@
 import { useEffect, useRef, useState } from 'react'
 
 export function useAutoRefresh(onRefresh: () => void, isRefreshing: boolean) {
-  const [intervalSeconds, setIntervalSeconds] = useState(60)
+  // Off by default: background refreshes get in the way of dimming opened games
+  const [intervalSeconds, setIntervalSeconds] = useState(0)
   const [countdown, setCountdown] = useState(0)
 
   const isRefreshingRef = useRef(isRefreshing)

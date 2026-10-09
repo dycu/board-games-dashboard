@@ -5,11 +5,12 @@ describe('useAutoRefresh', () => {
   beforeEach(() => { jest.useFakeTimers() })
   afterEach(() => { jest.useRealTimers() })
 
-  it('starts with default 60s interval and countdown', () => {
+  it('starts switched off', () => {
     const onRefresh = jest.fn()
     const { result } = renderHook(() => useAutoRefresh(onRefresh, false))
-    expect(result.current.intervalSeconds).toBe(60)
-    expect(result.current.countdown).toBe(60)
+    expect(result.current.intervalSeconds).toBe(0)
+    expect(result.current.countdown).toBe(0)
+    act(() => { jest.advanceTimersByTime(120000) })
     expect(onRefresh).not.toHaveBeenCalled()
   })
 
