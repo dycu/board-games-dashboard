@@ -1,3 +1,18 @@
+// A hung platform fetch (a connector whose login or page request never
+// resolves) must not block the whole /api/games or /api/finished-games
+// stream from ever sending its "done" event — that's what made the health
+// check's own fetch of /api/games fail with "stream ended without a done
+// event" when one of these edge functions got cut off mid-request. This
+// doesn't cancel the underlying work, it just stops waiting on it so the
+// stream can report that one platform as failed and move on.
+export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms)
+  })
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+}
+
 export function formatTimeAgo(date: Date): string {
   const ms = Date.now() - date.getTime()
   const mins = Math.floor(ms / 60000)
