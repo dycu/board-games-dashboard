@@ -10,6 +10,8 @@ export interface GameItemProps {
   game: Game
   pinned: boolean
   onTogglePin: (id: string) => void
+  sunk: boolean
+  onToggleSink: (id: string) => void
   onOpen: () => void // the dashboard dims an opened game until the next refresh
   opponentSlowDays: number
   deadlineSoonHours: number
@@ -54,6 +56,22 @@ function PinButton({ game, pinned, onTogglePin }: Pick<GameItemProps, 'game' | '
       onClick={() => onTogglePin(game.id)}
       className={`relative z-10 text-sm transition-colors ${pinned ? 'text-amber-400' : 'text-[#c5c5c5] hover:text-amber-400'}`}>
       {pinned ? '★' : '☆'}
+    </button>
+  )
+}
+
+// The opposite of pinning: always sorts to the end of its section instead
+// of the top (e.g. solo games you don't want competing for the top spot).
+// A different glyph (filled/outline triangle, not a star) so it's never
+// mistaken for the pin.
+function SinkButton({ game, sunk, onToggleSink }: Pick<GameItemProps, 'game' | 'sunk' | 'onToggleSink'>) {
+  return (
+    <button
+      aria-label={sunk ? 'Unsink game (stop sending it to the end)' : 'Sink game to the end'}
+      title={sunk ? 'Stop sending to the end' : 'Send to the end'}
+      onClick={() => onToggleSink(game.id)}
+      className={`relative z-10 text-sm transition-colors ${sunk ? 'text-slate-400' : 'text-[#c5c5c5] hover:text-slate-400'}`}>
+      {sunk ? '▼' : '▽'}
     </button>
   )
 }
@@ -137,7 +155,7 @@ function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string,
 }
 
 // A game waiting for my move: a full card
-export default function GameCard({ game, pinned, onTogglePin, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, now, opened }: GameItemProps) {
+export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, now, opened }: GameItemProps) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
@@ -155,6 +173,7 @@ export default function GameCard({ game, pinned, onTogglePin, onOpen, opponentSl
             </span>
           )}
           <HistoryLink game={game} />
+          <SinkButton game={game} sunk={sunk} onToggleSink={onToggleSink} />
           <PinButton game={game} pinned={pinned} onTogglePin={onTogglePin} />
         </div>
       </div>
@@ -177,7 +196,7 @@ export default function GameCard({ game, pinned, onTogglePin, onOpen, opponentSl
 }
 
 // A game waiting for someone else: one compact row
-export function GameRow({ game, pinned, onTogglePin, onOpen, opponentSlowDays, note, onSaveNote, now, opened }: GameItemProps) {
+export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, onOpen, opponentSlowDays, note, onSaveNote, now, opened }: GameItemProps) {
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   return (
     <div className={`relative flex items-center gap-2 px-3 py-2 rounded-md border bg-white hover:border-[#c5c9f0] transition-colors
@@ -195,6 +214,7 @@ export function GameRow({ game, pinned, onTogglePin, onOpen, opponentSlowDays, n
       </span>
       <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact />
       <HistoryLink game={game} />
+      <SinkButton game={game} sunk={sunk} onToggleSink={onToggleSink} />
       <PinButton game={game} pinned={pinned} onTogglePin={onTogglePin} />
     </div>
   )

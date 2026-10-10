@@ -114,6 +114,33 @@ describe('GameGrid sections', () => {
   })
 })
 
+describe('GameGrid sink toggle', () => {
+  it('adds the game to prefs.sunk and saves it when the sink icon is clicked', async () => {
+    const onPrefsChange = jest.fn()
+    const data: GamesApiResponse = { games: [makeGame('bga', '1')], errors: [], fetchedAt: new Date().toISOString() }
+    render(<GameGrid {...defaultGridProps} onPrefsChange={onPrefsChange} data={data} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /sink game/i }))
+
+    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ sunk: ['bga:1'] }))
+    expect(global.fetch).toHaveBeenCalledWith('/api/prefs', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ sunk: ['bga:1'] }),
+    }))
+  })
+
+  it('removes the game from prefs.sunk when already sunk', async () => {
+    const onPrefsChange = jest.fn()
+    const prefs: UserPrefs = { ...DEFAULT_PREFS, sunk: ['bga:1'] }
+    const data: GamesApiResponse = { games: [makeGame('bga', '1')], errors: [], fetchedAt: new Date().toISOString() }
+    render(<GameGrid {...defaultGridProps} prefs={prefs} onPrefsChange={onPrefsChange} data={data} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /unsink/i }))
+
+    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ sunk: [] }))
+  })
+})
+
 describe('GameGrid departed games banner', () => {
   it('opens a departed BGA game in the same tab to trigger desktop mode', () => {
     const data: GamesApiResponse = { games: [], errors: [], fetchedAt: new Date().toISOString() }

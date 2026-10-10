@@ -16,6 +16,7 @@ export function deadlineSoon(g: Game, now: number, within = DEADLINE_SOON_MS): n
 
 export function sortAndFilter(games: Game[], prefs: UserPrefs, now = Date.now()): Game[] {
   const { pins, sort, filter } = prefs
+  const sunk = prefs.sunk ?? []
 
   const result = games.filter(g => {
     if (filter.turnStatus === 'my-turn' && !g.myTurn) return false
@@ -25,6 +26,14 @@ export function sortAndFilter(games: Game[], prefs: UserPrefs, now = Date.now())
   })
 
   result.sort((a, b) => {
+    // Sunk games always last in their section (Your turn or Waiting),
+    // regardless of pin/deadline/sort — the opposite of pinning, for games
+    // you don't want competing for the top (e.g. solo games)
+    const aSunk = sunk.includes(a.id)
+    const bSunk = sunk.includes(b.id)
+    if (aSunk && !bSunk) return 1
+    if (bSunk && !aSunk) return -1
+
     const aPinned = pins.includes(a.id)
     const bPinned = pins.includes(b.id)
 
