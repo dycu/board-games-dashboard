@@ -1,5 +1,11 @@
 import { diffSource, NewGameEvent, NewGamesSource, SourceSnapshot, WatchedItem } from './diff'
 import { newGamesEmail } from './email'
+import { withTimeout } from '../connectors/utils'
+
+// A source hanging (a stalled login or request) must not keep every other
+// source from being checked and emailed about — see /api/games/route.ts's
+// own use of withTimeout for the same failure mode.
+const SOURCE_TIMEOUT_MS = 25_000
 
 export interface CheckDeps {
   sources: Partial<Record<NewGamesSource, () => Promise<WatchedItem[]>>>
@@ -24,7 +30,7 @@ export async function checkNewGames(deps: CheckDeps, now = new Date()): Promise<
 
   await Promise.all((Object.entries(deps.sources) as [NewGamesSource, () => Promise<WatchedItem[]>][]).map(async ([source, fetchItems]) => {
     try {
-      const [items, previous] = await Promise.all([fetchItems(), deps.getSnapshot(source)])
+      const [items, previous] = await Promise.all([withTimeout(fetchItems(), SOURCE_TIMEOUT_MS, source), deps.getSnapshot(source)])
       const { snapshot, events } = diffSource(source, previous, items, at)
       await deps.setSnapshot(source, snapshot)
       result.counts[source] = items.length
