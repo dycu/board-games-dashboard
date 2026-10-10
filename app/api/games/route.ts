@@ -3,6 +3,7 @@ import { Platform } from '@/lib/types'
 import { getPrefs } from '@/lib/prefs'
 import { recordLoadSample, LoadSample } from '@/lib/pace/loadSamples'
 import { checkGames } from '@/lib/connectors/validate'
+import { withTimeout } from '@/lib/connectors/utils'
 
 export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
@@ -12,6 +13,11 @@ const PROXY_PATH: Partial<Record<Platform, string>> = {
   choochoo: '/api/choochoo',
   oldkingscrown: '/api/oldkingscrown',
 }
+
+// Generous enough for a cold login on the slowest platform, but bounded —
+// a single hung platform must not keep the whole stream from ever sending
+// its "done" event (see withTimeout).
+const PLATFORM_TIMEOUT_MS = 25_000
 
 export async function GET(request?: Request) {
   const prefs = await getPrefs()
@@ -43,14 +49,14 @@ export async function GET(request?: Request) {
             if (proxyPath) {
               const origin = request ? new URL(request.url).origin : 'http://localhost:3000'
               const authHeader = request?.headers.get('authorization')
-              const res = await fetch(`${origin}${proxyPath}`, {
+              const res = await withTimeout(fetch(`${origin}${proxyPath}`, {
                 headers: authHeader ? { Authorization: authHeader } : {},
-              })
+              }), PLATFORM_TIMEOUT_MS, platform)
               const json = await res.json() as any
               if (json.error) throw new Error(json.error)
               games = json.games ?? []
             } else {
-              games = await fetcher()
+              games = await withTimeout(fetcher(), PLATFORM_TIMEOUT_MS, platform)
             }
             checkGames(platform, games)
             counts[platform] = games.length
