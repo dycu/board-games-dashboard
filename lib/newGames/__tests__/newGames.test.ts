@@ -88,6 +88,27 @@ describe('checkNewGames', () => {
     expect(d.sendEmail).not.toHaveBeenCalled()
     expect(d.addEvents).not.toHaveBeenCalled()
   })
+
+  it('does not let a hung source block the others from being checked and emailed', async () => {
+    jest.useFakeTimers()
+    try {
+      const d = deps({
+        sources: {
+          bga: async () => [item('a', 'beta'), item('n', 'alpha')],
+          rally: () => new Promise(() => {}), // never settles
+          'yucata-blog': async () => [item('p')],
+        },
+      })
+      const resultPromise = checkNewGames(d, new Date(AT))
+      await jest.advanceTimersByTimeAsync(25_000)
+      const result = await resultPromise
+      expect(result.errors.rally).toMatch(/timed out/)
+      expect(result.events.map(e => e.id).sort()).toEqual(['bga:a:status:beta', 'bga:n:new'])
+      expect(d.sendEmail).toHaveBeenCalledTimes(1)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
 })
 
 describe('newGamesEmail', () => {
