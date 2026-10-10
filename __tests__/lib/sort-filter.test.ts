@@ -93,4 +93,32 @@ describe('sortAndFilter', () => {
     const older = base({ id: 'bga:31', myTurn: true, lastMoveAt: new Date('2026-10-01T10:00:00Z') })
     expect(sortAndFilter([older, overdue], prefs(), now).map(g => g.id)).toEqual(['obg:30', 'bga:31'])
   })
+
+  it('puts a sunk game last, even behind a game that waited longer', () => {
+    const solo = base({ id: 'bga:solo', myTurn: true, lastMoveAt: new Date('2026-06-25') })
+    const result = sortAndFilter([myTurnOld, myTurnNew, solo], prefs({ sunk: ['bga:solo'] }))
+    expect(result.map(g => g.id)).toEqual(['bga:2', 'bga:3', 'bga:solo'])
+  })
+
+  it('sinking overrides pinning: a sunk-and-pinned game still goes last', () => {
+    const soloPinned = base({ id: 'bga:solo', myTurn: true })
+    const result = sortAndFilter([myTurnOld, soloPinned], prefs({ pins: ['bga:solo'], sunk: ['bga:solo'] }))
+    expect(result.map(g => g.id)).toEqual(['bga:2', 'bga:solo'])
+  })
+
+  it('a sunk deadline-soon game still does not jump ahead of non-sunk games', () => {
+    const now = Date.parse('2026-10-08T12:00:00Z')
+    const soloOverdue = base({ id: 'bga:solo', myTurn: true, deadlineAt: '2026-10-07T21:00:00Z' })
+    const normal = base({ id: 'bga:40', myTurn: true, deadlineAt: '2026-10-11T12:00:00Z' })
+    const result = sortAndFilter([soloOverdue, normal], prefs({ sunk: ['bga:solo'] }), now)
+    expect(result.map(g => g.id)).toEqual(['bga:40', 'bga:solo'])
+  })
+
+  it('treats a missing sunk list (prefs saved before the feature existed) as empty', () => {
+    const solo = base({ id: 'bga:solo', myTurn: true })
+    const legacyPrefs = { ...prefs() } as UserPrefs
+    // @ts-expect-error simulating prefs persisted before `sunk` existed
+    delete legacyPrefs.sunk
+    expect(() => sortAndFilter([myTurnOld, solo], legacyPrefs)).not.toThrow()
+  })
 })

@@ -13,6 +13,7 @@ const mockSavePrefs = savePrefs as jest.MockedFunction<typeof savePrefs>
 
 const defaultPrefs = {
   pins: [],
+  sunk: [],
   sort: 'longest-wait' as const,
   filter: { turnStatus: 'all' as const, platforms: [] },
   disabledPlatforms: [],
@@ -45,6 +46,7 @@ describe('POST /api/prefs', () => {
   it('calls savePrefs with request body and returns updated prefs', async () => {
     const updatedPrefs = {
       pins: ['bga:123'],
+      sunk: [],
       sort: 'most-recent' as const,
       filter: { turnStatus: 'my-turn' as const, platforms: [] },
       disabledPlatforms: [],

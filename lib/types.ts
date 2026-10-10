@@ -27,6 +27,7 @@ export interface Game {
 
 export interface UserPrefs {
   pins: string[]
+  sunk: string[]          // always sorted to the end of their section (e.g. solo games you don't want cluttering the top)
   sort: 'longest-wait' | 'most-recent' | 'platform' | 'game-name'
   filter: {
     turnStatus: 'all' | 'my-turn' | 'waiting'
@@ -44,6 +45,7 @@ export const DEFAULT_BACKLOG_PLATFORMS: Platform[] = ['bga', 'yucata']
 
 export const DEFAULT_PREFS: UserPrefs = {
   pins: [],
+  sunk: [],
   sort: 'longest-wait',
   filter: { turnStatus: 'all', platforms: [] },
   disabledPlatforms: [],

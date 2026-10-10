@@ -139,12 +139,22 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     await fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ pins }), headers: { 'Content-Type': 'application/json' } })
   }
 
+  const toggleSink = async (id: string) => {
+    const prevSunk = prefs.sunk ?? []
+    const sunk = prevSunk.includes(id) ? prevSunk.filter(p => p !== id) : [...prevSunk, id]
+    const updated = { ...prefs, sunk }
+    onPrefsChange(updated)
+    await fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ sunk }), headers: { 'Content-Type': 'application/json' } })
+  }
+
   const { intervalSeconds, setIntervalSeconds, countdown } = useAutoRefresh(onRefresh, isRefreshing)
 
   const itemProps = (g: Game): GameItemProps => ({
     game: g,
     pinned: prefs.pins.includes(g.id),
     onTogglePin: togglePin,
+    sunk: (prefs.sunk ?? []).includes(g.id),
+    onToggleSink: toggleSink,
     onOpen: () => openGame(g.id),
     opponentSlowDays,
     deadlineSoonHours,

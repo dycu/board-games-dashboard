@@ -19,7 +19,7 @@ const game: Game = {
 }
 
 const props = (over: Partial<GameItemProps> = {}): GameItemProps =>
-  ({ game, pinned: false, onTogglePin: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, ...over })
+  ({ game, pinned: false, onTogglePin: () => {}, sunk: false, onToggleSink: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, ...over })
 
 describe('GameCard', () => {
   it('shows game name, platform badge and time', () => {
@@ -63,6 +63,21 @@ describe('GameCard', () => {
     render(<GameCard {...props({ onTogglePin })} />)
     await userEvent.click(screen.getByRole('button', { name: /pin/i }))
     expect(onTogglePin).toHaveBeenCalledWith('bga:1')
+  })
+
+  it('calls onToggleSink when the sink icon is clicked, and shows a different glyph than the pin', async () => {
+    const onToggleSink = jest.fn()
+    render(<GameCard {...props({ onToggleSink })} />)
+    const sinkButton = screen.getByRole('button', { name: /sink game/i })
+    expect(sinkButton).toHaveTextContent('▽')
+    await userEvent.click(sinkButton)
+    expect(onToggleSink).toHaveBeenCalledWith('bga:1')
+  })
+
+  it('shows the filled sink glyph once a game is sunk, and a distinct label to un-sink it', () => {
+    render(<GameCard {...props({ sunk: true })} />)
+    const sinkButton = screen.getByRole('button', { name: /unsink/i })
+    expect(sinkButton).toHaveTextContent('▼')
   })
 
   it('makes the whole card a link to the game, and calls onOpen so the dashboard can hide it', async () => {
