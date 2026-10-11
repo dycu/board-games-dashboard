@@ -5,14 +5,17 @@ import { withTimeout } from '@/lib/connectors/utils'
 
 export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 const PROXY_PATH: Partial<Record<Platform, string>> = {
   choochoo: '/api/choochoo-finished',
 }
 
 // See /api/games/route.ts: a single hung platform must not keep this
-// stream from ever sending its "done" event.
-const PLATFORM_TIMEOUT_MS = 25_000
+// stream from ever sending its "done" event, and this must stay well
+// under the edge runtime's own execution limit or Vercel can kill the
+// whole function before that graceful catch (and "done") ever fire.
+const PLATFORM_TIMEOUT_MS = 15_000
 
 export async function GET(request?: Request) {
   const prefs = await getPrefs()

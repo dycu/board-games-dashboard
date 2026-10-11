@@ -7,6 +7,7 @@ import { withTimeout } from '@/lib/connectors/utils'
 
 export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 // Platforms that can't run in edge runtime — proxied through Node.js endpoints
 const PROXY_PATH: Partial<Record<Platform, string>> = {
@@ -16,8 +17,12 @@ const PROXY_PATH: Partial<Record<Platform, string>> = {
 
 // Generous enough for a cold login on the slowest platform, but bounded —
 // a single hung platform must not keep the whole stream from ever sending
-// its "done" event (see withTimeout).
-const PLATFORM_TIMEOUT_MS = 25_000
+// its "done" event (see withTimeout). Must stay well under the edge
+// runtime's own execution limit (25s by default without maxDuration), or
+// Vercel can kill the whole function before this timeout's graceful
+// catch — and before "done" ever gets sent — producing a truncated
+// stream instead of a reported per-platform error.
+const PLATFORM_TIMEOUT_MS = 15_000
 
 export async function GET(request?: Request) {
   const prefs = await getPrefs()
