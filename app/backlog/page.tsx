@@ -38,10 +38,10 @@ function Row({ item, position, onTop, onMove, onRemove }: {
   item: BacklogItem
   position: number
   onTop?: () => void
-  onMove: () => void
+  onMove: (list: BacklogList) => void
   onRemove: () => void
 }) {
-  const other = listOf(item) === 'play' ? 'Learn' : 'Play'
+  const otherLists = BACKLOG_LISTS.filter(l => l !== listOf(item))
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
 
   return (
@@ -91,15 +91,15 @@ function Row({ item, position, onTop, onMove, onRemove }: {
         >
           ⤒
         </button>
-        <button
-          onClick={onMove}
-          aria-label={`Move ${item.gameName} to ${other === 'Learn' ? 'Next to learn' : 'Next to play'}`}
-          title={`Move to ${other === 'Learn' ? 'Next to learn' : 'Next to play'}`}
-          className={SMALL_BUTTON}
+        <select
+          aria-label={`Move ${item.gameName} to another list`}
+          value=""
+          onChange={e => { if (e.target.value) onMove(e.target.value as BacklogList) }}
+          className={`${SMALL_BUTTON} cursor-pointer`}
         >
-          <span className="sm:hidden" aria-hidden="true">→</span>
-          <span className="hidden sm:inline" aria-hidden="true">→ {other}</span>
-        </button>
+          <option value="" disabled>Move to…</option>
+          {otherLists.map(l => <option key={l} value={l}>{LIST_LABELS[l]}</option>)}
+        </select>
         <button onClick={onRemove} title="Remove" aria-label={`Remove ${item.gameName}`} className={SMALL_BUTTON}>
           ✕
         </button>
@@ -125,9 +125,9 @@ function ListSection({ backlog, list }: { backlog: Backlog; list: BacklogList })
   if (items.length === 0) {
     return (
       <p className="text-sm text-[#9b9b9b] text-center py-6 rounded-lg border border-dashed border-[#e5e5e5]">
-        {list === 'play'
-          ? 'Nothing here yet. Add games below, or with “+ Backlog” on the History page.'
-          : 'No games to learn yet. Choose “Next to learn” in the box below and add some.'}
+        {list === 'play' && 'Nothing here yet. Add games below, or with “+ Backlog” on the History page.'}
+        {list === 'learn' && 'No games to learn yet. Choose “Next to learn” in the box below and add some.'}
+        {list === 'solo' && 'No solo games queued yet. Choose “Solo” in the box below and add some.'}
       </p>
     )
   }
@@ -142,7 +142,7 @@ function ListSection({ backlog, list }: { backlog: Backlog; list: BacklogList })
               item={item}
               position={i + 1}
               onTop={i > 0 ? () => backlog.reorder(arrayMove(items, i, 0)) : undefined}
-              onMove={() => backlog.move(item.id, list === 'play' ? 'learn' : 'play')}
+              onMove={target => backlog.move(item.id, target)}
               onRemove={() => backlog.remove(item.id)}
             />
           ))}

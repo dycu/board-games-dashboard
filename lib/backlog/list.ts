@@ -1,8 +1,8 @@
 import { Platform } from '../types'
 
-export type BacklogList = 'play' | 'learn'
+export type BacklogList = 'play' | 'learn' | 'solo'
 
-export const BACKLOG_LISTS: BacklogList[] = ['play', 'learn']
+export const BACKLOG_LISTS: BacklogList[] = ['play', 'learn', 'solo']
 
 export interface BacklogItem {
   id: string        // `${platform}:${normalized name}` — also the duplicate check
@@ -10,7 +10,7 @@ export interface BacklogItem {
   gameName: string
   playUrl: string   // where a new game of it is started
   addedAt: string   // ISO
-  list?: BacklogList // missing on items saved before there were two lists = 'play'
+  list?: BacklogList // missing on items saved before there were multiple lists = 'play'
 }
 
 export function listOf(item: BacklogItem): BacklogList {

@@ -1,4 +1,4 @@
-import { addItem, removeItem, reorderItems, backlogId, BacklogItem, listOf, moveToList } from '../list'
+import { addItem, removeItem, reorderItems, backlogId, BacklogItem, listOf, moveToList, BACKLOG_LISTS } from '../list'
 
 const item = (platform: BacklogItem['platform'], gameName: string): BacklogItem => ({
   id: backlogId(platform, gameName),
@@ -67,5 +67,17 @@ describe('lists', () => {
     const reordered = reorderItems(list, [list[2].id, list[0].id])
     expect(reordered.filter(i => listOf(i) === 'play').map(i => i.gameName)).toEqual(['B', 'A'])
     expect(reordered.filter(i => listOf(i) === 'learn').map(i => i.gameName)).toEqual(['L1', 'L2'])
+  })
+
+  it('includes a third "solo" list alongside play and learn', () => {
+    expect(BACKLOG_LISTS).toEqual(['play', 'learn', 'solo'])
+  })
+
+  it('moves an item into the solo list without disturbing the others', () => {
+    const list = [item('bga', 'A'), { ...item('bga', 'B'), list: 'learn' as const }, item('bga', 'C')]
+    const moved = moveToList(list, list[2].id, 'solo')
+    expect(listOf(moved.find(i => i.gameName === 'C')!)).toBe('solo')
+    expect(moved.filter(i => listOf(i) === 'play').map(i => i.gameName)).toEqual(['A'])
+    expect(moved.filter(i => listOf(i) === 'learn').map(i => i.gameName)).toEqual(['B'])
   })
 })

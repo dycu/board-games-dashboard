@@ -1,7 +1,10 @@
 'use client'
 import { BacklogList } from '@/lib/backlog/list'
 
-export const LIST_LABELS: Record<BacklogList, string> = { play: 'Next to play', learn: 'Next to learn' }
+export const LIST_LABELS: Record<BacklogList, string> = { play: 'Next to play', learn: 'Next to learn', solo: 'Solo' }
+
+// The ✓ status badge: present-tense, shorter than the section/pill labels above
+const STATUS_LABELS: Record<BacklogList, string> = { play: 'To play', learn: 'To learn', solo: 'Solo' }
 
 interface Props {
   inList: BacklogList | null
@@ -14,7 +17,7 @@ export default function AddToBacklogButton({ inList, adding, onAdd, label = '+ B
   if (inList) {
     return (
       <span className="shrink-0 text-xs font-medium px-3 py-1 rounded-md text-green-700 bg-green-50 border border-green-200 whitespace-nowrap">
-        ✓ {inList === 'play' ? 'To play' : 'To learn'}
+        ✓ {STATUS_LABELS[inList]}
       </span>
     )
   }
