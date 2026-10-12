@@ -159,7 +159,8 @@ export default function OverviewPage() {
                         {gameUrl !== g.gameUrl && <GameLink url={gameUrl} platform={g.platform} />}
                         {backlog.items && (
                           <AddToBacklogButton
-                            inList={backlog.listFor(g.platform, g.gameType || g.gameName)}
+                            targetList="play"
+                            inTarget={backlog.listsFor(g.platform, g.gameType || g.gameName).includes('play')}
                             adding={backlog.isAdding(g.platform, g.gameType || g.gameName)}
                             onAdd={() => backlog.add({ platform: g.platform, gameName: g.gameType || g.gameName, gameUrl: g.gameUrl, list: 'play' })}
                           />

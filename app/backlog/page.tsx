@@ -9,7 +9,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
-import { BacklogItem, BacklogList, BACKLOG_LISTS, listOf } from '@/lib/backlog/list'
+import { BacklogItem, BacklogList, BACKLOG_LISTS, listsOf } from '@/lib/backlog/list'
 import { PlayedSort, aggregatePlayed, sortPlayed, playedNote } from '@/lib/backlog/played'
 import { useBgaPlayTotals, totalsOf } from '@/hooks/useBgaPlayTotals'
 import { useBacklog } from '@/hooks/useBacklog'
@@ -34,14 +34,39 @@ function Badge({ platform }: { platform: Platform }) {
   )
 }
 
-function Row({ item, position, onTop, onMove, onRemove }: {
+const SHORT_LIST_LABELS: Record<BacklogList, string> = { play: 'Play', learn: 'Learn', solo: 'Solo' }
+
+// Which lists this item belongs to — a game can be in more than one at
+// once (e.g. Play and Solo), so each is its own toggle rather than a
+// single "move to" choice
+function ListToggles({ item, onToggle }: { item: BacklogItem; onToggle: (list: BacklogList) => void }) {
+  const current = listsOf(item)
+  return (
+    <div className="shrink-0 flex items-center gap-1">
+      {BACKLOG_LISTS.map(l => (
+        <button
+          key={l}
+          onClick={() => onToggle(l)}
+          aria-pressed={current.includes(l)}
+          aria-label={`${current.includes(l) ? 'Remove' : 'Add'} ${item.gameName} ${current.includes(l) ? 'from' : 'to'} ${LIST_LABELS[l]}`}
+          title={LIST_LABELS[l]}
+          className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border whitespace-nowrap transition-colors
+            ${current.includes(l) ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]' : 'bg-white text-[#9b9b9b] border-[#e5e5e5] hover:bg-[#f3f3f3]'}`}
+        >
+          {SHORT_LIST_LABELS[l]}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function Row({ item, position, onTop, onToggleList, onRemove }: {
   item: BacklogItem
   position: number
   onTop?: () => void
-  onMove: (list: BacklogList) => void
+  onToggleList: (list: BacklogList) => void
   onRemove: () => void
 }) {
-  const otherLists = BACKLOG_LISTS.filter(l => l !== listOf(item))
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
 
   return (
@@ -91,15 +116,7 @@ function Row({ item, position, onTop, onMove, onRemove }: {
         >
           ⤒
         </button>
-        <select
-          aria-label={`Move ${item.gameName} to another list`}
-          value=""
-          onChange={e => { if (e.target.value) onMove(e.target.value as BacklogList) }}
-          className={`${SMALL_BUTTON} cursor-pointer`}
-        >
-          <option value="" disabled>Move to…</option>
-          {otherLists.map(l => <option key={l} value={l}>{LIST_LABELS[l]}</option>)}
-        </select>
+        <ListToggles item={item} onToggle={onToggleList} />
         <button onClick={onRemove} title="Remove" aria-label={`Remove ${item.gameName}`} className={SMALL_BUTTON}>
           ✕
         </button>
@@ -109,7 +126,7 @@ function Row({ item, position, onTop, onMove, onRemove }: {
 }
 
 function ListSection({ backlog, list }: { backlog: Backlog; list: BacklogList }) {
-  const items = (backlog.items ?? []).filter(i => listOf(i) === list)
+  const items = (backlog.items ?? []).filter(i => listsOf(i).includes(list))
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -142,7 +159,7 @@ function ListSection({ backlog, list }: { backlog: Backlog; list: BacklogList })
               item={item}
               position={i + 1}
               onTop={i > 0 ? () => backlog.reorder(arrayMove(items, i, 0)) : undefined}
-              onMove={target => backlog.move(item.id, target)}
+              onToggleList={target => backlog.toggle(item.id, target)}
               onRemove={() => backlog.remove(item.id)}
             />
           ))}
@@ -227,7 +244,8 @@ function SearchPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
                 <GameLink url={m.url} platform={m.platform} />
                 <AddToBacklogButton
                   label="+ Add"
-                  inList={backlog.listFor(m.platform, m.name)}
+                  targetList={target}
+                  inTarget={backlog.listsFor(m.platform, m.name).includes(target)}
                   adding={backlog.isAdding(m.platform, m.name)}
                   onAdd={() => backlog.add({ platform: m.platform, gameName: m.name, playUrl: m.url, list: target })}
                 />
@@ -242,15 +260,15 @@ function SearchPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
         <div className="mt-3 pt-3 border-t border-[#f0f0f0] flex flex-wrap items-center gap-1.5">
           <span className="text-xs text-[#9b9b9b] mr-1">Not there? Add “{searched}” on</span>
           {ALL_PLATFORMS.filter(p => sites.has(p)).map(p => {
-            const inList = backlog.listFor(p, searched)
+            const inTarget = backlog.listsFor(p, searched).includes(target)
             return (
               <button
                 key={p}
                 onClick={() => backlog.add({ platform: p, gameName: searched, list: target })}
-                disabled={!!inList || backlog.isAdding(p, searched)}
+                disabled={inTarget || backlog.isAdding(p, searched)}
                 title={PLATFORM_LABELS[p]} className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[p] ?? BADGE_FALLBACK} disabled:opacity-50`}
               >
-                {inList ? '✓ ' : '+ '}{PLATFORM_SHORT_LABELS[p]}
+                {inTarget ? '✓ ' : '+ '}{PLATFORM_SHORT_LABELS[p]}
               </button>
             )
           })}
@@ -343,7 +361,8 @@ function PlayedPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
               <GameLink url={playedGameUrl(g)} platform={g.platform} />
               <AddToBacklogButton
                 label="+ Add"
-                inList={backlog.listFor(g.platform, g.gameName)}
+                targetList={target}
+                inTarget={backlog.listsFor(g.platform, g.gameName).includes(target)}
                 adding={backlog.isAdding(g.platform, g.gameName)}
                 onAdd={() => backlog.add({ platform: g.platform, gameName: g.gameName, gameUrl: g.gameUrl, list: target })}
               />

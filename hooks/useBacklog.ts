@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import { Platform } from '@/lib/types'
-import { BacklogItem, BacklogList, backlogId, listOf, moveToList, reorderItems } from '@/lib/backlog/list'
+import { BacklogItem, BacklogList, backlogId, listsOf, toggleList, reorderItems } from '@/lib/backlog/list'
 
 export interface AddRequest {
   platform: Platform
@@ -53,11 +53,11 @@ export function useBacklog() {
     }
   }, [load])
 
-  // Which list the game is in, if any
-  const listFor = useCallback(
-    (platform: Platform, gameName: string): BacklogList | null => {
+  // The lists the game is in, if any — a game can be in more than one at once
+  const listsFor = useCallback(
+    (platform: Platform, gameName: string): BacklogList[] => {
       const item = items?.find(i => i.id === backlogId(platform, gameName))
-      return item ? listOf(item) : null
+      return item ? listsOf(item) : []
     },
     [items],
   )
@@ -86,10 +86,12 @@ export function useBacklog() {
     send({ op: 'order', ids })
   }, [send])
 
-  const move = useCallback((id: string, list: BacklogList) => {
-    setItems(prev => prev && moveToList(prev, id, list))
-    send({ op: 'move', id, list })
+  // Adds or removes membership in one list, leaving any others the item is
+  // already in untouched
+  const toggle = useCallback((id: string, list: BacklogList) => {
+    setItems(prev => prev && toggleList(prev, id, list))
+    send({ op: 'toggle', id, list })
   }, [send])
 
-  return { items, error, listFor, add, isAdding, remove, reorder, move }
+  return { items, error, listsFor, add, isAdding, remove, reorder, toggle }
 }

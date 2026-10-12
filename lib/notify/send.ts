@@ -1,7 +1,7 @@
 import { kv } from '@vercel/kv'
 import { getPrefs } from '../prefs'
 import { getBacklog } from '../backlog/store'
-import { listOf, backlogId } from '../backlog/list'
+import { listsOf, backlogId } from '../backlog/list'
 import { sendAlertEmail } from '../health/email'
 import { buildDigest } from './digest'
 import { dueSoon, deadlineEmail, Warned } from './deadlines'
@@ -15,7 +15,7 @@ const WARNED_KEY = 'deadline-warned:v1'
 
 export async function sendDigest(games: StreamedGame[], now = Date.now()) {
   const [prefs, backlog] = await Promise.all([getPrefs(), getBacklog().catch(() => [])])
-  const nextFromBacklog = backlog.find(item => listOf(item) === 'play'
+  const nextFromBacklog = backlog.find(item => listsOf(item).includes('play')
     && !games.some(g => backlogId(g.platform, g.gameName) === item.id))
   const digest = buildDigest(games, { now, opponentSlowDays: prefs.opponentSlowDays ?? 5, nextFromBacklog })
   return { subject: digest.subject, email: await sendAlertEmail(digest.subject, digest.text, digest.html) }

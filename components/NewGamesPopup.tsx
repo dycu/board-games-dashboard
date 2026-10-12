@@ -35,7 +35,7 @@ export default function NewGamesPopup() {
 }
 
 function PopupBody({ events, onDismiss }: { events: NewGameEvent[]; onDismiss: () => void }) {
-  const { listFor, add, isAdding } = useBacklog()
+  const { listsFor, add, isAdding } = useBacklog()
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onDismiss() }
@@ -69,7 +69,8 @@ function PopupBody({ events, onDismiss }: { events: NewGameEvent[]; onDismiss: (
               </div>
               {e.kind !== 'post' && (
                 <AddToBacklogButton
-                  inList={listFor(e.platform, e.name)}
+                  targetList="learn"
+                  inTarget={listsFor(e.platform, e.name).includes('learn')}
                   adding={isAdding(e.platform, e.name)}
                   onAdd={() => add({ platform: e.platform, gameName: e.name, playUrl: e.url, list: 'learn' })}
                 />

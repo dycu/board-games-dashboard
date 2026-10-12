@@ -7,17 +7,20 @@ export const LIST_LABELS: Record<BacklogList, string> = { play: 'Next to play', 
 const STATUS_LABELS: Record<BacklogList, string> = { play: 'To play', learn: 'To learn', solo: 'Solo' }
 
 interface Props {
-  inList: BacklogList | null
+  // Whether the game is already in the specific list this button adds to —
+  // a game can be in other lists too (e.g. also Solo) without affecting this
+  targetList: BacklogList
+  inTarget: boolean
   adding: boolean
   onAdd: () => void
   label?: string
 }
 
-export default function AddToBacklogButton({ inList, adding, onAdd, label = '+ Backlog' }: Props) {
-  if (inList) {
+export default function AddToBacklogButton({ targetList, inTarget, adding, onAdd, label = '+ Backlog' }: Props) {
+  if (inTarget) {
     return (
       <span className="shrink-0 text-xs font-medium px-3 py-1 rounded-md text-green-700 bg-green-50 border border-green-200 whitespace-nowrap">
-        ✓ {STATUS_LABELS[inList]}
+        ✓ {STATUS_LABELS[targetList]}
       </span>
     )
   }

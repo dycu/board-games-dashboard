@@ -7,7 +7,7 @@ import { BADGE_COLORS } from '@/lib/platform-colors'
 import GameCard, { GameRow, GameItemProps, isOpponentSlow, openTarget } from './GameCard'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useNotes } from '@/hooks/useNotes'
-import { BacklogItem, backlogId, listOf } from '@/lib/backlog/list'
+import { BacklogItem, backlogId, listsOf } from '@/lib/backlog/list'
 import FilterToolbar from './FilterToolbar'
 import TopNav from './TopNav'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
@@ -127,7 +127,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   // With few games going, suggest the top of "Next to play" that isn't already running
   const backlog = useBacklog()
   // Shown right under my games: the top "Next to play" game that isn't already running
-  const suggestion = (backlog.items ?? []).find(item => listOf(item) === 'play'
+  const suggestion = (backlog.items ?? []).find(item => listsOf(item).includes('play')
     && !games.some(g => backlogId(g.platform, g.gameType || g.gameName) === item.id))
 
   const togglePin = async (id: string) => {

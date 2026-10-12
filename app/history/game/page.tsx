@@ -132,7 +132,8 @@ function GameHistory() {
           {latest && <GameLink url={playedGameUrl(latest)} platform={platform} />}
           {backlog.items && (
             <AddToBacklogButton
-              inList={backlog.listFor(platform, name)}
+              targetList="play"
+              inTarget={backlog.listsFor(platform, name).includes('play')}
               adding={backlog.isAdding(platform, name)}
               onAdd={() => backlog.add({ platform, gameName: name, gameUrl: latest?.gameUrl, list: 'play' })}
             />
