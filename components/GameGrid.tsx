@@ -273,7 +273,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                     onClick={() => togglePlatform(p)}
                     aria-pressed={platformFilter.includes(p)}
                     title={`Filter to ${PLATFORM_LABELS[p]}`}
-                    className="pl-2 pr-1 py-0.5">
+                    className="pl-2 pr-1 py-0.5 uppercase">
                     {PLATFORM_SHORT_LABELS[p]} ({countByPlatform[p] ?? 0})
                   </button>
                   <a
@@ -368,8 +368,8 @@ function BacklogSuggestion({ item, activeCount, className }: { item: BacklogItem
       <span className="hidden sm:inline text-xs text-[#6b6b6b]">
         {activeCount} active {activeCount === 1 ? 'game' : 'games'}. Next from your backlog:
       </span>
-      <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[item.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
-        {PLATFORM_LABELS[item.platform]}
+      <span title={PLATFORM_LABELS[item.platform]} className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[item.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
+        {PLATFORM_SHORT_LABELS[item.platform]}
       </span>
       <span className="text-sm font-medium text-[#1a1a1a] truncate flex-1 min-w-0">{item.gameName}</span>
       <a
