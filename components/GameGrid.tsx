@@ -273,7 +273,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                     onClick={() => togglePlatform(p)}
                     aria-pressed={platformFilter.includes(p)}
                     title={`Filter to ${PLATFORM_LABELS[p]}`}
-                    className="pl-2 pr-1 py-0.5">
+                    className="pl-2 pr-1 py-0.5 uppercase">
                     {PLATFORM_SHORT_LABELS[p]} ({countByPlatform[p] ?? 0})
                   </button>
                   <a

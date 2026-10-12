@@ -24,8 +24,9 @@ export default function OverviewPage() {
   const [platformFilter, setPlatformFilter] = useState<Platform | null>(null)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
+  // Same fixed order as the Active tab's chips
   const availablePlatforms = data
-    ? Array.from(new Set(data.games.map(g => g.platform)))
+    ? (Object.keys(PLATFORM_LABELS) as Platform[]).filter(p => data.games.some(g => g.platform === p))
     : []
 
   const filtered = data
