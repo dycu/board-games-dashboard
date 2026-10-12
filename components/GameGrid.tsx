@@ -333,7 +333,9 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
           </section>
         )}
 
-        {suggestion && <BacklogSuggestion item={suggestion} activeCount={games.length} className="mb-7" />}
+        {suggestion && (
+          <BacklogSuggestion item={suggestion} activeCount={games.length} className="mb-7" onRemove={() => backlog.remove(suggestion.id)} />
+        )}
 
         {showWaiting && waitingGames.length > 0 && (
           <section>
@@ -362,7 +364,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   )
 }
 
-function BacklogSuggestion({ item, activeCount, className }: { item: BacklogItem; activeCount: number; className: string }) {
+function BacklogSuggestion({ item, activeCount, className, onRemove }: { item: BacklogItem; activeCount: number; className: string; onRemove: () => void }) {
   return (
     <div className={`${className} flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-[#c5c9f0] bg-[#f7f8fd]`}>
       <span className="hidden sm:inline text-xs text-[#6b6b6b]">
@@ -379,6 +381,14 @@ function BacklogSuggestion({ item, activeCount, className }: { item: BacklogItem
         className="shrink-0 text-xs font-medium px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]">
         Play ↗
       </a>
+      <button
+        onClick={onRemove}
+        title="Remove from backlog"
+        aria-label={`Remove ${item.gameName} from backlog`}
+        className="shrink-0 text-xs text-[#9b9b9b] hover:text-red-500 px-1"
+      >
+        ✕
+      </button>
     </div>
   )
 }

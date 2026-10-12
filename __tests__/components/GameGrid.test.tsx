@@ -185,6 +185,20 @@ describe('GameGrid backlog suggestion', () => {
     expect(await screen.findByText('Navegador')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Play/ })).toHaveAttribute('href', 'https://x/3')
   })
+
+  it('removes the suggested game from the backlog once it\'s been set up', async () => {
+    const items = [{ id: 'yucata:navegador', platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/3', addedAt: '', list: 'play' }]
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    renderGrid([makeGame('bga', '1')])
+    expect(await screen.findByText('Navegador')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /Remove Navegador from backlog/i }))
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/backlog', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ op: 'remove', id: 'yucata:navegador' }),
+    }))
+  })
 })
 
 describe('GameGrid opened games', () => {
