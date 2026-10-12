@@ -24,6 +24,12 @@ const PROXY_PATH: Partial<Record<Platform, string>> = {
 // stream instead of a reported per-platform error.
 const PLATFORM_TIMEOUT_MS = 15_000
 
+// Rally's login solves a CPU-bound ALTCHA proof-of-work challenge before it
+// can even make its first authenticated request — give it more headroom
+// than other platforms get.
+const PLATFORM_TIMEOUT_OVERRIDES: Partial<Record<Platform, number>> = { rally: 25_000 }
+const timeoutFor = (platform: Platform) => PLATFORM_TIMEOUT_OVERRIDES[platform] ?? PLATFORM_TIMEOUT_MS
+
 export async function GET(request?: Request) {
   const prefs = await getPrefs()
   const disabled = prefs.disabledPlatforms ?? []
@@ -56,12 +62,12 @@ export async function GET(request?: Request) {
               const authHeader = request?.headers.get('authorization')
               const res = await withTimeout(fetch(`${origin}${proxyPath}`, {
                 headers: authHeader ? { Authorization: authHeader } : {},
-              }), PLATFORM_TIMEOUT_MS, platform)
+              }), timeoutFor(platform), platform)
               const json = await res.json() as any
               if (json.error) throw new Error(json.error)
               games = json.games ?? []
             } else {
-              games = await withTimeout(fetcher(), PLATFORM_TIMEOUT_MS, platform)
+              games = await withTimeout(fetcher(), timeoutFor(platform), platform)
             }
             checkGames(platform, games)
             counts[platform] = games.length

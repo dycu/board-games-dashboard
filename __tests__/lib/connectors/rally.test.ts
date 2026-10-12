@@ -64,6 +64,22 @@ describe('fetchRally', () => {
     expect(games.find(g => g.id === 'rally:202')!.players).toEqual(['bob'])
   })
 
+  it('solves an ALTCHA answer beyond the batch size (boundary check)', async () => {
+    // Default batch is 200; an answer at 437 with maxnumber 1000 crosses
+    // several batch boundaries and isn't a multiple of the batch size
+    const ch = makeRealChallenge('testsalt', 437, 1000)
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ch })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 302,
+        headers: { get: (h: string) => h === 'set-cookie' ? 'login=abc123; Path=/; HttpOnly' : null },
+      })
+      .mockResolvedValueOnce({ ok: true, text: async () => fixture })
+    const games = await fetchRally('testuser', 'pass')
+    expect(games).toHaveLength(2)
+  })
+
   it('throws when login returns non-302', async () => {
     const ch = makeRealChallenge('testsalt', 7)
     mockFetch

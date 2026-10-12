@@ -17,13 +17,25 @@ interface AltchaChallenge {
 }
 
 const ALTCHA_ENC = new TextEncoder()
+// maxnumber is commonly 100,000 — hashing one at a time can take several
+// seconds if the answer lands near the top of the range. Batching the
+// (independent) digest calls lets them run concurrently instead of one
+// Promise tick at a time, cutting wall-clock time substantially without
+// changing which n is found (still the lowest one that matches).
+const ALTCHA_BATCH = 200
 
 async function solveAltcha(ch: AltchaChallenge): Promise<string> {
-  for (let n = 0; n <= ch.maxnumber; n++) {
-    const buf = await crypto.subtle.digest('SHA-256', ALTCHA_ENC.encode(ch.salt + String(n)))
-    const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
-    if (hex === ch.challenge) {
-      return btoa(JSON.stringify({ algorithm: ch.algorithm, challenge: ch.challenge, number: n, salt: ch.salt, signature: ch.signature }))
+  for (let base = 0; base <= ch.maxnumber; base += ALTCHA_BATCH) {
+    const size = Math.min(ALTCHA_BATCH, ch.maxnumber - base + 1)
+    const hashes = await Promise.all(Array.from({ length: size }, async (_, i) => {
+      const n = base + i
+      const buf = await crypto.subtle.digest('SHA-256', ALTCHA_ENC.encode(ch.salt + String(n)))
+      const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
+      return { n, hex }
+    }))
+    const hit = hashes.find(h => h.hex === ch.challenge)
+    if (hit) {
+      return btoa(JSON.stringify({ algorithm: ch.algorithm, challenge: ch.challenge, number: hit.n, salt: ch.salt, signature: ch.signature }))
     }
   }
   throw new Error('Rally: ALTCHA challenge unsolvable within maxnumber')
