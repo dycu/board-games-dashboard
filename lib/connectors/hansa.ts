@@ -1,5 +1,6 @@
 import { Game, FinishedGame } from '../types'
 import { formatTimeAgo } from './utils'
+import { resultFromRanks } from '../results'
 
 const API_BASE = 'https://hansa-teutonica-digital.onrender.com'
 const UI_BASE = 'https://playhansa.app'
@@ -89,6 +90,12 @@ export async function fetchFinishedHansa(userId: string): Promise<FinishedGame[]
     .filter(g => g.players.some(p => p.userId.replace(/-/g, '') === myId))
     .map((g): FinishedGame => {
       const completedAt = new Date(g.updatedAt)
+      // victoryPoints is the final total (end-game scoring included); equal
+      // totals share a place
+      const scored = g.players.every(p => typeof p.victoryPoints === 'number')
+      const rankOf = (p: HtPlayer) => 1 + g.players.filter(o => o.victoryPoints! > p.victoryPoints!).length
+      const me = g.players.find(p => p.userId.replace(/-/g, '') === myId)!
+      const rank = rankOf(me)
       return {
         id: `hansa:${g.id}`,
         platform: 'hansa',
@@ -96,6 +103,13 @@ export async function fetchFinishedHansa(userId: string): Promise<FinishedGame[]
         completedAt,
         completedAgo: formatTimeAgo(completedAt),
         gameUrl: `${UI_BASE}/game/${g.id}`,
+        ...(scored && {
+          result: resultFromRanks(rank, g.players.map(rankOf)),
+          rank,
+          playerCount: g.players.length,
+          score: String(me.victoryPoints),
+          opponents: g.players.filter(p => p !== me).map(p => ({ name: p.name, rank: rankOf(p) })),
+        }),
       }
     })
 }

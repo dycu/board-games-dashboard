@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Platform, PLATFORM_LABELS } from '@/lib/types'
+import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import TopNav from '@/components/TopNav'
 
@@ -72,8 +72,8 @@ export default function SearchPage() {
               return (
                 <div key={r.platform} className="bg-white rounded-xl border border-[#e5e5e5] p-5">
                   <div className="flex items-center justify-between mb-2">
-                    <span className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[r.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
-                      {PLATFORM_LABELS[r.platform]}
+                    <span title={PLATFORM_LABELS[r.platform]} className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[r.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
+                      {PLATFORM_SHORT_LABELS[r.platform]}
                     </span>
                   </div>
                   {err ? (

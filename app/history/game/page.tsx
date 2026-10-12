@@ -2,7 +2,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { FinishedGame, Platform, PLATFORM_LABELS } from '@/lib/types'
+import { FinishedGame, Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
 import { readCache } from '@/hooks/useGamesData'
@@ -125,8 +125,8 @@ function GameHistory() {
         <Link href="/overview" className="text-xs text-[#6b6b6b] hover:text-[#1a1a1a]">← History</Link>
 
         <div className="flex flex-wrap items-center gap-2 mt-2 mb-1">
-          <span className={`shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
-            {PLATFORM_LABELS[platform] ?? platform}
+          <span title={PLATFORM_LABELS[platform]} className={`shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
+            {PLATFORM_SHORT_LABELS[platform] ?? platform}
           </span>
           <h1 className="text-xl font-semibold text-[#1a1a1a] mr-2">{name}</h1>
           {latest && <GameLink url={playedGameUrl(latest)} platform={platform} />}

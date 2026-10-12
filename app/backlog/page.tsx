@@ -7,7 +7,7 @@ import {
   SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Platform, PLATFORM_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
+import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { BacklogItem, BacklogList, BACKLOG_LISTS, listOf } from '@/lib/backlog/list'
 import { PlayedSort, aggregatePlayed, sortPlayed, playedNote } from '@/lib/backlog/played'
@@ -28,8 +28,8 @@ const BADGE_FALLBACK = 'bg-[#f3f3f3] text-[#6b6b6b]'
 
 function Badge({ platform }: { platform: Platform }) {
   return (
-    <span className={`shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[platform] ?? BADGE_FALLBACK}`}>
-      {PLATFORM_LABELS[platform]}
+    <span title={PLATFORM_LABELS[platform]} className={`shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[platform] ?? BADGE_FALLBACK}`}>
+      {PLATFORM_SHORT_LABELS[platform]}
     </span>
   )
 }
@@ -248,9 +248,9 @@ function SearchPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
                 key={p}
                 onClick={() => backlog.add({ platform: p, gameName: searched, list: target })}
                 disabled={!!inList || backlog.isAdding(p, searched)}
-                className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[p] ?? BADGE_FALLBACK} disabled:opacity-50`}
+                title={PLATFORM_LABELS[p]} className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[p] ?? BADGE_FALLBACK} disabled:opacity-50`}
               >
-                {inList ? '✓ ' : '+ '}{PLATFORM_LABELS[p]}
+                {inList ? '✓ ' : '+ '}{PLATFORM_SHORT_LABELS[p]}
               </button>
             )
           })}
@@ -428,11 +428,11 @@ export default function BacklogPage() {
                 key={p}
                 onClick={() => toggleSite(p)}
                 aria-pressed={sites.has(p)}
-                className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full transition-opacity
+                title={PLATFORM_LABELS[p]} className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full transition-opacity
                   ${BADGE_COLORS[p] ?? BADGE_FALLBACK}
                   ${sites.has(p) ? 'opacity-100 ring-2 ring-[#1a1a1a]/20' : 'opacity-40 hover:opacity-70'}`}
               >
-                {PLATFORM_LABELS[p]}
+                {PLATFORM_SHORT_LABELS[p]}
               </button>
             ))}
           </div>

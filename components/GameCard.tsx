@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Game, PLATFORM_LABELS } from '@/lib/types'
+import { Game, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { formatTimeRemaining } from '@/lib/connectors/utils'
 import { deadlineSoon } from '@/lib/sort-filter'
@@ -78,8 +78,8 @@ function SinkButton({ game, sunk, onToggleSink }: Pick<GameItemProps, 'game' | '
 
 export function Badge({ game, small }: { game: Game; small?: boolean }) {
   return (
-    <span className={`shrink-0 font-bold uppercase tracking-wide rounded-full ${small ? 'text-[10px] px-1.5 py-px' : 'text-[11px] px-2 py-0.5'} ${BADGE_COLORS[game.platform] ?? BADGE_FALLBACK}`}>
-      {PLATFORM_LABELS[game.platform]}
+    <span title={PLATFORM_LABELS[game.platform]} className={`shrink-0 font-bold uppercase tracking-wide rounded-full ${small ? 'text-[10px] px-1.5 py-px' : 'text-[11px] px-2 py-0.5'} ${BADGE_COLORS[game.platform] ?? BADGE_FALLBACK}`}>
+      {PLATFORM_SHORT_LABELS[game.platform]}
     </span>
   )
 }

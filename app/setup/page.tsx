@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Platform, PLATFORM_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
+import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import TopNav from '@/components/TopNav'
 
@@ -197,11 +197,11 @@ export default function SetupPage() {
                 key={p}
                 onClick={() => toggleBacklogPlatform(p)}
                 aria-pressed={backlogPlatforms.includes(p)}
-                className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full transition-opacity
+                title={PLATFORM_LABELS[p]} className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full transition-opacity
                   ${BADGE_COLORS[p] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}
                   ${backlogPlatforms.includes(p) ? 'opacity-100 ring-2 ring-[#1a1a1a]/20' : 'opacity-40 hover:opacity-70'}`}
               >
-                {PLATFORM_LABELS[p]}
+                {PLATFORM_SHORT_LABELS[p]}
               </button>
             ))}
           </div>
