@@ -68,6 +68,26 @@ describe('GET /api/games', () => {
     expect(platformEvent).toMatchObject({ platform: 'bga', games: [], error: 'login failed' })
   })
 
+  it('still sends done if a platform hangs forever, via the stream deadline backstop', async () => {
+    jest.useFakeTimers()
+    try {
+      mockHasCreds.mockReturnValue(true)
+      mockBgaFetch.mockImplementation(() => new Promise(() => {})) // never settles
+
+      const res = await GET()
+      const eventsPromise = consumeSSE(res.body as ReadableStream<Uint8Array>)
+      await jest.advanceTimersByTimeAsync(30_000)
+      const events = await eventsPromise
+
+      expect(events.find(e => e.type === 'done')).toBeTruthy()
+      expect(events.find(e => e.type === 'platform')).toMatchObject({
+        platform: 'bga', games: [], error: expect.stringContaining('timed out'),
+      })
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
   it('emits empty start when no platforms have credentials', async () => {
     mockHasCreds.mockReturnValue(false)
 

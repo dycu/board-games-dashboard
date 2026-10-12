@@ -5,6 +5,12 @@ import { sendAlertEmail } from './email'
 import { StreamedGame } from '../notify/types'
 
 const STATE_KEY = 'health:v1'
+const LAST_FAILURE_KEY = 'health:lastFailure:v1'
+
+export interface HealthFailure {
+  at: string
+  message: string
+}
 
 export interface HealthReport {
   checkedAt: string
@@ -55,6 +61,7 @@ export async function runHealthCheck(origin: string, authorization: string, opti
     ;({ results, games } = await fetchGamesStream(origin, authorization))
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
+    await kv.set<HealthFailure>(LAST_FAILURE_KEY, { at: checkedAt, message }).catch(() => {})
     const email = await sendAlertEmail('Board games dashboard: health check failed', `The daily check couldn't load the dashboard's games at all:\n\n${message}`)
     return { checkedAt, results: [], games: [], alerts: [], email, state: {} }
   }
@@ -81,4 +88,12 @@ export async function runHealthCheck(origin: string, authorization: string, opti
 
 export async function readHealthState(): Promise<HealthState> {
   return (await kv.get<HealthState>(STATE_KEY).catch(() => null)) ?? {}
+}
+
+// The full-stream-fetch failure (e.g. "stream ended without a done event")
+// doesn't touch per-platform state at all, so it'd otherwise be visible
+// only in the alert email. Surfaced here so a post-mortem doesn't depend on
+// finding that email.
+export async function readLastFailure(): Promise<HealthFailure | null> {
+  return (await kv.get<HealthFailure>(LAST_FAILURE_KEY).catch(() => null)) ?? null
 }

@@ -1,4 +1,4 @@
-import { runHealthCheck, readHealthState, fetchGamesStream } from '@/lib/health/run'
+import { runHealthCheck, readHealthState, readLastFailure, fetchGamesStream } from '@/lib/health/run'
 import { sendDigest, sendDeadlineWarnings, sendWeekly } from '@/lib/notify/send'
 
 export const dynamic = 'force-dynamic'
@@ -10,7 +10,9 @@ export const maxDuration = 60
 // due-soon warnings and &weekly=1 Sunday's weekly summary.
 export async function GET(request: Request) {
   const url = new URL(request.url)
-  if (!url.searchParams.has('run')) return Response.json(await readHealthState())
+  if (!url.searchParams.has('run')) {
+    return Response.json({ ...(await readHealthState()), lastFailure: await readLastFailure() })
+  }
   const { games, ...report } = await runHealthCheck(url.origin, request.headers.get('authorization') ?? '', {
     forceEmail: url.searchParams.has('testEmail'),
   })
