@@ -1,7 +1,7 @@
 // A hung platform fetch (a connector whose login or page request never
 // resolves) must not block the whole /api/games or /api/finished-games
-// stream from ever sending its "done" event — that's what made the health
-// check's own fetch of /api/games fail with "stream ended without a done
+// stream from ever sending its "done" event — that's what made the cron
+// emails' own fetch of /api/games fail with "stream ended without a done
 // event" when one of these edge functions got cut off mid-request. This
 // doesn't cancel the underlying work, it just stops waiting on it so the
 // stream can report that one platform as failed and move on.

@@ -39,6 +39,13 @@ describe('buildDigest', () => {
     expect(d.text).toContain('Next from your backlog: Brass (BGA)')
   })
 
+  it('names platforms that did not load', () => {
+    const d = buildDigest([game('1')], { now: NOW, opponentSlowDays: 5, unavailable: ['obg', 'rally'] })
+    expect(d.text).toContain("Couldn't load onlineboardgamers, Rally the Troops")
+    expect(d.html).toContain("Couldn't load onlineboardgamers")
+    expect(buildDigest([game('1')], { now: NOW, opponentSlowDays: 5 }).text).not.toContain("Couldn't load")
+  })
+
   it('escapes HTML in game names', () => {
     expect(buildDigest([game('1', { gameName: '<b>x</b>' })], { now: NOW, opponentSlowDays: 5 }).html).toContain('&lt;b&gt;x&lt;/b&gt;')
   })

@@ -1,4 +1,4 @@
-import { fetchGamesStream } from '@/lib/health/run'
+import { fetchGamesStream, cronAuthorization } from '@/lib/notify/stream'
 import { sendWeekly } from '@/lib/notify/send'
 
 export const dynamic = 'force-dynamic'
@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     return new Response('Unauthorized', { status: 401 })
   }
   const origin = new URL(request.url).origin
-  const basic = `Basic ${Buffer.from(`${process.env.AUTH_USERNAME ?? ''}:${process.env.AUTH_PASSWORD ?? ''}`).toString('base64')}`
+  const basic = cronAuthorization()
   try {
     const [finished, active] = await Promise.all([
       fetchGamesStream(origin, basic, '/api/finished-games'),

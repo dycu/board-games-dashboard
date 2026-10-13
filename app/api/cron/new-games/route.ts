@@ -1,7 +1,7 @@
 import { checkNewGames } from '@/lib/newGames/check'
 import { SOURCES } from '@/lib/newGames/sources'
 import { getSnapshot, setSnapshot, addEvents } from '@/lib/newGames/store'
-import { sendAlertEmail } from '@/lib/health/email'
+import { sendAlertEmail } from '@/lib/notify/email'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60

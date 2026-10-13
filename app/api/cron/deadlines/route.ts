@@ -1,4 +1,4 @@
-import { fetchGamesStream } from '@/lib/health/run'
+import { fetchGamesStream, cronAuthorization } from '@/lib/notify/stream'
 import { sendDeadlineWarnings } from '@/lib/notify/send'
 
 export const dynamic = 'force-dynamic'
@@ -11,9 +11,8 @@ export async function GET(request: Request) {
   if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
     return new Response('Unauthorized', { status: 401 })
   }
-  const basic = Buffer.from(`${process.env.AUTH_USERNAME ?? ''}:${process.env.AUTH_PASSWORD ?? ''}`).toString('base64')
   try {
-    const { games } = await fetchGamesStream(new URL(request.url).origin, `Basic ${basic}`)
+    const { games } = await fetchGamesStream(new URL(request.url).origin, cronAuthorization())
     return Response.json(await sendDeadlineWarnings(games))
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })

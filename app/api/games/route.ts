@@ -14,8 +14,8 @@ export const dynamic = 'force-dynamic'
 // what's exported here. STREAM_DEADLINE_MS below is the real safeguard:
 // everything must fit under that, with margin, or Vercel kills the whole
 // function before "done" is ever sent — producing a truncated stream
-// instead of a reported per-platform error (this is what made the health
-// check intermittently report "couldn't load the dashboard's games at all"
+// instead of a reported per-platform error (this is what made the cron
+// emails intermittently fail to load the dashboard's games at all
 // even though the dashboard itself looked fine).
 
 // Platforms that can't run in edge runtime — proxied through Node.js endpoints

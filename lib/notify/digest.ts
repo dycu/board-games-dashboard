@@ -1,4 +1,4 @@
-import { PLATFORM_LABELS } from '../types'
+import { Platform, PLATFORM_LABELS } from '../types'
 import { BacklogItem } from '../backlog/list'
 import { formatTimeAgo, formatTimeRemaining } from '../connectors/utils'
 
@@ -21,7 +21,7 @@ function esc(s: string): string {
 
 // The morning email: what's waiting for me (most urgent first), which games
 // have stalled on an opponent, and the next backlog game
-export function buildDigest(games: StreamedGame[], options: { now: number; opponentSlowDays: number; nextFromBacklog?: BacklogItem }): Digest {
+export function buildDigest(games: StreamedGame[], options: { now: number; opponentSlowDays: number; nextFromBacklog?: BacklogItem; unavailable?: Platform[] }): Digest {
   const { now, opponentSlowDays } = options
   const left = (g: StreamedGame) => (g.deadlineAt ? new Date(g.deadlineAt).getTime() - now : Infinity)
   const mine = games.filter(g => g.myTurn).sort((a, b) =>
@@ -49,9 +49,15 @@ export function buildDigest(games: StreamedGame[], options: { now: number; oppon
     ? 'Board games: all caught up'
     : `Board games: ${mine.length} waiting for you${soon ? `, ${soon} due within a day` : ''}`
 
+  // Platforms that didn't load: their games are missing from the lists above
+  const gap = options.unavailable?.length
+    ? `Couldn't load ${options.unavailable.map(p => PLATFORM_LABELS[p]).join(', ')} this morning, so games there aren't listed.`
+    : null
+
   const text = [
     ...sections.flatMap(s => [s.title, ...s.rows.map(r => `• ${r.g.gameName} (${PLATFORM_LABELS[r.g.platform]}) — ${r.detail}\n  ${r.g.gameUrl}`), '']),
     ...(options.nextFromBacklog ? [`Next from your backlog: ${options.nextFromBacklog.gameName} (${PLATFORM_LABELS[options.nextFromBacklog.platform]})\n  ${options.nextFromBacklog.playUrl}`] : []),
+    ...(gap ? ['', gap] : []),
   ].join('\n').trim()
 
   const html = [
@@ -59,6 +65,7 @@ export function buildDigest(games: StreamedGame[], options: { now: number; oppon
       + (s.rows.length ? `<ul style="margin:0;padding-left:18px;font:14px sans-serif">${s.rows.map(r =>
         `<li style="margin:3px 0"><a href="${esc(r.g.gameUrl)}">${esc(r.g.gameName)}</a> <span style="color:#888">${esc(PLATFORM_LABELS[r.g.platform])} · ${esc(r.detail)}</span></li>`).join('')}</ul>` : '')),
     ...(options.nextFromBacklog ? [`<p style="font:14px sans-serif;margin-top:16px">Next from your backlog: <a href="${esc(options.nextFromBacklog.playUrl)}">${esc(options.nextFromBacklog.gameName)}</a> <span style="color:#888">${esc(PLATFORM_LABELS[options.nextFromBacklog.platform])}</span></p>`] : []),
+    ...(gap ? [`<p style="font:13px sans-serif;color:#888;margin-top:16px">${esc(gap)}</p>`] : []),
   ].join('')
 
   return { subject, text, html }

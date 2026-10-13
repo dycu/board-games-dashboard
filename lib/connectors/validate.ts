@@ -3,7 +3,7 @@ import { Game, Platform } from '../types'
 // Connectors scrape sites that change their markup without notice. A broken
 // selector usually doesn't throw — it yields games named "Unknown", or games
 // with no link — so such output is turned into an error here, which the
-// dashboard shows and the daily health check emails about.
+// dashboard shows.
 export function checkGames(platform: Platform, games: Pick<Game, 'id' | 'gameName' | 'gameUrl'>[]): void {
   if (games.length === 0) return
   const unnamed = games.filter(g => !g.gameName?.trim() || /^unknown$/i.test(g.gameName.trim()))
