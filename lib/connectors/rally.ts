@@ -84,18 +84,19 @@ function parseHumanDate(text: string): Date {
   return isNaN(d.getTime()) ? new Date(now) : d
 }
 
-function extractSection(html: string, label: string): string {
-  const start = html.indexOf(`<h2>${label}</h2>`)
-  if (start === -1) return ''
-  const next = html.indexOf('<h2>', start + 5)
-  return next === -1 ? html.slice(start) : html.slice(start, next)
-}
-
-function parseSection(section: string, myTurn: boolean, username: string, out: Game[]): void {
+// Each game_item carries its own "your_turn" class when it needs your move —
+// used instead of which <h2> section (heading) it's under, since Rally has
+// renamed and added sections over time (the old "Move" heading is gone;
+// "Solo" was added for solo-mode games) and per-item class survives that.
+function parseSection(section: string, username: string): Game[] {
+  const out: Game[] = []
   const chunks = section.split(/(?=<div[^>]+class="[^"]*\bgame_item\b)/)
   for (const chunk of chunks) {
     const gameId = chunk.match(/href="\/join\/(\d+)"/)?.[1]
     if (!gameId) continue
+
+    const classMatch = chunk.match(/class="(game_item[^"]*)"/)
+    const myTurn = classMatch ? /\byour_turn\b/.test(classMatch[1]) : false
 
     const titleMatch = chunk.match(/href="\/join\/\d+"[^>]*>#\d+\s*(?:&#x2013;|[–—-])\s*([^<(]+)/)
     const gameName = titleMatch ? titleMatch[1].trim() : 'Unknown'
@@ -105,7 +106,8 @@ function parseSection(section: string, myTurn: boolean, username: string, out: G
     const rawUrl = (cmdMatch?.[1] ?? `/join/${gameId}`).replace(/&amp;/g, '&')
     const gameUrl = rawUrl.startsWith('http') ? rawUrl : `${BASE}${rawUrl}`
 
-    // Player names are rendered as <a href="/user/name">name</a>
+    // Player names are rendered as <a href="/user/name">name</a>; a solo
+    // game lists the same username twice (both "seats"), leaving no one else
     const playersSection = chunk.match(/Players:\s*([\s\S]*?)<\/div>/)?.[1] ?? ''
     const players = [...playersSection.matchAll(/<a[^>]+href="\/user\/[^"]*"[^>]*>([^<]+)<\/a>/g)]
       .map(m => m[1])
@@ -128,13 +130,15 @@ function parseSection(section: string, myTurn: boolean, username: string, out: G
       players,
     })
   }
+  return out
 }
 
 function parseGamesActive(html: string, username: string): Game[] {
-  const games: Game[] = []
-  parseSection(extractSection(html, 'Move'), true, username, games)
-  parseSection(extractSection(html, 'Active'), false, username, games)
-  return games
+  // "Recently finished" lists completed games, not active ones — everything
+  // before it (whatever sections it's split into) is a live game
+  const finishedIdx = html.indexOf('<h2>Recently finished</h2>')
+  const relevant = finishedIdx === -1 ? html : html.slice(0, finishedIdx)
+  return parseSection(relevant, username)
 }
 
 function parseGamesFinished(html: string): FinishedGame[] {

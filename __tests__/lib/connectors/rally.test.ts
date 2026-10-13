@@ -35,7 +35,7 @@ describe('fetchRally', () => {
   it('returns Game[] from scraped HTML', async () => {
     setupHappyPath()
     const games = await fetchRally('testuser', 'pass')
-    expect(games).toHaveLength(2)
+    expect(games).toHaveLength(3)
     expect(games[0]).toMatchObject({
       platform: 'rally',
       id: expect.stringMatching(/^rally:/),
@@ -44,7 +44,7 @@ describe('fetchRally', () => {
     })
   })
 
-  it('correctly identifies whose turn it is from Move/Active sections', async () => {
+  it('identifies whose turn it is from each game_item\'s own "your_turn" class', async () => {
     setupHappyPath()
     const games = await fetchRally('testuser', 'pass')
     const g1 = games.find(g => g.id === 'rally:101')!
@@ -57,11 +57,32 @@ describe('fetchRally', () => {
     expect(g2.gameName).toBe('Julius Caesar')
   })
 
+  it('includes a solo game (its own "Solo" section) and still reports its turn correctly', async () => {
+    setupHappyPath()
+    const games = await fetchRally('testuser', 'pass')
+    const solo = games.find(g => g.id === 'rally:303')!
+    expect(solo).toBeDefined()
+    expect(solo.gameName).toBe('Traces of War')
+    expect(solo.myTurn).toBe(true)
+  })
+
+  it('excludes games under "Recently finished" from the active list', async () => {
+    setupHappyPath()
+    const games = await fetchRally('testuser', 'pass')
+    expect(games.find(g => g.id === 'rally:404')).toBeUndefined()
+  })
+
   it('excludes the logged-in user from players list', async () => {
     setupHappyPath()
     const games = await fetchRally('testuser', 'pass')
     expect(games.find(g => g.id === 'rally:101')!.players).toEqual(['alice'])
     expect(games.find(g => g.id === 'rally:202')!.players).toEqual(['bob'])
+  })
+
+  it('leaves a solo game with no other players, since both seats are the same user', async () => {
+    setupHappyPath()
+    const games = await fetchRally('testuser', 'pass')
+    expect(games.find(g => g.id === 'rally:303')!.players).toEqual([])
   })
 
   it('solves an ALTCHA answer beyond the batch size (boundary check)', async () => {
@@ -77,7 +98,7 @@ describe('fetchRally', () => {
       })
       .mockResolvedValueOnce({ ok: true, text: async () => fixture })
     const games = await fetchRally('testuser', 'pass')
-    expect(games).toHaveLength(2)
+    expect(games).toHaveLength(3)
   })
 
   it('throws when login returns non-302', async () => {
