@@ -46,9 +46,21 @@ export async function GET() {
   // Each game_item's title line, wherever it sits in the document
   const titles = [...html.matchAll(/href="\/join\/\d+"[^>]*>#\d+\s*(?:&#x2013;|[–—-])\s*([^<(]+)/g)].map(m => m[1].trim())
 
-  const soloStart = html.indexOf('<h2>Solo</h2>')
-  const nextH2 = soloStart === -1 ? -1 : html.indexOf('<h2>', soloStart + 5)
-  const soloSection = soloStart === -1 ? null : (nextH2 === -1 ? html.slice(soloStart) : html.slice(soloStart, nextH2))
+  function section(label: string): string | null {
+    const start = html.indexOf(`<h2>${label}</h2>`)
+    if (start === -1) return null
+    const next = html.indexOf('<h2>', start + 5)
+    return next === -1 ? html.slice(start) : html.slice(start, next)
+  }
 
-  return Response.json({ headers, totalItems, titles, htmlLength: html.length, soloSection })
+  // Classes on each game_item, per section — to see if "your_turn" is a
+  // reliable per-item signal instead of relying on which <h2> it's under
+  const classesIn = (label: string) => [...(section(label) ?? '').matchAll(/class="(game_item[^"]*)"/g)].map(m => m[1])
+
+  return Response.json({
+    headers, totalItems, titles, htmlLength: html.length,
+    activeClasses: classesIn('Active'),
+    soloClasses: classesIn('Solo'),
+    soloSection: section('Solo'),
+  })
 }
