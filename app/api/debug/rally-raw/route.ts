@@ -46,5 +46,9 @@ export async function GET() {
   // Each game_item's title line, wherever it sits in the document
   const titles = [...html.matchAll(/href="\/join\/\d+"[^>]*>#\d+\s*(?:&#x2013;|[–—-])\s*([^<(]+)/g)].map(m => m[1].trim())
 
-  return Response.json({ headers, totalItems, titles, htmlLength: html.length })
+  const soloStart = html.indexOf('<h2>Solo</h2>')
+  const nextH2 = soloStart === -1 ? -1 : html.indexOf('<h2>', soloStart + 5)
+  const soloSection = soloStart === -1 ? null : (nextH2 === -1 ? html.slice(soloStart) : html.slice(soloStart, nextH2))
+
+  return Response.json({ headers, totalItems, titles, htmlLength: html.length, soloSection })
 }
