@@ -44,13 +44,18 @@ export async function syncEighteenxx(
   username: string, password: string, sessionCookie: string | undefined, budgetMs: number,
 ): Promise<{ active: number; finished: number; read: number }> {
   const deadline = Date.now() + budgetMs
+  // fetchProfileGames does its own auth round-trip internally and fetches an
+  // unauthenticated page (not Cookie-based), so it doesn't need `cookie` and
+  // can run fully in parallel with login rather than after it. It's also the
+  // slowest of these — resolving myId plus a page embedding up to 100 games —
+  // so it gets the longest individual budget.
+  const profilePromise = withTimeout(fetchProfileGames(username, password, sessionCookie), 12000, '18xx profile fetch')
   const cookie = await withTimeout(loginEighteenxx(username, password, sessionCookie), 6000, '18xx login')
   // fetchProfileGames resolves myId robustly (env override, or the login
   // response) — /api/game/user can come back with zero active games when
   // everything's caught up, which would leave no way to recognize "me" in it.
-  // Independent of the games/user fetch below, so run them together.
   const [{ myId, games: profileGames }, gamesRes] = await Promise.all([
-    withTimeout(fetchProfileGames(username, password, sessionCookie), 6000, '18xx profile fetch'),
+    profilePromise,
     withTimeout(fetch(`${BASE}/api/game/user`, { headers: { Cookie: cookie, Accept: 'application/json' } }), 6000, '18xx games/user fetch'),
   ])
   if (!gamesRes.ok) throw new Error(`18xx.games games fetch failed (HTTP ${gamesRes.status})`)
