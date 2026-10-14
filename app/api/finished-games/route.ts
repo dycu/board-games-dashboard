@@ -4,6 +4,7 @@ import { getPrefs } from '@/lib/prefs'
 import { withTimeout } from '@/lib/connectors/utils'
 import { attachTurns } from '@/lib/pace/progress'
 import { attachRallyTurns } from '@/lib/rallyPace/progress'
+import { attachEighteenxxTurns } from '@/lib/eighteenxxPace/progress'
 
 export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
@@ -66,6 +67,7 @@ export async function GET(request?: Request) {
             }
             if (platform === 'bga') games = await attachTurns(games)
             if (platform === 'rally') games = await attachRallyTurns(games)
+            if (platform === 'eighteenxx') games = await attachEighteenxxTurns(games)
             send({ type: 'platform', platform, games, error: null })
           } catch (e) {
             send({ type: 'platform', platform, games: [], error: e instanceof Error ? e.message : String(e) })

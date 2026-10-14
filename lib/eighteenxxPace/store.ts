@@ -1,22 +1,25 @@
 import { kv } from '@vercel/kv'
 
-const SAMPLES_KEY = 'eighteenxxpace:v1:samples'
+const GAMES_KEY = 'eighteenxxpace:v2:games'
 
-export interface EighteenxxSample {
-  turn: number
-  playerCount: number
+export interface EighteenxxPaceGame {
+  id: string             // 18xx.games's numeric game id
+  title: string           // e.g. "1846", "18USA" — 18xx hosts many different games
+  end: number | null       // Unix seconds; null while still active
+  actionCount: number | null // total entries in the game's own action log so far
+  playerCount?: number
+  // Set when the last attempt to read this game's action log failed; cleared
+  // on the next success. Lets the UI tell "no estimate yet" apart from "the
+  // mechanism is broken" for this game.
+  lastError?: string
+  lastCheckedAt?: number
 }
 
-// One entry per finished game, keyed by title (e.g. "1846", "18USA") — 18xx
-// already reports `turn` on every game, active or finished, in the same
-// response the dashboard already fetches, so there's no need for a BGA/Rally-
-// style per-game tracker: just the aggregate finished samples per title.
-export type EighteenxxSamples = Record<string, EighteenxxSample[]>
-
-export async function getEighteenxxSamples(): Promise<EighteenxxSamples> {
-  return (await kv.get<EighteenxxSamples>(SAMPLES_KEY)) ?? {}
+export async function getEighteenxxPaceGames(): Promise<Record<string, EighteenxxPaceGame>> {
+  return (await kv.hgetall<Record<string, EighteenxxPaceGame>>(GAMES_KEY)) ?? {}
 }
 
-export async function setEighteenxxSamples(samples: EighteenxxSamples): Promise<void> {
-  await kv.set(SAMPLES_KEY, samples)
+export async function putEighteenxxPaceGames(games: EighteenxxPaceGame[]): Promise<void> {
+  if (games.length === 0) return
+  await kv.hset(GAMES_KEY, Object.fromEntries(games.map(g => [g.id, g])))
 }

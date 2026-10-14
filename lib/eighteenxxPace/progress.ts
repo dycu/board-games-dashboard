@@ -1,5 +1,5 @@
-import { Game } from '../types'
-import { EighteenxxSamples } from './store'
+import { Game, FinishedGame } from '../types'
+import { getEighteenxxPaceGames, EighteenxxPaceGame } from './store'
 
 function median(sorted: number[]): number {
   const n = sorted.length
@@ -7,24 +7,50 @@ function median(sorted: number[]): number {
   return n % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
-export function estimateEighteenxxProgress(
-  samples: EighteenxxSamples,
-  title: string,
-  turn: unknown,
-  playerCount: number,
-): Game['progress'] | undefined {
-  if (typeof turn !== 'number' || turn <= 0) return undefined
-  const finished = samples[title] ?? []
-  if (finished.length === 0) return undefined
+// id: the 18xx.games numeric game id (Game.id / FinishedGame.id with the
+// "eighteenxx:" prefix stripped)
+export function estimateEighteenxxProgress(games: Record<string, EighteenxxPaceGame>, id: string): Game['progress'] | undefined {
+  const active = games[id]
+  const count = active?.actionCount ?? 0
+  if (!active || active.end !== null || count <= 0) return undefined
 
-  const sameSize = finished.filter(s => s.playerCount === playerCount)
-  const pool = sameSize.length > 0 ? sameSize : finished
-  const turns = pool.map(s => s.turn).sort((a, b) => a - b)
+  const finishedOfType = Object.values(games)
+    .filter(g => g.id !== id && g.end !== null && g.title === active.title && (g.actionCount ?? 0) > 0)
 
-  const estimatedTotalTurns = median(turns)
-  const percent = Math.max(0, Math.min(100, Math.round((turn / estimatedTotalTurns) * 100)))
+  const sameSize = active.playerCount !== undefined
+    ? finishedOfType.filter(g => g.playerCount === active.playerCount)
+    : []
+  const pool = sameSize.length > 0 ? sameSize : finishedOfType
+  const counts = pool.map(g => g.actionCount!).sort((a, b) => a - b)
+  if (counts.length === 0) return undefined
+
+  const estimatedTotal = median(counts)
+  const percent = Math.max(0, Math.min(100, Math.round((count / estimatedTotal) * 100)))
   return {
-    percent, turnsSoFar: turn, estimatedTotalTurns: Math.round(estimatedTotalTurns),
-    sampleCount: turns.length, samples: turns, sameSizeOnly: pool === sameSize,
+    percent, turnsSoFar: count, estimatedTotalTurns: Math.round(estimatedTotal),
+    sampleCount: counts.length, samples: counts, sameSizeOnly: pool === sameSize,
   }
+}
+
+export async function attachEighteenxxProgress(games: Game[]): Promise<Game[]> {
+  if (!games.some(g => g.platform === 'eighteenxx')) return games
+  const stored = await getEighteenxxPaceGames().catch((): Record<string, EighteenxxPaceGame> => ({}))
+  return games.map(g => {
+    if (g.platform !== 'eighteenxx') return g
+    const id = g.id.slice('eighteenxx:'.length)
+    const progress = estimateEighteenxxProgress(stored, id)
+    if (progress) return { ...g, progress }
+    const lastError = stored[id]?.lastError
+    return lastError ? { ...g, progressError: lastError } : g
+  })
+}
+
+export async function attachEighteenxxTurns<T extends Pick<FinishedGame, 'id' | 'platform'>>(games: T[]): Promise<T[]> {
+  if (!games.some(g => g.platform === 'eighteenxx')) return games
+  const stored = await getEighteenxxPaceGames().catch((): Record<string, EighteenxxPaceGame> => ({}))
+  return games.map(g => {
+    if (g.platform !== 'eighteenxx') return g
+    const count = stored[g.id.slice('eighteenxx:'.length)]?.actionCount
+    return count && count > 0 ? { ...g, turns: count } : g
+  })
 }

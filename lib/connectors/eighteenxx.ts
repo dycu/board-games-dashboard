@@ -1,10 +1,8 @@
 import { Game, FinishedGame } from '../types'
 import { formatTimeAgo } from './utils'
 import { resultFromRanks } from '../results'
-import { getEighteenxxSamples, EighteenxxSamples } from '../eighteenxxPace/store'
-import { estimateEighteenxxProgress } from '../eighteenxxPace/progress'
 
-const BASE = 'https://18xx.games'
+export const BASE = 'https://18xx.games'
 
 // /api/user returns 404; /api/game/user returns all games visible to the auth'd user.
 // Auth via Cookie: auth_token=<value>. myId is resolved by scanning players for username.
@@ -12,7 +10,7 @@ function formatCookie(sessionCookie: string): string {
   return sessionCookie.includes('=') ? sessionCookie : `auth_token=${sessionCookie}`
 }
 
-function findMyId(games: any[], username: string): number | undefined {
+export function findMyId(games: any[], username: string): number | undefined {
   for (const g of games) {
     const player = (g.players ?? []).find((p: any) => p.name === username)
     if (player) return player.id
@@ -20,12 +18,25 @@ function findMyId(games: any[], username: string): number | undefined {
   return undefined
 }
 
+// A cookie good for any authenticated 18xx.games request — shared with
+// lib/eighteenxxPace/sync.ts, which needs one for per-game detail fetches
+// fetchEighteenXX/fetchFinishedEighteenXX don't otherwise require.
+export async function loginEighteenxx(username: string, password: string, sessionCookie?: string): Promise<string> {
+  if (sessionCookie) return formatCookie(sessionCookie)
+  const loginRes = await fetch(`${BASE}/api/user/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ email: username, password }),
+  })
+  if (!loginRes.ok) throw new Error('18xx.games login failed')
+  const cookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
+  if (!cookie) throw new Error('18xx.games login failed: no session cookie')
+  return cookie
+}
+
 export async function fetchEighteenXX(username: string, password: string, sessionCookie?: string): Promise<Game[]> {
   let myId: number
   let cookie: string
-  // Already-computed median turn counts per title (lib/eighteenxxPace) — a
-  // missing/failed cache just means no progress estimate, not a fetch error
-  const samples = await getEighteenxxSamples().catch((): EighteenxxSamples => ({}))
 
   if (sessionCookie) {
     cookie = formatCookie(sessionCookie)
@@ -43,7 +54,7 @@ export async function fetchEighteenXX(username: string, password: string, sessio
 
     return games
       .filter((g: any) => g.status === 'active' && (g.players ?? []).some((p: any) => p.id === myId))
-      .map((g: any): Game => mapGame(g, myId, username, samples))
+      .map((g: any): Game => mapGame(g, myId, username))
   } else {
     const loginRes = await fetch(`${BASE}/api/user/login`, {
       method: 'POST',
@@ -65,7 +76,7 @@ export async function fetchEighteenXX(username: string, password: string, sessio
 
     return games
       .filter((g: any) => g.status === 'active' && (g.players ?? []).some((p: any) => p.id === myId))
-      .map((g: any): Game => mapGame(g, myId, username, samples))
+      .map((g: any): Game => mapGame(g, myId, username))
   }
 }
 
@@ -170,7 +181,7 @@ class OpalParser {
   }
 }
 
-function mapGame(g: any, myId: number, username: string, samples: EighteenxxSamples): Game {
+function mapGame(g: any, myId: number, username: string): Game {
   // updated_at may be a Unix timestamp (seconds) or an ISO string
   const rawTime = g.updated_at ?? g.created_at
   const lastMoveAt = typeof rawTime === 'number' ? new Date(rawTime * 1000) : new Date(rawTime)
@@ -182,10 +193,6 @@ function mapGame(g: any, myId: number, username: string, samples: EighteenxxSamp
     ? undefined
     : (g.players ?? []).find((p: any) => acting.includes(p.id) && p.id !== myId)?.name
       ?? activePlayers.find((p: any) => p.id !== myId)?.name
-  // 18xx reports the current turn on every game it lists — no separate
-  // tracker needed, unlike BGA/Rally, just the finished-games samples to
-  // compare it against (lib/eighteenxxPace)
-  const progress = estimateEighteenxxProgress(samples, g.title, g.turn, (g.players ?? []).length)
 
   return {
     id: `eighteenxx:${g.id}`,
@@ -201,7 +208,6 @@ function mapGame(g: any, myId: number, username: string, samples: EighteenxxSamp
     players: (g.players ?? [])
       .map((p: any) => p.name)
       .filter((n: string) => n !== username),
-    ...(progress && { progress }),
   }
 }
 
@@ -233,6 +239,5 @@ function mapFinishedGame(g: any, myId: number): FinishedGame {
       score: String(scores[String(myId)]),
     }),
     ...(typeof g.created_at === 'number' && { startedAt: new Date(g.created_at * 1000).toISOString() }),
-    ...(typeof g.turn === 'number' && g.turn > 0 && { turns: g.turn }),
   }
 }

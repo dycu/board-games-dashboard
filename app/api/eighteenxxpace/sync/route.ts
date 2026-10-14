@@ -12,6 +12,7 @@ export async function POST() {
       process.env.EIGHTEENXX_USERNAME ?? '',
       process.env.EIGHTEENXX_PASSWORD ?? '',
       prefs.eighteenxxSessionCookie,
+      15000,
     )
     return Response.json(progress)
   } catch (e) {
