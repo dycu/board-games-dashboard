@@ -50,7 +50,7 @@ export async function GET() {
   const clientJs = await clientJsRes.text()
   // Grab a wide window around the WebSocket constructor and its handlers
   const socketIdx = clientJs.indexOf('new WebSocket')
-  const socketContext = clientJs.slice(Math.max(0, socketIdx - 1500), socketIdx + 2500)
+  const socketContext = clientJs.slice(socketIdx + 2500, socketIdx + 7000)
 
   return Response.json({ socketContext })
 }
