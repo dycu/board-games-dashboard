@@ -42,17 +42,10 @@ export async function GET() {
   })
   const cookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
 
-  const results = []
-  for (const g of games.slice(0, 3)) {
-    const res = await fetch(g.gameUrl, { headers: { ...HEADERS, Cookie: cookie } })
-    const html = await res.text()
-    const broad = [...html.matchAll(/.{0,30}(round|turn|phase|era|propaganda|campaign|segment|scenario|deck)[a-z]*["'\s:>]{0,8}[\w#]*.{0,20}/gi)]
-      .map(m => m[0])
-    results.push({
-      gameName: g.gameName, gameUrl: g.gameUrl, htmlLength: html.length,
-      matches: [...new Set(broad)].slice(0, 25),
-    })
-  }
+  const mariaGame = games.find(g => g.gameName === 'Maria')
+  if (!mariaGame) return Response.json({ error: 'Maria game not found this time' })
+  const res = await fetch(mariaGame.gameUrl, { headers: { ...HEADERS, Cookie: cookie } })
+  const html = await res.text()
 
-  return Response.json({ activeGamesCount: games.length, results })
+  return Response.json({ gameUrl: mariaGame.gameUrl, html })
 }
