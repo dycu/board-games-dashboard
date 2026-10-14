@@ -78,9 +78,13 @@ export async function GET(request: Request) {
     const requestToken = extractRequestToken(loginPageHtml)
     if (!requestToken) {
       const tokenMentions = [...loginPageHtml.matchAll(/.{0,40}[Tt]oken.{0,80}/g)].slice(0, 10).map(m => m[0])
+      const diag = tokenMentions[0]
+        ? { raw: tokenMentions[0], charCodes: [...tokenMentions[0]].map(c => c.charCodeAt(0)) }
+        : null
       return Response.json({
+        marker: 'DEBUG_V3_CHARCODE_CHECK',
         timings, error: 'no request token', htmlLength: loginPageHtml.length, status: loginPageRes.status,
-        cookies, loginBase, tokenMentions,
+        cookies, loginBase, tokenMentions, diag,
         html: dumpHtml ? loginPageHtml : undefined,
       })
     }
