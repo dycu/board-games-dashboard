@@ -113,7 +113,83 @@ describe('fetchFinishedHansa', () => {
     expect(games[0].gameName).toBe('Hansa Teutonica')
   })
 
+  it('carries over the game\'s own final turn count', async () => {
+    mockGamesResponse(finishedFixture)
+    const games = await fetchFinishedHansa(MY_USER_ID)
+    expect(games[0].turns).toBe(87)
+  })
+
   it('throws when userId is missing', async () => {
     await expect(fetchFinishedHansa('')).rejects.toThrow('HANSA_USER_ID is required')
+  })
+})
+
+describe('progress estimate', () => {
+  beforeEach(() => mockFetch.mockClear())
+
+  // Hansa has no fixed turn limit, so the estimate comes from the median of
+  // every finished game on the platform (mode=all) with the same map and
+  // player count — not just this user's own history, unlike BGA/Rally/18xx.
+  const activeGame = (turn: number, mapId: string, otherIds: string[]) => JSON.stringify({
+    games: [{
+      id: 'prog00112233',
+      status: 'playing',
+      players: [{ name: 'testuser', userId: MY_USER_ID }, ...otherIds.map((id, i) => ({ name: `o${i}`, userId: id }))],
+      currentPlayerId: MY_USER_ID,
+      turnStartedAt: '2026-06-20T10:00:00Z',
+      updatedAt: '2026-06-20T10:00:00Z',
+      turnTimeoutSeconds: 86400,
+      turn,
+      mapId,
+    }],
+    nextCursor: null,
+  })
+
+  const finishedSamples = (samples: { turn: number; mapId: string; playerCount: number }[]) => JSON.stringify({
+    games: samples.map((s, i) => ({
+      id: `done-${i}`,
+      status: 'finished',
+      players: Array.from({ length: s.playerCount }, (_, p) => ({ name: `x${p}`, userId: `u${i}-${p}` })),
+      currentPlayerId: '',
+      turnStartedAt: null,
+      updatedAt: '2026-06-01T00:00:00Z',
+      turnTimeoutSeconds: null,
+      turn: s.turn,
+      mapId: s.mapId,
+    })),
+    nextCursor: null,
+  })
+
+  it('estimates percent from the median of finished games with the same map and player count', async () => {
+    mockGamesResponse(activeGame(30, 'three-players', ['o1', 'o2']))
+    mockGamesResponse(finishedSamples([
+      { turn: 80, mapId: 'three-players', playerCount: 3 },
+      { turn: 100, mapId: 'three-players', playerCount: 3 },
+      { turn: 60, mapId: 'four-five-players', playerCount: 4 }, // different map — excluded
+    ]))
+    const [g] = await fetchHansa(MY_USER_ID)
+    expect(g.progress).toMatchObject({ turnsSoFar: 30, estimatedTotalTurns: 90, sampleCount: 2, sameSizeOnly: true, percent: 33 })
+  })
+
+  it('falls back to any player count on the same map when none match exactly', async () => {
+    mockGamesResponse(activeGame(30, 'eastern', ['o1', 'o2']))
+    mockGamesResponse(finishedSamples([{ turn: 80, mapId: 'eastern', playerCount: 5 }]))
+    const [g] = await fetchHansa(MY_USER_ID)
+    expect(g.progress).toMatchObject({ sampleCount: 1, sameSizeOnly: false, estimatedTotalTurns: 80 })
+  })
+
+  it('omits progress when the active game has no history to compare against', async () => {
+    mockGamesResponse(activeGame(30, 'unheard-of-map', ['o1']))
+    mockGamesResponse(finishedSamples([]))
+    const [g] = await fetchHansa(MY_USER_ID)
+    expect(g.progress).toBeUndefined()
+  })
+
+  it('still returns the active games, without a progress estimate, when the finished-games fetch fails', async () => {
+    mockGamesResponse(activeGame(30, 'three-players', ['o1']))
+    mockFetch.mockRejectedValueOnce(new Error('network error'))
+    const games = await fetchHansa(MY_USER_ID)
+    expect(games).toHaveLength(1)
+    expect(games[0].progress).toBeUndefined()
   })
 })

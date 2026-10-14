@@ -20,7 +20,9 @@
       "currentPlayerId": "",
       "turnStartedAt": null,
       "updatedAt": "2026-06-18T15:30:00Z",
-      "turnTimeoutSeconds": null
+      "turnTimeoutSeconds": null,
+      "turn": 87,
+      "mapId": "three-players"
     },
     {
       "id": "done99887766",

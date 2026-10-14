@@ -1,5 +1,5 @@
 import { Game, FinishedGame } from '../types'
-import { formatTimeAgo } from './utils'
+import { formatTimeAgo, withTimeout } from './utils'
 import { resultFromRanks } from '../results'
 
 const API_BASE = 'https://hansa-teutonica-digital.onrender.com'
@@ -21,6 +21,8 @@ interface HtGame {
   turnStartedAt: string | null
   updatedAt: string
   turnTimeoutSeconds: number | null
+  turn?: number     // how far this game has gone; stays at its final value once finished
+  mapId?: string    // determines how long a game of this size typically runs
 }
 
 interface HtResponse {
@@ -46,10 +48,65 @@ async function fetchGames(status: string): Promise<HtGame[]> {
   return all
 }
 
+// Hansa has no fixed turn limit — a game ends when a resource (e.g. city
+// keys) runs out — so there's no total to read off the active game itself.
+// Unlike BGA/Rally/18xx this needs no tracker of our own though: `mode=all`
+// on the finished-games endpoint already returns every finished game on the
+// platform (not just mine), so the historical sample to estimate a median
+// from is free and public, fetched fresh on each request.
+interface FinishedSample { mapId: string; playerCount: number; turn: number }
+
+const FINISHED_PAGE_LIMIT = 100
+const FINISHED_MAX_PAGES = 5 // ~500 games — comfortably covers the platform's whole history today; a cap against unbounded growth over time
+const FINISHED_FETCH_TIMEOUT_MS = 6000
+
+async function fetchFinishedSamples(): Promise<FinishedSample[]> {
+  const samples: FinishedSample[] = []
+  let cursor: string | null = null
+  for (let page = 0; page < FINISHED_MAX_PAGES; page++) {
+    const url = new URL(`${API_BASE}/games`)
+    url.searchParams.set('limit', String(FINISHED_PAGE_LIMIT))
+    url.searchParams.set('mode', 'all')
+    url.searchParams.set('status', 'finished')
+    if (cursor) url.searchParams.set('cursor', cursor)
+    const res = await withTimeout(fetch(url.toString()), FINISHED_FETCH_TIMEOUT_MS, 'Hansa finished-games fetch')
+    if (!res.ok) throw new Error(`Hansa Teutonica API HTTP ${res.status}`)
+    const data: HtResponse = await res.json()
+    for (const g of data.games) {
+      if ((g.turn ?? 0) > 0) samples.push({ mapId: g.mapId ?? '', playerCount: g.players.length, turn: g.turn! })
+    }
+    cursor = data.nextCursor
+    if (!cursor) break
+  }
+  return samples
+}
+
+function median(sorted: number[]): number {
+  const n = sorted.length
+  const mid = Math.floor(n / 2)
+  return n % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+}
+
+function estimateHansaProgress(g: HtGame, samples: FinishedSample[]): Game['progress'] | undefined {
+  const turnsSoFar = g.turn ?? 0
+  if (turnsSoFar <= 0) return undefined
+  const ofMap = samples.filter(s => s.mapId === (g.mapId ?? ''))
+  const sameSize = ofMap.filter(s => s.playerCount === g.players.length)
+  const pool = sameSize.length > 0 ? sameSize : ofMap
+  if (pool.length === 0) return undefined
+  const sorted = pool.map(s => s.turn).sort((a, b) => a - b)
+  const estimatedTotalTurns = Math.round(median(sorted))
+  const percent = Math.max(0, Math.min(100, Math.round((turnsSoFar / estimatedTotalTurns) * 100)))
+  return { percent, turnsSoFar, estimatedTotalTurns, sampleCount: sorted.length, samples: sorted, sameSizeOnly: pool === sameSize }
+}
+
 export async function fetchHansa(userId: string): Promise<Game[]> {
   if (!userId) throw new Error('HANSA_USER_ID is required')
   const myId = userId.replace(/-/g, '')
-  const games = await fetchGames('playing')
+  const [games, finishedSamples] = await Promise.all([
+    fetchGames('playing'),
+    fetchFinishedSamples().catch((): FinishedSample[] => []),
+  ])
 
   return games
     .filter(g => g.players.some(p => p.userId.replace(/-/g, '') === myId))
@@ -64,6 +121,7 @@ export async function fetchHansa(userId: string): Promise<Game[]> {
         : g.players.find(p => p.userId.replace(/-/g, '') === currentPlayerId)?.name
 
       const lastMoveAt = g.turnStartedAt ? new Date(g.turnStartedAt) : new Date(g.updatedAt)
+      const progress = estimateHansaProgress(g, finishedSamples)
 
       return {
         id: `hansa:${g.id}`,
@@ -77,6 +135,7 @@ export async function fetchHansa(userId: string): Promise<Game[]> {
         gameUrl: `${UI_BASE}/game/${g.id}`,
         platformUrl: `${UI_BASE}/games?limit=20&mode=my_games`,
         players: g.players.filter(p => p.userId.replace(/-/g, '') !== myId).map(p => p.name),
+        ...(progress && { progress }),
       }
     })
 }
@@ -110,6 +169,7 @@ export async function fetchFinishedHansa(userId: string): Promise<FinishedGame[]
           score: String(me.victoryPoints),
           opponents: g.players.filter(p => p !== me).map(p => ({ name: p.name, rank: rankOf(p) })),
         }),
+        ...(g.turn && g.turn > 0 && { turns: g.turn }),
       }
     })
 }

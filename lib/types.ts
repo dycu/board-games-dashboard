@@ -24,11 +24,13 @@ export interface Game {
   deadlineAt?: string     // ISO; when the active player's time runs out (BGA)
   gameKey?: string        // the site's id for the game itself (BGA game_id), for its full history
   // How far along this game looks. Usually estimated from turns played so far
-  // vs. the median of your finished games of the same type (BGA, Rally, 18xx
-  // — see lib/pace, lib/rallyPace, lib/eighteenxxPace), omitted when there
-  // isn't enough history to compare against yet. `exact` marks the rarer case
-  // (choochoo.games) where the site reports its own total directly —
-  // sampleCount/samples/sameSizeOnly are meaningless then (0/[]/false).
+  // vs. the median of finished games of the same type (BGA, Rally, 18xx — see
+  // lib/pace, lib/rallyPace, lib/eighteenxxPace; Hansa computes this inline
+  // in lib/connectors/hansa.ts instead, against every finished game on the
+  // platform, which that site's API already exposes for free), omitted when
+  // there isn't enough history to compare against yet. `exact` marks the
+  // rarer case (choochoo.games) where the site reports its own total
+  // directly — sampleCount/samples/sameSizeOnly are meaningless then (0/[]/false).
   progress?: {
     percent: number
     turnsSoFar: number
@@ -108,7 +110,7 @@ export interface FinishedGame {
   score?: string       // my final score (BGA)
   startedAt?: string   // ISO (BGA)
   gameKey?: string     // the site's id for the game itself (BGA game_id), for its full history
-  turns?: number       // the whole game's turn count, when tracked (BGA only — see lib/pace)
+  turns?: number       // the whole game's turn count, when tracked (BGA, Rally, 18xx, Hansa)
 }
 
 export interface FinishedGamesApiResponse {
