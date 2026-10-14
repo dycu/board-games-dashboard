@@ -1,7 +1,6 @@
 'use client'
 import { Suspense, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { FinishedGame, Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
@@ -67,6 +66,7 @@ function EloChart({ series }: { series: { t: number; elo: number }[] }) {
 }
 
 function GameHistory() {
+  const router = useRouter()
   const params = useSearchParams()
   const platform = (params.get('platform') ?? '') as Platform
   const name = params.get('name') ?? ''
@@ -118,11 +118,20 @@ function GameHistory() {
       ? `From your recent ${PLATFORM_LABELS[platform] ?? platform} history, so older games may be missing`
       : null
 
+  // This page is linked from the Active board, Backlog and History overview
+  // alike — going back should return wherever the click actually came from,
+  // not always the same fixed page. Opened directly (no history in this tab,
+  // e.g. a new tab) falls back to the overview instead of leaving the app.
+  const goBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back()
+    else router.push('/overview')
+  }
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <TopNav right={loading ? <span className="animate-pulse">Loading…</span> : undefined} />
       <div className="flex-1 overflow-y-auto p-5 max-w-5xl mx-auto w-full">
-        <Link href="/overview" className="text-xs text-[#6b6b6b] hover:text-[#1a1a1a]">← History</Link>
+        <button onClick={goBack} className="text-xs text-[#6b6b6b] hover:text-[#1a1a1a]">← Back</button>
 
         <div className="flex flex-wrap items-center gap-2 mt-2 mb-1">
           <span title={PLATFORM_LABELS[platform]} className={`shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
