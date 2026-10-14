@@ -32,6 +32,7 @@ export default function SetupPage() {
   const [bgaPlayerIdInput, setBgaPlayerIdInput] = useState('')
   const [bgaCookieSaving, setBgaCookieSaving] = useState(false)
   const [bgaCookieSaved, setBgaCookieSaved] = useState(false)
+  const [savedBgaPlayerId, setSavedBgaPlayerId] = useState('')
   const [okcGameIds, setOkcGameIds] = useState<string[]>([])
   const [okcInput, setOkcInput] = useState('')
   const [okcSaving, setOkcSaving] = useState(false)
@@ -59,6 +60,7 @@ export default function SetupPage() {
       setBacklogPlatforms(prefs.backlogPlatforms ?? DEFAULT_BACKLOG_PLATFORMS)
       setCookieSaved(!!prefs.eighteenxxSessionCookie)
       setBgaCookieSaved(!!prefs.bgaSessionCookie && !!prefs.bgaPlayerId)
+      setSavedBgaPlayerId(prefs.bgaPlayerId ?? '')
       const ids = prefs.oldkingscrownGameIds ?? []
       setOkcGameIds(ids)
       if (ids.length > 0) loadOkcStatus()
@@ -96,6 +98,7 @@ export default function SetupPage() {
       body: JSON.stringify({ bgaSessionCookie: cookie, bgaPlayerId: playerId }),
     })
     setBgaCookieSaved(!!cookie && !!playerId)
+    setSavedBgaPlayerId(playerId)
     setBgaCookieInput('')
     setBgaPlayerIdInput('')
     setBgaCookieSaving(false)
@@ -262,8 +265,8 @@ export default function SetupPage() {
                       Normally nothing to do here — logging in saves its own session below automatically.
                       Only paste one yourself if automated login is stuck (e.g. BGA blocking it): log in to
                       BGA in your browser, open DevTools → Network, find any request to boardgamearena.com,
-                      copy its <code>Cookie</code> request header, and paste it here along with your numeric
-                      player id (visible in your profile&apos;s URL).
+                      and copy its <code>Cookie</code> request header. The player id below only needs
+                      setting once — refreshing the cookie later doesn&apos;t need it again.
                     </p>
                     <div className="flex flex-col gap-2">
                       <input
@@ -278,19 +281,19 @@ export default function SetupPage() {
                           type="text"
                           value={bgaPlayerIdInput}
                           onChange={e => setBgaPlayerIdInput(e.target.value)}
-                          placeholder={bgaCookieSaved ? 'saved' : 'Numeric player id…'}
+                          placeholder={savedBgaPlayerId ? `saved: ${savedBgaPlayerId}` : 'Numeric player id (visible in your profile’s URL)…'}
                           className="flex-1 text-xs bg-white text-[#1a1a1a] px-3 py-1.5 rounded-md border border-[#e5e5e5] font-mono"
                         />
                         <button
-                          onClick={() => saveBgaCookie(bgaCookieInput, bgaPlayerIdInput)}
-                          disabled={!bgaCookieInput || !bgaPlayerIdInput || bgaCookieSaving}
+                          onClick={() => saveBgaCookie(bgaCookieInput, bgaPlayerIdInput || savedBgaPlayerId)}
+                          disabled={!bgaCookieInput || !(bgaPlayerIdInput || savedBgaPlayerId) || bgaCookieSaving}
                           className="text-xs bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] px-3 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap"
                         >
                           {bgaCookieSaving ? 'Saving…' : 'Save'}
                         </button>
                         {bgaCookieSaved && (
                           <button
-                            onClick={() => saveBgaCookie('', '')}
+                            onClick={() => { saveBgaCookie('', ''); setSavedBgaPlayerId('') }}
                             disabled={bgaCookieSaving}
                             className="text-xs bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1.5 rounded-md disabled:opacity-50"
                           >
