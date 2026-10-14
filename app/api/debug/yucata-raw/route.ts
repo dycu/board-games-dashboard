@@ -39,15 +39,48 @@ export async function GET() {
   const gamesData = await gamesRes.json()
   const games: any[] = gamesData.games ?? []
 
-  // Try the individual game page's HTML for a round/turn indicator too
+  // The single-game page is a client-rendered shell — find what API path it
+  // actually calls for board state, by grepping its referenced JS bundle(s)
   const firstId = games[0]?.id
-  let gamePageSnippet: string | null = null
+  let gamePageHtml = ''
+  let apiHints: string[] = []
+  let stateProbe: Record<string, any> = {}
   if (firstId) {
     const pageRes = await fetch(`${BASE}/en/game/${firstId}`, { headers: { ...headers, Accept: 'text/html' } })
-    const html = await pageRes.text()
-    const matches = [...html.matchAll(/.{0,40}(round|turn|runde|zug)[^<]{0,40}/gi)].map(m => m[0])
-    gamePageSnippet = matches.slice(0, 30).join(' ||| ') || `(no round/turn match, ${html.length} bytes, status ${pageRes.status})`
+    gamePageHtml = await pageRes.text()
+    const scriptSrcs = [...gamePageHtml.matchAll(/<script[^>]+src="([^"]+)"/g)].map(m => m[1]).slice(0, 5)
+    for (const src of scriptSrcs) {
+      const url = src.startsWith('http') ? src : `${BASE}${src.startsWith('/') ? '' : '/'}${src}`
+      try {
+        const jsRes = await fetch(url, { headers })
+        const js = await jsRes.text()
+        const hints = [...js.matchAll(/["'`](\/api\/[a-zA-Z0-9/_-]*game[a-zA-Z0-9/_-]*)["'`]/gi)].map(m => m[1])
+        apiHints.push(...new Set(hints))
+      } catch { /* ignore */ }
+    }
+    apiHints = [...new Set(apiHints)].slice(0, 30)
+
+    // Try a few plausible endpoints directly
+    for (const path of [`/api/game/${firstId}`, `/api/game/${firstId}/state`, `/api/user/me/game/${firstId}`, `/api/game/me/${firstId}`]) {
+      try {
+        const res = await fetch(`${BASE}${path}`, { headers })
+        if (res.ok) {
+          const text = await res.text()
+          stateProbe[path] = text.slice(0, 500)
+        } else {
+          stateProbe[path] = `HTTP ${res.status}`
+        }
+      } catch (e) {
+        stateProbe[path] = String(e)
+      }
+    }
   }
 
-  return Response.json({ rawFirstGame: games[0] ?? null, allKeys: games[0] ? Object.keys(games[0]) : [], gamePageSnippet })
+  return Response.json({
+    rawFirstGame: games[0] ?? null,
+    allKeys: games[0] ? Object.keys(games[0]) : [],
+    gamePageHtmlLength: gamePageHtml.length,
+    apiHints,
+    stateProbe,
+  })
 }
