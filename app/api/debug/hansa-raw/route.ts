@@ -6,7 +6,7 @@ export async function GET() {
   const url = new URL(`${API_BASE}/games`)
   url.searchParams.set('limit', '5')
   url.searchParams.set('mode', 'all')
-  url.searchParams.set('status', 'playing')
+  url.searchParams.set('status', 'finished')
   const res = await fetch(url.toString())
   const text = await res.text()
   return new Response(text, { headers: { 'Content-Type': 'application/json' } })
