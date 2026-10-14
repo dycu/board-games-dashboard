@@ -15,12 +15,23 @@ function HoldTooltip({ label, children }: { label: string; children: React.React
     if (timer.current) clearTimeout(timer.current)
     timer.current = null
   }
-  const onTouchStart = () => { timer.current = setTimeout(() => setShow(true), LONG_PRESS_MS) }
+  const onTouchStart = (e: React.TouchEvent) => {
+    // A plain span here would leave the covering card-link as the nearest
+    // interactive ancestor, so a real long press opens the browser's own
+    // link context menu instead of (or racing) this tooltip. A <button>
+    // sidesteps that, the same way the card's other icon buttons already do.
+    e.preventDefault()
+    timer.current = setTimeout(() => setShow(true), LONG_PRESS_MS)
+  }
   const onTouchEnd = () => { clearTimer(); setShow(false) }
 
   return (
-    <span
-      className="relative z-10 inline-block"
+    <button
+      type="button"
+      aria-label={label}
+      className="relative z-10 inline-block cursor-default"
+      onClick={e => e.preventDefault()}
+      onContextMenu={e => e.preventDefault()}
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
       onTouchStart={onTouchStart}
@@ -35,7 +46,7 @@ function HoldTooltip({ label, children }: { label: string; children: React.React
           {label}
         </span>
       )}
-    </span>
+    </button>
   )
 }
 
@@ -53,9 +64,7 @@ export function progressLabel(progress: NonNullable<Game['progress']>): string {
 function ProgressErrorHint({ error, compact }: { error: string; compact?: boolean }) {
   return (
     <HoldTooltip label={`Couldn't read this game's turn count: ${error}`}>
-      <span
-        aria-label={`Couldn't read this game's turn count: ${error}`}
-        className={`text-[#c5c5c5] ${compact ? 'text-[10px]' : 'text-xs'}`}>
+      <span className={`text-[#c5c5c5] ${compact ? 'text-[10px]' : 'text-xs'}`}>
         ⚠
       </span>
     </HoldTooltip>
@@ -71,7 +80,7 @@ export default function ProgressBar({ game, compact }: { game: Game; compact?: b
   if (compact) {
     return (
       <HoldTooltip label={label}>
-        <span aria-label={label} className="flex items-center gap-1 shrink-0">
+        <span className="flex items-center gap-1 shrink-0">
           <span className="w-8 h-1 rounded-full bg-[#ececec] overflow-hidden">
             <span className="block h-full bg-[#5e6ad2]" style={{ width: `${progress.percent}%` }} />
           </span>
@@ -83,7 +92,7 @@ export default function ProgressBar({ game, compact }: { game: Game; compact?: b
 
   return (
     <HoldTooltip label={label}>
-      <span aria-label={label} className="flex items-center gap-1.5">
+      <span className="flex items-center gap-1.5">
         <span className="flex-1 h-1.5 rounded-full bg-[#ececec] overflow-hidden min-w-[60px]">
           <span className="block h-full bg-[#5e6ad2]" style={{ width: `${progress.percent}%` }} />
         </span>

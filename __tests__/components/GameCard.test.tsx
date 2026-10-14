@@ -158,6 +158,18 @@ describe('progress bar', () => {
     expect(screen.getByText('42%')).toBeInTheDocument()
   })
 
+  it('is a real button, not a span, so a long press wins over the card-link underneath it', () => {
+    render(<GameCard {...props({ game: withProgress })} />)
+    expect(screen.getByLabelText(/turn 21 of an estimated 50/i).tagName).toBe('BUTTON')
+  })
+
+  it('does not open the game when the bar itself is clicked', async () => {
+    const onOpen = jest.fn()
+    render(<GameCard {...props({ game: withProgress, onOpen })} />)
+    await userEvent.click(screen.getByLabelText(/turn 21 of an estimated 50/i))
+    expect(onOpen).not.toHaveBeenCalled()
+  })
+
   it('shows a quiet warning instead of a bar when the last read failed', () => {
     const errored = { ...game, progressError: 'timed out waiting for the game state' }
     render(<GameCard {...props({ game: errored })} />)
