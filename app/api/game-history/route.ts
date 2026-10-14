@@ -1,4 +1,6 @@
 import { fetchBgaGameHistory } from '@/lib/connectors/bga'
+import { bgaAuthOptions } from '@/lib/connectors'
+import { getPrefs } from '@/lib/prefs'
 
 export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
@@ -13,7 +15,8 @@ export async function GET(request: Request) {
     return Response.json({ error: 'only BGA games with a numeric key have a full history' }, { status: 400 })
   }
   try {
-    const games = await fetchBgaGameHistory(process.env.BGA_USERNAME ?? '', process.env.BGA_PASSWORD ?? '', key)
+    const prefs = await getPrefs()
+    const games = await fetchBgaGameHistory(process.env.BGA_USERNAME ?? '', process.env.BGA_PASSWORD ?? '', key, bgaAuthOptions(prefs))
     return Response.json({ games })
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })

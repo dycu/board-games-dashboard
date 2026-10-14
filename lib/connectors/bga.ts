@@ -315,11 +315,47 @@ async function freshSession(username: string, password: string, why = ''): Promi
   }
 }
 
-// Runs fn with the cached session, logging in again once if BGA rejects it
+// A session built from a cookie copied out of an already-logged-in browser —
+// the fallback for when BGA is slow-walking or blocking automated logins
+// (the Cookie header's own format: "name=value; name2=value2")
+export interface BgaManualSession {
+  cookie: string
+  playerId: string
+}
+
+function parseCookieHeader(header: string): Record<string, string> {
+  const cookies: Record<string, string> = {}
+  for (const part of header.split(';')) {
+    const eq = part.indexOf('=')
+    if (eq > 0) cookies[part.slice(0, eq).trim()] = part.slice(eq + 1).trim()
+  }
+  return cookies
+}
+
+function sessionFromCookie(manual: BgaManualSession): BgaSession {
+  const cookies = parseCookieHeader(manual.cookie)
+  const token = cookies['TournoiEnLigneidt'] ?? cookies['TournoiEnLigneid'] ?? ''
+  if (!token) throw new Error('BGA: pasted cookie has no TournoiEnLigneidt/TournoiEnLigneid token')
+  return { cookies, myId: manual.playerId, token }
+}
+
+export interface BgaAuthOptions {
+  manual?: BgaManualSession
+  // Called after a real username/password login succeeds, so the caller can
+  // persist the fresh cookie as the new `manual` — next time, that's tried
+  // before BGA's login endpoint is touched again
+  onFreshLogin?: (session: BgaSession) => Promise<void> | void
+}
+
+// Runs fn with, in order: the cached session, the manual (pasted-cookie)
+// session, then a real login — each only tried once the one before it fails.
+// The manual session bypasses BGA's login endpoint entirely, so it still
+// works during a login cooldown or an outright block on automated logins.
 export async function withBgaSession<T>(
   username: string,
   password: string,
   fn: (session: BgaSession) => Promise<T>,
+  auth: BgaAuthOptions = {},
 ): Promise<T> {
   const cached = await quietly(() => kv.get<BgaSession>(SESSION_KV_KEY))
   let rejection = ''
@@ -331,8 +367,22 @@ export async function withBgaSession<T>(
       await quietly(() => kv.del(SESSION_KV_KEY))
     }
   }
-  // The cooldown message keeps why the cached session was dropped — it's what led to this login
-  return fn(await freshSession(username, password, rejection))
+
+  if (auth.manual) {
+    try {
+      const session = sessionFromCookie(auth.manual)
+      const result = await fn(session)
+      await quietly(() => kv.set(SESSION_KV_KEY, session, { ex: SESSION_TTL_SECONDS }))
+      return result
+    } catch (e) {
+      rejection = (e instanceof Error ? e.message : String(e)).slice(0, 200)
+    }
+  }
+
+  // The cooldown message keeps why the earlier session was dropped — it's what led to this login
+  const session = await freshSession(username, password, rejection)
+  await auth.onFreshLogin?.(session)
+  return fn(session)
 }
 
 // table id → Unix seconds of its last move; tables it can't work out are left out
@@ -366,8 +416,8 @@ async function fetchLastMoves(session: BgaSession, tables: any[]): Promise<Map<s
 // Fallback horizon for the time-bank estimate, used only when a table's history can't be read
 const ESTIMATE_CAP_DAYS = 3
 
-export async function fetchBGA(username: string, password: string): Promise<Game[]> {
-  const { session, tables } = await withBgaSession(username, password, async s => ({ session: s, tables: await fetchBgaTables(s) }))
+export async function fetchBGA(username: string, password: string, auth?: BgaAuthOptions): Promise<Game[]> {
+  const { session, tables } = await withBgaSession(username, password, async s => ({ session: s, tables: await fetchBgaTables(s) }), auth)
   const { myId, cookies: allCookies } = session
 
   // Step 5: resolve display names from gamepanel pages (game_name field is a URL slug)
@@ -443,7 +493,7 @@ export async function fetchBGA(username: string, password: string): Promise<Game
 const FINISHED_PAGES = 15
 const PAGE_BATCH = 5
 
-export async function fetchFinishedBGA(username: string, password: string): Promise<FinishedGame[]> {
+export async function fetchFinishedBGA(username: string, password: string, auth?: BgaAuthOptions): Promise<FinishedGame[]> {
   const { session, rows } = await withBgaSession(username, password, async s => {
     const fetchPage = async (page: number): Promise<any[]> => {
       const url = `${BASE}/gamestats/gamestats/getGames.html?player=${s.myId}&opponent_id=0&finished=1&page=${page}&updateStats=0`
@@ -467,7 +517,7 @@ export async function fetchFinishedBGA(username: string, password: string): Prom
       }
     }
     return { session: s, rows }
-  })
+  }, auth)
 
   const finished = rows.filter(t => t.cancelled !== '1' && t.cancelled !== 1)
   const uniqueSlugs = [...new Set(finished.map((t: any) => t.game_name as string).filter(Boolean))]
@@ -527,7 +577,7 @@ export function bgaFinishedRow(t: any, myId: string, nameMap: Map<string, string
 // to the start of the account), for the per-game history page
 const GAME_HISTORY_MAX_PAGES = 40
 
-export async function fetchBgaGameHistory(username: string, password: string, gameId: string): Promise<FinishedGame[]> {
+export async function fetchBgaGameHistory(username: string, password: string, gameId: string, auth?: BgaAuthOptions): Promise<FinishedGame[]> {
   if (!/^\d+$/.test(gameId)) throw new Error('BGA game id must be numeric')
   const { session, rows } = await withBgaSession(username, password, async s => {
     const fetchPage = async (page: number): Promise<any[]> => {
@@ -546,7 +596,7 @@ export async function fetchBgaGameHistory(username: string, password: string, ga
       }
     }
     return { session: s, rows }
-  })
+  }, auth)
   const finished = rows.filter(t => t.cancelled !== '1' && t.cancelled !== 1)
   const slugs = [...new Set(finished.map((t: any) => t.game_name as string).filter(Boolean))]
   const nameMap = slugs.length > 0 ? await fetchGameNames(slugs, session.cookies) : new Map<string, string>()
@@ -556,7 +606,7 @@ export async function fetchBgaGameHistory(username: string, password: string, ga
 // Lifetime finished-game count per game. getGames with updateStats=1 adds
 // stats.games: one row per game ever played, whose cnt values add up to the
 // player's total — unlike the table list, which pages 10 at a time.
-export async function fetchBgaPlayTotals(username: string, password: string): Promise<{ slug: string; name: string; plays: number }[]> {
+export async function fetchBgaPlayTotals(username: string, password: string, auth?: BgaAuthOptions): Promise<{ slug: string; name: string; plays: number }[]> {
   const { session, rows } = await withBgaSession(username, password, async s => {
     const url = `${BASE}/gamestats/gamestats/getGames.html?player=${s.myId}&opponent_id=0&finished=1&page=1&updateStats=1`
     const res = await fetch(url, { headers: bgaApiHeaders(s, `${BASE}/gamestats?player=${s.myId}`) })
@@ -567,7 +617,7 @@ export async function fetchBgaPlayTotals(username: string, password: string): Pr
     }
     if (String(json.status) !== '1') throw new Error(`BGA gamestats failed: ${json.error ?? JSON.stringify(json).slice(0, 300)}`)
     return { session: s, rows: (json.data?.stats?.games ?? []) as any[] }
-  })
+  }, auth)
 
   const slugs = [...new Set(rows.map(r => r.game_name as string).filter(Boolean))]
   const catalog = await getCatalog('bga').catch(() => [])

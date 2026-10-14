@@ -1,14 +1,15 @@
-import { Game, Platform, FinishedGame } from '../types'
+import { Game, Platform, FinishedGame, UserPrefs } from '../types'
 
 export type Fetcher = () => Promise<Game[]>
 export type FinishedFetcher = () => Promise<FinishedGame[]>
-import { fetchBGA, fetchFinishedBGA } from './bga'
+import { fetchBGA, fetchFinishedBGA, BgaAuthOptions, BgaSession, cookieString } from './bga'
 import { fetchEighteenXX, fetchFinishedEighteenXX } from './eighteenxx'
 import { fetchOBG, fetchFinishedOBG } from './obg'
 import { fetchYucata, fetchFinishedYucata } from './yucata'
 import { fetchHansa, fetchFinishedHansa } from './hansa'
 import { fetchRally, fetchFinishedRally } from './rally'
 import { fetchOldKingsCrown } from './oldkingscrown'
+import { savePrefs } from '../prefs'
 
 function env(key: string): string {
   return process.env[key] ?? ''
@@ -20,10 +21,21 @@ function viaProxy(route: string): never {
   throw new Error(`choochoo must be called via the ${route} proxy`)
 }
 
-export function makeConnectors(eighteenxxSessionCookie?: string): Record<Platform, Fetcher> {
+// Tries the pasted/auto-saved cookie before logging in, and saves the fresh
+// cookie back to prefs whenever a real login was needed — see UserPrefs.bgaSessionCookie
+export function bgaAuthOptions(prefs: Pick<UserPrefs, 'bgaSessionCookie' | 'bgaPlayerId'>): BgaAuthOptions {
   return {
-    bga: () => fetchBGA(env('BGA_USERNAME'), env('BGA_PASSWORD')),
-    eighteenxx: () => fetchEighteenXX(env('EIGHTEENXX_USERNAME'), env('EIGHTEENXX_PASSWORD'), eighteenxxSessionCookie),
+    manual: prefs.bgaSessionCookie && prefs.bgaPlayerId
+      ? { cookie: prefs.bgaSessionCookie, playerId: prefs.bgaPlayerId }
+      : undefined,
+    onFreshLogin: (session: BgaSession) => savePrefs({ bgaSessionCookie: cookieString(session.cookies), bgaPlayerId: session.myId }),
+  }
+}
+
+export function makeConnectors(prefs: Pick<UserPrefs, 'eighteenxxSessionCookie' | 'bgaSessionCookie' | 'bgaPlayerId'> = {}): Record<Platform, Fetcher> {
+  return {
+    bga: () => fetchBGA(env('BGA_USERNAME'), env('BGA_PASSWORD'), bgaAuthOptions(prefs)),
+    eighteenxx: () => fetchEighteenXX(env('EIGHTEENXX_USERNAME'), env('EIGHTEENXX_PASSWORD'), prefs.eighteenxxSessionCookie),
     obg: () => fetchOBG(env('OBG_USERNAME'), env('OBG_PASSWORD')),
     yucata: () => fetchYucata(env('YUCATA_USERNAME'), env('YUCATA_PASSWORD')),
     choochoo: () => viaProxy('/api/choochoo'),
@@ -33,11 +45,11 @@ export function makeConnectors(eighteenxxSessionCookie?: string): Record<Platfor
   }
 }
 
-export function makeFinishedConnectors(eighteenxxSessionCookie?: string): Partial<Record<Platform, FinishedFetcher>> {
+export function makeFinishedConnectors(prefs: Pick<UserPrefs, 'eighteenxxSessionCookie' | 'bgaSessionCookie' | 'bgaPlayerId'> = {}): Partial<Record<Platform, FinishedFetcher>> {
   return {
-    eighteenxx: () => fetchFinishedEighteenXX(env('EIGHTEENXX_USERNAME'), env('EIGHTEENXX_PASSWORD'), eighteenxxSessionCookie),
+    eighteenxx: () => fetchFinishedEighteenXX(env('EIGHTEENXX_USERNAME'), env('EIGHTEENXX_PASSWORD'), prefs.eighteenxxSessionCookie),
     obg: () => fetchFinishedOBG(env('OBG_USERNAME'), env('OBG_PASSWORD')),
-    bga: () => fetchFinishedBGA(env('BGA_USERNAME'), env('BGA_PASSWORD')),
+    bga: () => fetchFinishedBGA(env('BGA_USERNAME'), env('BGA_PASSWORD'), bgaAuthOptions(prefs)),
     rally: () => fetchFinishedRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
     hansa: () => fetchFinishedHansa(env('HANSA_USER_ID')),
     yucata: () => fetchFinishedYucata(env('YUCATA_USERNAME'), env('YUCATA_PASSWORD')),

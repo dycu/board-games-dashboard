@@ -116,6 +116,24 @@ describe('fetchBGA', () => {
     })
   })
 
+  it('calls onFreshLogin with the new session once a real login succeeds', async () => {
+    setupHappyPath('42')
+    const onFreshLogin = jest.fn()
+    await fetchBGA('user@example.com', 'password', { onFreshLogin })
+    expect(onFreshLogin).toHaveBeenCalledTimes(1)
+    expect(onFreshLogin).toHaveBeenCalledWith(expect.objectContaining({ myId: '42', token: 'postLoginToken' }))
+  })
+
+  it('uses a manual session instead of logging in, when one is given', async () => {
+    const singleTable = { status: 1, data: { tables: {} } }
+    mockFetch.mockResolvedValueOnce(makeTablesResponse(singleTable)) // only the tables call — no login steps
+    const games = await fetchBGA('user@example.com', 'password', {
+      manual: { cookie: 'TournoiEnLigneidt=tok; PHPSESSID=abc', playerId: '42' },
+    })
+    expect(games).toEqual([])
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+
   it('resolves display names from gamepanel og:title', async () => {
     setupHappyPath()
     const games = await fetchBGA('user@example.com', 'password')

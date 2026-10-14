@@ -39,6 +39,14 @@ export interface UserPrefs {
   deadlineSoonHours: number      // my-turn games with a deadline under this show the red "time's running out" indicator (default 24)
   oldkingscrownGameIds?: string[] // manually tracked game ids — no account system to discover them automatically
   backlogPlatforms?: Platform[]   // sites shown by default when adding games to the backlog
+  // BGA's session cookie + numeric player id. Tried before logging in with
+  // username/password, so it also works while BGA is throttling or blocking
+  // automated logins. Re-saved here automatically after every successful
+  // login, so it's usually a self-refreshing cache rather than something you
+  // maintain by hand — pasting one manually (from an already-logged-in
+  // browser) is only needed to bootstrap it, or when login is stuck.
+  bgaSessionCookie?: string
+  bgaPlayerId?: string
 }
 
 export const DEFAULT_BACKLOG_PLATFORMS: Platform[] = ['bga', 'yucata']

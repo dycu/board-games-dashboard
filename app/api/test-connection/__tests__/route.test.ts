@@ -84,7 +84,7 @@ describe('GET /api/test-connection', () => {
     const req = new NextRequest('http://localhost/api/test-connection?platform=eighteenxx')
     await GET(req)
 
-    expect(mockMakeConnectors).toHaveBeenCalledWith('abc123')
+    expect(mockMakeConnectors).toHaveBeenCalledWith(expect.objectContaining({ eighteenxxSessionCookie: 'abc123' }))
   })
 
   describe('proxied platforms (choochoo, oldkingscrown)', () => {

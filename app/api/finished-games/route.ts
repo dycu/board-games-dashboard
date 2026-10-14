@@ -28,7 +28,7 @@ const STREAM_DEADLINE_MS = 18_000
 
 export async function GET(request?: Request) {
   const prefs = await getPrefs()
-  const connectors = makeFinishedConnectors(prefs.eighteenxxSessionCookie)
+  const connectors = makeFinishedConnectors(prefs)
   const entries = (Object.entries(connectors) as [Platform, () => Promise<any>][])
     .filter(([p]) => hasCreds(p) || (p === 'eighteenxx' && !!prefs.eighteenxxSessionCookie))
 

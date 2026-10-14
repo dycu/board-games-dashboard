@@ -42,4 +42,43 @@ describe('withBgaSession', () => {
     await expect(withBgaSession('u', 'p', async () => 'x')).rejects.toThrow('paused')
     expect(mockFetch.mock.calls.length).toBe(callsAfterFirst) // no new BGA requests
   })
+
+  it('uses a manual (pasted-cookie) session without logging in, when there is no cache', async () => {
+    const manual = { cookie: 'PHPSESSID=abc; TournoiEnLigneidt=tok123', playerId: '42' }
+    const result = await withBgaSession('u', 'p', async s => s, { manual })
+    expect(result).toEqual({ cookies: { PHPSESSID: 'abc', TournoiEnLigneidt: 'tok123' }, myId: '42', token: 'tok123' })
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('caches a successful manual session so later calls skip re-parsing it', async () => {
+    const manual = { cookie: 'TournoiEnLigneidt=tok123', playerId: '42' }
+    await withBgaSession('u', 'p', async s => s, { manual })
+    expect(store.get('bga-session:v1')).toMatchObject({ myId: '42', token: 'tok123' })
+  })
+
+  it('still works via the manual session during a login cooldown', async () => {
+    store.set('bga-login-failed:v1', 'earlier failure')
+    const manual = { cookie: 'TournoiEnLigneidt=tok123', playerId: '42' }
+    const result = await withBgaSession('u', 'p', async s => s.myId, { manual })
+    expect(result).toBe('42')
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('falls back to a real login when the manual cookie has no token', async () => {
+    const manual = { cookie: 'PHPSESSID=abc', playerId: '42' } // no TournoiEnLigneidt/id
+    await expect(withBgaSession('u', 'p', async () => 'x', { manual })).rejects.toThrow()
+    expect(mockFetch).toHaveBeenCalled() // fell through to an actual login attempt
+  })
+
+  it('calls onFreshLogin only when a real login happens, not for cached or manual sessions', async () => {
+    const onFreshLogin = jest.fn()
+    store.set('bga-session:v1', CACHED)
+    await withBgaSession('u', 'p', async s => s, { onFreshLogin })
+    expect(onFreshLogin).not.toHaveBeenCalled()
+
+    store.clear()
+    const manual = { cookie: 'TournoiEnLigneidt=tok123', playerId: '42' }
+    await withBgaSession('u', 'p', async s => s, { manual, onFreshLogin })
+    expect(onFreshLogin).not.toHaveBeenCalled()
+  })
 })

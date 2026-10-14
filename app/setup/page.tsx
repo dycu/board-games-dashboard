@@ -28,6 +28,10 @@ export default function SetupPage() {
   const [cookieInput, setCookieInput] = useState('')
   const [cookieSaving, setCookieSaving] = useState(false)
   const [cookieSaved, setCookieSaved] = useState(false)
+  const [bgaCookieInput, setBgaCookieInput] = useState('')
+  const [bgaPlayerIdInput, setBgaPlayerIdInput] = useState('')
+  const [bgaCookieSaving, setBgaCookieSaving] = useState(false)
+  const [bgaCookieSaved, setBgaCookieSaved] = useState(false)
   const [okcGameIds, setOkcGameIds] = useState<string[]>([])
   const [okcInput, setOkcInput] = useState('')
   const [okcSaving, setOkcSaving] = useState(false)
@@ -54,6 +58,7 @@ export default function SetupPage() {
       setDeadlineSoonHours(prefs.deadlineSoonHours ?? 24)
       setBacklogPlatforms(prefs.backlogPlatforms ?? DEFAULT_BACKLOG_PLATFORMS)
       setCookieSaved(!!prefs.eighteenxxSessionCookie)
+      setBgaCookieSaved(!!prefs.bgaSessionCookie && !!prefs.bgaPlayerId)
       const ids = prefs.oldkingscrownGameIds ?? []
       setOkcGameIds(ids)
       if (ids.length > 0) loadOkcStatus()
@@ -78,6 +83,22 @@ export default function SetupPage() {
     setCookieSaved(!!value)
     setCookieInput('')
     setCookieSaving(false)
+  }
+
+  // Normal operation never needs this — automated login succeeds and
+  // re-saves its own fresh cookie here automatically. This is only for
+  // bootstrapping (or recovering) while BGA is blocking automated logins.
+  const saveBgaCookie = async (cookie: string, playerId: string) => {
+    setBgaCookieSaving(true)
+    await fetch('/api/prefs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bgaSessionCookie: cookie, bgaPlayerId: playerId }),
+    })
+    setBgaCookieSaved(!!cookie && !!playerId)
+    setBgaCookieInput('')
+    setBgaPlayerIdInput('')
+    setBgaCookieSaving(false)
   }
 
   const togglePlatform = async (platform: Platform) => {
@@ -235,6 +256,51 @@ export default function SetupPage() {
                     </button>
                   </div>
                 </div>
+                {platform === 'bga' && (
+                  <div className="mt-3 pt-3 border-t border-[#f0f0f0]">
+                    <p className="text-xs text-[#9b9b9b] mb-2">
+                      Normally nothing to do here — logging in saves its own session below automatically.
+                      Only paste one yourself if automated login is stuck (e.g. BGA blocking it): log in to
+                      BGA in your browser, open DevTools → Network, find any request to boardgamearena.com,
+                      copy its <code>Cookie</code> request header, and paste it here along with your numeric
+                      player id (visible in your profile&apos;s URL).
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      <input
+                        type="password"
+                        value={bgaCookieInput}
+                        onChange={e => setBgaCookieInput(e.target.value)}
+                        placeholder={bgaCookieSaved ? '●●●●● saved' : 'Paste Cookie header value…'}
+                        className="text-xs bg-white text-[#1a1a1a] px-3 py-1.5 rounded-md border border-[#e5e5e5] font-mono"
+                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={bgaPlayerIdInput}
+                          onChange={e => setBgaPlayerIdInput(e.target.value)}
+                          placeholder={bgaCookieSaved ? 'saved' : 'Numeric player id…'}
+                          className="flex-1 text-xs bg-white text-[#1a1a1a] px-3 py-1.5 rounded-md border border-[#e5e5e5] font-mono"
+                        />
+                        <button
+                          onClick={() => saveBgaCookie(bgaCookieInput, bgaPlayerIdInput)}
+                          disabled={!bgaCookieInput || !bgaPlayerIdInput || bgaCookieSaving}
+                          className="text-xs bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] px-3 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {bgaCookieSaving ? 'Saving…' : 'Save'}
+                        </button>
+                        {bgaCookieSaved && (
+                          <button
+                            onClick={() => saveBgaCookie('', '')}
+                            disabled={bgaCookieSaving}
+                            className="text-xs bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1.5 rounded-md disabled:opacity-50"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {platform === 'eighteenxx' && (
                   <div className="mt-3 pt-3 border-t border-[#f0f0f0]">
                     <p className="text-xs text-[#9b9b9b] mb-2">
