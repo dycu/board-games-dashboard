@@ -44,8 +44,18 @@ export async function GET() {
 
   const mariaGame = games.find(g => g.gameName === 'Maria')
   if (!mariaGame) return Response.json({ error: 'Maria game not found this time' })
-  const res = await fetch(mariaGame.gameUrl, { headers: { ...HEADERS, Cookie: cookie } })
-  const html = await res.text()
+  const authHeaders = { ...HEADERS, Cookie: cookie }
 
-  return Response.json({ gameUrl: mariaGame.gameUrl, html })
+  const clientJsRes = await fetch(`${BASE}/common/client.js`, { headers: authHeaders })
+  const clientJs = await clientJsRes.text()
+  const wsHints = [...clientJs.matchAll(/.{0,40}(websocket|wss:|ws:|EventSource|fetch\(|XMLHttpRequest|\/join\/|state\.json|\?game=).{0,60}/gi)].map(m => m[0])
+
+  const playJsRes = await fetch(`${BASE}/maria/play.js`, { headers: authHeaders })
+  const playJs = await playJsRes.text()
+  const playHints = [...playJs.matchAll(/.{0,40}(websocket|wss:|ws:|EventSource|fetch\(|state\.turn|game_state|\.turn\b).{0,60}/gi)].map(m => m[0])
+
+  return Response.json({
+    clientJsLength: clientJs.length, wsHints: [...new Set(wsHints)].slice(0, 20),
+    playJsLength: playJs.length, playHints: [...new Set(playHints)].slice(0, 30),
+  })
 }
