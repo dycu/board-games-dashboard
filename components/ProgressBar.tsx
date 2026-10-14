@@ -1,6 +1,17 @@
 'use client'
 import { useRef, useState } from 'react'
-import { Game } from '@/lib/types'
+import { Game, Platform } from '@/lib/types'
+
+// What we're actually counting differs by platform: BGA's and Rally's own
+// data calls it a turn, but 18xx's number is its action log length (every
+// bid, placement, etc.) — calling that a "turn" reads as wrong, especially
+// since 18xx separately has its own much coarser "turn" (a whole stock +
+// operating round cycle) that this isn't.
+const UNIT_WORD: Partial<Record<Platform, string>> = { eighteenxx: 'move' }
+function unitWord(platform: Platform, capitalize = false): string {
+  const word = UNIT_WORD[platform] ?? 'turn'
+  return capitalize ? word[0].toUpperCase() + word.slice(1) : word
+}
 
 const LONG_PRESS_MS = 350
 
@@ -50,20 +61,20 @@ function HoldTooltip({ label, children }: { label: string; children: React.React
   )
 }
 
-export function progressLabel(progress: NonNullable<Game['progress']>): string {
+export function progressLabel(platform: Platform, progress: NonNullable<Game['progress']>): string {
   const { turnsSoFar, estimatedTotalTurns, sampleCount, sameSizeOnly } = progress
   const basis = sampleCount === 1 ? '1 finished game' : `${sampleCount} finished games`
   const qualifier = sameSizeOnly ? ' with the same player count' : ''
-  return `Turn ${turnsSoFar} of an estimated ${estimatedTotalTurns} (median of ${basis} of this type${qualifier})`
+  return `${unitWord(platform, true)} ${turnsSoFar} of an estimated ${estimatedTotalTurns} (median of ${basis} of this type${qualifier})`
 }
 
 // Muted — this isn't an alert, just a quiet way to tell "no estimate yet"
 // (nothing shown, the normal case while samples build up) apart from "the
 // last attempt to read this game's state actually failed" for whoever goes
 // looking for why a bar isn't there.
-function ProgressErrorHint({ error, compact }: { error: string; compact?: boolean }) {
+function ProgressErrorHint({ platform, error, compact }: { platform: Platform; error: string; compact?: boolean }) {
   return (
-    <HoldTooltip label={`Couldn't read this game's turn count: ${error}`}>
+    <HoldTooltip label={`Couldn't read this game's ${unitWord(platform)} count: ${error}`}>
       <span className={`text-[#c5c5c5] ${compact ? 'text-[10px]' : 'text-xs'}`}>
         ⚠
       </span>
@@ -74,8 +85,8 @@ function ProgressErrorHint({ error, compact }: { error: string; compact?: boolea
 // Full-width bar for cards. `compact` renders a slim inline version for rows.
 export default function ProgressBar({ game, compact }: { game: Game; compact?: boolean }) {
   const progress = game.progress
-  if (!progress) return game.progressError ? <ProgressErrorHint error={game.progressError} compact={compact} /> : null
-  const label = progressLabel(progress)
+  if (!progress) return game.progressError ? <ProgressErrorHint platform={game.platform} error={game.progressError} compact={compact} /> : null
+  const label = progressLabel(game.platform, progress)
 
   if (compact) {
     return (

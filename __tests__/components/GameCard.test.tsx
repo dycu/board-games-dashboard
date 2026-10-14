@@ -158,6 +158,14 @@ describe('progress bar', () => {
     expect(screen.getByText('42%')).toBeInTheDocument()
   })
 
+  it('says "Move" instead of "Turn" for 18xx, since that\'s an action-log count, not a turn', async () => {
+    const eighteenxxGame = { ...withProgress, platform: 'eighteenxx' as const }
+    render(<GameCard {...props({ game: eighteenxxGame })} />)
+    const bar = screen.getByLabelText(/move 21 of an estimated 50/i)
+    await userEvent.hover(bar)
+    expect(screen.getByRole('tooltip')).toHaveTextContent(/^Move 21/)
+  })
+
   it('is a real button, not a span, so a long press wins over the card-link underneath it', () => {
     render(<GameCard {...props({ game: withProgress })} />)
     expect(screen.getByLabelText(/turn 21 of an estimated 50/i).tagName).toBe('BUTTON')
