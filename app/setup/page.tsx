@@ -285,11 +285,11 @@ export default function SetupPage() {
             </button>
           </div>
           <p className="text-xs text-[#9b9b9b]">
-            Shows how far each BGA game has gotten, estimated from turns played so far vs. your
+            Shows how far each game has gotten, estimated from turns played so far vs. your
             finished games of that type. New and still experimental — this toggle switches it off
             again, back to the plain cards, if it doesn&apos;t work well for you. Only appears once
             you have at least one finished game of that type with turns tracked, and only for BGA
-            for now.
+            and Rally the Troops for now.
           </p>
         </div>
 

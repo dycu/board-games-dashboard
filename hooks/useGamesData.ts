@@ -6,6 +6,7 @@ const CACHE_KEY = 'games-cache'
 const PENDING_DEPARTURES_KEY = 'pending-departures'
 const PACE_SYNC_AT_KEY = 'pace-sync-at'
 const PACE_SYNC_EVERY_MS = 30 * 60 * 1000
+const RALLY_PACE_SYNC_AT_KEY = 'rallypace-sync-at'
 
 // BGA deletes a finished game's move log within hours, so the Pace logger has
 // to read running games often enough to catch each one's last turns. Piggyback
@@ -19,6 +20,18 @@ function maybeSyncPace(): void {
     return
   }
   fetch('/api/pace/sync', { method: 'POST' }).catch(() => {})
+}
+
+// Same idea as maybeSyncPace, for Rally's turn-count tracking (lib/rallyPace)
+function maybeSyncRallyPace(): void {
+  try {
+    const last = Number(localStorage.getItem(RALLY_PACE_SYNC_AT_KEY) ?? 0)
+    if (Date.now() - last < PACE_SYNC_EVERY_MS) return
+    localStorage.setItem(RALLY_PACE_SYNC_AT_KEY, String(Date.now()))
+  } catch {
+    return
+  }
+  fetch('/api/rallypace/sync', { method: 'POST' }).catch(() => {})
 }
 
 export interface DepartedGame {
@@ -237,6 +250,7 @@ export function useGamesData(): UseGamesDataResult {
             setFreshDataStartedAt(startedAt)
             setFreshDataVersion(v => v + 1)
             if (!allErrors.some(e => e.platform === 'bga')) maybeSyncPace()
+            if (!allErrors.some(e => e.platform === 'rally')) maybeSyncRallyPace()
           }
         }
       }

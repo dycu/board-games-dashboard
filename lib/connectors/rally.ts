@@ -1,9 +1,9 @@
 import { Game, FinishedGame } from '../types'
 import { formatTimeAgo } from './utils'
 
-const BASE = 'https://rally-the-troops.com'
+export const BASE = 'https://rally-the-troops.com'
 
-const HEADERS = {
+export const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
   Accept: 'text/html,application/xhtml+xml,*/*',
 }
@@ -41,13 +41,16 @@ async function solveAltcha(ch: AltchaChallenge): Promise<string> {
   throw new Error('Rally: ALTCHA challenge unsolvable within maxnumber')
 }
 
-export async function fetchRally(username: string, password: string): Promise<Game[]> {
-  // Step 1: get ALTCHA proof-of-work challenge and solve it synchronously
+// Step 1: get ALTCHA proof-of-work challenge and solve it; step 2: login —
+// success is a 302 redirect to /account with Set-Cookie: login={sid}.
+// Shared by every entry point that needs an authenticated session, including
+// the live-state WebSocket (lib/rallyPace/sync.ts), which needs the cookie
+// itself rather than just the parsed games fetchRally returns.
+export async function loginRally(username: string, password: string): Promise<string> {
   const chRes = await fetch(`${BASE}/altcha-challenge`)
   const challenge: AltchaChallenge = await chRes.json()
   const altcha = await solveAltcha(challenge)
 
-  // Step 2: login — success is a 302 redirect to /account with Set-Cookie: login={sid}
   const loginRes = await fetch(`${BASE}/login`, {
     method: 'POST',
     headers: { ...HEADERS, 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -57,15 +60,22 @@ export async function fetchRally(username: string, password: string): Promise<Ga
   if (loginRes.status !== 302) throw new Error('Rally the Troops login failed')
   const cookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
   if (!cookie) throw new Error('Rally the Troops login failed: no session cookie')
+  return cookie
+}
 
-  // Step 3: fetch active games page (HTML)
+export async function fetchRallyWithSession(username: string, password: string): Promise<{ cookie: string; games: Game[] }> {
+  const cookie = await loginRally(username, password)
   const gamesRes = await fetch(`${BASE}/games/active`, {
     headers: { ...HEADERS, Cookie: cookie },
   })
   if (!gamesRes.ok) throw new Error(`Rally the Troops games fetch failed (HTTP ${gamesRes.status})`)
 
   const html = await gamesRes.text()
-  return parseGamesActive(html, username)
+  return { cookie, games: parseGamesActive(html, username) }
+}
+
+export async function fetchRally(username: string, password: string): Promise<Game[]> {
+  return (await fetchRallyWithSession(username, password)).games
 }
 
 // Reverse rally-the-troops's human_date() to get an approximate Date

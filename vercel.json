@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/cron/pace", "schedule": "0 5 * * *" },
+    { "path": "/api/cron/rallypace", "schedule": "5 5 * * *" },
     { "path": "/api/cron/digest", "schedule": "0 6 * * *" },
     { "path": "/api/cron/weekly", "schedule": "0 17 * * 0" },
     { "path": "/api/cron/new-games?run=am", "schedule": "0 7 * * *" },
