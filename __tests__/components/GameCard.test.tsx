@@ -129,7 +129,7 @@ describe('note deletion', () => {
 })
 
 describe('progress bar', () => {
-  const withProgress = { ...game, progress: { percent: 42, turnsSoFar: 21, estimatedTotalTurns: 50, sampleCount: 3, samples: [45, 50, 55] } }
+  const withProgress = { ...game, progress: { percent: 42, turnsSoFar: 21, estimatedTotalTurns: 50, sampleCount: 3, samples: [45, 50, 55], sameSizeOnly: false } }
 
   it('shows the percent when progress data is available', () => {
     render(<GameCard {...props({ game: withProgress })} />)

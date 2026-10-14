@@ -18,6 +18,7 @@ export interface PaceTable {
   // Whole-game turn count (any player), for the "how far along is this game"
   // estimate — undefined for tables synced before this was tracked
   totalTurnState?: TotalTurnState
+  playerCount?: number  // for comparing a game's turn count only against others with the same number of players
   failures?: number
   realtime?: boolean    // finished within a few hours — a live game, not part of the async load
 }

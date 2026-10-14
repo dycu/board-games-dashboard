@@ -32,6 +32,7 @@ export interface Game {
     estimatedTotalTurns: number
     sampleCount: number
     samples: number[]
+    sameSizeOnly: boolean
   }
 }
 

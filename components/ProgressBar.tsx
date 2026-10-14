@@ -40,9 +40,10 @@ function HoldTooltip({ label, children }: { label: string; children: React.React
 }
 
 export function progressLabel(progress: NonNullable<Game['progress']>): string {
-  const { turnsSoFar, estimatedTotalTurns, sampleCount } = progress
+  const { turnsSoFar, estimatedTotalTurns, sampleCount, sameSizeOnly } = progress
   const basis = sampleCount === 1 ? '1 finished game' : `${sampleCount} finished games`
-  return `Turn ${turnsSoFar} of an estimated ${estimatedTotalTurns} (median of ${basis} of this type)`
+  const qualifier = sameSizeOnly ? ' with the same player count' : ''
+  return `Turn ${turnsSoFar} of an estimated ${estimatedTotalTurns} (median of ${basis} of this type${qualifier})`
 }
 
 // Full-width bar for cards. `compact` renders a slim inline version for rows.

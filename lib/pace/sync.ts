@@ -78,6 +78,7 @@ export async function syncBga(username: string, password: string, budgetMs: numb
       upsert({
         id, game: raw.game_name, server: String(raw.gameserver), start: Number(raw.gamestart), end: null,
         history: 'pending', state: INITIAL_TURN_STATE,
+        playerCount: Object.keys(raw.players ?? {}).length || undefined,
       })
     } else if (existing.server !== String(raw.gameserver)) {
       upsert({ ...existing, server: String(raw.gameserver) }) // tables move between game servers
@@ -116,6 +117,7 @@ export async function syncBga(username: string, password: string, budgetMs: numb
         // game that finishes outside the archive grace window still keeps
         // whatever was already counted while it ran, instead of losing it
         totalTurnState: existing?.totalTurnState,
+        playerCount: String(r.players ?? '').split(',').filter(Boolean).length || existing?.playerCount,
         realtime,
       })
     }

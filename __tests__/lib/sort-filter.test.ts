@@ -115,8 +115,8 @@ describe('sortAndFilter', () => {
   })
 
   it('sorts closest-to-the-end first when selected, with no-estimate games last', () => {
-    const almostDone = base({ id: 'bga:50', myTurn: true, progress: { percent: 90, turnsSoFar: 45, estimatedTotalTurns: 50, sampleCount: 2, samples: [48, 52] } })
-    const halfway = base({ id: 'bga:51', myTurn: true, progress: { percent: 40, turnsSoFar: 20, estimatedTotalTurns: 50, sampleCount: 2, samples: [48, 52] } })
+    const almostDone = base({ id: 'bga:50', myTurn: true, progress: { percent: 90, turnsSoFar: 45, estimatedTotalTurns: 50, sampleCount: 2, samples: [48, 52], sameSizeOnly: false } })
+    const halfway = base({ id: 'bga:51', myTurn: true, progress: { percent: 40, turnsSoFar: 20, estimatedTotalTurns: 50, sampleCount: 2, samples: [48, 52], sameSizeOnly: false } })
     const noEstimate = base({ id: 'bga:52', myTurn: true })
     const result = sortAndFilter([halfway, noEstimate, almostDone], prefs({ sort: 'closest-to-end' }))
     expect(result.map(g => g.id)).toEqual(['bga:50', 'bga:51', 'bga:52'])

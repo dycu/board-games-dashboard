@@ -23,7 +23,7 @@ describe('estimateProgress', () => {
       f3: table('f3', 'thecrew', 1000, 28),
     }
     expect(estimateProgress(tables, 'active')).toEqual({
-      percent: 50, turnsSoFar: 12, estimatedTotalTurns: 24, sampleCount: 3, samples: [20, 24, 28],
+      percent: 50, turnsSoFar: 12, estimatedTotalTurns: 24, sampleCount: 3, samples: [20, 24, 28], sameSizeOnly: false,
     })
   })
 
@@ -59,6 +59,35 @@ describe('estimateProgress', () => {
       f1: table('f1', 'thecrew', 1000, 20),
     }
     expect(estimateProgress(tables, 'active')?.percent).toBe(100)
+  })
+
+  it('prefers samples with the same player count', () => {
+    const tables = {
+      active: table('active', 'thecrew', null, 10, { playerCount: 4 }),
+      twoP: table('twoP', 'thecrew', 1000, 40, { playerCount: 2 }),
+      fourP1: table('fourP1', 'thecrew', 1000, 16, { playerCount: 4 }),
+      fourP2: table('fourP2', 'thecrew', 1000, 20, { playerCount: 4 }),
+    }
+    const result = estimateProgress(tables, 'active')
+    expect(result).toMatchObject({ sampleCount: 2, samples: [16, 20], sameSizeOnly: true })
+  })
+
+  it('falls back to all samples of the type when none match the player count', () => {
+    const tables = {
+      active: table('active', 'thecrew', null, 10, { playerCount: 3 }),
+      twoP: table('twoP', 'thecrew', 1000, 40, { playerCount: 2 }),
+    }
+    const result = estimateProgress(tables, 'active')
+    expect(result).toMatchObject({ sampleCount: 1, samples: [40], sameSizeOnly: false })
+  })
+
+  it('does not filter by player count when the active table has none tracked', () => {
+    const tables = {
+      active: table('active', 'thecrew', null, 10),
+      twoP: table('twoP', 'thecrew', 1000, 40, { playerCount: 2 }),
+    }
+    const result = estimateProgress(tables, 'active')
+    expect(result).toMatchObject({ sampleCount: 1, sameSizeOnly: false })
   })
 })
 
