@@ -42,9 +42,14 @@ async function fetchPackets(session: BgaSession, t: PaceTable): Promise<BgaPacke
   if (t.end === null) {
     if (!t.server) throw new Error('no gameserver for active table')
     // `from` is a packet id; BGA returns a ~200-packet overlap before it, which
-    // extractTurns drops by packet id
+    // extractTurns/countTurns drop by packet id. Resumes from whichever of the
+    // two trackers is further behind: totalTurnState starts fresh (lastPacketId
+    // 0) on a table the "my turns" tracker already has a head start on, so this
+    // re-reads from further back rather than silently skipping everything that
+    // happened before whole-game turn counting existed.
+    const from = Math.min(t.state.lastPacketId, t.totalTurnState?.lastPacketId ?? 0) + 1
     const data = await getJson(
-      `${BASE}/${t.server}/${t.game}/${t.game}/notificationHistory.html?table=${t.id}&from=${t.state.lastPacketId + 1}&privateinc=1&history=1`,
+      `${BASE}/${t.server}/${t.game}/${t.game}/notificationHistory.html?table=${t.id}&from=${from}&privateinc=1&history=1`,
       session,
     )
     return data?.data ?? []
@@ -107,6 +112,10 @@ export async function syncBga(username: string, password: string, budgetMs: numb
         id, game: r.game_name, server: existing?.server, start, end,
         history: !realtime && logMayExist ? 'pending' : 'done',
         state: existing?.state ?? INITIAL_TURN_STATE,
+        // An active table's turn count so far — carried over, not reset, so a
+        // game that finishes outside the archive grace window still keeps
+        // whatever was already counted while it ran, instead of losing it
+        totalTurnState: existing?.totalTurnState,
         realtime,
       })
     }
