@@ -1,4 +1,7 @@
 import { fetchRally } from '@/lib/connectors/rally'
+import WebSocket from 'ws'
+
+export const runtime = 'nodejs'
 
 const BASE = 'https://rally-the-troops.com'
 const HEADERS = {
@@ -24,12 +27,31 @@ async function solveAltcha(ch: AltchaChallenge): Promise<string> {
   throw new Error('unsolvable')
 }
 
+function fetchState(wsUrl: string, cookie: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(wsUrl, { headers: { Cookie: cookie, 'User-Agent': HEADERS['User-Agent'] } })
+    const timer = setTimeout(() => { ws.close(); reject(new Error('timeout waiting for state message')) }, 8000)
+    ws.on('message', (data: Buffer) => {
+      try {
+        const [cmd, arg] = JSON.parse(data.toString())
+        if (cmd === 'state') {
+          clearTimeout(timer)
+          ws.close()
+          resolve(arg)
+        }
+      } catch (e) { /* ignore parse errors on other messages */ }
+    })
+    ws.on('error', e => { clearTimeout(timer); reject(e) })
+  })
+}
+
 export async function GET() {
   const username = process.env.RALLY_USERNAME ?? ''
   const password = process.env.RALLY_PASSWORD ?? ''
 
   const games = await fetchRally(username, password)
-  if (games.length === 0) return Response.json({ error: 'no active rally games found' })
+  const mariaGame = games.find(g => g.gameName === 'Maria')
+  if (!mariaGame) return Response.json({ error: 'Maria game not found this time', games: games.map(g => g.gameName) })
 
   const chRes = await fetch(`${BASE}/altcha-challenge`)
   const challenge: AltchaChallenge = await chRes.json()
@@ -42,15 +64,16 @@ export async function GET() {
   })
   const cookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
 
-  const mariaGame = games.find(g => g.gameName === 'Maria')
-  if (!mariaGame) return Response.json({ error: 'Maria game not found this time' })
-  const authHeaders = { ...HEADERS, Cookie: cookie }
+  const url = new URL(mariaGame.gameUrl)
+  const titleId = url.pathname.split('/').filter(Boolean)[0]
+  const gameId = url.searchParams.get('game')
+  const role = url.searchParams.get('role')
+  const wsUrl = `wss://rally-the-troops.com/play-socket?title=${titleId}&game=${gameId}&role=${encodeURIComponent(role ?? '')}&seen=0&hash=2166136261`
 
-  const clientJsRes = await fetch(`${BASE}/common/client.js`, { headers: authHeaders })
-  const clientJs = await clientJsRes.text()
-  // Grab a wide window around the WebSocket constructor and its handlers
-  const fnvIdx = clientJs.indexOf('function fnv1a_log')
-  const fnvContext = fnvIdx === -1 ? 'not found in client.js' : clientJs.slice(fnvIdx, fnvIdx + 600)
-
-  return Response.json({ marker: 'fnv-check', fnvContext })
+  try {
+    const view = await fetchState(wsUrl, cookie)
+    return Response.json({ wsUrl, view })
+  } catch (e) {
+    return Response.json({ wsUrl, error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+  }
 }
