@@ -4,7 +4,7 @@ const API_BASE = 'https://hansa-teutonica-digital.onrender.com'
 
 export async function GET() {
   const url = new URL(`${API_BASE}/games`)
-  url.searchParams.set('limit', '5')
+  url.searchParams.set('limit', '50')
   url.searchParams.set('mode', 'all')
   url.searchParams.set('status', 'finished')
   const res = await fetch(url.toString())
