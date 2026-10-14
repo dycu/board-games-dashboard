@@ -82,6 +82,30 @@ describe('attachRallyProgress', () => {
     expect(g.progress).toBeUndefined()
     expect(mockHgetall).not.toHaveBeenCalled()
   })
+
+  it('attaches a progressError when the last read failed and there is no estimate', async () => {
+    mockHgetall.mockResolvedValue({ '1': game('1', 'maria', null, null, { lastError: 'timed out waiting for the game state' }) })
+    const [g] = await attachRallyProgress([rallyGame('rally:1')])
+    expect(g.progress).toBeUndefined()
+    expect(g.progressError).toBe('timed out waiting for the game state')
+  })
+
+  it('does not attach a progressError when there is simply no sample yet (no failure)', async () => {
+    mockHgetall.mockResolvedValue({ '1': game('1', 'maria', null, 6) })
+    const [g] = await attachRallyProgress([rallyGame('rally:1')])
+    expect(g.progress).toBeUndefined()
+    expect(g.progressError).toBeUndefined()
+  })
+
+  it('prefers a real estimate over a stale lastError from an earlier failed attempt', async () => {
+    mockHgetall.mockResolvedValue({
+      '1': game('1', 'maria', null, 6, { lastError: 'stale error from a previous sync' }),
+      f1: game('f1', 'maria', 1000, 12),
+    })
+    const [g] = await attachRallyProgress([rallyGame('rally:1')])
+    expect(g.progress).toMatchObject({ percent: 50 })
+    expect(g.progressError).toBeUndefined()
+  })
 })
 
 describe('attachRallyTurns', () => {

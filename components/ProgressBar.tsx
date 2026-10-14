@@ -46,10 +46,26 @@ export function progressLabel(progress: NonNullable<Game['progress']>): string {
   return `Turn ${turnsSoFar} of an estimated ${estimatedTotalTurns} (median of ${basis} of this type${qualifier})`
 }
 
+// Muted — this isn't an alert, just a quiet way to tell "no estimate yet"
+// (nothing shown, the normal case while samples build up) apart from "the
+// last attempt to read this game's state actually failed" for whoever goes
+// looking for why a bar isn't there.
+function ProgressErrorHint({ error, compact }: { error: string; compact?: boolean }) {
+  return (
+    <HoldTooltip label={`Couldn't read this game's turn count: ${error}`}>
+      <span
+        aria-label={`Couldn't read this game's turn count: ${error}`}
+        className={`text-[#c5c5c5] ${compact ? 'text-[10px]' : 'text-xs'}`}>
+        ⚠
+      </span>
+    </HoldTooltip>
+  )
+}
+
 // Full-width bar for cards. `compact` renders a slim inline version for rows.
 export default function ProgressBar({ game, compact }: { game: Game; compact?: boolean }) {
   const progress = game.progress
-  if (!progress) return null
+  if (!progress) return game.progressError ? <ProgressErrorHint error={game.progressError} compact={compact} /> : null
   const label = progressLabel(progress)
 
   if (compact) {

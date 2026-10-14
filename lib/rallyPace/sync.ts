@@ -13,10 +13,12 @@ function titleFromGameUrl(gameUrl: string): string {
   return new URL(gameUrl).pathname.split('/').filter(Boolean)[0]
 }
 
+type FetchResult = { turn: number } | { error: string }
+
 // Connects to the game's own live-state socket just long enough to read the
 // first "state" message, which carries the whole game's current view — same
 // data the game's own UI renders from, including its own turn counter.
-function fetchTurn(gameUrl: string, cookie: string): Promise<number | null> {
+function fetchTurn(gameUrl: string, cookie: string): Promise<FetchResult> {
   return new Promise(resolve => {
     const url = new URL(gameUrl)
     const title = titleFromGameUrl(gameUrl)
@@ -26,24 +28,28 @@ function fetchTurn(gameUrl: string, cookie: string): Promise<number | null> {
 
     let settled = false
     const ws = new WebSocket(wsUrl, { headers: { Cookie: cookie, 'User-Agent': HEADERS['User-Agent'] } })
-    const finish = (turn: number | null) => {
+    const finish = (result: FetchResult) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
       ws.close()
-      resolve(turn)
+      resolve(result)
     }
-    const timer = setTimeout(() => finish(null), CONNECT_TIMEOUT_MS)
+    const timer = setTimeout(() => finish({ error: 'timed out waiting for the game state' }), CONNECT_TIMEOUT_MS)
 
     ws.on('message', (data: Buffer) => {
       try {
         const [cmd, arg] = JSON.parse(data.toString())
-        if (cmd === 'state') finish(typeof arg?.turn === 'number' ? arg.turn : null)
+        if (cmd === 'state') {
+          finish(typeof arg?.turn === 'number' ? { turn: arg.turn } : { error: 'state message had no numeric turn' })
+        } else if (cmd === 'error') {
+          finish({ error: `server said: ${arg}` })
+        }
       } catch {
-        // ignore unparseable frames
+        // ignore unparseable frames — keep waiting for a real one
       }
     })
-    ws.on('error', () => finish(null))
+    ws.on('error', e => finish({ error: e.message }))
   })
 }
 
@@ -60,10 +66,22 @@ export async function syncRally(username: string, password: string, budgetMs: nu
     while (next < games.length && Date.now() < deadline - CONNECT_TIMEOUT_MS) {
       const g = games[next++]
       const id = g.id.slice('rally:'.length)
-      const turn = await fetchTurn(g.gameUrl, cookie)
-      if (turn !== null) {
+      const existing = stored[id]
+      const result = await fetchTurn(g.gameUrl, cookie)
+      const now = Math.floor(Date.now() / 1000)
+      if ('turn' in result) {
         read++
-        updates.push({ id, game: titleFromGameUrl(g.gameUrl), end: null, turn, playerCount: g.players.length + 1 })
+        updates.push({
+          id, game: titleFromGameUrl(g.gameUrl), end: null, turn: result.turn,
+          playerCount: g.players.length + 1, lastCheckedAt: now,
+        })
+      } else {
+        // Keep whatever turn count we already had — a transient failure
+        // shouldn't erase a previously-good reading, only flag the latest attempt
+        updates.push({
+          ...(existing ?? { id, game: titleFromGameUrl(g.gameUrl), end: null, turn: null }),
+          lastError: result.error, lastCheckedAt: now,
+        })
       }
     }
   }

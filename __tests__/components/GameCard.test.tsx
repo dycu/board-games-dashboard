@@ -157,6 +157,26 @@ describe('progress bar', () => {
     render(<GameRow {...props({ game: { ...withProgress, myTurn: false } })} />)
     expect(screen.getByText('42%')).toBeInTheDocument()
   })
+
+  it('shows a quiet warning instead of a bar when the last read failed', () => {
+    const errored = { ...game, progressError: 'timed out waiting for the game state' }
+    render(<GameCard {...props({ game: errored })} />)
+    expect(screen.getByText('⚠')).toBeInTheDocument()
+    expect(screen.queryByText(/%/)).toBeNull()
+  })
+
+  it('reveals the failure reason on hover', async () => {
+    const errored = { ...game, progressError: 'timed out waiting for the game state' }
+    render(<GameCard {...props({ game: errored })} />)
+    await userEvent.hover(screen.getByText('⚠'))
+    expect(screen.getByRole('tooltip')).toHaveTextContent('timed out waiting for the game state')
+  })
+
+  it('shows nothing at all when there is neither an estimate nor an error (the common case)', () => {
+    render(<GameCard {...props()} />)
+    expect(screen.queryByText('⚠')).toBeNull()
+    expect(screen.queryByText(/%/)).toBeNull()
+  })
 })
 
 describe('history link', () => {

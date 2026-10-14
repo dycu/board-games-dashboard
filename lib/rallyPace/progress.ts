@@ -45,8 +45,13 @@ export async function attachRallyProgress(games: Game[]): Promise<Game[]> {
   const stored = await getRallyGames().catch((): Record<string, RallyPaceGame> => ({}))
   return games.map(g => {
     if (g.platform !== 'rally') return g
-    const progress = estimateRallyProgress(stored, g.id.slice('rally:'.length))
-    return progress ? { ...g, progress } : g
+    const id = g.id.slice('rally:'.length)
+    const progress = estimateRallyProgress(stored, id)
+    if (progress) return { ...g, progress }
+    // No estimate — tell "no data yet" (nothing to show) apart from "the
+    // last attempt to read this game's state actually failed" (worth flagging)
+    const lastError = stored[id]?.lastError
+    return lastError ? { ...g, progressError: lastError } : g
   })
 }
 

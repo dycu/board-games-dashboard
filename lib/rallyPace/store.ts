@@ -8,6 +8,12 @@ export interface RallyPaceGame {
   end: number | null     // Unix seconds; null while still active
   turn: number | null    // last known turn number from the game's own live state
   playerCount?: number
+  // Set when the last attempt to read this game's live state failed (timeout,
+  // WS error, no numeric turn in the response); cleared on the next success.
+  // Lets the UI tell "no data yet" apart from "the mechanism is broken" for
+  // this game, without erroring loudly on the dashboard itself.
+  lastError?: string
+  lastCheckedAt?: number // Unix seconds, whenever lastError was last set or cleared
 }
 
 export async function getRallyGames(): Promise<Record<string, RallyPaceGame>> {

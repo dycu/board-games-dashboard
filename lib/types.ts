@@ -34,6 +34,10 @@ export interface Game {
     samples: number[]
     sameSizeOnly: boolean
   }
+  // Set instead of `progress` when the last attempt to read this specific
+  // game's live state failed — distinguishes "no estimate yet" (nothing
+  // shown, normal while samples build up) from "something's actually wrong"
+  progressError?: string
 }
 
 export interface UserPrefs {
