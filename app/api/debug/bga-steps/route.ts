@@ -73,7 +73,11 @@ export async function GET() {
     const loginPageHtml = await loginPageRes.text()
     const requestToken = extractRequestToken(loginPageHtml)
     if (!requestToken) {
-      return Response.json({ timings, error: 'no request token', htmlLength: loginPageHtml.length, status: loginPageRes.status })
+      const tokenMentions = [...loginPageHtml.matchAll(/.{0,40}[Tt]oken.{0,80}/g)].slice(0, 10).map(m => m[0])
+      return Response.json({
+        timings, error: 'no request token', htmlLength: loginPageHtml.length, status: loginPageRes.status,
+        cookies, loginBase, tokenMentions,
+      })
     }
 
     const t3 = Date.now()
