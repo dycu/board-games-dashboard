@@ -26,6 +26,9 @@ function cookieString(cookies: Record<string, string>): string {
 function extractRequestToken(html: string): string {
   const m = html.match(/g_requestToken\s*[=:]\s*['"]([a-f0-9]{32,64})['"]/i)
            ?? html.match(/['"]request_token['"]\s*[=:]\s*['"]([a-f0-9]{32,64})['"]/i)
+           ?? html.match(/name=['"]request_token['"][^>]*value=['"]([a-f0-9]{32,64})['"]/i)
+           ?? html.match(/\brequestToken['"\s:=,]+([a-f0-9]{64})\b/i)
+           ?? html.match(/\brequest_token['"\s:=,]+([a-f0-9]{64})\b/i)
   return m ? m[m.length - 1] : ''
 }
 
