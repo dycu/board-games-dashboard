@@ -7,9 +7,11 @@ export const maxDuration = 60
 // Not in vercel.json: Hobby-plan crons run at most once a day, too slow for
 // "notify me the instant it's my turn" — this is pinged every ~15 min by an
 // external scheduler (e.g. cron-job.org) hitting this URL with
-// `Authorization: Bearer $CRON_SECRET`, same auth as the other crons.
+// `Authorization: Bearer $WATCH_CRON_SECRET`. A secret of its own, not
+// CRON_SECRET: Vercel's existing one was created as write-only, so its
+// value can't be read back to hand to the external scheduler.
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET
+  const secret = process.env.WATCH_CRON_SECRET
   if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
     return new Response('Unauthorized', { status: 401 })
   }
