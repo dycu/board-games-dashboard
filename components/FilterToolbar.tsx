@@ -39,6 +39,7 @@ export default function FilterToolbar({ prefs, onChange }: Props) {
           <option value="most-recent">Latest move</option>
           <option value="platform">Platform</option>
           <option value="game-name">Name</option>
+          <option value="closest-to-end">Closest to the end</option>
         </select>
       </label>
     </div>

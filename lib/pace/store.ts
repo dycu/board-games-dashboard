@@ -1,5 +1,5 @@
 import { kv } from '@vercel/kv'
-import { Turn, TurnState } from './bgaTurns'
+import { Turn, TurnState, TotalTurnState } from './bgaTurns'
 
 const PREFIX = 'pace:v1:'
 const TABLES_KEY = `${PREFIX}bga:tables`
@@ -15,6 +15,9 @@ export interface PaceTable {
   history: 'pending' | 'synced' | 'done' | 'failed'
   // 'synced' = active table, incrementally up to date; 'done' = finished and fully read
   state: TurnState
+  // Whole-game turn count (any player), for the "how far along is this game"
+  // estimate — undefined for tables synced before this was tracked
+  totalTurnState?: TotalTurnState
   failures?: number
   realtime?: boolean    // finished within a few hours — a live game, not part of the async load
 }

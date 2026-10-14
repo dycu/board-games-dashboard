@@ -1,6 +1,7 @@
 import { fetchBgaGameHistory } from '@/lib/connectors/bga'
 import { bgaAuthOptions } from '@/lib/connectors'
 import { getPrefs } from '@/lib/prefs'
+import { attachTurns } from '@/lib/pace/progress'
 
 export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
   try {
     const prefs = await getPrefs()
     const games = await fetchBgaGameHistory(process.env.BGA_USERNAME ?? '', process.env.BGA_PASSWORD ?? '', key, bgaAuthOptions(prefs))
-    return Response.json({ games })
+    return Response.json({ games: await attachTurns(games) })
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
   }

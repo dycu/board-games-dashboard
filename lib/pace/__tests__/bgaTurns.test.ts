@@ -1,4 +1,4 @@
-import { extractTurns, BgaPacket } from '../bgaTurns'
+import { extractTurns, countTurns, BgaPacket } from '../bgaTurns'
 
 const ME = '100'
 const OTHER = '200'
@@ -68,5 +68,34 @@ describe('extractTurns', () => {
   it('sorts packets by packet id', () => {
     const { turns } = extractTurns([active('3', 500, OTHER), active('2', 200, ME)], ME)
     expect(turns).toEqual([[200, 500]])
+  })
+})
+
+describe('countTurns', () => {
+  it('counts every single-active-player turn, mine or not', () => {
+    const { count } = countTurns([active('1', 100, ME), active('2', 200, OTHER), active('3', 300, ME)])
+    expect(count).toBe(3)
+  })
+
+  it('does not double-count consecutive packets naming the same active player', () => {
+    const { count } = countTurns([active('1', 100, ME), auto('2', 150, ME), active('3', 160, ME)])
+    expect(count).toBe(1)
+  })
+
+  it('does not count simultaneous/multi-active phases', () => {
+    const { count } = countTurns([multi('1', 100, [ME, OTHER]), active('2', 400, OTHER)])
+    expect(count).toBe(1)
+  })
+
+  it('resumes incrementally from a saved state without re-counting old packets', () => {
+    const first = countTurns([active('1', 100, ME), active('2', 200, OTHER)])
+    expect(first.count).toBe(2)
+    const second = countTurns([active('1', 100, ME), active('2', 200, OTHER), active('3', 300, ME)], first)
+    expect(second.count).toBe(3)
+  })
+
+  it('sorts packets by packet id before counting', () => {
+    const { count } = countTurns([active('3', 500, ME), active('2', 200, OTHER), active('1', 100, ME)])
+    expect(count).toBe(3)
   })
 })

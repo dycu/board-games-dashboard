@@ -205,6 +205,7 @@ function GameHistory() {
                     <th className="font-medium px-3 py-2">Opponents</th>
                     <th className="font-medium px-3 py-2 text-right">ELO</th>
                     <th className="font-medium px-3 py-2 text-right">Length</th>
+                    <th className="font-medium px-3 py-2 text-right">Turns</th>
                     <th className="px-3 py-2" />
                   </tr>
                 </thead>
@@ -226,6 +227,7 @@ function GameHistory() {
                           {g.elo !== undefined ? <>{g.elo}{g.eloDelta ? <span className={g.eloDelta > 0 ? ' text-green-700' : ' text-red-600'}> ({signed(g.eloDelta)})</span> : null}</> : '—'}
                         </td>
                         <td className="px-3 py-1.5 text-right whitespace-nowrap text-[#6b6b6b]">{len !== null && len >= 0 ? days(len) : '—'}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums text-[#6b6b6b]">{g.turns ?? '—'}</td>
                         <td className="px-3 py-1.5 text-right">
                           <a href={g.gameUrl} target={platform === 'bga' ? '_self' : '_blank'} rel="noopener noreferrer" className="text-xs text-[#5e6ad2] hover:underline whitespace-nowrap">View →</a>
                         </td>

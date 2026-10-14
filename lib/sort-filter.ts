@@ -68,6 +68,12 @@ export function sortAndFilter(games: Game[], prefs: UserPrefs, now = Date.now())
     if (sort === 'platform') {
       return a.platform.localeCompare(b.platform)
     }
+    if (sort === 'closest-to-end') {
+      // No estimate at all sorts last, below every game that has one
+      const aPct = a.progress?.percent ?? -1
+      const bPct = b.progress?.percent ?? -1
+      return bPct - aPct
+    }
     // longest-wait: oldest move first
     return a.lastMoveAt.getTime() - b.lastMoveAt.getTime()
   })

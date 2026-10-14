@@ -183,6 +183,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     onSaveNote: saveNote,
     now,
     opened: isOpened(g),
+    showProgress: prefs.showProgress ?? true,
   })
 
   // Your-turn count in the browser tab, readable without switching to it

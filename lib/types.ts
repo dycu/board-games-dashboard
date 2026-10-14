@@ -23,12 +23,22 @@ export interface Game {
   players: string[]       // other players; empty array if unavailable
   deadlineAt?: string     // ISO; when the active player's time runs out (BGA)
   gameKey?: string        // the site's id for the game itself (BGA game_id), for its full history
+  // How far along this game looks, estimated from turns played so far vs. the
+  // median of your finished games of the same type (BGA only — see lib/pace).
+  // Omitted when there isn't enough data (no history to compare against yet).
+  progress?: {
+    percent: number
+    turnsSoFar: number
+    estimatedTotalTurns: number
+    sampleCount: number
+    samples: number[]
+  }
 }
 
 export interface UserPrefs {
   pins: string[]
   sunk: string[]          // always sorted to the end of their section (e.g. solo games you don't want cluttering the top)
-  sort: 'longest-wait' | 'most-recent' | 'platform' | 'game-name'
+  sort: 'longest-wait' | 'most-recent' | 'platform' | 'game-name' | 'closest-to-end'
   filter: {
     turnStatus: 'all' | 'my-turn' | 'waiting'
     platforms: Platform[]  // empty = show all
@@ -49,6 +59,7 @@ export interface UserPrefs {
   bgaPlayerId?: string
   watchedGames: string[] // get an instant ntfy push the moment one of these flips to myTurn, rather than waiting for the twice-daily digest
   ntfyTopic?: string      // your ntfy.sh topic — install the ntfy app and subscribe to this same topic to receive the push
+  showProgress?: boolean  // show the "% through the game" bar (beta — undefined/missing defaults to on; off reverts to the old cards)
 }
 
 export const DEFAULT_BACKLOG_PLATFORMS: Platform[] = ['bga', 'yucata']
@@ -88,6 +99,7 @@ export interface FinishedGame {
   score?: string       // my final score (BGA)
   startedAt?: string   // ISO (BGA)
   gameKey?: string     // the site's id for the game itself (BGA game_id), for its full history
+  turns?: number       // the whole game's turn count, when tracked (BGA only — see lib/pace)
 }
 
 export interface FinishedGamesApiResponse {

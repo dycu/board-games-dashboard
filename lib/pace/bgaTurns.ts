@@ -32,6 +32,40 @@ export interface TurnState {
 
 export const INITIAL_TURN_STATE: TurnState = { lastPacketId: 0, active: [], openStart: null, lastTime: 0 }
 
+// Counts every turn of the whole game (any player), not just mine — for
+// estimating how far a game has gotten. One count per distinct single active
+// player announced; simultaneous/automatic states don't add one, so this
+// tracks the same thing a human following the game would call "turn number".
+export interface TotalTurnState {
+  lastPacketId: number
+  lastActivePlayer: string | null
+  count: number
+}
+
+export const INITIAL_TOTAL_TURN_STATE: TotalTurnState = { lastPacketId: 0, lastActivePlayer: null, count: 0 }
+
+export function countTurns(packets: BgaPacket[], state: TotalTurnState = INITIAL_TOTAL_TURN_STATE): TotalTurnState {
+  let { lastPacketId, lastActivePlayer, count } = state
+
+  const sorted = packets
+    .map(p => ({ ...p, id: Number(p.packet_id) }))
+    .filter(p => p.id > lastPacketId)
+    .sort((a, b) => a.id - b.id)
+
+  for (const p of sorted) {
+    for (const n of p.data ?? []) {
+      if (n.type === 'gameStateChange' && n.args?.type === 'activeplayer') {
+        const next = String(n.args.active_player)
+        if (next !== lastActivePlayer) count++
+        lastActivePlayer = next
+      }
+    }
+    lastPacketId = p.id
+  }
+
+  return { lastPacketId, lastActivePlayer, count }
+}
+
 export function extractTurns(
   packets: BgaPacket[],
   myId: string,

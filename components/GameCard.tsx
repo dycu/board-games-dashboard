@@ -5,6 +5,7 @@ import { BADGE_COLORS } from '@/lib/platform-colors'
 import { formatTimeRemaining } from '@/lib/connectors/utils'
 import { deadlineSoon } from '@/lib/sort-filter'
 import HistoryLink from './HistoryLink'
+import ProgressBar from './ProgressBar'
 
 export interface GameItemProps {
   game: Game
@@ -21,6 +22,7 @@ export interface GameItemProps {
   onSaveNote?: (id: string, text: string) => void
   now: number
   opened?: boolean // opened since the last refresh that saw me back: dimmed until then
+  showProgress: boolean // the "% through the game" bar — a settings toggle, default on
 }
 
 const BADGE_FALLBACK = 'bg-[#f3f3f3] text-[#6b6b6b]'
@@ -173,7 +175,7 @@ function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string,
 }
 
 // A game waiting for my move: a full card
-export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, now, opened }: GameItemProps) {
+export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, now, opened, showProgress }: GameItemProps) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
@@ -207,6 +209,8 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
 
       <NoteEditor game={game} note={note} onSaveNote={onSaveNote} />
 
+      {showProgress && <ProgressBar game={game} />}
+
       <span className={`text-xs ${(game.urgent || slow) && soon === null ? 'text-amber-500 font-medium' : 'text-[#9b9b9b]'}`}>
         {game.lastMoveAgo}
       </span>
@@ -215,7 +219,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
 }
 
 // A game waiting for someone else: one compact row
-export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, note, onSaveNote, now, opened }: GameItemProps) {
+export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, note, onSaveNote, now, opened, showProgress }: GameItemProps) {
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   return (
     <div className={`relative flex items-center gap-2 px-3 py-2 rounded-md border bg-white hover:border-[#c5c9f0] transition-colors
@@ -231,6 +235,7 @@ export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched
       <span className={`shrink-0 text-xs ${slow ? 'text-amber-600 font-medium' : 'text-[#9b9b9b]'}`}>
         {slow ? '⏱ ' : ''}{game.lastMoveAgo}
       </span>
+      {showProgress && <ProgressBar game={game} compact />}
       <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact />
       <HistoryLink game={game} />
       <WatchButton game={game} watched={watched} onToggleWatch={onToggleWatch} />

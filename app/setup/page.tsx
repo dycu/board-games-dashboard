@@ -41,6 +41,7 @@ export default function SetupPage() {
   const [okcSaving, setOkcSaving] = useState(false)
   const [okcStatus, setOkcStatus] = useState<Record<string, OkcConfiguredStatus>>({})
   const [okcStatusLoading, setOkcStatusLoading] = useState(false)
+  const [showProgress, setShowProgress] = useState(true)
 
   const loadOkcStatus = async () => {
     setOkcStatusLoading(true)
@@ -65,6 +66,7 @@ export default function SetupPage() {
       setBgaCookieSaved(!!prefs.bgaSessionCookie && !!prefs.bgaPlayerId)
       setSavedBgaPlayerId(prefs.bgaPlayerId ?? '')
       setSavedNtfyTopic(prefs.ntfyTopic ?? '')
+      setShowProgress(prefs.showProgress ?? true)
       const ids = prefs.oldkingscrownGameIds ?? []
       setOkcGameIds(ids)
       if (ids.length > 0) loadOkcStatus()
@@ -118,6 +120,16 @@ export default function SetupPage() {
     setSavedNtfyTopic(topic)
     setNtfyTopicInput('')
     setNtfyTopicSaving(false)
+  }
+
+  const toggleShowProgress = async () => {
+    const next = !showProgress
+    setShowProgress(next)
+    await fetch('/api/prefs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ showProgress: next }),
+    })
   }
 
   const togglePlatform = async (platform: Platform) => {
@@ -260,6 +272,25 @@ export default function SetupPage() {
               </button>
             )}
           </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
+          <div className="flex items-center justify-between gap-3 mb-1">
+            <h2 className="text-sm font-semibold text-[#1a1a1a]">Progress bars (beta)</h2>
+            <button
+              onClick={toggleShowProgress}
+              title={showProgress ? 'Turn off' : 'Turn on'}
+              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${showProgress ? 'bg-[#5e6ad2]' : 'bg-[#e5e5e5]'}`}>
+              <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${showProgress ? 'translate-x-5' : 'translate-x-1'}`} />
+            </button>
+          </div>
+          <p className="text-xs text-[#9b9b9b]">
+            Shows how far each BGA game has gotten, estimated from turns played so far vs. your
+            finished games of that type. New and still experimental — this toggle switches it off
+            again, back to the plain cards, if it doesn&apos;t work well for you. Only appears once
+            you have at least one finished game of that type with turns tracked, and only for BGA
+            for now.
+          </p>
         </div>
 
         <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">

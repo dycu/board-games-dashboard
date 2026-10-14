@@ -4,6 +4,7 @@ import { getPrefs } from '@/lib/prefs'
 import { recordLoadSample, LoadSample } from '@/lib/pace/loadSamples'
 import { checkGames } from '@/lib/connectors/validate'
 import { withTimeout } from '@/lib/connectors/utils'
+import { attachProgress } from '@/lib/pace/progress'
 
 export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
@@ -83,6 +84,7 @@ export async function GET(request?: Request) {
             } else {
               games = await withTimeout(fetcher(), timeoutFor(platform), platform)
             }
+            if (platform === 'bga') games = await attachProgress(games)
             checkGames(platform, games)
             counts[platform] = games.length
             send({ type: 'platform', platform, games, error: null })

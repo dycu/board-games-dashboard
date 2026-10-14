@@ -19,7 +19,7 @@ const game: Game = {
 }
 
 const props = (over: Partial<GameItemProps> = {}): GameItemProps =>
-  ({ game, pinned: false, onTogglePin: () => {}, sunk: false, onToggleSink: () => {}, watched: false, onToggleWatch: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, ...over })
+  ({ game, pinned: false, onTogglePin: () => {}, sunk: false, onToggleSink: () => {}, watched: false, onToggleWatch: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, showProgress: true, ...over })
 
 describe('GameCard', () => {
   it('shows game name, platform badge and time', () => {
@@ -125,6 +125,37 @@ describe('note deletion', () => {
     render(<GameCard {...props({ note: 'build mines', onSaveNote })} />)
     await userEvent.click(screen.getByRole('button', { name: /delete the note/i }))
     expect(onSaveNote).toHaveBeenCalledWith('bga:1', '')
+  })
+})
+
+describe('progress bar', () => {
+  const withProgress = { ...game, progress: { percent: 42, turnsSoFar: 21, estimatedTotalTurns: 50, sampleCount: 3, samples: [45, 50, 55] } }
+
+  it('shows the percent when progress data is available', () => {
+    render(<GameCard {...props({ game: withProgress })} />)
+    expect(screen.getByText('42%')).toBeInTheDocument()
+  })
+
+  it('does not render anything when there is no progress estimate', () => {
+    render(<GameCard {...props()} />)
+    expect(screen.queryByText(/%/)).toBeNull()
+  })
+
+  it('stays hidden when the setting is switched off, even with data available', () => {
+    render(<GameCard {...props({ game: withProgress, showProgress: false })} />)
+    expect(screen.queryByText('42%')).toBeNull()
+  })
+
+  it('reveals the breakdown on hover', async () => {
+    render(<GameCard {...props({ game: withProgress })} />)
+    const bar = screen.getByLabelText(/turn 21 of an estimated 50/i)
+    await userEvent.hover(bar)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('3 finished games')
+  })
+
+  it('renders the compact form on a row', () => {
+    render(<GameRow {...props({ game: { ...withProgress, myTurn: false } })} />)
+    expect(screen.getByText('42%')).toBeInTheDocument()
   })
 })
 

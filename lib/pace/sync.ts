@@ -1,5 +1,5 @@
 import { withBgaSession, fetchBgaTables, bgaApiHeaders, BgaSession } from '../connectors/bga'
-import { extractTurns, INITIAL_TURN_STATE, BgaPacket } from './bgaTurns'
+import { extractTurns, countTurns, INITIAL_TURN_STATE, BgaPacket } from './bgaTurns'
 import { getMeta, setMeta, getTables, putTables, appendTurns, PaceTable } from './store'
 
 const BASE = 'https://boardgamearena.com'
@@ -140,6 +140,7 @@ export async function syncBga(username: string, password: string, budgetMs: numb
       try {
         const packets = await fetchPackets(session, t)
         const { turns, state } = extractTurns(packets, session.myId, t.state)
+        const totalTurnState = countTurns(packets, t.totalTurnState)
         // A finished game can't still be waiting on me; if the log didn't close
         // my last turn, it ended when the game did
         if (t.end !== null && state.openStart !== null) {
@@ -147,7 +148,7 @@ export async function syncBga(username: string, password: string, budgetMs: numb
           state.openStart = null
         }
         await appendTurns(t.id, turns)
-        upsert({ ...t, state, history: t.end === null ? 'synced' : 'done', failures: 0 })
+        upsert({ ...t, state, totalTurnState, history: t.end === null ? 'synced' : 'done', failures: 0 })
       } catch {
         if (t.end !== null) {
           // Archived already: keep what was read while it ran and close my
