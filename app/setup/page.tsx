@@ -288,8 +288,8 @@ export default function SetupPage() {
             Shows how far each game has gotten, estimated from turns played so far vs. your
             finished games of that type. New and still experimental — this toggle switches it off
             again, back to the plain cards, if it doesn&apos;t work well for you. Only appears once
-            you have at least one finished game of that type with turns tracked, and only for BGA
-            and Rally the Troops for now.
+            you have at least one finished game of that type with turns tracked, and only for BGA,
+            Rally the Troops and 18xx.games for now.
           </p>
         </div>
 

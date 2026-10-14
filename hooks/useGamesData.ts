@@ -7,6 +7,7 @@ const PENDING_DEPARTURES_KEY = 'pending-departures'
 const PACE_SYNC_AT_KEY = 'pace-sync-at'
 const PACE_SYNC_EVERY_MS = 30 * 60 * 1000
 const RALLY_PACE_SYNC_AT_KEY = 'rallypace-sync-at'
+const EIGHTEENXX_PACE_SYNC_AT_KEY = 'eighteenxxpace-sync-at'
 
 // BGA deletes a finished game's move log within hours, so the Pace logger has
 // to read running games often enough to catch each one's last turns. Piggyback
@@ -32,6 +33,18 @@ function maybeSyncRallyPace(): void {
     return
   }
   fetch('/api/rallypace/sync', { method: 'POST' }).catch(() => {})
+}
+
+// Same idea again, for 18xx's finished-game turn samples (lib/eighteenxxPace)
+function maybeSyncEighteenxxPace(): void {
+  try {
+    const last = Number(localStorage.getItem(EIGHTEENXX_PACE_SYNC_AT_KEY) ?? 0)
+    if (Date.now() - last < PACE_SYNC_EVERY_MS) return
+    localStorage.setItem(EIGHTEENXX_PACE_SYNC_AT_KEY, String(Date.now()))
+  } catch {
+    return
+  }
+  fetch('/api/eighteenxxpace/sync', { method: 'POST' }).catch(() => {})
 }
 
 export interface DepartedGame {
@@ -251,6 +264,7 @@ export function useGamesData(): UseGamesDataResult {
             setFreshDataVersion(v => v + 1)
             if (!allErrors.some(e => e.platform === 'bga')) maybeSyncPace()
             if (!allErrors.some(e => e.platform === 'rally')) maybeSyncRallyPace()
+            if (!allErrors.some(e => e.platform === 'eighteenxx')) maybeSyncEighteenxxPace()
           }
         }
       }

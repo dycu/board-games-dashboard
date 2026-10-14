@@ -1,6 +1,8 @@
 import { Game, FinishedGame } from '../types'
 import { formatTimeAgo } from './utils'
 import { resultFromRanks } from '../results'
+import { getEighteenxxSamples, EighteenxxSamples } from '../eighteenxxPace/store'
+import { estimateEighteenxxProgress } from '../eighteenxxPace/progress'
 
 const BASE = 'https://18xx.games'
 
@@ -21,6 +23,9 @@ function findMyId(games: any[], username: string): number | undefined {
 export async function fetchEighteenXX(username: string, password: string, sessionCookie?: string): Promise<Game[]> {
   let myId: number
   let cookie: string
+  // Already-computed median turn counts per title (lib/eighteenxxPace) — a
+  // missing/failed cache just means no progress estimate, not a fetch error
+  const samples = await getEighteenxxSamples().catch((): EighteenxxSamples => ({}))
 
   if (sessionCookie) {
     cookie = formatCookie(sessionCookie)
@@ -38,7 +43,7 @@ export async function fetchEighteenXX(username: string, password: string, sessio
 
     return games
       .filter((g: any) => g.status === 'active' && (g.players ?? []).some((p: any) => p.id === myId))
-      .map((g: any): Game => mapGame(g, myId, username))
+      .map((g: any): Game => mapGame(g, myId, username, samples))
   } else {
     const loginRes = await fetch(`${BASE}/api/user/login`, {
       method: 'POST',
@@ -60,19 +65,25 @@ export async function fetchEighteenXX(username: string, password: string, sessio
 
     return games
       .filter((g: any) => g.status === 'active' && (g.players ?? []).some((p: any) => p.id === myId))
-      .map((g: any): Game => mapGame(g, myId, username))
+      .map((g: any): Game => mapGame(g, myId, username, samples))
   }
 }
 
-// Finished games come from the public profile page (/profile/<id>): the server
-// embeds the player's last 100 games (new, active, finished, archived) in it as
-// Opal literals. /api/game/user only has the home page pool, so older finished
-// games never show up there.
-export async function fetchFinishedEighteenXX(username: string, password: string, sessionCookie?: string): Promise<FinishedGame[]> {
+// The public profile page (/profile/<id>): the server embeds the player's
+// last 100 games (new, active, finished, archived) in it as Opal literals.
+// /api/game/user only has the home page pool, so older finished games never
+// show up there. Shared by fetchFinishedEighteenXX and lib/eighteenxxPace's
+// turn-count samples, which need the same raw games the display mapper does.
+export async function fetchProfileGames(username: string, password: string, sessionCookie?: string): Promise<{ myId: number; games: any[] }> {
   const myId = await resolveMyId(username, password, sessionCookie)
   const res = await fetch(`${BASE}/profile/${myId}`, { headers: { Accept: 'text/html' } })
   if (!res.ok) throw new Error(`18xx.games profile page failed (${res.status})`)
-  return parseProfileGames(await res.text())
+  return { myId, games: parseProfileGames(await res.text()) }
+}
+
+export async function fetchFinishedEighteenXX(username: string, password: string, sessionCookie?: string): Promise<FinishedGame[]> {
+  const { myId, games } = await fetchProfileGames(username, password, sessionCookie)
+  return games
     .filter((g: any) => (g.status === 'finished' || g.status === 'archived') && (g.players ?? []).some((p: any) => p.id === myId))
     .map((g: any): FinishedGame => mapFinishedGame(g, myId))
 }
@@ -159,7 +170,7 @@ class OpalParser {
   }
 }
 
-function mapGame(g: any, myId: number, username: string): Game {
+function mapGame(g: any, myId: number, username: string, samples: EighteenxxSamples): Game {
   // updated_at may be a Unix timestamp (seconds) or an ISO string
   const rawTime = g.updated_at ?? g.created_at
   const lastMoveAt = typeof rawTime === 'number' ? new Date(rawTime * 1000) : new Date(rawTime)
@@ -171,6 +182,10 @@ function mapGame(g: any, myId: number, username: string): Game {
     ? undefined
     : (g.players ?? []).find((p: any) => acting.includes(p.id) && p.id !== myId)?.name
       ?? activePlayers.find((p: any) => p.id !== myId)?.name
+  // 18xx reports the current turn on every game it lists — no separate
+  // tracker needed, unlike BGA/Rally, just the finished-games samples to
+  // compare it against (lib/eighteenxxPace)
+  const progress = estimateEighteenxxProgress(samples, g.title, g.turn, (g.players ?? []).length)
 
   return {
     id: `eighteenxx:${g.id}`,
@@ -186,6 +201,7 @@ function mapGame(g: any, myId: number, username: string): Game {
     players: (g.players ?? [])
       .map((p: any) => p.name)
       .filter((n: string) => n !== username),
+    ...(progress && { progress }),
   }
 }
 
@@ -217,5 +233,6 @@ function mapFinishedGame(g: any, myId: number): FinishedGame {
       score: String(scores[String(myId)]),
     }),
     ...(typeof g.created_at === 'number' && { startedAt: new Date(g.created_at * 1000).toISOString() }),
+    ...(typeof g.turn === 'number' && g.turn > 0 && { turns: g.turn }),
   }
 }
