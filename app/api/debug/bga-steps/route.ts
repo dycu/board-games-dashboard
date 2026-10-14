@@ -34,7 +34,8 @@ function extractRequestToken(html: string): string {
 // the real connector has no per-step timeout, so a stuck step there just
 // blocks until Vercel's own function-level kill. Protected by the app's own
 // Basic Auth (middleware), not CRON_SECRET.
-export async function GET() {
+export async function GET(request: Request) {
+  const dumpHtml = new URL(request.url).searchParams.has('dump')
   const username = process.env.BGA_USERNAME ?? ''
   const password = process.env.BGA_PASSWORD ?? ''
   const timings: Record<string, number> = {}
@@ -77,6 +78,7 @@ export async function GET() {
       return Response.json({
         timings, error: 'no request token', htmlLength: loginPageHtml.length, status: loginPageRes.status,
         cookies, loginBase, tokenMentions,
+        html: dumpHtml ? loginPageHtml : undefined,
       })
     }
 
