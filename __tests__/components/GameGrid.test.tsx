@@ -60,15 +60,15 @@ describe('GameGrid platform filter', () => {
     expect(screen.getAllByRole('button', { name: /^BGA \(2\)/ })).toHaveLength(1)
     expect(screen.getByRole('button', { name: /^Yucata \(1\)/ })).toBeInTheDocument()
     // short labels on the chips, the full name on hover
-    expect(screen.getByRole('button', { name: /^Rally \(0\)/ })).toHaveAttribute('title', 'Filter to Rally the Troops')
+    expect(screen.getByRole('button', { name: /^Rally \(0\)/ })).toHaveAttribute('title', 'Hide Rally the Troops')
   })
 
-  it('filters to a platform when its chip is clicked', async () => {
+  it('hides just that platform when its chip is clicked — everything starts shown', async () => {
     const onPrefsChange = jest.fn()
     const data: GamesApiResponse = { games: [makeGame('bga', '1'), makeGame('yucata', '2')], errors: [], fetchedAt: new Date().toISOString() }
     render(<GameGrid {...defaultGridProps} onPrefsChange={onPrefsChange} data={data} />)
     await userEvent.click(screen.getByRole('button', { name: /^Yucata/ }))
-    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ filter: expect.objectContaining({ platforms: ['yucata'] }) }))
+    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ filter: expect.objectContaining({ platforms: ['bga'] }) }))
   })
 
   it('each chip also offers a link to open the platform site itself, separate from the filter toggle', () => {
@@ -76,6 +76,15 @@ describe('GameGrid platform filter', () => {
     render(<GameGrid {...defaultGridProps} data={data} />)
     expect(screen.getByRole('link', { name: /Open BGA/ })).toHaveAttribute('href', PLATFORM_URLS.bga)
     expect(screen.getByRole('link', { name: /Open Yucata/ })).toHaveAttribute('href', PLATFORM_URLS.yucata)
+  })
+
+  it('collapses back to "show all" once the last hidden platform is shown again', async () => {
+    const onPrefsChange = jest.fn()
+    const prefs: UserPrefs = { ...DEFAULT_PREFS, filter: { ...DEFAULT_PREFS.filter, platforms: ['bga'] } } // yucata hidden
+    const data: GamesApiResponse = { games: [makeGame('bga', '1'), makeGame('yucata', '2')], errors: [], fetchedAt: new Date().toISOString() }
+    render(<GameGrid {...defaultGridProps} prefs={prefs} onPrefsChange={onPrefsChange} data={data} />)
+    await userEvent.click(screen.getByRole('button', { name: /^Yucata/ }))
+    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ filter: expect.objectContaining({ platforms: [] }) }))
   })
 })
 
@@ -138,6 +147,33 @@ describe('GameGrid sink toggle', () => {
     await userEvent.click(screen.getByRole('button', { name: /unsink/i }))
 
     expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ sunk: [] }))
+  })
+})
+
+describe('GameGrid watch toggle', () => {
+  it('adds the game to prefs.watchedGames and saves it when the watch icon is clicked', async () => {
+    const onPrefsChange = jest.fn()
+    const data: GamesApiResponse = { games: [makeGame('bga', '1')], errors: [], fetchedAt: new Date().toISOString() }
+    render(<GameGrid {...defaultGridProps} onPrefsChange={onPrefsChange} data={data} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /watch game/i }))
+
+    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ watchedGames: ['bga:1'] }))
+    expect(global.fetch).toHaveBeenCalledWith('/api/prefs', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ watchedGames: ['bga:1'] }),
+    }))
+  })
+
+  it('removes the game from prefs.watchedGames when already watched', async () => {
+    const onPrefsChange = jest.fn()
+    const prefs: UserPrefs = { ...DEFAULT_PREFS, watchedGames: ['bga:1'] }
+    const data: GamesApiResponse = { games: [makeGame('bga', '1')], errors: [], fetchedAt: new Date().toISOString() }
+    render(<GameGrid {...defaultGridProps} prefs={prefs} onPrefsChange={onPrefsChange} data={data} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /stop watching/i }))
+
+    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ watchedGames: [] }))
   })
 })
 

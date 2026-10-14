@@ -33,6 +33,9 @@ export default function SetupPage() {
   const [bgaCookieSaving, setBgaCookieSaving] = useState(false)
   const [bgaCookieSaved, setBgaCookieSaved] = useState(false)
   const [savedBgaPlayerId, setSavedBgaPlayerId] = useState('')
+  const [ntfyTopicInput, setNtfyTopicInput] = useState('')
+  const [ntfyTopicSaving, setNtfyTopicSaving] = useState(false)
+  const [savedNtfyTopic, setSavedNtfyTopic] = useState('')
   const [okcGameIds, setOkcGameIds] = useState<string[]>([])
   const [okcInput, setOkcInput] = useState('')
   const [okcSaving, setOkcSaving] = useState(false)
@@ -61,6 +64,7 @@ export default function SetupPage() {
       setCookieSaved(!!prefs.eighteenxxSessionCookie)
       setBgaCookieSaved(!!prefs.bgaSessionCookie && !!prefs.bgaPlayerId)
       setSavedBgaPlayerId(prefs.bgaPlayerId ?? '')
+      setSavedNtfyTopic(prefs.ntfyTopic ?? '')
       const ids = prefs.oldkingscrownGameIds ?? []
       setOkcGameIds(ids)
       if (ids.length > 0) loadOkcStatus()
@@ -102,6 +106,18 @@ export default function SetupPage() {
     setBgaCookieInput('')
     setBgaPlayerIdInput('')
     setBgaCookieSaving(false)
+  }
+
+  const saveNtfyTopic = async (topic: string) => {
+    setNtfyTopicSaving(true)
+    await fetch('/api/prefs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ntfyTopic: topic }),
+    })
+    setSavedNtfyTopic(topic)
+    setNtfyTopicInput('')
+    setNtfyTopicSaving(false)
   }
 
   const togglePlatform = async (platform: Platform) => {
@@ -207,6 +223,42 @@ export default function SetupPage() {
               className="w-20 bg-white text-[#1a1a1a] text-sm px-3 py-1.5 rounded-md border border-[#e5e5e5]"
             />
             <span className="text-sm text-[#6b6b6b]">hours</span>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
+          <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">Watch notifications (🔔)</h2>
+          <p className="text-xs text-[#9b9b9b] mb-3">
+            For games you mark with the bell icon: install the free{' '}
+            <a href="https://ntfy.sh" target="_blank" rel="noopener noreferrer" className="text-[#5e6ad2] hover:underline">ntfy</a>{' '}
+            app on your phone, subscribe to a topic name of your choosing (pick something long and
+            hard to guess — anyone who knows it can push to your phone), and enter that same topic
+            here. You&apos;ll get a push the instant a watched game becomes your turn.
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={ntfyTopicInput}
+              onChange={e => setNtfyTopicInput(e.target.value)}
+              placeholder={savedNtfyTopic ? `saved: ${savedNtfyTopic}` : 'Your ntfy.sh topic…'}
+              className="flex-1 text-xs bg-white text-[#1a1a1a] px-3 py-1.5 rounded-md border border-[#e5e5e5] font-mono"
+            />
+            <button
+              onClick={() => saveNtfyTopic(ntfyTopicInput)}
+              disabled={!ntfyTopicInput || ntfyTopicSaving}
+              className="text-xs bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] px-3 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap"
+            >
+              {ntfyTopicSaving ? 'Saving…' : 'Save'}
+            </button>
+            {savedNtfyTopic && (
+              <button
+                onClick={() => saveNtfyTopic('')}
+                disabled={ntfyTopicSaving}
+                className="text-xs bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1.5 rounded-md disabled:opacity-50"
+              >
+                Clear
+              </button>
+            )}
           </div>
         </div>
 

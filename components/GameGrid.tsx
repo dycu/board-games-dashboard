@@ -81,9 +81,20 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   const platformFilter = prefs.filter.platforms
 
   const setPlatformFilter = (platforms: Platform[]) => onPrefsChange({ ...prefs, filter: { ...prefs.filter, platforms } })
-  const togglePlatform = (p: Platform) => setPlatformFilter(
-    platformFilter.includes(p) ? platformFilter.filter(x => x !== p) : [...platformFilter, p],
-  )
+  // Every chip starts shown (platformFilter empty = "all"); clicking one
+  // hides just that platform, leaving the rest visible — not a single-select
+  // narrow-to-this-one filter. A shown chip toggles off; a hidden chip comes
+  // back, collapsing to the empty "all" list once nothing is excluded.
+  const isPlatformShown = (p: Platform) => platformFilter.length === 0 || platformFilter.includes(p)
+  const togglePlatform = (p: Platform) => {
+    if (isPlatformShown(p)) {
+      const base = platformFilter.length === 0 ? configuredPlatforms : platformFilter
+      setPlatformFilter(base.filter(x => x !== p))
+    } else {
+      const next = [...platformFilter, p]
+      setPlatformFilter(configuredPlatforms.every(cp => next.includes(cp)) ? [] : next)
+    }
+  }
 
   // Waiting games are rarely actionable: only pinned ones and ones whose
   // opponent is slow show until the list is expanded
@@ -147,6 +158,14 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     await fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ sunk }), headers: { 'Content-Type': 'application/json' } })
   }
 
+  const toggleWatch = async (id: string) => {
+    const prevWatched = prefs.watchedGames ?? []
+    const watchedGames = prevWatched.includes(id) ? prevWatched.filter(p => p !== id) : [...prevWatched, id]
+    const updated = { ...prefs, watchedGames }
+    onPrefsChange(updated)
+    await fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ watchedGames }), headers: { 'Content-Type': 'application/json' } })
+  }
+
   const { intervalSeconds, setIntervalSeconds, countdown } = useAutoRefresh(onRefresh, isRefreshing)
 
   const itemProps = (g: Game): GameItemProps => ({
@@ -155,6 +174,8 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     onTogglePin: togglePin,
     sunk: (prefs.sunk ?? []).includes(g.id),
     onToggleSink: toggleSink,
+    watched: (prefs.watchedGames ?? []).includes(g.id),
+    onToggleWatch: toggleWatch,
     onOpen: () => openGame(g.id),
     opponentSlowDays,
     deadlineSoonHours,
@@ -267,12 +288,11 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                 <span
                   key={p}
                   className={`shrink-0 inline-flex items-center whitespace-nowrap text-[11px] font-bold uppercase tracking-wide rounded-full transition-opacity ${BADGE_COLORS[p] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}
-                    ${platformFilter.length === 0 || platformFilter.includes(p) ? 'opacity-100' : 'opacity-40 hover:opacity-70'}
-                    ${platformFilter.includes(p) ? 'ring-2 ring-[#1a1a1a]/20' : ''}`}>
+                    ${isPlatformShown(p) ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}>
                   <button
                     onClick={() => togglePlatform(p)}
-                    aria-pressed={platformFilter.includes(p)}
-                    title={`Filter to ${PLATFORM_LABELS[p]}`}
+                    aria-pressed={isPlatformShown(p)}
+                    title={isPlatformShown(p) ? `Hide ${PLATFORM_LABELS[p]}` : `Show ${PLATFORM_LABELS[p]}`}
                     className="pl-2 pr-1 py-0.5 uppercase">
                     {PLATFORM_SHORT_LABELS[p]} ({countByPlatform[p] ?? 0})
                   </button>

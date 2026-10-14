@@ -12,6 +12,8 @@ export interface GameItemProps {
   onTogglePin: (id: string) => void
   sunk: boolean
   onToggleSink: (id: string) => void
+  watched: boolean
+  onToggleWatch: (id: string) => void
   onOpen: () => void // the dashboard dims an opened game until the next refresh
   opponentSlowDays: number
   deadlineSoonHours: number
@@ -72,6 +74,22 @@ function SinkButton({ game, sunk, onToggleSink }: Pick<GameItemProps, 'game' | '
       onClick={() => onToggleSink(game.id)}
       className={`relative z-10 text-sm transition-colors ${sunk ? 'text-slate-400' : 'text-[#c5c5c5] hover:text-slate-400'}`}>
       {sunk ? '▼' : '▽'}
+    </button>
+  )
+}
+
+// Pushes an instant notification (ntfy) the moment this game flips to your
+// turn, instead of waiting for the twice-daily digest. Separate from pinning
+// (which only affects sort order) — a muted/lit bell, not a star or triangle,
+// so it reads as its own thing.
+function WatchButton({ game, watched, onToggleWatch }: Pick<GameItemProps, 'game' | 'watched' | 'onToggleWatch'>) {
+  return (
+    <button
+      aria-label={watched ? 'Stop watching game (no more instant notifications)' : "Watch game (notify the instant it's your turn)"}
+      title={watched ? 'Stop watching' : 'Watch for instant notification'}
+      onClick={() => onToggleWatch(game.id)}
+      className={`relative z-10 text-sm transition-colors ${watched ? 'text-sky-500' : 'text-[#c5c5c5] hover:text-sky-500'}`}>
+      {watched ? '\u{1F514}︎' : '\u{1F515}︎'}
     </button>
   )
 }
@@ -155,7 +173,7 @@ function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string,
 }
 
 // A game waiting for my move: a full card
-export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, now, opened }: GameItemProps) {
+export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, now, opened }: GameItemProps) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
@@ -173,6 +191,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
             </span>
           )}
           <HistoryLink game={game} />
+          <WatchButton game={game} watched={watched} onToggleWatch={onToggleWatch} />
           <SinkButton game={game} sunk={sunk} onToggleSink={onToggleSink} />
           <PinButton game={game} pinned={pinned} onTogglePin={onTogglePin} />
         </div>
@@ -196,7 +215,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
 }
 
 // A game waiting for someone else: one compact row
-export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, onOpen, opponentSlowDays, note, onSaveNote, now, opened }: GameItemProps) {
+export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, note, onSaveNote, now, opened }: GameItemProps) {
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   return (
     <div className={`relative flex items-center gap-2 px-3 py-2 rounded-md border bg-white hover:border-[#c5c9f0] transition-colors
@@ -214,6 +233,7 @@ export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, onOpen,
       </span>
       <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact />
       <HistoryLink game={game} />
+      <WatchButton game={game} watched={watched} onToggleWatch={onToggleWatch} />
       <SinkButton game={game} sunk={sunk} onToggleSink={onToggleSink} />
       <PinButton game={game} pinned={pinned} onTogglePin={onTogglePin} />
     </div>

@@ -3,15 +3,18 @@ import { getPrefs } from '../prefs'
 import { getBacklog } from '../backlog/store'
 import { listsOf, backlogId } from '../backlog/list'
 import { sendAlertEmail } from './email'
+import { sendNtfy } from './ntfy'
 import { buildDigest } from './digest'
 import { dueSoon, deadlineEmail, Warned } from './deadlines'
+import { newlyMyTurn, WatchState } from './watch'
 import { StreamedGame } from './types'
 import { buildWeekly } from './weekly'
-import { FinishedGame, Platform } from '../types'
+import { FinishedGame, Platform, PLATFORM_LABELS } from '../types'
 import { getTables, getAllTurns } from '../pace/store'
 import { computePaceStats } from '../pace/stats'
 
 const WARNED_KEY = 'deadline-warned:v1'
+const WATCH_STATE_KEY = 'watch-notified:v1'
 
 export async function sendDigest(games: StreamedGame[], unavailable: Platform[] = [], now = Date.now()) {
   const [prefs, backlog] = await Promise.all([getPrefs(), getBacklog().catch(() => [])])
@@ -48,4 +51,39 @@ export async function sendDeadlineWarnings(games: StreamedGame[], now = Date.now
   // Remember warnings only once they went out, so a failed send is retried next time
   if (toWarn.length === 0 || email?.sent) await kv.set(WARNED_KEY, warned).catch(() => {})
   return { warned: toWarn.map(g => g.id), email }
+}
+
+// Pushes an instant ntfy alert the moment a watched game flips to myTurn,
+// rather than waiting for the twice-daily digest — see components/GameCard.tsx's
+// watch button and app/api/cron/watch/route.ts
+export async function sendWatchAlerts(games: StreamedGame[]) {
+  const prefs = await getPrefs()
+  const watchedIds = prefs.watchedGames ?? []
+  if (watchedIds.length === 0) return { notified: [], ntfy: null }
+
+  const before = (await kv.get<WatchState>(WATCH_STATE_KEY).catch(() => null)) ?? {}
+  const { toNotify, state } = newlyMyTurn(games, watchedIds, before)
+
+  let ntfy: { sent: boolean; reason?: string } | null = null
+  if (toNotify.length > 0) {
+    if (prefs.ntfyTopic) {
+      const title = toNotify.length === 1 ? `🎲 ${toNotify[0].gameName}: your move` : `🎲 ${toNotify.length} watched games: your move`
+      const message = toNotify.map(g => `${g.gameName} (${PLATFORM_LABELS[g.platform]})`).join('\n')
+      const click = toNotify.length === 1 ? toNotify[0].gameUrl : undefined
+      ntfy = await sendNtfy(prefs.ntfyTopic, title, message, click)
+    } else {
+      ntfy = { sent: false, reason: 'no ntfy topic configured' }
+    }
+  }
+
+  // Only remember a game as "already notified" once the push actually went
+  // out — same reasoning as deadline warnings above: an unsent push is
+  // retried next time instead of being silently skipped forever
+  const toNotifyIds = new Set(toNotify.map(g => g.id))
+  const persisted = ntfy?.sent === false
+    ? Object.fromEntries(Object.entries(state).filter(([id]) => !toNotifyIds.has(id)))
+    : state
+  await kv.set(WATCH_STATE_KEY, persisted).catch(() => {})
+
+  return { notified: ntfy?.sent ? toNotify.map(g => g.id) : [], ntfy }
 }

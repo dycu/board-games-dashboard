@@ -47,6 +47,8 @@ export interface UserPrefs {
   // browser) is only needed to bootstrap it, or when login is stuck.
   bgaSessionCookie?: string
   bgaPlayerId?: string
+  watchedGames: string[] // get an instant ntfy push the moment one of these flips to myTurn, rather than waiting for the twice-daily digest
+  ntfyTopic?: string      // your ntfy.sh topic — install the ntfy app and subscribe to this same topic to receive the push
 }
 
 export const DEFAULT_BACKLOG_PLATFORMS: Platform[] = ['bga', 'yucata']
@@ -59,6 +61,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   disabledPlatforms: [],
   opponentSlowDays: 5,
   deadlineSoonHours: 24,
+  watchedGames: [],
 }
 
 export interface GamesApiResponse {
