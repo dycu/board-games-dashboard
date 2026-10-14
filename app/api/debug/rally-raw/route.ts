@@ -48,14 +48,9 @@ export async function GET() {
 
   const clientJsRes = await fetch(`${BASE}/common/client.js`, { headers: authHeaders })
   const clientJs = await clientJsRes.text()
-  const wsHints = [...clientJs.matchAll(/.{0,40}(websocket|wss:|ws:|EventSource|fetch\(|XMLHttpRequest|\/join\/|state\.json|\?game=).{0,60}/gi)].map(m => m[0])
+  // Grab a wide window around the WebSocket constructor and its handlers
+  const socketIdx = clientJs.indexOf('new WebSocket')
+  const socketContext = clientJs.slice(Math.max(0, socketIdx - 1500), socketIdx + 2500)
 
-  const playJsRes = await fetch(`${BASE}/maria/play.js`, { headers: authHeaders })
-  const playJs = await playJsRes.text()
-  const playHints = [...playJs.matchAll(/.{0,40}(websocket|wss:|ws:|EventSource|fetch\(|state\.turn|game_state|\.turn\b).{0,60}/gi)].map(m => m[0])
-
-  return Response.json({
-    clientJsLength: clientJs.length, wsHints: [...new Set(wsHints)].slice(0, 20),
-    playJsLength: playJs.length, playHints: [...new Set(playHints)].slice(0, 30),
-  })
+  return Response.json({ socketContext })
 }
