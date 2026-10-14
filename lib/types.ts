@@ -23,9 +23,12 @@ export interface Game {
   players: string[]       // other players; empty array if unavailable
   deadlineAt?: string     // ISO; when the active player's time runs out (BGA)
   gameKey?: string        // the site's id for the game itself (BGA game_id), for its full history
-  // How far along this game looks, estimated from turns played so far vs. the
-  // median of your finished games of the same type (BGA only — see lib/pace).
-  // Omitted when there isn't enough data (no history to compare against yet).
+  // How far along this game looks. Usually estimated from turns played so far
+  // vs. the median of your finished games of the same type (BGA, Rally, 18xx
+  // — see lib/pace, lib/rallyPace, lib/eighteenxxPace), omitted when there
+  // isn't enough history to compare against yet. `exact` marks the rarer case
+  // (choochoo.games) where the site reports its own total directly —
+  // sampleCount/samples/sameSizeOnly are meaningless then (0/[]/false).
   progress?: {
     percent: number
     turnsSoFar: number
@@ -33,6 +36,7 @@ export interface Game {
     sampleCount: number
     samples: number[]
     sameSizeOnly: boolean
+    exact?: boolean
   }
   // Set instead of `progress` when the last attempt to read this specific
   // game's live state failed — distinguishes "no estimate yet" (nothing

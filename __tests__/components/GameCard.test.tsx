@@ -166,6 +166,15 @@ describe('progress bar', () => {
     expect(screen.getByRole('tooltip')).toHaveTextContent(/^Move 21/)
   })
 
+  it('says the total is exact, not estimated, for a platform that reports it directly (choochoo)', async () => {
+    const exactProgress = { percent: 83, turnsSoFar: 5, estimatedTotalTurns: 6, sampleCount: 0, samples: [], sameSizeOnly: false, exact: true }
+    const choochooGame = { ...game, platform: 'choochoo' as const, progress: exactProgress }
+    render(<GameCard {...props({ game: choochooGame })} />)
+    const bar = screen.getByLabelText(/turn 5 of 6/i)
+    await userEvent.hover(bar)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Turn 5 of 6 (reported by the game itself)')
+  })
+
   it('is a real button, not a span, so a long press wins over the card-link underneath it', () => {
     render(<GameCard {...props({ game: withProgress })} />)
     expect(screen.getByLabelText(/turn 21 of an estimated 50/i).tagName).toBe('BUTTON')

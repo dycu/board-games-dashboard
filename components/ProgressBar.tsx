@@ -62,10 +62,12 @@ function HoldTooltip({ label, children }: { label: string; children: React.React
 }
 
 export function progressLabel(platform: Platform, progress: NonNullable<Game['progress']>): string {
-  const { turnsSoFar, estimatedTotalTurns, sampleCount, sameSizeOnly } = progress
+  const { turnsSoFar, estimatedTotalTurns, sampleCount, sameSizeOnly, exact } = progress
+  const unit = unitWord(platform, true)
+  if (exact) return `${unit} ${turnsSoFar} of ${estimatedTotalTurns} (reported by the game itself)`
   const basis = sampleCount === 1 ? '1 finished game' : `${sampleCount} finished games`
   const qualifier = sameSizeOnly ? ' with the same player count' : ''
-  return `${unitWord(platform, true)} ${turnsSoFar} of an estimated ${estimatedTotalTurns} (median of ${basis} of this type${qualifier})`
+  return `${unit} ${turnsSoFar} of an estimated ${estimatedTotalTurns} (median of ${basis} of this type${qualifier})`
 }
 
 // Muted — this isn't an alert, just a quiet way to tell "no estimate yet"
