@@ -1,5 +1,16 @@
-import { getTables } from '@/lib/pace/store'
+import { getTables, putTables } from '@/lib/pace/store'
 import { estimateProgress } from '@/lib/pace/progress'
+
+// One-time cleanup: the first (buggy) version of turn-counting already wrote
+// a half-advanced totalTurnState for every active table before the from=1
+// backfill fix landed, so those tables can no longer tell they need a full
+// re-read. This clears it so the next sync starts them over from packet 1.
+export async function POST() {
+  const tables = await getTables()
+  const active = Object.values(tables).filter(t => t.end === null)
+  await putTables(active.map(t => ({ ...t, totalTurnState: undefined })))
+  return Response.json({ reset: active.length })
+}
 
 export async function GET() {
   const tables = await getTables()
