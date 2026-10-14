@@ -1,7 +1,17 @@
 import { BASE, loginEighteenxx, fetchProfileGames } from '../connectors/eighteenxx'
+import { withTimeout } from '../connectors/utils'
 import { getEighteenxxPaceGames, putEighteenxxPaceGames, EighteenxxPaceGame } from './store'
 
 const CONCURRENCY = 5
+// A single hung request (no response, ever) would otherwise block the whole
+// worker loop past the edge runtime's real ~25s ceiling regardless of the
+// overall budget check between iterations — see /api/games/route.ts's own
+// note on that ceiling. Kept short enough that even a job started right at
+// the worker loop's own cutoff still finishes with margin to spare.
+const DETAIL_FETCH_TIMEOUT_MS = 6000
+// Worker loop stops starting new jobs this long before the deadline, so an
+// in-flight job (up to DETAIL_FETCH_TIMEOUT_MS) can't itself run past it
+const WORKER_CUTOFF_MARGIN_MS = 4000
 
 type FetchResult = { actionCount: number } | { error: string }
 
@@ -10,7 +20,10 @@ type FetchResult = { actionCount: number } | { error: string }
 // game's own detail endpoint, one request per game.
 async function fetchActionCount(id: string, cookie: string): Promise<FetchResult> {
   try {
-    const res = await fetch(`${BASE}/api/game/${id}`, { headers: { Cookie: cookie, Accept: 'application/json' } })
+    const res = await withTimeout(
+      fetch(`${BASE}/api/game/${id}`, { headers: { Cookie: cookie, Accept: 'application/json' } }),
+      DETAIL_FETCH_TIMEOUT_MS, `18xx game ${id} detail fetch`,
+    )
     if (!res.ok) return { error: `HTTP ${res.status}` }
     const data = await res.json()
     if (!Array.isArray(data?.actions)) return { error: 'no actions array in response' }
@@ -31,13 +44,15 @@ export async function syncEighteenxx(
   username: string, password: string, sessionCookie: string | undefined, budgetMs: number,
 ): Promise<{ active: number; finished: number; read: number }> {
   const deadline = Date.now() + budgetMs
-  const cookie = await loginEighteenxx(username, password, sessionCookie)
+  const cookie = await withTimeout(loginEighteenxx(username, password, sessionCookie), 6000, '18xx login')
   // fetchProfileGames resolves myId robustly (env override, or the login
   // response) — /api/game/user can come back with zero active games when
-  // everything's caught up, which would leave no way to recognize "me" in it
-  const { myId, games: profileGames } = await fetchProfileGames(username, password, sessionCookie)
-
-  const gamesRes = await fetch(`${BASE}/api/game/user`, { headers: { Cookie: cookie, Accept: 'application/json' } })
+  // everything's caught up, which would leave no way to recognize "me" in it.
+  // Independent of the games/user fetch below, so run them together.
+  const [{ myId, games: profileGames }, gamesRes] = await Promise.all([
+    withTimeout(fetchProfileGames(username, password, sessionCookie), 6000, '18xx profile fetch'),
+    withTimeout(fetch(`${BASE}/api/game/user`, { headers: { Cookie: cookie, Accept: 'application/json' } }), 6000, '18xx games/user fetch'),
+  ])
   if (!gamesRes.ok) throw new Error(`18xx.games games fetch failed (HTTP ${gamesRes.status})`)
   const data = await gamesRes.json()
   const allGames: any[] = Array.isArray(data) ? data : data.games ?? []
@@ -70,7 +85,7 @@ export async function syncEighteenxx(
   let read = 0
   let next = 0
   async function worker() {
-    while (next < jobs.length && Date.now() < deadline - 3000) {
+    while (next < jobs.length && Date.now() < deadline - WORKER_CUTOFF_MARGIN_MS) {
       const job = jobs[next++]
       const result = await fetchActionCount(job.id, cookie)
       const now = Math.floor(Date.now() / 1000)
