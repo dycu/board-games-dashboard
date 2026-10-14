@@ -1,4 +1,5 @@
 import { getPrefs } from '@/lib/prefs'
+import { parseProfileGames } from '@/lib/connectors/eighteenxx'
 
 const BASE = 'https://18xx.games'
 
@@ -33,10 +34,28 @@ export async function GET() {
   const games: any[] = Array.isArray(data) ? data : data.games ?? []
   const active = games.filter(g => g.status === 'active')
 
+  const resolvedId = games.flatMap(g => g.players ?? []).find((p: any) => p.name === username)?.id
+
+  const profileRes = await fetch(`${BASE}/profile/${resolvedId}`, { headers: { Accept: 'text/html' } })
+  const profileHtml = await profileRes.text()
+  let finishedSample: any = null
+  let finishedKeys: string[] = []
+  try {
+    const profileGames = parseProfileGames(profileHtml)
+    const finished = profileGames.find((g: any) => g.status === 'finished' || g.status === 'archived')
+    finishedSample = finished ?? null
+    finishedKeys = finished ? Object.keys(finished) : []
+  } catch (e) {
+    finishedSample = { parseError: e instanceof Error ? e.message : String(e) }
+  }
+
   return Response.json({
     totalCount: games.length,
     activeCount: active.length,
     firstActiveGame: active[0] ?? null,
     allKeysOfFirst: active[0] ? Object.keys(active[0]) : [],
+    resolvedId,
+    finishedSample,
+    finishedKeys,
   })
 }
