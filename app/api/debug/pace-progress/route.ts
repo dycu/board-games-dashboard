@@ -9,7 +9,7 @@ export async function GET() {
   const activeWithEstimate = active
     .map(t => ({ id: t.id, game: t.game, turnsSoFar: t.totalTurnState?.count ?? 0, progress: estimateProgress(tables, t.id) }))
   return Response.json({
-    version: process.env.npm_package_version ?? 'unknown',
+    marker: 'backfill-fix-v2',
     totalTables: all.length,
     activeTables: active.length,
     finishedWithTurnData: finishedWithTurns.map(t => ({ id: t.id, game: t.game, turns: t.totalTurnState?.count })),
