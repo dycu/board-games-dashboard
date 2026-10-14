@@ -52,5 +52,5 @@ export async function GET() {
   const socketIdx = clientJs.indexOf('new WebSocket')
   const socketContext = clientJs.slice(socketIdx + 2500, socketIdx + 7000)
 
-  return Response.json({ socketContext })
+  return Response.json({ marker: 'ws-part2', socketContext })
 }
