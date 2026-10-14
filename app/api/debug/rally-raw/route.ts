@@ -49,8 +49,8 @@ export async function GET() {
   const clientJsRes = await fetch(`${BASE}/common/client.js`, { headers: authHeaders })
   const clientJs = await clientJsRes.text()
   // Grab a wide window around the WebSocket constructor and its handlers
-  const socketIdx = clientJs.indexOf('new WebSocket')
-  const socketContext = clientJs.slice(socketIdx + 2500, socketIdx + 7000)
+  const fnvIdx = clientJs.indexOf('function fnv1a_log')
+  const fnvContext = fnvIdx === -1 ? 'not found in client.js' : clientJs.slice(fnvIdx, fnvIdx + 600)
 
-  return Response.json({ marker: 'ws-part2', socketContext })
+  return Response.json({ marker: 'fnv-check', fnvContext })
 }
