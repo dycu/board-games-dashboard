@@ -114,14 +114,17 @@ function BasisItem({ active, children }: { active: boolean; children: React.Reac
 // Lists what the estimate is actually based on — both the method (turn/move
 // count vs. elapsed time) and the sample pool (same player count vs. this
 // type as a whole) — with whichever applies here picked out, rather than
-// leaving it to a single flowing sentence to explain.
-function ProgressBasis({ progress }: { progress: NonNullable<Game['progress']> }) {
+// leaving it to a single flowing sentence to explain. Method is a pair of
+// bullets, not one that's just active/inactive, so the non-time-based case
+// is named too instead of only implied by the time-based one being unlit.
+function ProgressBasis({ platform, progress }: { platform: Platform; progress: NonNullable<Game['progress']> }) {
   const { sampleCount, sameSizeOnly, timeBased, sameSizeSampleCount, totalSampleCount } = progress
   const total = totalSampleCount ?? sampleCount
   const sameSize = sameSizeSampleCount ?? (sameSizeOnly ? sampleCount : 0)
 
   return (
     <ul className="mt-1 text-left list-none space-y-0.5">
+      <BasisItem active={!timeBased}>{unitWord(platform, true)}-based estimate</BasisItem>
       <BasisItem active={!!timeBased}>Time-based estimate</BasisItem>
       <BasisItem active={!sameSizeOnly}>{total} game{total === 1 ? '' : 's'} of this type</BasisItem>
       <BasisItem active={sameSizeOnly}>{sameSize} with the same player count</BasisItem>
@@ -140,7 +143,7 @@ function ProgressTooltip({ platform, progress }: { platform: Platform; progress:
       {lowSample && (
         <div className="mt-1 text-amber-300">⚠ only {progress.sampleCount} game{progress.sampleCount === 1 ? '' : 's'} to compare against — rough estimate</div>
       )}
-      {!progress.exact && <ProgressBasis progress={progress} />}
+      {!progress.exact && <ProgressBasis platform={platform} progress={progress} />}
     </>
   )
 }

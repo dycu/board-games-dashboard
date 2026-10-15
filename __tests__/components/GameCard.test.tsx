@@ -157,6 +157,10 @@ describe('progress bar', () => {
     // the pool actually used (3 games of this type, not same-size) is the one marked active
     expect(screen.getByText(/3 games of this type/)).toHaveClass('font-semibold')
     expect(screen.getByText(/0 with the same player count/)).not.toHaveClass('font-semibold')
+    // and the method actually used (a real turn count, not time) is named and marked active too
+    expect(tooltip).toHaveTextContent('Turn-based estimate')
+    expect(screen.getByText(/turn-based estimate/i)).toHaveClass('font-semibold')
+    expect(screen.getByText(/time-based estimate/i)).not.toHaveClass('font-semibold')
   })
 
   it('marks the same-player-count bullet as the one used, when the estimate was restricted to it', async () => {
@@ -240,6 +244,9 @@ describe('progress bar', () => {
     expect(tooltip).toHaveTextContent(/time-based estimate/i)
     expect(screen.getByText(/time-based estimate/i)).toHaveClass('font-semibold')
     expect(tooltip).not.toHaveTextContent(/turn \d/i)
+    // the non-time-based method is still named, just marked as not the one used
+    expect(tooltip).toHaveTextContent('Turn-based estimate')
+    expect(screen.getByText(/turn-based estimate/i)).not.toHaveClass('font-semibold')
   })
 
   it("shows the game's real turn count alongside a time-based estimate, when known", async () => {
