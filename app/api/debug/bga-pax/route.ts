@@ -26,12 +26,17 @@ export async function GET() {
 
   const paxRows: any[] = []
   let totalRowsSeen = 0
+  let oldestStart = Infinity
+  let pagesRead = 0
+  const deadline = Date.now() + 20000
   await withBgaSession(username, password, async session => {
-    for (let page = 1; page <= 15; page++) {
+    for (let page = 1; page <= 200 && Date.now() < deadline; page++) {
       const rows = await fetchFinishedPage(session, page)
       if (rows.length === 0) break
+      pagesRead = page
       totalRowsSeen += rows.length
       for (const r of rows) {
+        oldestStart = Math.min(oldestStart, Number(r.start))
         if (r.game_name === 'paxrenaissance') {
           paxRows.push({ id: r.table_id, start: Number(r.start), end: Number(r.end), cancelled: r.cancelled })
         }
@@ -43,9 +48,13 @@ export async function GET() {
   const trackedIds = new Set(Object.values(tables).filter(t => t.game === 'paxrenaissance').map(t => t.id))
 
   return new Response(JSON.stringify({
+    pagesRead,
     totalRowsSeen,
+    oldestStartDate: new Date(oldestStart * 1000).toISOString(),
+    daysBack: Math.round((Date.now() / 1000 - oldestStart) / 86400),
     paxRowsFoundOnBga: paxRows.length,
     trackedInKv: trackedIds.size,
     missingFromKv: paxRows.filter(r => !trackedIds.has(String(r.id))),
+    allPaxRows: paxRows,
   }, null, 2), { headers: { 'Content-Type': 'application/json' } })
 }
