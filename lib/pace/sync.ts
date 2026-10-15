@@ -85,14 +85,27 @@ export async function syncBga(username: string, password: string, budgetMs: numb
     }
   }
 
-  // 2. Finished tables: backfill back to the horizon once, then only read new pages
+  // 2. Finished tables: backfill back to the horizon once, then keep re-walking
+  // from page 1 every run rather than trusting a resume point, since new
+  // finishes get prepended to page 1 and push everything else down — a
+  // persisted page number from last time would land on the wrong rows today.
+  //
+  // This used to stop as soon as it hit a page where every row was already
+  // known, on the assumption that meant everything older was too. For a
+  // prolific player across many game types, that's not a safe assumption —
+  // a page can come up "all known" by chance while an older, never-seen
+  // table still sits a few pages further back (discovered late, or from a
+  // run that ran out of budget before reaching it). That one coincidence
+  // was enough to end the run early, every time, so some tables were never
+  // discovered at all — the backfill never actually used its full time
+  // budget. Now it only stops on a real boundary: the time budget, the
+  // horizon, or genuinely running out of pages.
   const horizon = Date.now() / 1000 - BACKFILL_DAYS * 86400
   let page = meta.indexComplete ? 1 : meta.nextIndexPage
   let caughtUp = false
   while (timeLeft() > 5000) {
     const rows = await fetchFinishedPage(session, page)
     if (rows.length === 0) { meta.indexComplete = true; caughtUp = true; break }
-    let allKnown = true
     let oldest = Infinity
     for (const r of rows) {
       const id = String(r.table_id)
@@ -101,7 +114,6 @@ export async function syncBga(username: string, password: string, budgetMs: numb
       oldest = Math.min(oldest, start)
       const existing = tables[id]
       if (existing && existing.end !== null) continue
-      allKnown = false
       if (r.cancelled === '1' || r.cancelled === 1) continue
       const realtime = end - start < REALTIME_MAX_SECONDS
       // BGA archives a finished table's move log within hours ("Cannot find
@@ -121,7 +133,6 @@ export async function syncBga(username: string, password: string, budgetMs: numb
         realtime,
       })
     }
-    if (meta.indexComplete && allKnown) { caughtUp = true; break }
     if (oldest < horizon) { meta.indexComplete = true; caughtUp = true; break }
     page++
     if (!meta.indexComplete) meta.nextIndexPage = page
