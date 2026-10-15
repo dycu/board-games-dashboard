@@ -15,6 +15,15 @@ function unitWord(platform: Platform, capitalize = false): string {
 
 const LONG_PRESS_MS = 350
 
+function formatDuration(seconds: number): string {
+  const days = Math.floor(seconds / 86400)
+  if (days >= 1) return `${days} day${days === 1 ? '' : 's'}`
+  const hours = Math.floor(seconds / 3600)
+  if (hours >= 1) return `${hours} hour${hours === 1 ? '' : 's'}`
+  const minutes = Math.max(1, Math.floor(seconds / 60))
+  return `${minutes} minute${minutes === 1 ? '' : 's'}`
+}
+
 // Hover (desktop) or press-and-hold (touch) reveals where the estimate came
 // from — a plain `title` attribute doesn't reliably show on a long press,
 // so this is a small custom tooltip instead.
@@ -62,11 +71,14 @@ function HoldTooltip({ label, children }: { label: string; children: React.React
 }
 
 export function progressLabel(platform: Platform, progress: NonNullable<Game['progress']>): string {
-  const { turnsSoFar, estimatedTotalTurns, sampleCount, sameSizeOnly, exact } = progress
-  const unit = unitWord(platform, true)
-  if (exact) return `${unit} ${turnsSoFar} of ${estimatedTotalTurns} (reported by the game itself)`
+  const { turnsSoFar, estimatedTotalTurns, sampleCount, sameSizeOnly, exact, timeBased } = progress
   const basis = sampleCount === 1 ? '1 finished game' : `${sampleCount} finished games`
   const qualifier = sameSizeOnly ? ' with the same player count' : ''
+  if (timeBased) {
+    return `Time-based estimate: ~${formatDuration(turnsSoFar)} in, typically takes about ${formatDuration(estimatedTotalTurns)} (no ${unitWord(platform)} count available for this game type — based on elapsed time instead, median of ${basis}${qualifier})`
+  }
+  const unit = unitWord(platform, true)
+  if (exact) return `${unit} ${turnsSoFar} of ${estimatedTotalTurns} (reported by the game itself)`
   return `${unit} ${turnsSoFar} of an estimated ${estimatedTotalTurns} (median of ${basis} of this type${qualifier})`
 }
 
@@ -90,10 +102,16 @@ export default function ProgressBar({ game, compact }: { game: Game; compact?: b
   if (!progress) return game.progressError ? <ProgressErrorHint platform={game.platform} error={game.progressError} compact={compact} /> : null
   const label = progressLabel(game.platform, progress)
 
+  // A time-based estimate is a weaker signal than an actual turn/move count —
+  // faded rather than full-strength, so it still reads as "roughly this far
+  // along" without looking as certain as a real count. The tooltip is the
+  // one place that has to say so outright; this is just a visual nudge.
+  const fade = progress.timeBased ? 'opacity-60' : ''
+
   if (compact) {
     return (
       <HoldTooltip label={label}>
-        <span className="flex items-center gap-1 shrink-0">
+        <span className={`flex items-center gap-1 shrink-0 ${fade}`}>
           <span className="w-8 h-1 rounded-full bg-[#ececec] overflow-hidden">
             <span className="block h-full bg-[#5e6ad2]" style={{ width: `${progress.percent}%` }} />
           </span>
@@ -105,7 +123,7 @@ export default function ProgressBar({ game, compact }: { game: Game; compact?: b
 
   return (
     <HoldTooltip label={label}>
-      <span className="flex items-center gap-1.5">
+      <span className={`flex items-center gap-1.5 ${fade}`}>
         <span className="flex-1 h-1.5 rounded-full bg-[#ececec] overflow-hidden min-w-[60px]">
           <span className="block h-full bg-[#5e6ad2]" style={{ width: `${progress.percent}%` }} />
         </span>

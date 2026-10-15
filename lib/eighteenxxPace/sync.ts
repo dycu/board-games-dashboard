@@ -38,6 +38,7 @@ interface Job {
   title: string
   playerCount: number
   end: number | null
+  start?: number
 }
 
 export async function syncEighteenxx(
@@ -73,8 +74,10 @@ export async function syncEighteenxx(
 
   // Active games are always re-read (their action count keeps growing); a
   // finished game's is final, so one already recorded is never re-fetched
+  const startOf = (g: any): number | undefined => typeof g.created_at === 'number' ? g.created_at : undefined
+
   const jobs: Job[] = [
-    ...activeRaw.map((g): Job => ({ id: String(g.id), title: g.title ?? 'Unknown', playerCount: (g.players ?? []).length, end: null })),
+    ...activeRaw.map((g): Job => ({ id: String(g.id), title: g.title ?? 'Unknown', playerCount: (g.players ?? []).length, end: null, start: startOf(g) })),
     ...finishedRaw
       .filter(g => {
         const existing = stored[String(g.id)]
@@ -83,6 +86,7 @@ export async function syncEighteenxx(
       .map((g): Job => ({
         id: String(g.id), title: g.title ?? 'Unknown', playerCount: (g.players ?? []).length,
         end: typeof g.finished_at === 'number' ? g.finished_at : typeof g.updated_at === 'number' ? g.updated_at : Math.floor(Date.now() / 1000),
+        start: startOf(g),
       })),
   ]
 
@@ -96,11 +100,11 @@ export async function syncEighteenxx(
       const now = Math.floor(Date.now() / 1000)
       if ('actionCount' in result) {
         read++
-        updates.push({ id: job.id, title: job.title, end: job.end, actionCount: result.actionCount, playerCount: job.playerCount, lastCheckedAt: now })
+        updates.push({ id: job.id, title: job.title, end: job.end, actionCount: result.actionCount, playerCount: job.playerCount, start: job.start, lastCheckedAt: now })
       } else {
         const existing = stored[job.id]
         updates.push({
-          ...(existing ?? { id: job.id, title: job.title, end: job.end, actionCount: null }),
+          ...(existing ?? { id: job.id, title: job.title, end: job.end, actionCount: null, start: job.start }),
           lastError: result.error, lastCheckedAt: now,
         })
       }

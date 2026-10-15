@@ -59,6 +59,58 @@ describe('estimateEighteenxxProgress', () => {
     const games = { active: game('active', '1846', null, 500), f1: game('f1', '1846', 1000, 100) }
     expect(estimateEighteenxxProgress(games, 'active')?.percent).toBe(100)
   })
+
+  describe('time-based fallback (no action-count sample for this title)', () => {
+    const NOW = Date.parse('2026-01-10T00:00:00Z') / 1000
+    beforeEach(() => jest.spyOn(Date, 'now').mockReturnValue(NOW * 1000))
+    afterEach(() => jest.restoreAllMocks())
+
+    it('estimates from elapsed real time against the median real-time length of finished games of the title', () => {
+      const dayAgo = NOW - 86400
+      const games = {
+        active: game('active', '18Chesapeake', null, null, { start: dayAgo }),
+        f1: game('f1', '18Chesapeake', dayAgo + 2 * 86400, null, { start: dayAgo }),
+        f2: game('f2', '18Chesapeake', dayAgo + 4 * 86400, null, { start: dayAgo }),
+      }
+      expect(estimateEighteenxxProgress(games, 'active')).toMatchObject({
+        percent: 33, turnsSoFar: 86400, estimatedTotalTurns: 3 * 86400, sampleCount: 2, timeBased: true, sameSizeOnly: false,
+      })
+    })
+
+    it('prefers same-player-count duration samples, like the action-count estimate does', () => {
+      const dayAgo = NOW - 86400
+      const games = {
+        active: game('active', '18Chesapeake', null, null, { start: dayAgo, playerCount: 4 }),
+        twoP: game('twoP', '18Chesapeake', dayAgo + 86400, null, { start: dayAgo, playerCount: 2 }),
+        fourP: game('fourP', '18Chesapeake', dayAgo + 5 * 86400, null, { start: dayAgo, playerCount: 4 }),
+      }
+      expect(estimateEighteenxxProgress(games, 'active')).toMatchObject({ sampleCount: 1, sameSizeOnly: true, estimatedTotalTurns: 5 * 86400 })
+    })
+
+    it('still prefers an available action-count estimate over the time-based fallback', () => {
+      const dayAgo = NOW - 86400
+      const games = {
+        active: game('active', '18Chesapeake', null, 60, { start: dayAgo }),
+        f1: game('f1', '18Chesapeake', dayAgo + 100, 120, { start: dayAgo }),
+      }
+      const result = estimateEighteenxxProgress(games, 'active')
+      expect(result?.timeBased).toBeUndefined()
+      expect(result).toMatchObject({ turnsSoFar: 60 })
+    })
+
+    it('returns undefined when there are no duration samples either', () => {
+      const games = { active: game('active', '18Chesapeake', null, null, { start: NOW - 86400 }) }
+      expect(estimateEighteenxxProgress(games, 'active')).toBeUndefined()
+    })
+
+    it('returns undefined when the active game has no start time either', () => {
+      const games = {
+        active: game('active', '18Chesapeake', null, null),
+        f1: game('f1', '18Chesapeake', NOW - 1000, null, { start: NOW - 86400 }),
+      }
+      expect(estimateEighteenxxProgress(games, 'active')).toBeUndefined()
+    })
+  })
 })
 
 describe('attachEighteenxxProgress', () => {

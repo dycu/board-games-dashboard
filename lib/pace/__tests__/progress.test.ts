@@ -89,6 +89,59 @@ describe('estimateProgress', () => {
     const result = estimateProgress(tables, 'active')
     expect(result).toMatchObject({ sampleCount: 1, sameSizeOnly: false })
   })
+
+  describe('time-based fallback (no turn-count sample for this game type)', () => {
+    const NOW = Date.parse('2026-01-10T00:00:00Z') / 1000
+    beforeEach(() => jest.spyOn(Date, 'now').mockReturnValue(NOW * 1000))
+    afterEach(() => jest.restoreAllMocks())
+
+    it('estimates from elapsed real time against the median real-time length of finished games of the type', () => {
+      const dayAgo = NOW - 86400
+      const tables = {
+        active: table('active', 'thecrew', null, null, { start: dayAgo }),
+        f1: table('f1', 'thecrew', dayAgo + 2 * 86400, null, { start: dayAgo }),
+        f2: table('f2', 'thecrew', dayAgo + 4 * 86400, null, { start: dayAgo }),
+      }
+      expect(estimateProgress(tables, 'active')).toMatchObject({
+        percent: 33, turnsSoFar: 86400, estimatedTotalTurns: 3 * 86400, sampleCount: 2, timeBased: true, sameSizeOnly: false,
+      })
+    })
+
+    it('excludes realtime games from the duration samples', () => {
+      const dayAgo = NOW - 86400
+      const tables = {
+        active: table('active', 'thecrew', null, null, { start: dayAgo }),
+        liveGame: table('liveGame', 'thecrew', dayAgo + 1800, null, { start: dayAgo, realtime: true }),
+      }
+      expect(estimateProgress(tables, 'active')).toBeNull()
+    })
+
+    it('prefers same-player-count duration samples, like the turn-based estimate does', () => {
+      const dayAgo = NOW - 86400
+      const tables = {
+        active: table('active', 'thecrew', null, null, { start: dayAgo, playerCount: 4 }),
+        twoP: table('twoP', 'thecrew', dayAgo + 86400, null, { start: dayAgo, playerCount: 2 }),
+        fourP: table('fourP', 'thecrew', dayAgo + 5 * 86400, null, { start: dayAgo, playerCount: 4 }),
+      }
+      expect(estimateProgress(tables, 'active')).toMatchObject({ sampleCount: 1, sameSizeOnly: true, estimatedTotalTurns: 5 * 86400 })
+    })
+
+    it('still prefers an available turn-count estimate over the time-based fallback', () => {
+      const dayAgo = NOW - 86400
+      const tables = {
+        active: table('active', 'thecrew', null, 10, { start: dayAgo }),
+        f1: table('f1', 'thecrew', dayAgo + 100, 20, { start: dayAgo }),
+      }
+      const result = estimateProgress(tables, 'active')
+      expect(result?.timeBased).toBeUndefined()
+      expect(result).toMatchObject({ turnsSoFar: 10 })
+    })
+
+    it('returns null when there are no duration samples either', () => {
+      const tables = { active: table('active', 'thecrew', null, null, { start: NOW - 86400 }) }
+      expect(estimateProgress(tables, 'active')).toBeNull()
+    })
+  })
 })
 
 describe('attachProgress', () => {

@@ -41,6 +41,17 @@ describe('syncEighteenxx', () => {
     })
   })
 
+  it('records the game\'s created_at as start, for the time-based progress fallback', async () => {
+    mockFetch
+      .mockResolvedValueOnce(jsonRes({ games: [{ id: 10, title: '1846', status: 'active', created_at: 1700000000, players: [{ id: 1, name: 'me' }] }] }))
+      .mockResolvedValueOnce(jsonRes({ actions: [1, 2, 3] }))
+
+    await syncEighteenxx('me', 'pass', undefined, 15000)
+    expect(mockHset).toHaveBeenCalledWith('eighteenxxpace:v2:games', {
+      '10': { id: '10', title: '1846', end: null, actionCount: 3, playerCount: 1, start: 1700000000, lastCheckedAt: expect.any(Number) },
+    })
+  })
+
   it('never re-fetches a finished game that already has a recorded action count', async () => {
     mockHgetall.mockResolvedValue({ '20': { id: '20', title: '1846', end: 500, actionCount: 90 } })
     mockProfileGames.mockResolvedValue({

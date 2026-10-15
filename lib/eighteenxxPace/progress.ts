@@ -7,29 +7,59 @@ function median(sorted: number[]): number {
   return n % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
-// id: the 18xx.games numeric game id (Game.id / FinishedGame.id with the
-// "eighteenxx:" prefix stripped)
-export function estimateEighteenxxProgress(games: Record<string, EighteenxxPaceGame>, id: string): Game['progress'] | undefined {
+// Fallback for a game type with no readable action-count sample — old enough
+// games fall off this site's own ability to return a full action log (see the
+// "18Chesapeake" case this was built for), but `start`/`end` cost nothing
+// extra: they're read off the games list itself, not the per-game detail, so
+// they're there even for a game whose action log came back empty.
+function estimateEighteenxxTimeProgress(games: Record<string, EighteenxxPaceGame>, id: string): Game['progress'] | undefined {
   const active = games[id]
-  const count = active?.actionCount ?? 0
-  if (!active || active.end !== null || count <= 0) return undefined
+  if (!active || active.end !== null || !active.start) return undefined
+  const elapsedSeconds = Date.now() / 1000 - active.start
+  if (elapsedSeconds <= 0) return undefined
 
   const finishedOfType = Object.values(games)
-    .filter(g => g.id !== id && g.end !== null && g.title === active.title && (g.actionCount ?? 0) > 0)
+    .filter(g => g.id !== id && g.end !== null && g.title === active.title && g.start)
 
   const sameSize = active.playerCount !== undefined
     ? finishedOfType.filter(g => g.playerCount === active.playerCount)
     : []
   const pool = sameSize.length > 0 ? sameSize : finishedOfType
-  const counts = pool.map(g => g.actionCount!).sort((a, b) => a - b)
-  if (counts.length === 0) return undefined
+  const durations = pool.map(g => g.end! - g.start!).filter(d => d > 0).sort((a, b) => a - b)
+  if (durations.length === 0) return undefined
 
-  const estimatedTotal = median(counts)
-  const percent = Math.max(0, Math.min(100, Math.round((count / estimatedTotal) * 100)))
+  const estimatedTotalSeconds = median(durations)
+  const percent = Math.max(0, Math.min(100, Math.round((elapsedSeconds / estimatedTotalSeconds) * 100)))
   return {
-    percent, turnsSoFar: count, estimatedTotalTurns: Math.round(estimatedTotal),
-    sampleCount: counts.length, samples: counts, sameSizeOnly: pool === sameSize,
+    percent, turnsSoFar: Math.round(elapsedSeconds), estimatedTotalTurns: Math.round(estimatedTotalSeconds),
+    sampleCount: durations.length, samples: durations, sameSizeOnly: pool === sameSize, timeBased: true,
   }
+}
+
+// id: the 18xx.games numeric game id (Game.id / FinishedGame.id with the
+// "eighteenxx:" prefix stripped)
+export function estimateEighteenxxProgress(games: Record<string, EighteenxxPaceGame>, id: string): Game['progress'] | undefined {
+  const active = games[id]
+  const count = active?.actionCount ?? 0
+  if (active && active.end === null && count > 0) {
+    const finishedOfType = Object.values(games)
+      .filter(g => g.id !== id && g.end !== null && g.title === active.title && (g.actionCount ?? 0) > 0)
+
+    const sameSize = active.playerCount !== undefined
+      ? finishedOfType.filter(g => g.playerCount === active.playerCount)
+      : []
+    const pool = sameSize.length > 0 ? sameSize : finishedOfType
+    const counts = pool.map(g => g.actionCount!).sort((a, b) => a - b)
+    if (counts.length > 0) {
+      const estimatedTotal = median(counts)
+      const percent = Math.max(0, Math.min(100, Math.round((count / estimatedTotal) * 100)))
+      return {
+        percent, turnsSoFar: count, estimatedTotalTurns: Math.round(estimatedTotal),
+        sampleCount: counts.length, samples: counts, sameSizeOnly: pool === sameSize,
+      }
+    }
+  }
+  return estimateEighteenxxTimeProgress(games, id)
 }
 
 export async function attachEighteenxxProgress(games: Game[]): Promise<Game[]> {

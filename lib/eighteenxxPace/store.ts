@@ -8,6 +8,11 @@ export interface EighteenxxPaceGame {
   end: number | null       // Unix seconds; null while still active
   actionCount: number | null // total entries in the game's own action log so far
   playerCount?: number
+  // Unix seconds (the game's created_at) — for the time-based progress
+  // fallback, used once a game is old enough that its action log is no
+  // longer readable (see lib/eighteenxxPace/progress.ts). Always known, since
+  // it's read off the games list itself rather than the per-game detail.
+  start?: number
   // Set when the last attempt to read this game's action log failed; cleared
   // on the next success. Lets the UI tell "no estimate yet" apart from "the
   // mechanism is broken" for this game.

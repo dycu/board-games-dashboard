@@ -31,6 +31,11 @@ export interface Game {
   // there isn't enough history to compare against yet. `exact` marks the
   // rarer case (choochoo.games) where the site reports its own total
   // directly — sampleCount/samples/sameSizeOnly are meaningless then (0/[]/false).
+  // `timeBased` marks a fallback estimate (BGA, 18xx) used when there's no
+  // readable turn/action-count history for this game type — turnsSoFar and
+  // estimatedTotalTurns are then real elapsed seconds and a median real-time
+  // duration instead of turns, since the site's own archived move logs are
+  // long gone by the time a game is old enough to have no turn samples.
   progress?: {
     percent: number
     turnsSoFar: number
@@ -39,6 +44,7 @@ export interface Game {
     samples: number[]
     sameSizeOnly: boolean
     exact?: boolean
+    timeBased?: boolean
   }
   // Set instead of `progress` when the last attempt to read this specific
   // game's live state failed — distinguishes "no estimate yet" (nothing

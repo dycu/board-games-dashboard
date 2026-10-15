@@ -175,6 +175,25 @@ describe('progress bar', () => {
     expect(screen.getByRole('tooltip')).toHaveTextContent('Turn 5 of 6 (reported by the game itself)')
   })
 
+  it('clearly labels a time-based estimate as such, and does not say "turn"/"move"', async () => {
+    const timeBasedProgress = { percent: 33, turnsSoFar: 86400, estimatedTotalTurns: 3 * 86400, sampleCount: 2, samples: [2 * 86400, 4 * 86400], sameSizeOnly: false, timeBased: true }
+    const bgaGame = { ...game, progress: timeBasedProgress }
+    render(<GameCard {...props({ game: bgaGame })} />)
+    const bar = screen.getByLabelText(/time-based estimate/i)
+    await userEvent.hover(bar)
+    const tooltip = screen.getByRole('tooltip')
+    expect(tooltip).toHaveTextContent(/Time-based estimate.*1 day in.*typically takes about 3 days/i)
+    expect(tooltip).not.toHaveTextContent(/turn \d/i)
+  })
+
+  it('fades a time-based bar to tell it apart from a real turn/move count', () => {
+    const timeBasedProgress = { percent: 33, turnsSoFar: 86400, estimatedTotalTurns: 3 * 86400, sampleCount: 2, samples: [2 * 86400, 4 * 86400], sameSizeOnly: false, timeBased: true }
+    const bgaGame = { ...game, progress: timeBasedProgress }
+    render(<GameCard {...props({ game: bgaGame })} />)
+    const bar = screen.getByLabelText(/time-based estimate/i)
+    expect(bar.firstElementChild).toHaveClass('opacity-60')
+  })
+
   it('is a real button, not a span, so a long press wins over the card-link underneath it', () => {
     render(<GameCard {...props({ game: withProgress })} />)
     expect(screen.getByLabelText(/turn 21 of an estimated 50/i).tagName).toBe('BUTTON')
