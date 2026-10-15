@@ -14,6 +14,9 @@ function unitWord(platform: Platform, capitalize = false): string {
 }
 
 const LONG_PRESS_MS = 350
+// Below this many finished games, the median is noisy enough (one odd game
+// swings it wildly) that it's worth flagging rather than presenting flatly
+const LOW_SAMPLE_THRESHOLD = 3
 
 function formatDuration(seconds: number): string {
   const days = Math.floor(seconds / 86400)
@@ -122,9 +125,16 @@ function ProgressBasis({ progress }: { progress: NonNullable<Game['progress']> }
 }
 
 function ProgressTooltip({ platform, progress }: { platform: Platform; progress: NonNullable<Game['progress']> }) {
+  const lowSample = !progress.exact && progress.sampleCount < LOW_SAMPLE_THRESHOLD
   return (
     <>
       <div>{headline(platform, progress)}</div>
+      {progress.etaSeconds !== undefined && (
+        <div className="mt-0.5 text-[#b9c0f5]">{progress.etaSeconds === 0 ? 'any time now' : `~${formatDuration(progress.etaSeconds)} left`}</div>
+      )}
+      {lowSample && (
+        <div className="mt-1 text-amber-300">⚠ only {progress.sampleCount} game{progress.sampleCount === 1 ? '' : 's'} to compare against — rough estimate</div>
+      )}
       {!progress.exact && <ProgressBasis progress={progress} />}
     </>
   )
@@ -157,6 +167,11 @@ export default function ProgressBar({ game, compact }: { game: Game; compact?: b
   // along" without looking as certain as a real count. The tooltip is the
   // one place that has to say so outright; this is just a visual nudge.
   const fade = progress.timeBased ? 'opacity-60' : ''
+  // A "~" is a much smaller nudge than the fade — a low sample count can
+  // happen on an otherwise-solid turn-count estimate too, so it's shown
+  // independently rather than folded into the same signal.
+  const lowSample = !progress.exact && progress.sampleCount < LOW_SAMPLE_THRESHOLD
+  const percentText = `${lowSample ? '~' : ''}${progress.percent}%`
 
   if (compact) {
     return (
@@ -165,7 +180,7 @@ export default function ProgressBar({ game, compact }: { game: Game; compact?: b
           <span className="w-8 h-1 rounded-full bg-[#ececec] overflow-hidden">
             <span className="block h-full bg-[#5e6ad2]" style={{ width: `${progress.percent}%` }} />
           </span>
-          <span className="text-[10px] tabular-nums text-[#9b9b9b]">{progress.percent}%</span>
+          <span className="text-[10px] tabular-nums text-[#9b9b9b]">{percentText}</span>
         </span>
       </HoldTooltip>
     )
@@ -177,7 +192,7 @@ export default function ProgressBar({ game, compact }: { game: Game; compact?: b
         <span className="flex-1 h-1.5 rounded-full bg-[#ececec] overflow-hidden min-w-[60px]">
           <span className="block h-full bg-[#5e6ad2]" style={{ width: `${progress.percent}%` }} />
         </span>
-        <span className="text-[10px] tabular-nums text-[#9b9b9b]">{progress.percent}%</span>
+        <span className="text-[10px] tabular-nums text-[#9b9b9b]">{percentText}</span>
       </span>
     </HoldTooltip>
   )

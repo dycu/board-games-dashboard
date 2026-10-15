@@ -11,12 +11,31 @@ export interface GameProgress {
   timeBased?: boolean       // no turn-count samples (BGA's own archive only keeps a table's move log for ~6h after it ends) — real elapsed time vs. typical real-time length, instead
   sameSizeSampleCount: number // finished games of this type with the same player count
   totalSampleCount: number    // finished games of this type, any player count
+  etaSeconds?: number         // projected time left, from now
 }
 
 function median(sorted: number[]): number {
   const n = sorted.length
   const mid = Math.floor(n / 2)
   return n % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+}
+
+// For a time-based estimate, turnsSoFar/estimatedTotalTurns are already real
+// seconds, so what's left is just the difference. For a turn-count estimate,
+// there's no direct read on real time left — project it from how fast this
+// specific game has been going so far (its own turns-per-second since it
+// started), not the finished sample's pace, since a game can run faster or
+// slower than typical for its type.
+function withEta(active: PaceTable, progress: GameProgress): GameProgress {
+  if (progress.timeBased) {
+    return { ...progress, etaSeconds: Math.max(0, progress.estimatedTotalTurns - progress.turnsSoFar) }
+  }
+  const elapsed = Date.now() / 1000 - active.start
+  const turnsRemaining = progress.estimatedTotalTurns - progress.turnsSoFar
+  if (turnsRemaining <= 0) return { ...progress, etaSeconds: 0 }
+  if (elapsed <= 0 || progress.turnsSoFar <= 0) return progress
+  const turnsPerSecond = progress.turnsSoFar / elapsed
+  return { ...progress, etaSeconds: turnsRemaining / turnsPerSecond }
 }
 
 // Fallback for when there's no turn-count sample to compare against — BGA's
@@ -47,11 +66,11 @@ function estimateTimeProgress(tables: Record<string, PaceTable>, tableId: string
 
   const estimatedTotalSeconds = median(durations)
   const percent = Math.max(0, Math.min(100, Math.round((elapsedSeconds / estimatedTotalSeconds) * 100)))
-  return {
+  return withEta(active, {
     percent, turnsSoFar: Math.round(elapsedSeconds), estimatedTotalTurns: Math.round(estimatedTotalSeconds),
     sampleCount: durations.length, samples: durations, sameSizeOnly: pool === sameSize, timeBased: true,
     sameSizeSampleCount: sameSize.length, totalSampleCount: finishedOfType.length,
-  }
+  })
 }
 
 // tableId: the BGA table id (Game.id / FinishedGame.id with the "bga:" prefix stripped)
@@ -74,11 +93,11 @@ export function estimateProgress(tables: Record<string, PaceTable>, tableId: str
     if (samples.length > 0) {
       const estimatedTotalTurns = median(samples)
       const percent = Math.max(0, Math.min(100, Math.round((turnsSoFar / estimatedTotalTurns) * 100)))
-      return {
+      return withEta(active, {
         percent, turnsSoFar, estimatedTotalTurns: Math.round(estimatedTotalTurns),
         sampleCount: samples.length, samples, sameSizeOnly: pool === sameSize,
         sameSizeSampleCount: sameSize.length, totalSampleCount: finishedOfType.length,
-      }
+      })
     }
   }
   return estimateTimeProgress(tables, tableId)

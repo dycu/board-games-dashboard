@@ -7,6 +7,22 @@ function median(sorted: number[]): number {
   return n % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
+// See lib/pace/progress.ts's withEta for the reasoning. `start` is only
+// known for a game synced since that field was added, so a turn-count
+// estimate on an older-tracked active game just won't get one.
+function withEta(active: EighteenxxPaceGame, progress: NonNullable<Game['progress']>): NonNullable<Game['progress']> {
+  if (progress.timeBased) {
+    return { ...progress, etaSeconds: Math.max(0, progress.estimatedTotalTurns - progress.turnsSoFar) }
+  }
+  if (!active.start) return progress
+  const elapsed = Date.now() / 1000 - active.start
+  const turnsRemaining = progress.estimatedTotalTurns - progress.turnsSoFar
+  if (turnsRemaining <= 0) return { ...progress, etaSeconds: 0 }
+  if (elapsed <= 0 || progress.turnsSoFar <= 0) return progress
+  const turnsPerSecond = progress.turnsSoFar / elapsed
+  return { ...progress, etaSeconds: turnsRemaining / turnsPerSecond }
+}
+
 // Fallback for a game type with no readable action-count sample — old enough
 // games fall off this site's own ability to return a full action log (see the
 // "18Chesapeake" case this was built for), but `start`/`end` cost nothing
@@ -30,11 +46,11 @@ function estimateEighteenxxTimeProgress(games: Record<string, EighteenxxPaceGame
 
   const estimatedTotalSeconds = median(durations)
   const percent = Math.max(0, Math.min(100, Math.round((elapsedSeconds / estimatedTotalSeconds) * 100)))
-  return {
+  return withEta(active, {
     percent, turnsSoFar: Math.round(elapsedSeconds), estimatedTotalTurns: Math.round(estimatedTotalSeconds),
     sampleCount: durations.length, samples: durations, sameSizeOnly: pool === sameSize, timeBased: true,
     sameSizeSampleCount: sameSize.length, totalSampleCount: finishedOfType.length,
-  }
+  })
 }
 
 // id: the 18xx.games numeric game id (Game.id / FinishedGame.id with the
@@ -54,11 +70,11 @@ export function estimateEighteenxxProgress(games: Record<string, EighteenxxPaceG
     if (counts.length > 0) {
       const estimatedTotal = median(counts)
       const percent = Math.max(0, Math.min(100, Math.round((count / estimatedTotal) * 100)))
-      return {
+      return withEta(active, {
         percent, turnsSoFar: count, estimatedTotalTurns: Math.round(estimatedTotal),
         sampleCount: counts.length, samples: counts, sameSizeOnly: pool === sameSize,
         sameSizeSampleCount: sameSize.length, totalSampleCount: finishedOfType.length,
-      }
+      })
     }
   }
   return estimateEighteenxxTimeProgress(games, id)

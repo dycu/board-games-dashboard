@@ -23,6 +23,7 @@ interface HtGame {
   turnTimeoutSeconds: number | null
   turn?: number     // how far this game has gone; stays at its final value once finished
   mapId?: string    // determines how long a game of this size typically runs
+  createdAt?: string // ISO; ETA is projected off this game's own pace since it started
 }
 
 interface HtResponse {
@@ -97,10 +98,24 @@ function estimateHansaProgress(g: HtGame, samples: FinishedSample[]): Game['prog
   const sorted = pool.map(s => s.turn).sort((a, b) => a - b)
   const estimatedTotalTurns = Math.round(median(sorted))
   const percent = Math.max(0, Math.min(100, Math.round((turnsSoFar / estimatedTotalTurns) * 100)))
-  return {
+  const progress: Game['progress'] = {
     percent, turnsSoFar, estimatedTotalTurns, sampleCount: sorted.length, samples: sorted, sameSizeOnly: pool === sameSize,
     sameSizeSampleCount: sameSize.length, totalSampleCount: ofMap.length,
   }
+
+  // ETA is projected off this specific game's own pace since it started, not
+  // the finished samples' pace — a game can run faster or slower than typical.
+  const turnsRemaining = estimatedTotalTurns - turnsSoFar
+  if (turnsRemaining <= 0) return { ...progress, etaSeconds: 0 }
+  const createdAt = g.createdAt ? new Date(g.createdAt).getTime() / 1000 : undefined
+  if (createdAt) {
+    const elapsed = Date.now() / 1000 - createdAt
+    if (elapsed > 0 && turnsSoFar > 0) {
+      const turnsPerSecond = turnsSoFar / elapsed
+      return { ...progress, etaSeconds: turnsRemaining / turnsPerSecond }
+    }
+  }
+  return progress
 }
 
 export async function fetchHansa(userId: string): Promise<Game[]> {

@@ -24,7 +24,7 @@ describe('estimateProgress', () => {
     }
     expect(estimateProgress(tables, 'active')).toEqual({
       percent: 50, turnsSoFar: 12, estimatedTotalTurns: 24, sampleCount: 3, samples: [20, 24, 28], sameSizeOnly: false,
-      sameSizeSampleCount: 0, totalSampleCount: 3,
+      sameSizeSampleCount: 0, totalSampleCount: 3, etaSeconds: expect.any(Number),
     })
   })
 
@@ -141,6 +141,40 @@ describe('estimateProgress', () => {
     it('returns null when there are no duration samples either', () => {
       const tables = { active: table('active', 'thecrew', null, null, { start: NOW - 86400 }) }
       expect(estimateProgress(tables, 'active')).toBeNull()
+    })
+  })
+
+  describe('eta', () => {
+    const NOW = Date.parse('2026-01-10T00:00:00Z') / 1000
+    beforeEach(() => jest.spyOn(Date, 'now').mockReturnValue(NOW * 1000))
+    afterEach(() => jest.restoreAllMocks())
+
+    it('projects eta from the active game\'s own pace for a turn-count estimate', () => {
+      const dayAgo = NOW - 86400 // 10 turns in 1 day so far => 10 turns/day
+      const tables = {
+        active: table('active', 'thecrew', null, 10, { start: dayAgo }),
+        f1: table('f1', 'thecrew', 1000, 30), // median total 30 turns
+      }
+      // 20 turns remaining at 10 turns/day = 2 days
+      expect(estimateProgress(tables, 'active')?.etaSeconds).toBeCloseTo(2 * 86400, -1)
+    })
+
+    it('projects eta directly from the remaining time for a time-based estimate', () => {
+      const dayAgo = NOW - 86400
+      const tables = {
+        active: table('active', 'thecrew', null, null, { start: dayAgo }),
+        f1: table('f1', 'thecrew', dayAgo + 3 * 86400, null, { start: dayAgo }),
+      }
+      expect(estimateProgress(tables, 'active')?.etaSeconds).toBe(2 * 86400)
+    })
+
+    it('is 0 once the active game has already passed the estimated total', () => {
+      const dayAgo = NOW - 86400
+      const tables = {
+        active: table('active', 'thecrew', null, 50, { start: dayAgo }),
+        f1: table('f1', 'thecrew', 1000, 30),
+      }
+      expect(estimateProgress(tables, 'active')?.etaSeconds).toBe(0)
     })
   })
 })

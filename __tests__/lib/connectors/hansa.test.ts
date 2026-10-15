@@ -130,7 +130,7 @@ describe('progress estimate', () => {
   // Hansa has no fixed turn limit, so the estimate comes from the median of
   // every finished game on the platform (mode=all) with the same map and
   // player count — not just this user's own history, unlike BGA/Rally/18xx.
-  const activeGame = (turn: number, mapId: string, otherIds: string[]) => JSON.stringify({
+  const activeGame = (turn: number, mapId: string, otherIds: string[], createdAt?: string) => JSON.stringify({
     games: [{
       id: 'prog00112233',
       status: 'playing',
@@ -141,6 +141,7 @@ describe('progress estimate', () => {
       turnTimeoutSeconds: 86400,
       turn,
       mapId,
+      ...(createdAt && { createdAt }),
     }],
     nextCursor: null,
   })
@@ -191,5 +192,27 @@ describe('progress estimate', () => {
     const games = await fetchHansa(MY_USER_ID)
     expect(games).toHaveLength(1)
     expect(games[0].progress).toBeUndefined()
+  })
+
+  describe('eta', () => {
+    const NOW = Date.parse('2026-06-21T10:00:00Z')
+    beforeEach(() => jest.spyOn(Date, 'now').mockReturnValue(NOW))
+    afterEach(() => jest.restoreAllMocks())
+
+    it('projects eta from this game\'s own pace since it started', async () => {
+      // 30 turns in exactly 1 day so far (created a day before "now")
+      mockGamesResponse(activeGame(30, 'three-players', ['o1', 'o2'], '2026-06-20T10:00:00Z'))
+      mockGamesResponse(finishedSamples([{ turn: 90, mapId: 'three-players', playerCount: 3 }]))
+      const [g] = await fetchHansa(MY_USER_ID)
+      // 60 turns remaining at 30/day = 2 days
+      expect(g.progress?.etaSeconds).toBeCloseTo(2 * 86400, -1)
+    })
+
+    it('omits eta when the game has no createdAt', async () => {
+      mockGamesResponse(activeGame(30, 'three-players', ['o1', 'o2']))
+      mockGamesResponse(finishedSamples([{ turn: 90, mapId: 'three-players', playerCount: 3 }]))
+      const [g] = await fetchHansa(MY_USER_ID)
+      expect(g.progress?.etaSeconds).toBeUndefined()
+    })
   })
 })

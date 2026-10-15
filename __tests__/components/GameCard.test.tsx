@@ -168,6 +168,45 @@ describe('progress bar', () => {
     expect(screen.getByText(/5 games of this type/)).not.toHaveClass('font-semibold')
   })
 
+  it('shows the projected time left on hover, when an eta is available', async () => {
+    const withEta = { ...withProgress.progress, etaSeconds: 3 * 86400 + 3600 }
+    render(<GameCard {...props({ game: { ...game, progress: withEta } })} />)
+    const bar = screen.getByLabelText(/turn 21 of an estimated 50/i)
+    await userEvent.hover(bar)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('~3 days left')
+  })
+
+  it('says "any time now" instead of "0 days left" once the eta has elapsed', async () => {
+    const dueNow = { ...withProgress.progress, etaSeconds: 0 }
+    render(<GameCard {...props({ game: { ...game, progress: dueNow } })} />)
+    const bar = screen.getByLabelText(/turn 21 of an estimated 50/i)
+    await userEvent.hover(bar)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('any time now')
+  })
+
+  it('does not show a time-left line when there is no eta', async () => {
+    render(<GameCard {...props({ game: withProgress })} />)
+    const bar = screen.getByLabelText(/turn 21 of an estimated 50/i)
+    await userEvent.hover(bar)
+    expect(screen.getByRole('tooltip')).not.toHaveTextContent(/left/)
+  })
+
+  it('flags a low sample count with a "~" on the percent and a warning in the tooltip', async () => {
+    const thin = { ...withProgress.progress, sampleCount: 2, samples: [45, 55] }
+    render(<GameCard {...props({ game: { ...game, progress: thin } })} />)
+    expect(screen.getByText('~42%')).toBeInTheDocument()
+    const bar = screen.getByLabelText(/turn 21 of an estimated 50/i)
+    await userEvent.hover(bar)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('only 2 games to compare against')
+  })
+
+  it('does not flag a sample count at the low-sample threshold', () => {
+    const justEnough = { ...withProgress.progress, sampleCount: 3, samples: [40, 45, 55] }
+    render(<GameCard {...props({ game: { ...game, progress: justEnough } })} />)
+    expect(screen.getByText('42%')).toBeInTheDocument()
+    expect(screen.queryByText('~42%')).toBeNull()
+  })
+
   it('renders the compact form on a row', () => {
     render(<GameRow {...props({ game: { ...withProgress, myTurn: false } })} />)
     expect(screen.getByText('42%')).toBeInTheDocument()

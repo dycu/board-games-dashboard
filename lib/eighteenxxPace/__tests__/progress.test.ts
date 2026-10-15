@@ -112,6 +112,39 @@ describe('estimateEighteenxxProgress', () => {
       expect(estimateEighteenxxProgress(games, 'active')).toBeUndefined()
     })
   })
+
+  describe('eta', () => {
+    const NOW = Date.parse('2026-01-10T00:00:00Z') / 1000
+    beforeEach(() => jest.spyOn(Date, 'now').mockReturnValue(NOW * 1000))
+    afterEach(() => jest.restoreAllMocks())
+
+    it('projects eta from the active game\'s own pace for an action-count estimate', () => {
+      const dayAgo = NOW - 86400 // 60 actions in 1 day so far
+      const games = {
+        active: game('active', '18Chesapeake', null, 60, { start: dayAgo }),
+        f1: game('f1', '18Chesapeake', 1000, 180), // median total 180
+      }
+      // 120 actions remaining at 60/day = 2 days
+      expect(estimateEighteenxxProgress(games, 'active')?.etaSeconds).toBeCloseTo(2 * 86400, -1)
+    })
+
+    it('projects eta directly from the remaining time for a time-based estimate', () => {
+      const dayAgo = NOW - 86400
+      const games = {
+        active: game('active', '18Chesapeake', null, null, { start: dayAgo }),
+        f1: game('f1', '18Chesapeake', dayAgo + 3 * 86400, null, { start: dayAgo }),
+      }
+      expect(estimateEighteenxxProgress(games, 'active')?.etaSeconds).toBe(2 * 86400)
+    })
+
+    it('omits eta for an action-count estimate when the active game has no start time', () => {
+      const games = {
+        active: game('active', '18Chesapeake', null, 60),
+        f1: game('f1', '18Chesapeake', 1000, 180),
+      }
+      expect(estimateEighteenxxProgress(games, 'active')?.etaSeconds).toBeUndefined()
+    })
+  })
 })
 
 describe('attachEighteenxxProgress', () => {

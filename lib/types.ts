@@ -51,6 +51,11 @@ export interface Game {
     // (tests, older cached data) — the UI falls back to sampleCount then.
     sameSizeSampleCount?: number // finished samples with the same player count
     totalSampleCount?: number    // finished samples of this type, any player count
+    // Projected time left, from now — this game's own pace since it started,
+    // not the sample games' pace. Omitted where the active game's own start
+    // time isn't known (e.g. Rally, or a BGA/18xx game tracked before this
+    // was added).
+    etaSeconds?: number
   }
   // Set instead of `progress` when the last attempt to read this specific
   // game's live state failed — distinguishes "no estimate yet" (nothing
