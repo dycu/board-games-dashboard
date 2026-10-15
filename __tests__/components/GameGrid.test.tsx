@@ -127,6 +127,30 @@ describe('GameGrid sections', () => {
   })
 })
 
+describe('GameGrid refresh interval', () => {
+  it('saves the chosen interval to prefs and the server, not just the hook state', async () => {
+    const onPrefsChange = jest.fn()
+    const data: GamesApiResponse = { games: [makeGame('bga', '1')], errors: [], fetchedAt: new Date().toISOString() }
+    render(<GameGrid {...defaultGridProps} onPrefsChange={onPrefsChange} data={data} />)
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /auto-refresh interval/i }), '60')
+
+    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ refreshIntervalSeconds: 60 }))
+    expect(global.fetch).toHaveBeenCalledWith('/api/prefs', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ refreshIntervalSeconds: 60 }),
+    }))
+  })
+
+  it('starts from the saved prefs value instead of always defaulting to Off', () => {
+    const prefs: UserPrefs = { ...DEFAULT_PREFS, refreshIntervalSeconds: 300 }
+    const data: GamesApiResponse = { games: [makeGame('bga', '1')], errors: [], fetchedAt: new Date().toISOString() }
+    render(<GameGrid {...defaultGridProps} prefs={prefs} data={data} />)
+
+    expect(screen.getByRole('combobox', { name: /auto-refresh interval/i })).toHaveValue('300')
+  })
+})
+
 describe('GameGrid sink toggle', () => {
   it('adds the game to prefs.sunk and saves it when the sink icon is clicked', async () => {
     const onPrefsChange = jest.fn()

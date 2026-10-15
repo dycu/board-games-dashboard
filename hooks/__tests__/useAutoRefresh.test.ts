@@ -88,4 +88,37 @@ describe('useAutoRefresh', () => {
     act(() => { jest.advanceTimersByTime(30000) })
     expect(onRefresh).not.toHaveBeenCalled()
   })
+
+  it('adopts a saved interval once it arrives', () => {
+    const { result, rerender } = renderHook(
+      ({ saved }: { saved?: number }) => useAutoRefresh(jest.fn(), false, saved),
+      { initialProps: { saved: undefined as number | undefined } },
+    )
+    expect(result.current.intervalSeconds).toBe(0)
+
+    // prefs finish loading asynchronously (localStorage, then the server)
+    rerender({ saved: 60 })
+    expect(result.current.intervalSeconds).toBe(60)
+    expect(result.current.countdown).toBe(60)
+  })
+
+  it('does not re-adopt the saved interval after the user changes it manually', () => {
+    const { result, rerender } = renderHook(
+      ({ saved }: { saved?: number }) => useAutoRefresh(jest.fn(), false, saved),
+      { initialProps: { saved: 60 as number | undefined } },
+    )
+    expect(result.current.intervalSeconds).toBe(60)
+
+    act(() => { result.current.setIntervalSeconds(30) })
+    expect(result.current.intervalSeconds).toBe(30)
+
+    // a stale re-render with the old saved value shouldn't fight the user's choice
+    rerender({ saved: 60 })
+    expect(result.current.intervalSeconds).toBe(30)
+  })
+
+  it('leaves the interval at 0 when no saved value is ever provided', () => {
+    const { result } = renderHook(() => useAutoRefresh(jest.fn(), false, undefined))
+    expect(result.current.intervalSeconds).toBe(0)
+  })
 })

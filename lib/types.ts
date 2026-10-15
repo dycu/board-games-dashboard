@@ -95,6 +95,7 @@ export interface UserPrefs {
   watchedGames: string[] // get an instant ntfy push the moment one of these flips to myTurn, rather than waiting for the twice-daily digest
   ntfyTopic?: string      // your ntfy.sh topic — install the ntfy app and subscribe to this same topic to receive the push
   showProgress?: boolean  // show the "% through the game" bar (beta — undefined/missing defaults to on; off reverts to the old cards)
+  refreshIntervalSeconds?: number // auto-refresh dropdown choice (0/30/60/300 — undefined/missing defaults to off, i.e. 0)
 }
 
 export const DEFAULT_BACKLOG_PLATFORMS: Platform[] = ['bga', 'yucata']

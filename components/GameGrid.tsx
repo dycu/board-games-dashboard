@@ -174,7 +174,16 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     await fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ watchedGames }), headers: { 'Content-Type': 'application/json' } })
   }
 
-  const { intervalSeconds, setIntervalSeconds, countdown } = useAutoRefresh(onRefresh, isRefreshing)
+  const { intervalSeconds, setIntervalSeconds, countdown } = useAutoRefresh(onRefresh, isRefreshing, prefs.refreshIntervalSeconds)
+
+  // Saved to the server too, the same way the filter/pins/sunk/watchedGames
+  // are above — otherwise it only ever lives in the hook's local state and
+  // resets to Off on the next load.
+  const setRefreshInterval = (refreshIntervalSeconds: number) => {
+    setIntervalSeconds(refreshIntervalSeconds)
+    onPrefsChange({ ...prefs, refreshIntervalSeconds })
+    fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ refreshIntervalSeconds }), headers: { 'Content-Type': 'application/json' } }).catch(() => {})
+  }
 
   const itemProps = (g: Game): GameItemProps => ({
     game: g,
@@ -224,7 +233,8 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
       )}
       <select
         value={intervalSeconds}
-        onChange={e => setIntervalSeconds(Number(e.target.value))}
+        onChange={e => setRefreshInterval(Number(e.target.value))}
+        aria-label="Auto-refresh interval"
         className="bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] text-xs px-2 py-1 rounded-md cursor-pointer"
       >
         <option value={0}>Off</option>
