@@ -146,30 +146,31 @@ describe('progress bar', () => {
     expect(screen.queryByText('42%')).toBeNull()
   })
 
-  it('reveals the breakdown on hover, as a list with the basis actually used picked out', async () => {
+  it('reveals the basis actually used on hover, as a single line per choice', async () => {
     render(<GameCard {...props({ game: withProgress })} />)
     const bar = screen.getByLabelText(/turn 21 of an estimated 50/i)
     await userEvent.hover(bar)
     const tooltip = screen.getByRole('tooltip')
     expect(tooltip).toHaveTextContent('Turn 21 of an estimated 50')
+    // the pool actually used (3 games of this type, not same-size) is named, not the unused one
     expect(tooltip).toHaveTextContent('3 games of this type')
-    expect(tooltip).toHaveTextContent('0 with the same player count')
-    // the pool actually used (3 games of this type, not same-size) is the one marked active
-    expect(screen.getByText(/3 games of this type/)).toHaveClass('font-semibold')
-    expect(screen.getByText(/0 with the same player count/)).not.toHaveClass('font-semibold')
-    // and the method actually used (a real turn count, not time) is named and marked active too
+    expect(tooltip).not.toHaveTextContent(/with the same player count/)
+    expect(screen.getByText(/3 games of this type/)).toHaveClass('text-amber-400') // the weaker fallback, so amber
+    // and the method actually used (a real turn count, not time) is named, not "time-based"
     expect(tooltip).toHaveTextContent('Turn-based estimate')
-    expect(screen.getByText(/turn-based estimate/i)).toHaveClass('font-semibold')
-    expect(screen.getByText(/time-based estimate/i)).not.toHaveClass('font-semibold')
+    expect(tooltip).not.toHaveTextContent(/time-based estimate/i)
+    expect(screen.getByText(/turn-based estimate/i)).toHaveClass('text-green-400') // the stronger basis, so green
   })
 
-  it('marks the same-player-count bullet as the one used, when the estimate was restricted to it', async () => {
+  it('names the same-player-count pool, not "games of this type", when the estimate was restricted to it', async () => {
     const sameSizeProgress = { percent: 42, turnsSoFar: 21, estimatedTotalTurns: 50, sampleCount: 2, samples: [45, 55], sameSizeOnly: true, sameSizeSampleCount: 2, totalSampleCount: 5 }
     render(<GameCard {...props({ game: { ...game, progress: sameSizeProgress } })} />)
     const bar = screen.getByLabelText(/turn 21 of an estimated 50/i)
     await userEvent.hover(bar)
-    expect(screen.getByText(/2 with the same player count/)).toHaveClass('font-semibold')
-    expect(screen.getByText(/5 games of this type/)).not.toHaveClass('font-semibold')
+    const tooltip = screen.getByRole('tooltip')
+    expect(tooltip).toHaveTextContent('2 with the same player count')
+    expect(tooltip).not.toHaveTextContent(/games of this type/)
+    expect(screen.getByText(/2 with the same player count/)).toHaveClass('text-green-400') // same player count is the stronger match, so green
   })
 
   it('shows the projected time left on hover, when an eta is available', async () => {
@@ -242,11 +243,9 @@ describe('progress bar', () => {
     const tooltip = screen.getByRole('tooltip')
     expect(tooltip).toHaveTextContent(/1 day in.*typically takes about 3 days/i)
     expect(tooltip).toHaveTextContent(/time-based estimate/i)
-    expect(screen.getByText(/time-based estimate/i)).toHaveClass('font-semibold')
+    expect(screen.getByText(/time-based estimate/i)).toHaveClass('text-amber-400') // the weaker fallback, so amber
     expect(tooltip).not.toHaveTextContent(/turn \d/i)
-    // the non-time-based method is still named, just marked as not the one used
-    expect(tooltip).toHaveTextContent('Turn-based estimate')
-    expect(screen.getByText(/turn-based estimate/i)).not.toHaveClass('font-semibold')
+    expect(tooltip).not.toHaveTextContent(/turn-based estimate/i)
   })
 
   it("shows the game's real turn count alongside a time-based estimate, when known", async () => {
