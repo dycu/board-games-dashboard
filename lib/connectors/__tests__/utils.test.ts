@@ -1,4 +1,4 @@
-import { choochooGameType, parseChoochooProgress, withTimeout } from '../utils'
+import { choochooGameType, withTimeout } from '../utils'
 
 describe('choochooGameType', () => {
   it.each([
@@ -8,30 +8,6 @@ describe('choochooGameType', () => {
     ['reversteam', 'Reversteam'],
   ])('%s -> %s', (key, name) => {
     expect(choochooGameType(key)).toBe(name)
-  })
-})
-
-describe('parseChoochooProgress', () => {
-  it('parses a "Turn X/Y" summary into an exact progress estimate', () => {
-    expect(parseChoochooProgress('Turn 5/6 - Select actions')).toEqual({
-      percent: 83, turnsSoFar: 5, estimatedTotalTurns: 6, sampleCount: 0, samples: [], sameSizeOnly: false, exact: true,
-    })
-  })
-
-  it('tolerates extra spacing around the slash', () => {
-    expect(parseChoochooProgress('Turn 1 / 10')).toMatchObject({ turnsSoFar: 1, estimatedTotalTurns: 10 })
-  })
-
-  it('returns undefined for a summary with no turn counter', () => {
-    expect(parseChoochooProgress('Draft phase')).toBeUndefined()
-  })
-
-  it('returns undefined for undefined input', () => {
-    expect(parseChoochooProgress(undefined)).toBeUndefined()
-  })
-
-  it('clamps percent at 100 if turnsSoFar somehow exceeds the total', () => {
-    expect(parseChoochooProgress('Turn 9/6')?.percent).toBe(100)
   })
 })
 

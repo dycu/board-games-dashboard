@@ -1,5 +1,3 @@
-import { Game } from '../types'
-
 // A hung platform fetch (a connector whose login or page request never
 // resolves) must not block the whole /api/games or /api/finished-games
 // stream from ever sending its "done" event — that's what made the cron
@@ -52,19 +50,4 @@ export function choochooGameType(key: string): string {
     .filter(Boolean)
     .map(w => w[0].toUpperCase() + w.slice(1))
     .join(' ')
-}
-
-// choochoo.games's own game list already reports e.g. "Turn 5/6 - Select
-// actions" in `summary` — an exact total, not an estimate, and free (no
-// extra per-game fetch, no historical tracker like BGA/Rally/18xx need).
-// Not every game on the platform necessarily phrases its summary this way,
-// so a non-matching string just means no progress bar, not an error.
-export function parseChoochooProgress(summary: string | undefined): Game['progress'] | undefined {
-  const match = summary?.match(/\bTurn\s+(\d+)\s*\/\s*(\d+)/i)
-  if (!match) return undefined
-  const turnsSoFar = Number(match[1])
-  const estimatedTotalTurns = Number(match[2])
-  if (!estimatedTotalTurns) return undefined
-  const percent = Math.max(0, Math.min(100, Math.round((turnsSoFar / estimatedTotalTurns) * 100)))
-  return { percent, turnsSoFar, estimatedTotalTurns, sampleCount: 0, samples: [], sameSizeOnly: false, exact: true }
 }

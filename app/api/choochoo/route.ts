@@ -1,6 +1,6 @@
 import { request as httpsRequest } from 'https'
 import type { Game } from '@/lib/types'
-import { formatTimeAgo, choochooGameType, parseChoochooProgress } from '@/lib/connectors/utils'
+import { formatTimeAgo, choochooGameType } from '@/lib/connectors/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -90,7 +90,6 @@ export async function GET() {
     const isMyTurn = g.activePlayerId === myUserId
     const otherPlayerIds: number[] = (g.playerIds ?? []).filter((id: number) => id !== myUserId)
     const lastMoveAt = g.updatedAt ? new Date(g.updatedAt) : new Date()
-    const progress = parseChoochooProgress(g.summary)
     return {
       id: `choochoo:${gameId}`,
       platform: 'choochoo',
@@ -103,7 +102,6 @@ export async function GET() {
       gameUrl: `${BASE_URL}/app/games/${gameId}`,
       platformUrl: `${BASE_URL}/`,
       players: otherPlayerIds.map(id => usernames.get(id) ?? String(id)),
-      ...(progress && { progress }),
     }
   })
 
