@@ -63,12 +63,5 @@ export async function GET() {
   const allGames: any[] = gamesJson.games ?? (Array.isArray(gamesJson) ? gamesJson : [])
   const myGames = allGames.filter((g: any) => Array.isArray(g.playerIds) && g.playerIds.includes(myUserId))
 
-  return Response.json({
-    myUserId,
-    games: myGames.map((g: any) => ({
-      id: g.id, name: g.name, gameKey: g.gameKey, summary: g.summary,
-      playerIds: g.playerIds, playerCount: g.playerIds?.length,
-      activePlayerId: g.activePlayerId, status: g.status,
-    })),
-  })
+  return Response.json({ myUserId, games: myGames })
 }
