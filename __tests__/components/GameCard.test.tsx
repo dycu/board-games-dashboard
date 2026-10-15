@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import GameCard, { GameRow, GameItemProps } from '@/components/GameCard'
 import { Game } from '@/lib/types'
@@ -291,7 +291,7 @@ describe('progress bar', () => {
     expect(bar.firstElementChild).toHaveClass('opacity-60')
   })
 
-  it('is a real button, not a span, so a long press wins over the card-link underneath it', () => {
+  it('is a real button, not a span, so a tap wins over the card-link underneath it', () => {
     render(<GameCard {...props({ game: withProgress })} />)
     expect(screen.getByLabelText(/turn 21 of an estimated 50/i).tagName).toBe('BUTTON')
   })
@@ -301,6 +301,45 @@ describe('progress bar', () => {
     render(<GameCard {...props({ game: withProgress, onOpen })} />)
     await userEvent.click(screen.getByLabelText(/turn 21 of an estimated 50/i))
     expect(onOpen).not.toHaveBeenCalled()
+  })
+
+  it('toggles the tooltip open and closed on tap/click, instead of requiring a long press', () => {
+    // A bare click, not userEvent.click — that also simulates the pointer
+    // hovering in first, which is exactly the real-mouse case this test
+    // isn't after (covered separately below); this one is the touch-tap path.
+    render(<GameCard {...props({ game: withProgress })} />)
+    const bar = screen.getByLabelText(/turn 21 of an estimated 50/i)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    fireEvent.click(bar)
+    expect(screen.getByRole('tooltip')).toBeInTheDocument()
+    fireEvent.click(bar)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('ignores a touch tap\'s own synthetic mouse-enter, so the tap and its toggle do not fight each other', () => {
+    render(<GameCard {...props({ game: withProgress })} />)
+    const bar = screen.getByLabelText(/turn 21 of an estimated 50/i)
+    // Real touch devices fire a synthetic mouseenter-equivalent right before
+    // the click; simulate that explicitly via a non-mouse pointerType, which
+    // the component is meant to ignore (only a real mouse hover counts).
+    fireEvent.pointerEnter(bar, { pointerType: 'touch' })
+    fireEvent.click(bar)
+    expect(screen.getByRole('tooltip')).toBeInTheDocument()
+  })
+
+  it('shows the tooltip on real mouse hover, independent of the tap toggle', async () => {
+    render(<GameCard {...props({ game: withProgress })} />)
+    const bar = screen.getByLabelText(/turn 21 of an estimated 50/i)
+    await userEvent.hover(bar)
+    expect(screen.getByRole('tooltip')).toBeInTheDocument()
+    await userEvent.unhover(bar)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('gives the bar a bigger tap target than its visible size, via padding offset by a matching negative margin', () => {
+    render(<GameCard {...props({ game: withProgress })} />)
+    const bar = screen.getByLabelText(/turn 21 of an estimated 50/i)
+    expect(bar).toHaveClass('p-1.5', '-m-1.5')
   })
 
   it('shows a quiet warning instead of a bar when the last read failed', () => {
