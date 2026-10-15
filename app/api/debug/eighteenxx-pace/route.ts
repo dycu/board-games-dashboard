@@ -16,10 +16,14 @@ export async function GET(req: Request) {
     return new Response(JSON.stringify({ totalTracked: entries.length, target, sameTitleCount: sameTitle.length, sameTitle }, null, 2), { headers: { 'Content-Type': 'application/json' } })
   }
 
-  const username = process.env.EIGHTEENXX_USERNAME ?? ''
-  const password = process.env.EIGHTEENXX_PASSWORD ?? ''
-  const cookie = await withTimeout(loginEighteenxx(username, password, undefined), 8000, 'login')
-  const res = await withTimeout(fetch(`${BASE}/api/game/${id}`, { headers: { Cookie: cookie, Accept: 'application/json' } }), 8000, 'detail fetch')
-  const data = await res.json().catch(() => null)
-  return new Response(JSON.stringify({ ok: res.ok, status: res.status, actionsLength: Array.isArray(data?.actions) ? data.actions.length : 'not-array', data }, null, 2), { headers: { 'Content-Type': 'application/json' } })
+  try {
+    const username = process.env.EIGHTEENXX_USERNAME ?? ''
+    const password = process.env.EIGHTEENXX_PASSWORD ?? ''
+    const cookie = await withTimeout(loginEighteenxx(username, password, undefined), 8000, 'login')
+    const res = await withTimeout(fetch(`${BASE}/api/game/${id}`, { headers: { Cookie: cookie, Accept: 'application/json' } }), 8000, 'detail fetch')
+    const data = await res.json().catch(() => null)
+    return new Response(JSON.stringify({ ok: res.ok, status: res.status, actionsLength: Array.isArray(data?.actions) ? data.actions.length : 'not-array', data }, null, 2), { headers: { 'Content-Type': 'application/json' } })
+  } catch (e) {
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }, null, 2), { headers: { 'Content-Type': 'application/json' }, status: 500 })
+  }
 }
