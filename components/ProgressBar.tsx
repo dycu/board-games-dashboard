@@ -103,16 +103,18 @@ function headline(platform: Platform, progress: NonNullable<Game['progress']>): 
   return `${unit} ${turnsSoFar} of an estimated ${estimatedTotalTurns}`
 }
 
-// One row = one either/or choice: the two options sit together on the same
-// line (not as separate bullets scattered among the other choice's options),
-// with the one actually used picked out.
+// One row = one either/or choice, better option on the left in green, the
+// weaker fallback on the right in amber — color says which is the stronger
+// basis, weight/brightness (full vs. dimmed) says which one this estimate
+// actually used.
 function BasisPair({ options, activeIndex }: { options: [string, string]; activeIndex: 0 | 1 }) {
+  const color = ['text-green-400', 'text-amber-400']
   return (
     <div>
       {options.map((label, i) => (
         <span key={label}>
           {i > 0 && <span className="text-[#6b6b6b]"> / </span>}
-          <span className={i === activeIndex ? 'font-semibold text-white' : 'text-[#9b9b9b]'}>{label}</span>
+          <span className={`${color[i]} ${i === activeIndex ? 'font-semibold' : 'opacity-50'}`}>{label}</span>
         </span>
       ))}
     </div>
@@ -123,6 +125,8 @@ function BasisPair({ options, activeIndex }: { options: [string, string]; active
 // the method (turn/move count vs. elapsed time) and the sample pool (same
 // player count vs. this type as a whole) — not four independent facts, so
 // each is its own row instead of four flat bullets that read as one list.
+// The stronger option of each pair (a real turn count; a sample matched to
+// the same player count) goes first/left.
 function ProgressBasis({ platform, progress }: { platform: Platform; progress: NonNullable<Game['progress']> }) {
   const { sampleCount, sameSizeOnly, timeBased, sameSizeSampleCount, totalSampleCount } = progress
   const total = totalSampleCount ?? sampleCount
@@ -133,8 +137,8 @@ function ProgressBasis({ platform, progress }: { platform: Platform; progress: N
     <div className="mt-1 text-left space-y-0.5">
       <BasisPair options={[`${unit}-based estimate`, 'Time-based estimate']} activeIndex={timeBased ? 1 : 0} />
       <BasisPair
-        options={[`${total} game${total === 1 ? '' : 's'} of this type`, `${sameSize} with the same player count`]}
-        activeIndex={sameSizeOnly ? 1 : 0}
+        options={[`${sameSize} with the same player count`, `${total} game${total === 1 ? '' : 's'} of this type`]}
+        activeIndex={sameSizeOnly ? 0 : 1}
       />
     </div>
   )
