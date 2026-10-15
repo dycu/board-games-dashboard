@@ -121,6 +121,22 @@ function formatEtaShort(seconds: number): string {
   return `${Math.round(days / 7)}w`
 }
 
+// Sample size and method (turn- vs time-based) are two separate kinds of
+// uncertainty, not one — so each gets its own visual channel instead of
+// being folded into a single faded/not-faded flag. Breakpoints are picked
+// from how this account's own sample counts actually cluster (roughly a
+// third each under 3, 3–9, and 10+), not an arbitrary round number.
+function sampleOpacity(sampleCount: number): number {
+  if (sampleCount < 3) return 0.4
+  if (sampleCount < 10) return 0.7
+  return 1
+}
+function sampleConfidenceWord(sampleCount: number): string {
+  if (sampleCount < 3) return 'thin sample'
+  if (sampleCount < 10) return 'moderate sample'
+  return 'solid sample'
+}
+
 // One horizontal bar per active game, soonest-to-finish at the top — games
 // with no eta yet (just started, or nothing to estimate from) aren't shown;
 // there's nothing useful to place on a timeline for them.
@@ -150,16 +166,16 @@ export function FinishTimelineChart({ games, names }: { games: ActiveGameEta[]; 
           const y = T + i * ROW_H + ROW_H / 2
           const days = g.etaSeconds / 86400
           const overflow = days > maxDays
-          const faint = !!g.timeBased || g.sampleCount < 3
           const label = names[g.game] ?? g.game
           const truncated = label.length > 18 ? `${label.slice(0, 17)}…` : label
           return (
-            <g key={g.id} opacity={faint ? 0.55 : 1}>
+            <g key={g.id} opacity={sampleOpacity(g.sampleCount)}>
               <text x={L - 8} y={y} dy="0.32em" textAnchor="end" fontSize="11" fill={INK}>
                 <tspan fill={MUTED} fontSize="9">{PLATFORM_SHORT_LABELS[g.platform]} </tspan>
                 {truncated}
               </text>
-              <line x1={L} x2={x(days)} y1={y} y2={y} stroke={ACCENT} strokeWidth={7} strokeLinecap="round" />
+              <line x1={L} x2={x(days)} y1={y} y2={y} stroke={ACCENT} strokeWidth={7} strokeLinecap="round"
+                strokeDasharray={g.timeBased ? '1 9' : undefined} />
               <text x={x(days) + 6} y={y} dy="0.32em" fontSize="10" fill={MUTED}>
                 {formatEtaShort(g.etaSeconds)}{overflow ? '+' : ''}
               </text>
@@ -186,7 +202,10 @@ export function FinishTimelineChart({ games, names }: { games: ActiveGameEta[]; 
               {g.etaSeconds <= 0 ? 'any time now' : `around ${finishDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
             </div>
             <div className="text-[#6b6b6b]">
-              {g.timeBased ? 'time-based' : 'turn-based'} · {g.sampleCount} sample{g.sampleCount === 1 ? '' : 's'}{g.sampleCount < 3 ? ' (few)' : ''}
+              {g.timeBased ? 'time-based' : 'turn-based'} · {sampleConfidenceWord(g.sampleCount)} ({g.sampleCount})
+            </div>
+            <div className="mt-1 pt-1 border-t border-[#e5e5e5] text-[9px] text-[#9b9b9b] whitespace-normal max-w-[170px]">
+              Dotted = time-based · Fainter = fewer finished games to compare against
             </div>
           </Tooltip>
         )

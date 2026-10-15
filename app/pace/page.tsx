@@ -169,7 +169,7 @@ export default function PacePage() {
 
             <Section
               title="When your active games are projected to finish"
-              note="Each bar is that game's own pace since it started — not just the typical length for its type — projected forward. Faded = either a time-based estimate (no turn-count history for this game type) or fewer than 3 finished games to compare against, so treat it as rougher."
+              note="Each bar is that game's own pace since it started — not just the typical length for its type — projected forward. Dotted = time-based (no turn-count history for this game type). Fainter = fewer finished games to compare against — hover a bar for details."
             >
               <FinishTimelineChart games={data!.activeEtas} names={data!.names} />
             </Section>
