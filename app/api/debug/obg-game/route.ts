@@ -1,5 +1,7 @@
 import * as cheerio from 'cheerio/slim'
 
+export const runtime = 'edge'
+
 const BASE = 'https://www.onlineboardgamers.com'
 const LOGIN_PATH = '/login/'
 
