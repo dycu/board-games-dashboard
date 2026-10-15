@@ -89,6 +89,21 @@ describe('syncEighteenxx', () => {
     })
   })
 
+  it('backfills start on an already-cached finished game, from the profile page, without re-fetching it', async () => {
+    mockHgetall.mockResolvedValue({ '20': { id: '20', title: '1846', end: 500, actionCount: 0 } })
+    mockProfileGames.mockResolvedValue({
+      myId: 1,
+      games: [{ id: 20, title: '1846', status: 'finished', finished_at: 500, created_at: 100, players: [{ id: 1, name: 'me' }] }],
+    })
+    mockFetch.mockResolvedValueOnce(jsonRes({ games: [] })) // /api/game/user: nothing active
+
+    await syncEighteenxx('me', 'pass', undefined, 15000)
+    expect(mockFetch).toHaveBeenCalledTimes(1) // still no per-game detail fetch
+    expect(mockHset).toHaveBeenCalledWith('eighteenxxpace:v2:games', {
+      '20': { id: '20', title: '1846', end: 500, actionCount: 0, start: 100 },
+    })
+  })
+
   it('propagates the "player not found" error from resolving the session', async () => {
     mockProfileGames.mockRejectedValue(new Error('18xx.games: player "nobody" not found in any game — set EIGHTEENXX_USER_ID'))
     await expect(syncEighteenxx('nobody', 'pass', undefined, 15000)).rejects.toThrow('not found in any game')

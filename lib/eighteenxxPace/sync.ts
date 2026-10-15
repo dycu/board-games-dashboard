@@ -122,6 +122,18 @@ export async function syncEighteenxx(
     }
   }
 
+  // Backfills `start` on a finished game already cached from before this was
+  // tracked (or whose action log came back empty, like old 18Chesapeake
+  // games) — no extra fetch needed, since the profile page handed it over
+  // already and every finished game is only ever read once otherwise.
+  const finishedRawById = new Map(finishedRaw.map(g => [String(g.id), g]))
+  for (const [id, g] of Object.entries(stored)) {
+    if (g.end !== null && g.start === undefined && !touched.has(id)) {
+      const start = startOf(finishedRawById.get(id) ?? {})
+      if (start !== undefined) updates.push({ ...g, start })
+    }
+  }
+
   await putEighteenxxPaceGames(updates)
   return { active: activeRaw.length, finished: finishedRaw.length, read }
 }
