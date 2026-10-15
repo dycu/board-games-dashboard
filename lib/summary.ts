@@ -74,9 +74,10 @@ export function summarizePeriod(all: FinishedGame[], from: Date, to: Date): Peri
   }
 }
 
-export type PeriodPreset = '7d' | '30d' | 'month' | 'custom'
+export type PeriodPreset = '7d' | '30d' | 'month' | 'all' | 'custom'
 
 export function presetRange(preset: Exclude<PeriodPreset, 'custom'>, now: Date): { from: Date; to: Date } {
+  if (preset === 'all') return { from: new Date(0), to: now }
   if (preset === 'month') return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: now }
   const days = preset === '7d' ? 7 : 30
   return { from: new Date(now.getTime() - days * 86_400_000), to: now }

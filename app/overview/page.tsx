@@ -12,7 +12,6 @@ import { useBgaPlayTotals, totalsOf } from '@/hooks/useBgaPlayTotals'
 import { aggregatePlayed, playedKey, playedNote } from '@/lib/backlog/played'
 import { readCache } from '@/hooks/useGamesData'
 import GameLink, { playedGameUrl } from '@/components/GameLink'
-import PlayCountChart from '@/components/PlayCountChart'
 import PeriodSummary from '@/components/PeriodSummary'
 
 const PAGE_SIZE = 20
@@ -32,11 +31,6 @@ export default function OverviewPage() {
   const filtered = data
     ? (platformFilter ? data.games.filter(g => g.platform === platformFilter) : data.games)
     : []
-
-  const playCounts = useMemo(
-    () => data ? aggregatePlayed([], data.games, totalsOf(bgaTotals)) : [],
-    [data, bgaTotals],
-  )
 
   // The same per-game details as Backlog's "From your games", running games included
   const playedByKey = useMemo(
@@ -87,8 +81,6 @@ export default function OverviewPage() {
     )
   }
 
-  const chartGames = platformFilter ? playCounts.filter(g => g.platform === platformFilter) : playCounts
-
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <TopNav right={navRight} />
@@ -131,16 +123,13 @@ export default function OverviewPage() {
           </div>
         )}
 
-        {/* Wide screens: the games on the left, summary and chart beside them.
-            Narrow: summary, then the games, then the chart. */}
-        {/* auto/1fr rows: when the games list is taller than the side column,
-            the extra height goes below the chart instead of between the panels */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[auto_1fr] gap-5 items-start">
+        {/* Wide screens: the games on the left, summary beside them. Narrow: summary, then the games. */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-5 items-start">
           <div className="lg:col-start-2 lg:row-start-1">
             <PeriodSummary games={filtered} />
           </div>
 
-          <section className="lg:col-start-1 lg:row-start-1 lg:row-span-2 min-w-0">
+          <section className="lg:col-start-1 lg:row-start-1 min-w-0">
             <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b] mb-2">
               Finished games · {filtered.length}
             </h2>
@@ -187,10 +176,6 @@ export default function OverviewPage() {
               </div>
             )}
           </section>
-
-          <div className="lg:col-start-2 lg:row-start-2">
-            <PlayCountChart games={chartGames} compact />
-          </div>
         </div>
       </div>
     </div>

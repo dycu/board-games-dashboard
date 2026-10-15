@@ -8,7 +8,7 @@ import { gameHistoryHref } from '@/lib/gameStats'
 
 interface Pace { turns: number; medianHours: number | null; turnsPerDay: number | null }
 
-const PRESETS: [PeriodPreset, string][] = [['7d', '7d'], ['30d', '30d'], ['month', 'Month'], ['custom', 'Custom']]
+const PRESETS: [PeriodPreset, string][] = [['7d', '7d'], ['30d', '30d'], ['month', 'Month'], ['all', 'All time'], ['custom', 'Custom']]
 
 const dateInput = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
@@ -17,11 +17,8 @@ function signed(n: number): string {
 }
 
 // History over a chosen period: results, per-game breakdown, ELO and BGA pace
-const TABLE_ROWS = 6
-
 export default function PeriodSummary({ games }: { games: FinishedGame[] }) {
   const [preset, setPreset] = useState<PeriodPreset>('7d')
-  const [showAllGames, setShowAllGames] = useState(false)
   const [now] = useState(() => new Date())
   const [customFrom, setCustomFrom] = useState(() => dateInput(new Date(now.getTime() - 14 * 86_400_000)))
   const [customTo, setCustomTo] = useState(() => dateInput(now))
@@ -99,7 +96,7 @@ export default function PeriodSummary({ games }: { games: FinishedGame[] }) {
               </tr>
             </thead>
             <tbody>
-              {(showAllGames ? byGame : byGame.slice(0, TABLE_ROWS)).map(g => (
+              {byGame.map(g => (
                 <tr key={`${g.platform}:${g.gameName}`} className="border-t border-[#f0f0f0]">
                   <td className="py-1.5 pr-2 overflow-hidden" title={g.gameName}>
                     <span className="flex items-start gap-2 min-w-0">
@@ -119,11 +116,6 @@ export default function PeriodSummary({ games }: { games: FinishedGame[] }) {
               ))}
             </tbody>
           </table>
-          {byGame.length > TABLE_ROWS && (
-            <button onClick={() => setShowAllGames(v => !v)} className="mt-1 text-xs text-[#6b6b6b] hover:text-[#1a1a1a]">
-              {showAllGames ? 'Show fewer' : `Show all ${byGame.length} games`}
-            </button>
-          )}
         </>
       )}
 

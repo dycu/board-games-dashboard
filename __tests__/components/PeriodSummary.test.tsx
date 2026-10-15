@@ -40,4 +40,19 @@ describe('PeriodSummary', () => {
     render(<PeriodSummary games={[fg('old', 60)]} />)
     expect(screen.getByText(/No games finished in this period/)).toBeInTheDocument()
   })
+
+  it('shows everything, including games far outside any other preset, under "All time"', async () => {
+    const veryOld = fg('ancient', 900, { gameName: 'Acquire', platform: 'yucata', result: 'won' })
+    render(<PeriodSummary games={[...games, veryOld]} />)
+    await userEvent.click(screen.getByRole('button', { name: 'All time' }))
+    expect(screen.getByText('Acquire')).toBeInTheDocument()
+    expect(screen.getByText('finished').previousSibling).toHaveTextContent('4')
+  })
+
+  it('lists every game in the period without a "show more" toggle to hide any of them', async () => {
+    const many = Array.from({ length: 10 }, (_, i) => fg(`g${i}`, 2, { gameName: `Game ${i}` }))
+    render(<PeriodSummary games={many} />)
+    for (const g of many) expect(screen.getByText(g.gameName)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /show (all|fewer)/i })).toBeNull()
+  })
 })

@@ -46,4 +46,9 @@ describe('presetRange', () => {
     expect(presetRange('7d', now).from).toEqual(new Date(now.getTime() - 7 * 86_400_000))
     expect(presetRange('month', now).from).toEqual(new Date(2026, 9, 1))
   })
+
+  it('covers everything for "all"', () => {
+    const now = new Date(2026, 9, 18, 15)
+    expect(presetRange('all', now)).toEqual({ from: new Date(0), to: now })
+  })
 })
