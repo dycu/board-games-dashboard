@@ -123,13 +123,14 @@ export default function OverviewPage() {
           </div>
         )}
 
-        {/* Wide screens: the games on the left, summary beside them. Narrow: summary, then the games. */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-5 items-start">
-          <div className="lg:col-start-2 lg:row-start-1">
-            <PeriodSummary games={filtered} />
-          </div>
+        {/* Summary first, full width — its per-game table can run to hundreds of
+            rows once a wide period is selected, and needs the room. The
+            individual finished-game cards below don't benefit from extra
+            width the same way, so they stay their own section underneath. */}
+        <div className="flex flex-col gap-5">
+          <PeriodSummary games={filtered} />
 
-          <section className="lg:col-start-1 lg:row-start-1 min-w-0">
+          <section className="min-w-0">
             <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b] mb-2">
               Finished games · {filtered.length}
             </h2>

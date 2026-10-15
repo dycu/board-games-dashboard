@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FinishedGame, PLATFORM_SHORT_LABELS, PLATFORM_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
-import { summarizePeriod, presetRange, PeriodPreset } from '@/lib/summary'
+import { summarizePeriod, presetRange, PeriodPreset, GameBreakdown } from '@/lib/summary'
 import Link from 'next/link'
 import { gameHistoryHref } from '@/lib/gameStats'
 
@@ -16,12 +16,30 @@ function signed(n: number): string {
   return n > 0 ? `+${n}` : String(n)
 }
 
+type SortKey = 'plays' | 'record' | 'elo' | 'name'
+const SORTS: [SortKey, string][] = [['plays', 'Most played'], ['record', 'Best record'], ['elo', 'ELO'], ['name', 'Name']]
+
+// -1 for a game with no competitive results, so it sorts after real records
+function winRate(g: GameBreakdown): number {
+  const total = g.won + g.lost
+  return total > 0 ? g.won / total : -1
+}
+
+const SORTERS: Record<SortKey, (a: GameBreakdown, b: GameBreakdown) => number> = {
+  plays: (a, b) => b.played - a.played || a.gameName.localeCompare(b.gameName),
+  record: (a, b) => winRate(b) - winRate(a) || b.played - a.played,
+  elo: (a, b) => (b.eloNow ?? -Infinity) - (a.eloNow ?? -Infinity) || b.played - a.played,
+  name: (a, b) => a.gameName.localeCompare(b.gameName),
+}
+
 // History over a chosen period: results, per-game breakdown, ELO and BGA pace
 export default function PeriodSummary({ games }: { games: FinishedGame[] }) {
   const [preset, setPreset] = useState<PeriodPreset>('7d')
   const [now] = useState(() => new Date())
   const [customFrom, setCustomFrom] = useState(() => dateInput(new Date(now.getTime() - 14 * 86_400_000)))
   const [customTo, setCustomTo] = useState(() => dateInput(now))
+  const [search, setSearch] = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>('plays')
 
   const { from, to } = useMemo(() => {
     if (preset !== 'custom') return presetRange(preset, now)
@@ -43,9 +61,15 @@ export default function PeriodSummary({ games }: { games: FinishedGame[] }) {
     return () => { cancelled = true }
   }, [from, to])
 
-  const { results, winRate, eloChange, byGame, partial } = summary
+  const { results, winRate: periodWinRate, eloChange, byGame, partial } = summary
   const pill = (active: boolean) => `text-xs px-2.5 py-0.5 rounded-full font-medium transition-colors
     ${active ? 'bg-[#1a1a1a] text-white' : 'bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb]'}`
+
+  const visibleGames = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const rows = q ? byGame.filter(g => g.gameName.toLowerCase().includes(q)) : byGame
+    return [...rows].sort(SORTERS[sortKey])
+  }, [byGame, search, sortKey])
 
   return (
     <section className="bg-white rounded-xl border border-[#e5e5e5] p-4">
@@ -75,17 +99,37 @@ export default function PeriodSummary({ games }: { games: FinishedGame[] }) {
             <Stat value={results.lost} label="lost" />
             {results.draws > 0 && <Stat value={results.draws} label="drawn" />}
             {results.coop > 0 && <Stat value={results.coop} label="co-op" />}
-            {winRate !== null && <Stat value={`${Math.round(winRate * 100)}%`} label="win rate" />}
+            {periodWinRate !== null && <Stat value={`${Math.round(periodWinRate * 100)}%`} label="win rate" />}
             {eloChange !== null && <Stat value={signed(eloChange)} label="ELO (BGA)" accent={eloChange >= 0 ? 'text-green-700' : 'text-red-600'} />}
           </div>
+
+          {byGame.length > 1 && (
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder={`Filter ${byGame.length} games…`}
+                className="flex-1 min-w-0 text-xs bg-white border border-[#e5e5e5] rounded px-2 py-1 placeholder:text-[#9b9b9b]"
+              />
+              <select
+                value={sortKey}
+                onChange={e => setSortKey(e.target.value as SortKey)}
+                aria-label="Sort by"
+                className="text-xs bg-white border border-[#e5e5e5] rounded px-1.5 py-1 text-[#6b6b6b]"
+              >
+                {SORTS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+              </select>
+            </div>
+          )}
 
           {/* Fixed column widths, so long names are cut off instead of widening the table */}
           <table className="w-full table-fixed text-sm">
             <colgroup>
               <col />
-              <col className="w-11" />
-              <col className="w-11" />
-              <col className="w-[5.5rem] hidden sm:table-column" />
+              <col className="w-14" />
+              <col className="w-14" />
+              <col className="w-24 hidden sm:table-column" />
             </colgroup>
             <thead>
               <tr className="text-[11px] uppercase tracking-wide text-[#9b9b9b] text-left">
@@ -96,7 +140,10 @@ export default function PeriodSummary({ games }: { games: FinishedGame[] }) {
               </tr>
             </thead>
             <tbody>
-              {byGame.map(g => (
+              {visibleGames.length === 0 && (
+                <tr><td colSpan={4} className="py-3 text-center text-[#9b9b9b]">No games match &quot;{search}&quot;</td></tr>
+              )}
+              {visibleGames.map(g => (
                 <tr key={`${g.platform}:${g.gameName}`} className="border-t border-[#f0f0f0]">
                   <td className="py-1.5 pr-2 overflow-hidden" title={g.gameName}>
                     <span className="flex items-start gap-2 min-w-0">

@@ -55,4 +55,50 @@ describe('PeriodSummary', () => {
     for (const g of many) expect(screen.getByText(g.gameName)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /show (all|fewer)/i })).toBeNull()
   })
+
+  const multiGames = [
+    fg('c1', 0, { gameName: 'Catan', result: 'won' }),
+    fg('c2', 0, { gameName: 'Catan', result: 'won' }),
+    fg('c3', 0, { gameName: 'Catan', result: 'lost' }),
+    fg('b1', 0, { gameName: 'Brass', result: 'lost' }),
+    fg('b2', 0, { gameName: 'Brass', result: 'lost' }),
+    fg('d1', 0, { gameName: 'Dune', result: 'won', elo: 1500 }),
+  ]
+
+  it('filters the per-game table by name, without affecting the period totals', async () => {
+    render(<PeriodSummary games={multiGames} />)
+    expect(screen.getByText('Catan')).toBeInTheDocument()
+    expect(screen.getByText('Brass')).toBeInTheDocument()
+
+    await userEvent.type(screen.getByPlaceholderText(/Filter 3 games/), 'dun')
+
+    expect(screen.getByText('Dune')).toBeInTheDocument()
+    expect(screen.queryByText('Catan')).toBeNull()
+    expect(screen.queryByText('Brass')).toBeNull()
+    expect(screen.getByText('finished').previousSibling).toHaveTextContent('6') // unaffected by the table filter
+  })
+
+  it('says so when the filter matches nothing', async () => {
+    render(<PeriodSummary games={multiGames} />)
+    await userEvent.type(screen.getByPlaceholderText(/Filter 3 games/), 'zzz')
+    expect(screen.getByText(/No games match/)).toBeInTheDocument()
+  })
+
+  it('sorts by best record, name, and ELO', async () => {
+    render(<PeriodSummary games={multiGames} />)
+    const rowNames = () => screen.getAllByRole('row').slice(1).map(r => r.textContent)
+    const sortSelect = screen.getByLabelText('Sort by')
+
+    // default: most played — Catan (3), Brass (2), Dune (1)
+    expect(rowNames().map(t => t?.match(/Catan|Brass|Dune/)?.[0])).toEqual(['Catan', 'Brass', 'Dune'])
+
+    await userEvent.selectOptions(sortSelect, 'Best record')
+    expect(rowNames().map(t => t?.match(/Catan|Brass|Dune/)?.[0])).toEqual(['Dune', 'Catan', 'Brass'])
+
+    await userEvent.selectOptions(sortSelect, 'Name')
+    expect(rowNames().map(t => t?.match(/Catan|Brass|Dune/)?.[0])).toEqual(['Brass', 'Catan', 'Dune'])
+
+    await userEvent.selectOptions(sortSelect, 'ELO')
+    expect(rowNames().map(t => t?.match(/Catan|Brass|Dune/)?.[0])).toEqual(['Dune', 'Catan', 'Brass'])
+  })
 })
