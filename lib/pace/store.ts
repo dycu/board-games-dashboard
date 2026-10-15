@@ -26,7 +26,7 @@ export interface PaceTable {
 export interface PaceMeta {
   trackingStartedAt: number
   lastSyncAt: number | null
-  indexComplete: boolean // all finished tables back to the backfill horizon are indexed
+  indexComplete: boolean // the whole account's finished-table history has been walked once, to a genuinely empty page
   nextIndexPage: number  // getGames page to resume backfill indexing from
 }
 

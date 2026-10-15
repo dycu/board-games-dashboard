@@ -1,13 +1,9 @@
 import { withBgaSession, fetchBgaTables, bgaApiHeaders, BgaSession } from '../connectors/bga'
 import { extractTurns, countTurns, INITIAL_TURN_STATE, BgaPacket } from './bgaTurns'
 import { getMeta, setMeta, getTables, putTables, appendTurns, PaceTable } from './store'
+import { putHistoryRows, RawBgaRow } from './historyStore'
 
 const BASE = 'https://boardgamearena.com'
-// A slow-to-finish game type (e.g. a multi-week game only a handful of
-// people ever finish) needs enough history to get a real sample from —
-// 365 days turned out too tight for one found this way (10 samples instead
-// of several times that, all from the last year of a much longer history).
-const BACKFILL_DAYS = 730
 // A finished table that lasted less than this was a real-time game; its turns
 // say nothing about async pace and it doesn't count toward async load.
 export const REALTIME_MAX_SECONDS = 4 * 3600
@@ -20,7 +16,7 @@ export interface SyncProgress {
   indexComplete: boolean
   lastSyncAt: number
   pagesRead: number // finished-games pages read this run — for sizing how deep a single run actually gets
-  stopReason: 'budget' | 'horizon' | 'end-of-history'
+  stopReason: 'budget' | 'end-of-history' | 'caught-up'
 }
 
 async function getJson(url: string, session: BgaSession): Promise<any> {
@@ -91,45 +87,46 @@ export async function syncBga(username: string, password: string, budgetMs: numb
     }
   }
 
-  // 2. Finished tables: backfill back to the horizon once, then keep re-walking
-  // from page 1 every run rather than trusting a resume point, since new
-  // finishes get prepended to page 1 and push everything else down — a
-  // persisted page number from last time would land on the wrong rows today.
+  // 2. Finished tables: backfill the whole account's history once — all the
+  // way to a genuinely empty page, not a time-based cutoff, since the
+  // History page's "All time" summary needs the real thing — then keep
+  // re-walking from page 1 every run rather than trusting a resume point,
+  // since new finishes get prepended to page 1 and push everything else down.
   //
-  // This used to stop as soon as it hit a page where every row was already
-  // known, on the assumption that meant everything older was too. For a
-  // prolific player across many game types, that's not a safe assumption —
-  // a page can come up "all known" by chance while an older, never-seen
-  // table still sits a few pages further back (discovered late, or from a
-  // run that ran out of budget before reaching it). That one coincidence
-  // was enough to end the run early, every time, so some tables were never
-  // discovered at all — the backfill never actually used its full time
-  // budget. Now it only stops on a real boundary: the time budget, the
-  // horizon, or genuinely running out of pages.
+  // While backfilling, this never stops early just because a page happens to
+  // be fully known already — for a prolific player across many game types,
+  // that's not a safe signal that everything older is known too (a
+  // never-seen table can sit a few pages further back, found late or from a
+  // run that ran out of budget first). Only once the whole account has
+  // genuinely been walked to its end at least once does "every row on this
+  // page was already known" become trustworthy: new finishes only ever
+  // arrive at page 1, so nothing below an unchanged page could have changed.
   //
   // Pages are read one at a time, not several in parallel — BGA answered a
   // burst of concurrent requests to this endpoint with HTTP 503 during
-  // testing, so catching up a large backlog now happens gradually over many
+  // testing, so catching up a large backlog happens gradually over many
   // runs (daily cron, plus whenever the dashboard triggers a sync) rather
   // than all at once.
-  const horizon = Date.now() / 1000 - BACKFILL_DAYS * 86400
   let page = meta.indexComplete ? 1 : meta.nextIndexPage
   let caughtUp = false
   let pagesRead = 0
   let stopReason: SyncProgress['stopReason'] = 'budget'
+  const historyRows: Record<string, RawBgaRow> = {}
   while (timeLeft() > 5000) {
     const rows = await fetchFinishedPage(session, page)
     pagesRead++
     if (rows.length === 0) { meta.indexComplete = true; caughtUp = true; stopReason = 'end-of-history'; break }
-    let oldest = Infinity
+    let allAlreadyKnown = true
     for (const r of rows) {
       const id = String(r.table_id)
       const start = Number(r.start)
       const end = Number(r.end)
-      oldest = Math.min(oldest, start)
       const existing = tables[id]
-      if (existing && existing.end !== null) continue
+      const alreadyKnown = !!existing && existing.end !== null
+      if (!alreadyKnown) allAlreadyKnown = false
       if (r.cancelled === '1' || r.cancelled === 1) continue
+      if (!alreadyKnown) historyRows[id] = r
+      if (alreadyKnown) continue
       const realtime = end - start < REALTIME_MAX_SECONDS
       // BGA archives a finished table's move log within hours ("Cannot find
       // gamenotifs log file of an archived table"), so the archive is only
@@ -148,10 +145,11 @@ export async function syncBga(username: string, password: string, budgetMs: numb
         realtime,
       })
     }
-    if (oldest < horizon) { meta.indexComplete = true; caughtUp = true; stopReason = 'horizon'; break }
+    if (meta.indexComplete && allAlreadyKnown) { caughtUp = true; stopReason = 'caught-up'; break }
     page++
     if (!meta.indexComplete) meta.nextIndexPage = page
   }
+  await putHistoryRows(historyRows)
 
   // A table that left the running list but never showed up as finished
   // (e.g. abandoned) — close it at its last known activity

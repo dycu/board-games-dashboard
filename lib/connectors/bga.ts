@@ -4,6 +4,7 @@ import { formatTimeRemaining, formatTimeAgo } from './utils'
 import { getCatalog } from '../catalogs/cache'
 import { resolveLastMoves, Seed } from './bgaLastMove'
 import { getTables } from '../pace/store'
+import { getAllHistoryRows } from '../pace/historyStore'
 import { resultFromRanks, withEloDeltas } from '../results'
 
 const BASE = 'https://boardgamearena.com'
@@ -489,11 +490,21 @@ export async function fetchBGA(username: string, password: string, auth?: BgaAut
 // gamestats/getGames lists finished tables 10 per page, newest first, without
 // the DB timeouts of tableinfos status=finished. Uses the shared cached session:
 // a separate login here is what BGA's login rate limit punishes.
-// 150 games reach back far enough for the History page's period summaries
+//
+// The Pace sync (lib/pace/sync.ts) already walks this same endpoint in the
+// background to track turn timing, and as a side effect stores every row it
+// sees in lib/pace/historyStore — reaching the whole account's finished-game
+// history over many runs, not just a capped recent window. Once that store
+// has anything in it, one live page here is enough to catch whatever
+// finished since the last sync; before the first backfill completes (or if
+// the store is empty for any other reason), fall back to the old multi-page
+// live walk so the History page isn't left nearly empty.
 const FINISHED_PAGES = 15
 const PAGE_BATCH = 5
 
 export async function fetchFinishedBGA(username: string, password: string, auth?: BgaAuthOptions): Promise<FinishedGame[]> {
+  const stored = await getAllHistoryRows()
+
   const { session, rows } = await withBgaSession(username, password, async s => {
     const fetchPage = async (page: number): Promise<any[]> => {
       const url = `${BASE}/gamestats/gamestats/getGames.html?player=${s.myId}&opponent_id=0&finished=1&page=${page}&updateStats=0`
@@ -506,6 +517,7 @@ export async function fetchFinishedBGA(username: string, password: string, auth?
       if (String(json.status) !== '1') throw new Error(`BGA gamestats failed: ${json.error ?? JSON.stringify(json).slice(0, 300)}`)
       return json.data?.tables ?? []
     }
+    if (stored.length > 0) return { session: s, rows: await fetchPage(1) }
     // Page 1 alone (most histories end there), then the rest a few at a time
     const rows: any[] = await fetchPage(1)
     for (let first = 2; rows.length === (first - 1) * 10 && first <= FINISHED_PAGES; first += PAGE_BATCH) {
@@ -519,7 +531,12 @@ export async function fetchFinishedBGA(username: string, password: string, auth?
     return { session: s, rows }
   }, auth)
 
-  const finished = rows.filter(t => t.cancelled !== '1' && t.cancelled !== 1)
+  // Live rows win on overlap (page 1 can carry a correction, e.g. a game that
+  // just got cancelled) over what the background sync last stored.
+  const merged = new Map<string, any>(stored.map((r: any) => [String(r.table_id), r]))
+  for (const r of rows) merged.set(String(r.table_id), r)
+
+  const finished = [...merged.values()].filter(t => t.cancelled !== '1' && t.cancelled !== 1)
   const uniqueSlugs = [...new Set(finished.map((t: any) => t.game_name as string).filter(Boolean))]
   const nameMap = uniqueSlugs.length > 0 ? await fetchGameNames(uniqueSlugs, session.cookies) : new Map<string, string>()
 
