@@ -9,6 +9,8 @@ export interface GameProgress {
   samples: number[]         // the finished games' turn counts the estimate is built from; durations, when timeBased
   sameSizeOnly: boolean     // whether those samples were restricted to games with the same player count
   timeBased?: boolean       // no turn-count samples (BGA's own archive only keeps a table's move log for ~6h after it ends) — real elapsed time vs. typical real-time length, instead
+  sameSizeSampleCount: number // finished games of this type with the same player count
+  totalSampleCount: number    // finished games of this type, any player count
 }
 
 function median(sorted: number[]): number {
@@ -48,6 +50,7 @@ function estimateTimeProgress(tables: Record<string, PaceTable>, tableId: string
   return {
     percent, turnsSoFar: Math.round(elapsedSeconds), estimatedTotalTurns: Math.round(estimatedTotalSeconds),
     sampleCount: durations.length, samples: durations, sameSizeOnly: pool === sameSize, timeBased: true,
+    sameSizeSampleCount: sameSize.length, totalSampleCount: finishedOfType.length,
   }
 }
 
@@ -74,6 +77,7 @@ export function estimateProgress(tables: Record<string, PaceTable>, tableId: str
       return {
         percent, turnsSoFar, estimatedTotalTurns: Math.round(estimatedTotalTurns),
         sampleCount: samples.length, samples, sameSizeOnly: pool === sameSize,
+        sameSizeSampleCount: sameSize.length, totalSampleCount: finishedOfType.length,
       }
     }
   }

@@ -146,11 +146,26 @@ describe('progress bar', () => {
     expect(screen.queryByText('42%')).toBeNull()
   })
 
-  it('reveals the breakdown on hover', async () => {
+  it('reveals the breakdown on hover, as a list with the basis actually used picked out', async () => {
     render(<GameCard {...props({ game: withProgress })} />)
     const bar = screen.getByLabelText(/turn 21 of an estimated 50/i)
     await userEvent.hover(bar)
-    expect(screen.getByRole('tooltip')).toHaveTextContent('3 finished games')
+    const tooltip = screen.getByRole('tooltip')
+    expect(tooltip).toHaveTextContent('Turn 21 of an estimated 50')
+    expect(tooltip).toHaveTextContent('3 games of this type')
+    expect(tooltip).toHaveTextContent('0 with the same player count')
+    // the pool actually used (3 games of this type, not same-size) is the one marked active
+    expect(screen.getByText(/3 games of this type/)).toHaveClass('font-semibold')
+    expect(screen.getByText(/0 with the same player count/)).not.toHaveClass('font-semibold')
+  })
+
+  it('marks the same-player-count bullet as the one used, when the estimate was restricted to it', async () => {
+    const sameSizeProgress = { percent: 42, turnsSoFar: 21, estimatedTotalTurns: 50, sampleCount: 2, samples: [45, 55], sameSizeOnly: true, sameSizeSampleCount: 2, totalSampleCount: 5 }
+    render(<GameCard {...props({ game: { ...game, progress: sameSizeProgress } })} />)
+    const bar = screen.getByLabelText(/turn 21 of an estimated 50/i)
+    await userEvent.hover(bar)
+    expect(screen.getByText(/2 with the same player count/)).toHaveClass('font-semibold')
+    expect(screen.getByText(/5 games of this type/)).not.toHaveClass('font-semibold')
   })
 
   it('renders the compact form on a row', () => {
@@ -182,7 +197,9 @@ describe('progress bar', () => {
     const bar = screen.getByLabelText(/time-based estimate/i)
     await userEvent.hover(bar)
     const tooltip = screen.getByRole('tooltip')
-    expect(tooltip).toHaveTextContent(/Time-based estimate.*1 day in.*typically takes about 3 days/i)
+    expect(tooltip).toHaveTextContent(/1 day in.*typically takes about 3 days/i)
+    expect(tooltip).toHaveTextContent(/time-based estimate/i)
+    expect(screen.getByText(/time-based estimate/i)).toHaveClass('font-semibold')
     expect(tooltip).not.toHaveTextContent(/turn \d/i)
   })
 

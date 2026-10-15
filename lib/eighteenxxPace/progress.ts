@@ -33,6 +33,7 @@ function estimateEighteenxxTimeProgress(games: Record<string, EighteenxxPaceGame
   return {
     percent, turnsSoFar: Math.round(elapsedSeconds), estimatedTotalTurns: Math.round(estimatedTotalSeconds),
     sampleCount: durations.length, samples: durations, sameSizeOnly: pool === sameSize, timeBased: true,
+    sameSizeSampleCount: sameSize.length, totalSampleCount: finishedOfType.length,
   }
 }
 
@@ -56,6 +57,7 @@ export function estimateEighteenxxProgress(games: Record<string, EighteenxxPaceG
       return {
         percent, turnsSoFar: count, estimatedTotalTurns: Math.round(estimatedTotal),
         sampleCount: counts.length, samples: counts, sameSizeOnly: pool === sameSize,
+        sameSizeSampleCount: sameSize.length, totalSampleCount: finishedOfType.length,
       }
     }
   }

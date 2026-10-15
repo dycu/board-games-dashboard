@@ -21,6 +21,7 @@ describe('estimateEighteenxxProgress', () => {
     }
     expect(estimateEighteenxxProgress(games, 'active')).toEqual({
       percent: 50, turnsSoFar: 60, estimatedTotalTurns: 120, sampleCount: 3, samples: [100, 120, 140], sameSizeOnly: false,
+      sameSizeSampleCount: 0, totalSampleCount: 3,
     })
   })
 
@@ -52,7 +53,7 @@ describe('estimateEighteenxxProgress', () => {
       twoP: game('twoP', '1846', 1000, 200, { playerCount: 2 }),
       fourP: game('fourP', '1846', 1000, 100, { playerCount: 4 }),
     }
-    expect(estimateEighteenxxProgress(games, 'active')).toMatchObject({ sampleCount: 1, samples: [100], sameSizeOnly: true })
+    expect(estimateEighteenxxProgress(games, 'active')).toMatchObject({ sampleCount: 1, samples: [100], sameSizeOnly: true, sameSizeSampleCount: 1, totalSampleCount: 2 })
   })
 
   it('clamps percent at 100', () => {
@@ -84,7 +85,7 @@ describe('estimateEighteenxxProgress', () => {
         twoP: game('twoP', '18Chesapeake', dayAgo + 86400, null, { start: dayAgo, playerCount: 2 }),
         fourP: game('fourP', '18Chesapeake', dayAgo + 5 * 86400, null, { start: dayAgo, playerCount: 4 }),
       }
-      expect(estimateEighteenxxProgress(games, 'active')).toMatchObject({ sampleCount: 1, sameSizeOnly: true, estimatedTotalTurns: 5 * 86400 })
+      expect(estimateEighteenxxProgress(games, 'active')).toMatchObject({ sampleCount: 1, sameSizeOnly: true, estimatedTotalTurns: 5 * 86400, sameSizeSampleCount: 1, totalSampleCount: 2 })
     })
 
     it('still prefers an available action-count estimate over the time-based fallback', () => {

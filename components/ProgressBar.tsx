@@ -25,9 +25,11 @@ function formatDuration(seconds: number): string {
 }
 
 // Hover (desktop) or press-and-hold (touch) reveals where the estimate came
-// from — a plain `title` attribute doesn't reliably show on a long press,
-// so this is a small custom tooltip instead.
-function HoldTooltip({ label, children }: { label: string; children: React.ReactNode }) {
+// from — a plain `title` attribute doesn't reliably show on a long press, so
+// this is a small custom tooltip instead. `ariaLabel` carries the full
+// sentence for screen readers; `tooltip` is whatever's shown visually, which
+// can be richer (e.g. a bulleted basis) without changing what's announced.
+function HoldTooltip({ ariaLabel, tooltip, children }: { ariaLabel: string; tooltip: React.ReactNode; children: React.ReactNode }) {
   const [show, setShow] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -48,7 +50,7 @@ function HoldTooltip({ label, children }: { label: string; children: React.React
   return (
     <button
       type="button"
-      aria-label={label}
+      aria-label={ariaLabel}
       className="relative z-10 inline-block cursor-default"
       onClick={e => e.preventDefault()}
       onContextMenu={e => e.preventDefault()}
@@ -62,14 +64,17 @@ function HoldTooltip({ label, children }: { label: string; children: React.React
       {show && (
         <span
           role="tooltip"
-          className="absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-max max-w-[220px] whitespace-normal text-center text-[11px] leading-snug bg-[#1a1a1a] text-white px-2 py-1.5 rounded-md shadow-lg pointer-events-none">
-          {label}
+          className="absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-max max-w-[240px] whitespace-normal text-center text-[11px] leading-snug bg-[#1a1a1a] text-white px-2 py-1.5 rounded-md shadow-lg pointer-events-none">
+          {tooltip}
         </span>
       )}
     </button>
   )
 }
 
+// Full sentence for screen readers — the visible tooltip (below) says the
+// same thing more concisely, with the basis broken out as a bulleted list
+// instead of folded into one sentence.
 export function progressLabel(platform: Platform, progress: NonNullable<Game['progress']>): string {
   const { turnsSoFar, estimatedTotalTurns, sampleCount, sameSizeOnly, exact, timeBased } = progress
   const basis = sampleCount === 1 ? '1 finished game' : `${sampleCount} finished games`
@@ -82,13 +87,57 @@ export function progressLabel(platform: Platform, progress: NonNullable<Game['pr
   return `${unit} ${turnsSoFar} of an estimated ${estimatedTotalTurns} (median of ${basis} of this type${qualifier})`
 }
 
+function headline(platform: Platform, progress: NonNullable<Game['progress']>): string {
+  const { turnsSoFar, estimatedTotalTurns, exact, timeBased } = progress
+  if (timeBased) return `~${formatDuration(turnsSoFar)} in, typically takes about ${formatDuration(estimatedTotalTurns)}`
+  const unit = unitWord(platform, true)
+  if (exact) return `${unit} ${turnsSoFar} of ${estimatedTotalTurns} (reported by the game itself)`
+  return `${unit} ${turnsSoFar} of an estimated ${estimatedTotalTurns}`
+}
+
+function BasisItem({ active, children }: { active: boolean; children: React.ReactNode }) {
+  return (
+    <li className={active ? 'font-semibold text-white' : 'text-[#9b9b9b]'}>
+      {active ? '●' : '○'} {children}
+    </li>
+  )
+}
+
+// Lists what the estimate is actually based on — both the method (turn/move
+// count vs. elapsed time) and the sample pool (same player count vs. this
+// type as a whole) — with whichever applies here picked out, rather than
+// leaving it to a single flowing sentence to explain.
+function ProgressBasis({ progress }: { progress: NonNullable<Game['progress']> }) {
+  const { sampleCount, sameSizeOnly, timeBased, sameSizeSampleCount, totalSampleCount } = progress
+  const total = totalSampleCount ?? sampleCount
+  const sameSize = sameSizeSampleCount ?? (sameSizeOnly ? sampleCount : 0)
+
+  return (
+    <ul className="mt-1 text-left list-none space-y-0.5">
+      <BasisItem active={!!timeBased}>Time-based estimate</BasisItem>
+      <BasisItem active={!sameSizeOnly}>{total} game{total === 1 ? '' : 's'} of this type</BasisItem>
+      <BasisItem active={sameSizeOnly}>{sameSize} with the same player count</BasisItem>
+    </ul>
+  )
+}
+
+function ProgressTooltip({ platform, progress }: { platform: Platform; progress: NonNullable<Game['progress']> }) {
+  return (
+    <>
+      <div>{headline(platform, progress)}</div>
+      {!progress.exact && <ProgressBasis progress={progress} />}
+    </>
+  )
+}
+
 // Muted — this isn't an alert, just a quiet way to tell "no estimate yet"
 // (nothing shown, the normal case while samples build up) apart from "the
 // last attempt to read this game's state actually failed" for whoever goes
 // looking for why a bar isn't there.
 function ProgressErrorHint({ platform, error, compact }: { platform: Platform; error: string; compact?: boolean }) {
+  const text = `Couldn't read this game's ${unitWord(platform)} count: ${error}`
   return (
-    <HoldTooltip label={`Couldn't read this game's ${unitWord(platform)} count: ${error}`}>
+    <HoldTooltip ariaLabel={text} tooltip={text}>
       <span className={`text-[#c5c5c5] ${compact ? 'text-[10px]' : 'text-xs'}`}>
         ⚠
       </span>
@@ -100,7 +149,8 @@ function ProgressErrorHint({ platform, error, compact }: { platform: Platform; e
 export default function ProgressBar({ game, compact }: { game: Game; compact?: boolean }) {
   const progress = game.progress
   if (!progress) return game.progressError ? <ProgressErrorHint platform={game.platform} error={game.progressError} compact={compact} /> : null
-  const label = progressLabel(game.platform, progress)
+  const ariaLabel = progressLabel(game.platform, progress)
+  const tooltip = <ProgressTooltip platform={game.platform} progress={progress} />
 
   // A time-based estimate is a weaker signal than an actual turn/move count —
   // faded rather than full-strength, so it still reads as "roughly this far
@@ -110,7 +160,7 @@ export default function ProgressBar({ game, compact }: { game: Game; compact?: b
 
   if (compact) {
     return (
-      <HoldTooltip label={label}>
+      <HoldTooltip ariaLabel={ariaLabel} tooltip={tooltip}>
         <span className={`flex items-center gap-1 shrink-0 ${fade}`}>
           <span className="w-8 h-1 rounded-full bg-[#ececec] overflow-hidden">
             <span className="block h-full bg-[#5e6ad2]" style={{ width: `${progress.percent}%` }} />
@@ -122,7 +172,7 @@ export default function ProgressBar({ game, compact }: { game: Game; compact?: b
   }
 
   return (
-    <HoldTooltip label={label}>
+    <HoldTooltip ariaLabel={ariaLabel} tooltip={tooltip}>
       <span className={`flex items-center gap-1.5 ${fade}`}>
         <span className="flex-1 h-1.5 rounded-full bg-[#ececec] overflow-hidden min-w-[60px]">
           <span className="block h-full bg-[#5e6ad2]" style={{ width: `${progress.percent}%` }} />

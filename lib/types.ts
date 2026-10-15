@@ -45,6 +45,12 @@ export interface Game {
     sameSizeOnly: boolean
     exact?: boolean
     timeBased?: boolean
+    // How big each candidate sample pool actually was, so the UI can show
+    // what the estimate's basis was picked from/instead of, not just the
+    // one it landed on. Optional: omitted by anything built before this
+    // (tests, older cached data) — the UI falls back to sampleCount then.
+    sameSizeSampleCount?: number // finished samples with the same player count
+    totalSampleCount?: number    // finished samples of this type, any player count
   }
   // Set instead of `progress` when the last attempt to read this specific
   // game's live state failed — distinguishes "no estimate yet" (nothing

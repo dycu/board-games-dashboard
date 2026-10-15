@@ -24,6 +24,7 @@ describe('estimateProgress', () => {
     }
     expect(estimateProgress(tables, 'active')).toEqual({
       percent: 50, turnsSoFar: 12, estimatedTotalTurns: 24, sampleCount: 3, samples: [20, 24, 28], sameSizeOnly: false,
+      sameSizeSampleCount: 0, totalSampleCount: 3,
     })
   })
 
@@ -69,7 +70,7 @@ describe('estimateProgress', () => {
       fourP2: table('fourP2', 'thecrew', 1000, 20, { playerCount: 4 }),
     }
     const result = estimateProgress(tables, 'active')
-    expect(result).toMatchObject({ sampleCount: 2, samples: [16, 20], sameSizeOnly: true })
+    expect(result).toMatchObject({ sampleCount: 2, samples: [16, 20], sameSizeOnly: true, sameSizeSampleCount: 2, totalSampleCount: 3 })
   })
 
   it('falls back to all samples of the type when none match the player count', () => {
@@ -123,7 +124,7 @@ describe('estimateProgress', () => {
         twoP: table('twoP', 'thecrew', dayAgo + 86400, null, { start: dayAgo, playerCount: 2 }),
         fourP: table('fourP', 'thecrew', dayAgo + 5 * 86400, null, { start: dayAgo, playerCount: 4 }),
       }
-      expect(estimateProgress(tables, 'active')).toMatchObject({ sampleCount: 1, sameSizeOnly: true, estimatedTotalTurns: 5 * 86400 })
+      expect(estimateProgress(tables, 'active')).toMatchObject({ sampleCount: 1, sameSizeOnly: true, estimatedTotalTurns: 5 * 86400, sameSizeSampleCount: 1, totalSampleCount: 2 })
     })
 
     it('still prefers an available turn-count estimate over the time-based fallback', () => {

@@ -168,14 +168,14 @@ describe('progress estimate', () => {
       { turn: 60, mapId: 'four-five-players', playerCount: 4 }, // different map — excluded
     ]))
     const [g] = await fetchHansa(MY_USER_ID)
-    expect(g.progress).toMatchObject({ turnsSoFar: 30, estimatedTotalTurns: 90, sampleCount: 2, sameSizeOnly: true, percent: 33 })
+    expect(g.progress).toMatchObject({ turnsSoFar: 30, estimatedTotalTurns: 90, sampleCount: 2, sameSizeOnly: true, percent: 33, sameSizeSampleCount: 2, totalSampleCount: 2 })
   })
 
   it('falls back to any player count on the same map when none match exactly', async () => {
     mockGamesResponse(activeGame(30, 'eastern', ['o1', 'o2']))
     mockGamesResponse(finishedSamples([{ turn: 80, mapId: 'eastern', playerCount: 5 }]))
     const [g] = await fetchHansa(MY_USER_ID)
-    expect(g.progress).toMatchObject({ sampleCount: 1, sameSizeOnly: false, estimatedTotalTurns: 80 })
+    expect(g.progress).toMatchObject({ sampleCount: 1, sameSizeOnly: false, estimatedTotalTurns: 80, sameSizeSampleCount: 0, totalSampleCount: 1 })
   })
 
   it('omits progress when the active game has no history to compare against', async () => {

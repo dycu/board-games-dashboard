@@ -97,7 +97,10 @@ function estimateHansaProgress(g: HtGame, samples: FinishedSample[]): Game['prog
   const sorted = pool.map(s => s.turn).sort((a, b) => a - b)
   const estimatedTotalTurns = Math.round(median(sorted))
   const percent = Math.max(0, Math.min(100, Math.round((turnsSoFar / estimatedTotalTurns) * 100)))
-  return { percent, turnsSoFar, estimatedTotalTurns, sampleCount: sorted.length, samples: sorted, sameSizeOnly: pool === sameSize }
+  return {
+    percent, turnsSoFar, estimatedTotalTurns, sampleCount: sorted.length, samples: sorted, sameSizeOnly: pool === sameSize,
+    sameSizeSampleCount: sameSize.length, totalSampleCount: ofMap.length,
+  }
 }
 
 export async function fetchHansa(userId: string): Promise<Game[]> {

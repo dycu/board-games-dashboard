@@ -21,6 +21,7 @@ describe('estimateRallyProgress', () => {
     }
     expect(estimateRallyProgress(games, 'active')).toEqual({
       percent: 50, turnsSoFar: 6, estimatedTotalTurns: 12, sampleCount: 3, samples: [10, 12, 14], sameSizeOnly: false,
+      sameSizeSampleCount: 0, totalSampleCount: 3,
     })
   })
 
@@ -53,7 +54,7 @@ describe('estimateRallyProgress', () => {
       twoP: game('twoP', 'maria', 1000, 20, { playerCount: 2 }),
       fourP: game('fourP', 'maria', 1000, 8, { playerCount: 4 }),
     }
-    expect(estimateRallyProgress(games, 'active')).toMatchObject({ sampleCount: 1, samples: [8], sameSizeOnly: true })
+    expect(estimateRallyProgress(games, 'active')).toMatchObject({ sampleCount: 1, samples: [8], sameSizeOnly: true, sameSizeSampleCount: 1, totalSampleCount: 2 })
   })
 
   it('clamps percent at 100', () => {

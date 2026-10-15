@@ -14,6 +14,8 @@ export interface RallyProgress {
   sampleCount: number
   samples: number[]
   sameSizeOnly: boolean
+  sameSizeSampleCount: number
+  totalSampleCount: number
 }
 
 // id: the Rally table id (Game.id / FinishedGame.id with the "rally:" prefix stripped)
@@ -37,6 +39,7 @@ export function estimateRallyProgress(games: Record<string, RallyPaceGame>, id: 
   return {
     percent, turnsSoFar, estimatedTotalTurns: Math.round(estimatedTotalTurns),
     sampleCount: samples.length, samples, sameSizeOnly: pool === sameSize,
+    sameSizeSampleCount: sameSize.length, totalSampleCount: finishedOfType.length,
   }
 }
 
