@@ -2,6 +2,7 @@
 import { useMemo, useState } from 'react'
 import type { LoadBucket, WeekPoint } from '@/lib/pace/stats'
 import { PLATFORM_SHORT_LABELS, PLATFORM_LABELS, type Platform } from '@/lib/types'
+import { sampleTier, sampleConfidenceWord } from '@/lib/sampleConfidence'
 
 const ACCENT = '#5e6ad2'
 const INK = '#1a1a1a'
@@ -123,18 +124,10 @@ function formatEtaShort(seconds: number): string {
 
 // Sample size and method (turn- vs time-based) are two separate kinds of
 // uncertainty, not one — so each gets its own visual channel instead of
-// being folded into a single faded/not-faded flag. Breakpoints are picked
-// from how this account's own sample counts actually cluster (roughly a
-// third each under 3, 3–9, and 10+), not an arbitrary round number.
+// being folded into a single faded/not-faded flag.
 function sampleOpacity(sampleCount: number): number {
-  if (sampleCount < 3) return 0.4
-  if (sampleCount < 10) return 0.7
-  return 1
-}
-function sampleConfidenceWord(sampleCount: number): string {
-  if (sampleCount < 3) return 'thin sample'
-  if (sampleCount < 10) return 'moderate sample'
-  return 'solid sample'
+  const tier = sampleTier(sampleCount)
+  return tier === 'thin' ? 0.4 : tier === 'moderate' ? 0.7 : 1
 }
 
 // One horizontal bar per active game, soonest-to-finish at the top — games

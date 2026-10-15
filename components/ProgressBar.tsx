@@ -1,6 +1,7 @@
 'use client'
 import { useRef, useState } from 'react'
 import { Game, Platform } from '@/lib/types'
+import { sampleTier } from '@/lib/sampleConfidence'
 
 // What we're actually counting differs by platform: BGA's and Rally's own
 // data calls it a turn, but 18xx's number is its action log length (every
@@ -14,9 +15,6 @@ function unitWord(platform: Platform, capitalize = false): string {
 }
 
 const LONG_PRESS_MS = 350
-// Below this many finished games, the median is noisy enough (one odd game
-// swings it wildly) that it's worth flagging rather than presenting flatly
-const LOW_SAMPLE_THRESHOLD = 3
 
 function formatDuration(seconds: number): string {
   const days = Math.floor(seconds / 86400)
@@ -133,15 +131,18 @@ function ProgressBasis({ platform, progress }: { platform: Platform; progress: N
 }
 
 function ProgressTooltip({ platform, progress }: { platform: Platform; progress: NonNullable<Game['progress']> }) {
-  const lowSample = !progress.exact && progress.sampleCount < LOW_SAMPLE_THRESHOLD
+  const tier = progress.exact ? null : sampleTier(progress.sampleCount)
   return (
     <>
       <div>{headline(platform, progress)}</div>
       {progress.etaSeconds !== undefined && (
         <div className="mt-0.5 text-[#b9c0f5]">{progress.etaSeconds === 0 ? 'any time now' : `~${formatDuration(progress.etaSeconds)} left`}</div>
       )}
-      {lowSample && (
+      {tier === 'thin' && (
         <div className="mt-1 text-amber-300">⚠ only {progress.sampleCount} game{progress.sampleCount === 1 ? '' : 's'} to compare against — rough estimate</div>
+      )}
+      {tier === 'moderate' && (
+        <div className="mt-1 text-[#9b9b9b]">{progress.sampleCount} games to compare against — moderate sample</div>
       )}
       {!progress.exact && <ProgressBasis platform={platform} progress={progress} />}
     </>
@@ -175,11 +176,15 @@ export default function ProgressBar({ game, compact }: { game: Game; compact?: b
   // along" without looking as certain as a real count. The tooltip is the
   // one place that has to say so outright; this is just a visual nudge.
   const fade = progress.timeBased ? 'opacity-60' : ''
-  // A "~" is a much smaller nudge than the fade — a low sample count can
-  // happen on an otherwise-solid turn-count estimate too, so it's shown
-  // independently rather than folded into the same signal.
-  const lowSample = !progress.exact && progress.sampleCount < LOW_SAMPLE_THRESHOLD
-  const percentText = `${lowSample ? '~' : ''}${progress.percent}%`
+  // A "~" is a much smaller nudge than the fade, and reserved for the
+  // thinnest tier only — a low sample count can happen on an otherwise-solid
+  // turn-count estimate too, so it's shown independently rather than folded
+  // into the same signal. The moderate tier (see lib/sampleConfidence, also
+  // used by the finish-timeline chart) used to be silently lumped in with
+  // "solid" once sampleCount reached 3; now it gets its own quieter note in
+  // the tooltip instead of looking identical to a much larger sample.
+  const tier = progress.exact ? null : sampleTier(progress.sampleCount)
+  const percentText = `${tier === 'thin' ? '~' : ''}${progress.percent}%`
 
   if (compact) {
     return (

@@ -212,6 +212,27 @@ describe('progress bar', () => {
     expect(screen.queryByText('~42%')).toBeNull()
   })
 
+  it('notes a moderate sample size in the tooltip without the "~" or the amber warning', async () => {
+    const moderate = { ...withProgress.progress, sampleCount: 6, samples: [40, 45, 50, 52, 55, 58] }
+    render(<GameCard {...props({ game: { ...game, progress: moderate } })} />)
+    expect(screen.queryByText('~42%')).toBeNull()
+    const bar = screen.getByLabelText(/turn 21 of an estimated 50/i)
+    await userEvent.hover(bar)
+    const tooltip = screen.getByRole('tooltip')
+    expect(tooltip).toHaveTextContent('6 games to compare against — moderate sample')
+    expect(tooltip).not.toHaveTextContent(/⚠/)
+  })
+
+  it('shows neither the "~" nor a sample-size note once the sample is solid', async () => {
+    const solid = { ...withProgress.progress, sampleCount: 12, samples: Array(12).fill(45) }
+    render(<GameCard {...props({ game: { ...game, progress: solid } })} />)
+    expect(screen.queryByText('~42%')).toBeNull()
+    const bar = screen.getByLabelText(/turn 21 of an estimated 50/i)
+    await userEvent.hover(bar)
+    const tooltip = screen.getByRole('tooltip')
+    expect(tooltip).not.toHaveTextContent(/compare against/)
+  })
+
   it('renders the compact form on a row', () => {
     render(<GameRow {...props({ game: { ...withProgress, myTurn: false } })} />)
     expect(screen.getByText('42%')).toBeInTheDocument()
