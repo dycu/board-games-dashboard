@@ -40,13 +40,17 @@ export async function GET(req: Request) {
   const profileRes = await fetch(`${BASE}/profile/${profileName}/`, { headers: { ...BROWSER, Cookie: cookieHeader } })
   const profileHtml = await profileRes.text()
   const $ = cheerio.load(profileHtml)
-  const href = $('table.gamesTable').not('.finished-games-table').find('tr.clickableGameRow td.col-game a').first().attr('href')
-  if (!href) return new Response(JSON.stringify({ error: 'no active game found', profileName }), { headers: { 'Content-Type': 'application/json' } })
+  const { searchParams } = new URL(req.url)
+  const wantFinished = searchParams.get('finished') === '1'
+  const $table = wantFinished
+    ? $('table.gamesTable.finished-games-table').first()
+    : $('table.gamesTable').filter((_: number, el: any) => !$(el).hasClass('finished-games-table')).first()
+  const href = $table.find('tr.clickableGameRow td.col-game a').first().attr('href')
+  if (!href) return new Response(JSON.stringify({ error: 'no game found', wantFinished, profileName, tables: $('table.gamesTable').length }), { headers: { 'Content-Type': 'application/json' } })
 
   const gameRes = await fetch(`${BASE}${href}`, { headers: { ...BROWSER, Cookie: cookieHeader } })
   const gameHtml = await gameRes.text()
 
-  const { searchParams } = new URL(req.url)
   if (searchParams.get('raw') === '1') {
     return new Response(gameHtml, { headers: { 'Content-Type': 'text/html' } })
   }
