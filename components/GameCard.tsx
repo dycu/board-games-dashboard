@@ -107,7 +107,7 @@ export function Badge({ game, small }: { game: Game; small?: boolean }) {
 export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemProps, 'game' | 'note' | 'onSaveNote'> & { compact?: boolean }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
-  if (!onSaveNote) return note ? <p className="text-xs text-[#6b6b6b] italic truncate">{note}</p> : null
+  if (!onSaveNote) return note ? <p className="text-xs text-[#6b6b6b] italic whitespace-normal break-words">{note}</p> : null
 
   if (editing) {
     const save = () => { onSaveNote(game.id, draft); setEditing(false) }
@@ -142,11 +142,11 @@ export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemPro
     )
   }
   return note ? (
-    <div className="relative z-10 flex items-center gap-1.5 min-w-0">
+    <div className="relative z-10 flex items-start gap-1.5 min-w-0">
       <button
         onClick={startEditing}
         title="Edit note"
-        className="min-w-0 text-left text-xs text-[#6b6b6b] italic truncate hover:text-[#1a1a1a]">
+        className="min-w-0 text-left text-xs text-[#6b6b6b] italic whitespace-normal break-words hover:text-[#1a1a1a]">
         ✎ {note}
       </button>
       <DeleteNote game={game} onSaveNote={onSaveNote} />
@@ -229,7 +229,7 @@ export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched
       <div className="min-w-0 flex-1 flex items-baseline gap-2">
         <span className="text-sm text-[#1a1a1a] truncate">{game.gameName}</span>
         {game.currentPlayer && <span className="hidden sm:inline text-xs text-[#9b9b9b] truncate">waiting for {game.currentPlayer}</span>}
-        {note && <span className="hidden md:inline text-xs text-[#6b6b6b] italic truncate">✎ {note}</span>}
+        {note && <span className="hidden md:inline text-xs text-[#6b6b6b] italic whitespace-normal break-words">✎ {note}</span>}
         {note && onSaveNote && <span className="hidden md:inline"><DeleteNote game={game} onSaveNote={onSaveNote} /></span>}
       </div>
       <span className={`shrink-0 text-xs ${slow ? 'text-amber-600 font-medium' : 'text-[#9b9b9b]'}`}>
