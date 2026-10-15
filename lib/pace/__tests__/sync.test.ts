@@ -50,7 +50,7 @@ describe('syncBga: finished-table discovery', () => {
   })
 
   it('keeps paging past a page that happens to be fully known already while still backfilling', async () => {
-    const meta: PaceMeta = { trackingStartedAt: 0, lastSyncAt: 1000, indexComplete: false, nextIndexPage: 1 }
+    const meta: PaceMeta = { trackingStartedAt: 0, lastSyncAt: 1000, indexComplete: false, nextIndexPage: 1, fullHistoryMigrated: true }
     mockGet.mockResolvedValue(meta)
 
     // Page 1 is made entirely of tables we already have — not yet a safe
@@ -76,7 +76,7 @@ describe('syncBga: finished-table discovery', () => {
   })
 
   it('stops as soon as a page is fully known, once the account has genuinely been walked to its end before', async () => {
-    const meta: PaceMeta = { trackingStartedAt: 0, lastSyncAt: 1000, indexComplete: true, nextIndexPage: 1 }
+    const meta: PaceMeta = { trackingStartedAt: 0, lastSyncAt: 1000, indexComplete: true, nextIndexPage: 1, fullHistoryMigrated: true }
     mockGet.mockResolvedValue(meta)
 
     const ids = Array.from({ length: 10 }, (_, i) => String(100 + i))
@@ -91,7 +91,7 @@ describe('syncBga: finished-table discovery', () => {
   })
 
   it('keeps paging past a fully-known page even once complete, as long as a later page still has something new', async () => {
-    const meta: PaceMeta = { trackingStartedAt: 0, lastSyncAt: 1000, indexComplete: true, nextIndexPage: 1 }
+    const meta: PaceMeta = { trackingStartedAt: 0, lastSyncAt: 1000, indexComplete: true, nextIndexPage: 1, fullHistoryMigrated: true }
     mockGet.mockResolvedValue(meta)
     mockHgetall.mockResolvedValue(knownTables(['100']))
 
@@ -106,7 +106,7 @@ describe('syncBga: finished-table discovery', () => {
   })
 
   it('stops once it genuinely runs out of history', async () => {
-    const meta: PaceMeta = { trackingStartedAt: 0, lastSyncAt: 1000, indexComplete: false, nextIndexPage: 1 }
+    const meta: PaceMeta = { trackingStartedAt: 0, lastSyncAt: 1000, indexComplete: false, nextIndexPage: 1, fullHistoryMigrated: true }
     mockGet.mockResolvedValue(meta)
     mockHgetall.mockResolvedValue({})
 
@@ -118,5 +118,35 @@ describe('syncBga: finished-table discovery', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2)
     expect(progress.indexComplete).toBe(true)
     expect(progress.stopReason).toBe('end-of-history')
+  })
+
+  it('captures a row even when pace already knew that table, so historyStore backfills for pre-existing tables too', async () => {
+    const meta: PaceMeta = { trackingStartedAt: 0, lastSyncAt: 1000, indexComplete: false, nextIndexPage: 1, fullHistoryMigrated: true }
+    mockGet.mockResolvedValue(meta)
+    mockHgetall.mockResolvedValue(knownTables(['100'])) // pace already tracks this table's turn timing
+
+    mockGamesPage([finishedRow('100')])
+    mockGamesPage([]) // genuinely empty page
+
+    await syncBga('me', 'pass', 15000)
+
+    expect(historyRowWrites()['100']).toBeDefined() // still captured, despite already being known to pace
+  })
+
+  it('migrates stale pre-migration state: a stored indexComplete=true from before historyStore existed is not trusted', async () => {
+    // Old meta shape — no fullHistoryMigrated field, indexComplete left over
+    // from the previous (time-horizon) meaning
+    const meta = { trackingStartedAt: 0, lastSyncAt: 1000, indexComplete: true, nextIndexPage: 999 } as PaceMeta
+    mockGet.mockResolvedValue(meta)
+    mockHgetall.mockResolvedValue(knownTables(['100'])) // already known to pace, but never captured into historyStore
+
+    mockGamesPage([finishedRow('100')]) // page 1: looks fully known...
+    mockGamesPage([]) // ...but the migration must not trust that and stop early
+
+    const progress = await syncBga('me', 'pass', 15000)
+
+    expect(mockFetch).toHaveBeenCalledTimes(2) // didn't stop at the "known" page 1
+    expect(historyRowWrites()['100']).toBeDefined()
+    expect(progress.indexComplete).toBe(true) // and ends up genuinely complete
   })
 })

@@ -28,6 +28,15 @@ export interface PaceMeta {
   lastSyncAt: number | null
   indexComplete: boolean // the whole account's finished-table history has been walked once, to a genuinely empty page
   nextIndexPage: number  // getGames page to resume backfill indexing from
+  // One-time flag: true once indexComplete's meaning has been migrated from
+  // "reached the old time-based backfill horizon" to "reached a genuinely
+  // empty page" (see lib/pace/sync.ts). Meta stored before that change won't
+  // have this field, so it reads as false/undefined and triggers exactly one
+  // full re-walk from page 1 — needed both because the old indexComplete
+  // could be stale-true without ever having reached a real end, and because
+  // lib/pace/historyStore didn't exist yet, so nothing in it was ever
+  // backfilled for tables this account already knew about.
+  fullHistoryMigrated?: boolean
 }
 
 export async function getMeta(): Promise<PaceMeta> {
@@ -37,6 +46,7 @@ export async function getMeta(): Promise<PaceMeta> {
     lastSyncAt: null,
     indexComplete: false,
     nextIndexPage: 1,
+    fullHistoryMigrated: true, // a brand-new account has nothing to migrate
   }
 }
 

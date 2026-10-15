@@ -71,6 +71,13 @@ export async function syncBga(username: string, password: string, budgetMs: numb
   const changed = new Set<string>()
   const upsert = (t: PaceTable) => { tables[t.id] = t; changed.add(t.id) }
 
+  // One-time migration: force a genuine full re-walk (see PaceMeta.fullHistoryMigrated)
+  if (!meta.fullHistoryMigrated) {
+    meta.indexComplete = false
+    meta.nextIndexPage = 1
+    meta.fullHistoryMigrated = true
+  }
+
   // 1. Running tables
   const activeIds = new Set(active.map((t: any) => String(t.id)))
   for (const raw of active) {
@@ -125,7 +132,10 @@ export async function syncBga(username: string, password: string, budgetMs: numb
       const alreadyKnown = !!existing && existing.end !== null
       if (!alreadyKnown) allAlreadyKnown = false
       if (r.cancelled === '1' || r.cancelled === 1) continue
-      if (!alreadyKnown) historyRows[id] = r
+      // Captured regardless of whether the table was already known to pace's
+      // own tracking — that only means its turn timing was indexed before,
+      // not that its full row (opponents, score, elo) was ever stored here.
+      historyRows[id] = r
       if (alreadyKnown) continue
       const realtime = end - start < REALTIME_MAX_SECONDS
       // BGA archives a finished table's move log within hours ("Cannot find
