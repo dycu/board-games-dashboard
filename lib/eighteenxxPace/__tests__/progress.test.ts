@@ -1,7 +1,7 @@
 jest.mock('@vercel/kv', () => ({ kv: { hgetall: jest.fn() } }))
 
 import { kv } from '@vercel/kv'
-import { estimateEighteenxxProgress, attachEighteenxxProgress, attachEighteenxxTurns } from '../progress'
+import { estimateEighteenxxProgress, attachEighteenxxProgress, attachEighteenxxTurns, listActiveEighteenxxGameEtas } from '../progress'
 import { EighteenxxPaceGame } from '../store'
 import { Game, FinishedGame } from '../../types'
 
@@ -222,5 +222,27 @@ describe('attachEighteenxxTurns', () => {
     mockHgetall.mockResolvedValue({})
     const [g] = await attachEighteenxxTurns([finished('eighteenxx:1')])
     expect(g.turns).toBeUndefined()
+  })
+})
+
+describe('listActiveEighteenxxGameEtas', () => {
+  it('lists running games with an estimate, soonest finish first, using the title as the display name', () => {
+    const games = {
+      active: game('active', '1846', null, 60, { start: Math.floor(Date.now() / 1000) - 86400 }),
+      f1: game('f1', '1846', 1000, 120),
+      otherActive: game('otherActive', '18Chesapeake', null, 10), // no finished sample of this title
+    }
+    const etas = listActiveEighteenxxGameEtas(games)
+    expect(etas).toHaveLength(1)
+    expect(etas[0]).toMatchObject({ id: 'active', game: '1846', percent: 50 })
+    expect(etas[0].etaSeconds).toEqual(expect.any(Number))
+  })
+
+  it('excludes finished games and ones with no estimate at all', () => {
+    const games = {
+      finished: game('finished', '1846', 1000, 140),
+      noSample: game('noSample', '18USA', null, 5),
+    }
+    expect(listActiveEighteenxxGameEtas(games)).toEqual([])
   })
 })

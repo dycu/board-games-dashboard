@@ -1,4 +1,4 @@
-import { fetchHansa, fetchFinishedHansa } from '@/lib/connectors/hansa'
+import { fetchHansa, fetchFinishedHansa, listActiveHansaGameEtas } from '@/lib/connectors/hansa'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
@@ -213,6 +213,38 @@ describe('progress estimate', () => {
       mockGamesResponse(finishedSamples([{ turn: 90, mapId: 'three-players', playerCount: 3 }]))
       const [g] = await fetchHansa(MY_USER_ID)
       expect(g.progress?.etaSeconds).toBeUndefined()
+    })
+  })
+
+  describe('listActiveHansaGameEtas', () => {
+    beforeEach(() => mockFetch.mockClear())
+
+    it("lists my running games with an estimate, as 'Hansa Teutonica' since that's the only game on the platform", async () => {
+      mockGamesResponse(activeGame(30, 'three-players', ['o1', 'o2']))
+      mockGamesResponse(finishedSamples([
+        { turn: 80, mapId: 'three-players', playerCount: 3 },
+        { turn: 100, mapId: 'three-players', playerCount: 3 },
+      ]))
+      const etas = await listActiveHansaGameEtas(MY_USER_ID)
+      expect(etas).toEqual([{ id: 'prog00112233', game: 'Hansa Teutonica', percent: 33, sampleCount: 2 }])
+    })
+
+    it('includes etaSeconds when the active game has a createdAt to project from', async () => {
+      mockGamesResponse(activeGame(30, 'three-players', ['o1', 'o2'], '2026-06-20T10:00:00Z'))
+      mockGamesResponse(finishedSamples([{ turn: 90, mapId: 'three-players', playerCount: 3 }]))
+      const [eta] = await listActiveHansaGameEtas(MY_USER_ID)
+      expect(eta.etaSeconds).toEqual(expect.any(Number))
+    })
+
+    it('returns an empty list rather than throwing when there is no history to compare against', async () => {
+      mockGamesResponse(activeGame(30, 'unheard-of-map', ['o1']))
+      mockGamesResponse(finishedSamples([]))
+      expect(await listActiveHansaGameEtas(MY_USER_ID)).toEqual([])
+    })
+
+    it('returns an empty list without making any request when userId is missing', async () => {
+      expect(await listActiveHansaGameEtas('')).toEqual([])
+      expect(mockFetch).not.toHaveBeenCalled()
     })
   })
 })

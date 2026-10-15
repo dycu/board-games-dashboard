@@ -85,6 +85,30 @@ export function estimateEighteenxxProgress(games: Record<string, EighteenxxPaceG
   return estimateEighteenxxTimeProgress(games, id)
 }
 
+export interface EighteenxxActiveGameEta {
+  id: string
+  game: string // already a display title (e.g. "1846") — no slug to resolve
+  percent: number
+  sampleCount: number
+  timeBased?: boolean
+  etaSeconds?: number
+}
+
+// Every currently-running 18xx game with an estimate, for the Pace page's
+// "when are your active games likely to end" chart — see lib/pace/progress.ts's
+// listActiveGameEtas, which this mirrors for this platform's own tracker.
+export function listActiveEighteenxxGameEtas(games: Record<string, EighteenxxPaceGame>): EighteenxxActiveGameEta[] {
+  return Object.values(games)
+    .filter(g => g.end === null)
+    .map(g => ({ table: g, progress: estimateEighteenxxProgress(games, g.id) }))
+    .filter((x): x is { table: EighteenxxPaceGame; progress: NonNullable<Game['progress']> } => !!x.progress)
+    .map(({ table, progress }) => ({
+      id: table.id, game: table.title, percent: progress.percent, sampleCount: progress.sampleCount,
+      timeBased: progress.timeBased, etaSeconds: progress.etaSeconds,
+    }))
+    .sort((a, b) => (a.etaSeconds ?? Infinity) - (b.etaSeconds ?? Infinity))
+}
+
 export async function attachEighteenxxProgress(games: Game[]): Promise<Game[]> {
   if (!games.some(g => g.platform === 'eighteenxx')) return games
   const stored = await getEighteenxxPaceGames().catch((): Record<string, EighteenxxPaceGame> => ({}))

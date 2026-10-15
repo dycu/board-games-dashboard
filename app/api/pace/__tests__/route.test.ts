@@ -10,11 +10,13 @@ jest.mock('@/lib/pace/store', () => ({
 jest.mock('@/lib/pace/loadSamples', () => ({ getLoadSamples: jest.fn() }))
 jest.mock('@/lib/rallyPace/store', () => ({ getRallyGames: jest.fn() }))
 jest.mock('@/lib/eighteenxxPace/store', () => ({ getEighteenxxPaceGames: jest.fn() }))
+jest.mock('@/lib/connectors/hansa', () => ({ listActiveHansaGameEtas: jest.fn() }))
 
 import { getMeta, getTables, getAllTurns } from '@/lib/pace/store'
 import { getLoadSamples } from '@/lib/pace/loadSamples'
 import { getRallyGames } from '@/lib/rallyPace/store'
 import { getEighteenxxPaceGames } from '@/lib/eighteenxxPace/store'
+import { listActiveHansaGameEtas } from '@/lib/connectors/hansa'
 import { GET } from '../route'
 import { PaceTable } from '@/lib/pace/store'
 import { INITIAL_TURN_STATE } from '@/lib/pace/bgaTurns'
@@ -25,6 +27,7 @@ const mockGetAllTurns = getAllTurns as jest.Mock
 const mockGetLoadSamples = getLoadSamples as jest.Mock
 const mockGetRallyGames = getRallyGames as jest.Mock
 const mockGetEighteenxxPaceGames = getEighteenxxPaceGames as jest.Mock
+const mockListActiveHansaGameEtas = listActiveHansaGameEtas as jest.Mock
 
 const NOW = Math.floor(Date.now() / 1000)
 const table = (id: string, game: string, end: number | null, turnCount: number | null, extra: Partial<PaceTable> = {}): PaceTable => ({
@@ -40,6 +43,7 @@ describe('GET /api/pace', () => {
     mockGetLoadSamples.mockResolvedValue([])
     mockGetRallyGames.mockResolvedValue({ r1: { id: 'r1', game: 'maria', end: 1000, turn: 20 } })
     mockGetEighteenxxPaceGames.mockResolvedValue({ e1: { id: 'e1', title: '1846', end: 1000, actionCount: 0 } })
+    mockListActiveHansaGameEtas.mockResolvedValue([])
   })
 
   it('reports an active game with an estimate in activeEtas, soonest first', async () => {
@@ -51,7 +55,34 @@ describe('GET /api/pace', () => {
     const res = await GET()
     const json = await res.json()
     expect(json.activeEtas).toHaveLength(1)
-    expect(json.activeEtas[0]).toMatchObject({ id: 'active', game: 'thecrew' })
+    expect(json.activeEtas[0]).toMatchObject({ id: 'bga:active', platform: 'bga', game: 'thecrew' })
+  })
+
+  it('includes active games from the 18xx and Hansa trackers too, not just BGA', async () => {
+    mockGetTables.mockResolvedValue({})
+    mockGetEighteenxxPaceGames.mockResolvedValue({
+      active18xx: { id: 'active18xx', title: '1846', end: null, actionCount: 60, start: NOW - 86400 },
+      f1: { id: 'f1', title: '1846', end: 1000, actionCount: 120 },
+    })
+    mockListActiveHansaGameEtas.mockResolvedValue([
+      { id: 'hgame1', game: 'Hansa Teutonica', percent: 40, sampleCount: 5, etaSeconds: 12345 },
+    ])
+
+    const res = await GET()
+    const json = await res.json()
+    const byId = Object.fromEntries(json.activeEtas.map((g: any) => [g.id, g]))
+    expect(byId['eighteenxx:active18xx']).toMatchObject({ platform: 'eighteenxx', game: '1846' })
+    expect(byId['hansa:hgame1']).toMatchObject({ platform: 'hansa', game: 'Hansa Teutonica', etaSeconds: 12345 })
+  })
+
+  it('passes HANSA_USER_ID through to the Hansa tracker and still responds if it rejects', async () => {
+    mockGetTables.mockResolvedValue({})
+    mockListActiveHansaGameEtas.mockRejectedValue(new Error('hansa down'))
+
+    const res = await GET()
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.activeEtas.some((g: any) => g.platform === 'hansa')).toBe(false)
   })
 
   it('reports per-platform tracker health counts', async () => {

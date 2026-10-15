@@ -1,6 +1,7 @@
 'use client'
 import { useMemo, useState } from 'react'
 import type { LoadBucket, WeekPoint } from '@/lib/pace/stats'
+import { PLATFORM_SHORT_LABELS, PLATFORM_LABELS, type Platform } from '@/lib/types'
 
 const ACCENT = '#5e6ad2'
 const INK = '#1a1a1a'
@@ -103,8 +104,9 @@ export function LoadChart({ buckets, knee, xLabel }: { buckets: LoadBucket[]; kn
 }
 
 export interface ActiveGameEta {
-  id: string
-  game: string // BGA slug — resolve to a display name via `names` before passing in
+  id: string // globally unique, e.g. "bga:12345" — the platform prefix also disambiguates ids that collide across platforms
+  platform: Platform
+  game: string // BGA: a slug, resolve to a display name via `names`; other platforms: already a display title
   percent: number
   sampleCount: number
   timeBased?: boolean
@@ -132,7 +134,7 @@ export function FinishTimelineChart({ games, names }: { games: ActiveGameEta[]; 
   }
 
   const ROW_H = 28
-  const W = 640, L = 132, R = 46, T = 6, B = 16
+  const W = 640, L = 150, R = 46, T = 6, B = 16
   const H = T + withEta.length * ROW_H + B
   const maxDays = niceMax(Math.max(1, ...withEta.map(g => g.etaSeconds / 86400)))
   const x = (days: number) => L + Math.min(1, days / maxDays) * (W - L - R)
@@ -150,10 +152,12 @@ export function FinishTimelineChart({ games, names }: { games: ActiveGameEta[]; 
           const overflow = days > maxDays
           const faint = !!g.timeBased || g.sampleCount < 3
           const label = names[g.game] ?? g.game
+          const truncated = label.length > 18 ? `${label.slice(0, 17)}…` : label
           return (
             <g key={g.id} opacity={faint ? 0.55 : 1}>
               <text x={L - 8} y={y} dy="0.32em" textAnchor="end" fontSize="11" fill={INK}>
-                {label.length > 16 ? `${label.slice(0, 15)}…` : label}
+                <tspan fill={MUTED} fontSize="9">{PLATFORM_SHORT_LABELS[g.platform]} </tspan>
+                {truncated}
               </text>
               <line x1={L} x2={x(days)} y1={y} y2={y} stroke={ACCENT} strokeWidth={7} strokeLinecap="round" />
               <text x={x(days) + 6} y={y} dy="0.32em" fontSize="10" fill={MUTED}>
@@ -177,7 +181,7 @@ export function FinishTimelineChart({ games, names }: { games: ActiveGameEta[]; 
         const finishDate = new Date(now + g.etaSeconds * 1000)
         return (
           <Tooltip x={x(g.etaSeconds / 86400)} top={`${((T + i * ROW_H) / H) * 100}%`} width={W}>
-            <div className="font-semibold text-[#1a1a1a]">{names[g.game] ?? g.game} · {g.percent}%</div>
+            <div className="font-semibold text-[#1a1a1a]">{PLATFORM_LABELS[g.platform]} · {names[g.game] ?? g.game} · {g.percent}%</div>
             <div className="text-[#6b6b6b]">
               {g.etaSeconds <= 0 ? 'any time now' : `around ${finishDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
             </div>

@@ -118,6 +118,37 @@ function estimateHansaProgress(g: HtGame, samples: FinishedSample[]): Game['prog
   return progress
 }
 
+export interface HansaActiveGameEta {
+  id: string
+  game: string // Hansa only hosts the one game, so this is always 'Hansa Teutonica'
+  percent: number
+  sampleCount: number
+  etaSeconds?: number
+}
+
+// Every currently-running Hansa game of mine with an estimate, for the Pace
+// page's "when are your active games likely to end" chart — see
+// lib/pace/progress.ts's listActiveGameEtas, which this mirrors. Hansa keeps
+// no tracker of its own (see estimateHansaProgress above), so this re-fetches
+// live each time rather than reading from KV like the other platforms do.
+export async function listActiveHansaGameEtas(userId: string): Promise<HansaActiveGameEta[]> {
+  if (!userId) return []
+  const myId = userId.replace(/-/g, '')
+  const [games, finishedSamples] = await Promise.all([
+    fetchGames('playing'),
+    fetchFinishedSamples().catch((): FinishedSample[] => []),
+  ])
+  return games
+    .filter(g => g.players.some(p => p.userId.replace(/-/g, '') === myId))
+    .map(g => ({ table: g, progress: estimateHansaProgress(g, finishedSamples) }))
+    .filter((x): x is { table: HtGame; progress: NonNullable<Game['progress']> } => !!x.progress)
+    .map(({ table, progress }) => ({
+      id: table.id, game: 'Hansa Teutonica', percent: progress.percent, sampleCount: progress.sampleCount,
+      etaSeconds: progress.etaSeconds,
+    }))
+    .sort((a, b) => (a.etaSeconds ?? Infinity) - (b.etaSeconds ?? Infinity))
+}
+
 export async function fetchHansa(userId: string): Promise<Game[]> {
   if (!userId) throw new Error('HANSA_USER_ID is required')
   const myId = userId.replace(/-/g, '')
