@@ -54,6 +54,16 @@ describe('estimateProgress', () => {
     expect(estimateProgress(tables, 'active')).toBeNull()
   })
 
+  it('excludes realtime (played-in-one-sitting) finished games from the turn-count sample too', () => {
+    const tables = {
+      active: table('active', 'thecrew', null, 10),
+      liveGame: table('liveGame', 'thecrew', 1000, 500, { realtime: true }), // way off from async turn counts
+      f1: table('f1', 'thecrew', 1000, 20),
+    }
+    const result = estimateProgress(tables, 'active')
+    expect(result).toMatchObject({ sampleCount: 1, samples: [20], estimatedTotalTurns: 20 })
+  })
+
   it('clamps percent at 100 for a game that has already run longer than the median', () => {
     const tables = {
       active: table('active', 'thecrew', null, 100),

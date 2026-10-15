@@ -84,8 +84,11 @@ export function estimateProgress(tables: Record<string, PaceTable>, tableId: str
   const active = tables[tableId]
   const turnsSoFar = active?.totalTurnState?.count ?? 0
   if (turnsSoFar > 0) {
+    // Excludes realtime (played-in-one-sitting) finished games, same as the
+    // time-based fallback below — a live game isn't part of the async load
+    // this estimate is meant to describe, turn count included.
     const finishedOfType = Object.values(tables)
-      .filter(t => t.id !== tableId && t.end !== null && t.game === active.game && (t.totalTurnState?.count ?? 0) > 0)
+      .filter(t => t.id !== tableId && t.end !== null && t.game === active.game && !t.realtime && (t.totalTurnState?.count ?? 0) > 0)
 
     // Player count can shift how many turns a game naturally takes (more
     // players, more turns around the table) — prefer matching it, but a game
