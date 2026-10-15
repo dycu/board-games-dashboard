@@ -103,32 +103,40 @@ function headline(platform: Platform, progress: NonNullable<Game['progress']>): 
   return `${unit} ${turnsSoFar} of an estimated ${estimatedTotalTurns}`
 }
 
-function BasisItem({ active, children }: { active: boolean; children: React.ReactNode }) {
+// One row = one either/or choice: the two options sit together on the same
+// line (not as separate bullets scattered among the other choice's options),
+// with the one actually used picked out.
+function BasisPair({ options, activeIndex }: { options: [string, string]; activeIndex: 0 | 1 }) {
   return (
-    <li className={active ? 'font-semibold text-white' : 'text-[#9b9b9b]'}>
-      {active ? '●' : '○'} {children}
-    </li>
+    <div>
+      {options.map((label, i) => (
+        <span key={label}>
+          {i > 0 && <span className="text-[#6b6b6b]"> / </span>}
+          <span className={i === activeIndex ? 'font-semibold text-white' : 'text-[#9b9b9b]'}>{label}</span>
+        </span>
+      ))}
+    </div>
   )
 }
 
-// Lists what the estimate is actually based on — both the method (turn/move
-// count vs. elapsed time) and the sample pool (same player count vs. this
-// type as a whole) — with whichever applies here picked out, rather than
-// leaving it to a single flowing sentence to explain. Method is a pair of
-// bullets, not one that's just active/inactive, so the non-time-based case
-// is named too instead of only implied by the time-based one being unlit.
+// What the estimate is actually based on is two separate either/or choices —
+// the method (turn/move count vs. elapsed time) and the sample pool (same
+// player count vs. this type as a whole) — not four independent facts, so
+// each is its own row instead of four flat bullets that read as one list.
 function ProgressBasis({ platform, progress }: { platform: Platform; progress: NonNullable<Game['progress']> }) {
   const { sampleCount, sameSizeOnly, timeBased, sameSizeSampleCount, totalSampleCount } = progress
   const total = totalSampleCount ?? sampleCount
   const sameSize = sameSizeSampleCount ?? (sameSizeOnly ? sampleCount : 0)
+  const unit = unitWord(platform, true)
 
   return (
-    <ul className="mt-1 text-left list-none space-y-0.5">
-      <BasisItem active={!timeBased}>{unitWord(platform, true)}-based estimate</BasisItem>
-      <BasisItem active={!!timeBased}>Time-based estimate</BasisItem>
-      <BasisItem active={!sameSizeOnly}>{total} game{total === 1 ? '' : 's'} of this type</BasisItem>
-      <BasisItem active={sameSizeOnly}>{sameSize} with the same player count</BasisItem>
-    </ul>
+    <div className="mt-1 text-left space-y-0.5">
+      <BasisPair options={[`${unit}-based estimate`, 'Time-based estimate']} activeIndex={timeBased ? 1 : 0} />
+      <BasisPair
+        options={[`${total} game${total === 1 ? '' : 's'} of this type`, `${sameSize} with the same player count`]}
+        activeIndex={sameSizeOnly ? 1 : 0}
+      />
+    </div>
   )
 }
 
