@@ -75,7 +75,7 @@ export function progressLabel(platform: Platform, progress: NonNullable<Game['pr
   const basis = sampleCount === 1 ? '1 finished game' : `${sampleCount} finished games`
   const qualifier = sameSizeOnly ? ' with the same player count' : ''
   if (timeBased) {
-    return `Time-based estimate: ~${formatDuration(turnsSoFar)} in, typically takes about ${formatDuration(estimatedTotalTurns)} (no ${unitWord(platform)} count available for this game type — based on elapsed time instead, median of ${basis}${qualifier})`
+    return `Time-based estimate: ~${formatDuration(turnsSoFar)} in, typically takes about ${formatDuration(estimatedTotalTurns)} (median of ${basis}${qualifier})`
   }
   const unit = unitWord(platform, true)
   if (exact) return `${unit} ${turnsSoFar} of ${estimatedTotalTurns} (reported by the game itself)`
