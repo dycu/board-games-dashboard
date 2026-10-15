@@ -15,6 +15,8 @@ export interface SyncProgress {
   pendingHistory: number
   indexComplete: boolean
   lastSyncAt: number
+  pagesRead: number // finished-games pages read this run — for sizing how deep a single run actually gets
+  stopReason: 'budget' | 'horizon' | 'end-of-history'
 }
 
 async function getJson(url: string, session: BgaSession): Promise<any> {
@@ -109,9 +111,12 @@ export async function syncBga(username: string, password: string, budgetMs: numb
   const horizon = Date.now() / 1000 - BACKFILL_DAYS * 86400
   let page = meta.indexComplete ? 1 : meta.nextIndexPage
   let caughtUp = false
+  let pagesRead = 0
+  let stopReason: SyncProgress['stopReason'] = 'budget'
   while (timeLeft() > 5000) {
     const rows = await fetchFinishedPage(session, page)
-    if (rows.length === 0) { meta.indexComplete = true; caughtUp = true; break }
+    pagesRead++
+    if (rows.length === 0) { meta.indexComplete = true; caughtUp = true; stopReason = 'end-of-history'; break }
     let oldest = Infinity
     for (const r of rows) {
       const id = String(r.table_id)
@@ -139,7 +144,7 @@ export async function syncBga(username: string, password: string, budgetMs: numb
         realtime,
       })
     }
-    if (oldest < horizon) { meta.indexComplete = true; caughtUp = true; break }
+    if (oldest < horizon) { meta.indexComplete = true; caughtUp = true; stopReason = 'horizon'; break }
     page++
     if (!meta.indexComplete) meta.nextIndexPage = page
   }
@@ -202,5 +207,7 @@ export async function syncBga(username: string, password: string, budgetMs: numb
     pendingHistory: all.filter(t => t.history === 'pending').length,
     indexComplete: meta.indexComplete,
     lastSyncAt: meta.lastSyncAt,
+    pagesRead,
+    stopReason,
   }
 }
