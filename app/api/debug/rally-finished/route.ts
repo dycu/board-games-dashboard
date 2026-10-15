@@ -31,12 +31,15 @@ export async function GET() {
     wsResult = await new Promise(resolve => {
       let settled = false
       const ws = new WebSocket(wsUrl, { headers: { Cookie: cookie, 'User-Agent': HEADERS['User-Agent'] } })
+      const seen: string[] = []
       const finish = (r: any) => { if (settled) return; settled = true; clearTimeout(timer); ws.close(); resolve(r) }
-      const timer = setTimeout(() => finish({ error: 'timeout' }), 8000)
+      const timer = setTimeout(() => finish({ error: 'timeout', seen }), 8000)
       ws.on('message', (data: Buffer) => {
         try {
           const [cmd, arg] = JSON.parse(data.toString())
-          finish({ cmd, turn: arg?.turn, keys: arg ? Object.keys(arg) : null })
+          seen.push(cmd)
+          if (cmd === 'state') finish({ cmd, turn: arg?.turn, keys: arg ? Object.keys(arg) : null, seen })
+          else if (cmd === 'error') finish({ cmd, error: arg, seen })
         } catch { /* keep waiting */ }
       })
       ws.on('error', e => finish({ error: e.message }))
