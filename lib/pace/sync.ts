@@ -9,11 +9,6 @@ const BACKFILL_DAYS = 365
 export const REALTIME_MAX_SECONDS = 4 * 3600
 const CONCURRENCY = 3
 const ARCHIVE_GRACE_SECONDS = 6 * 3600
-// Finished-games pages are fetched this many at a time — a prolific player
-// can have deep history (hundreds of pages within the backfill horizon),
-// and reading one page at a time would only ever get partway through it
-// before the time budget runs out, every single run.
-const PAGE_FETCH_CONCURRENCY = 6
 
 export interface SyncProgress {
   tables: number
@@ -104,49 +99,48 @@ export async function syncBga(username: string, password: string, budgetMs: numb
   // was enough to end the run early, every time, so some tables were never
   // discovered at all — the backfill never actually used its full time
   // budget. Now it only stops on a real boundary: the time budget, the
-  // horizon, or genuinely running out of pages — and reads several pages at
-  // once, since reading them one at a time (bounded by round-trip latency,
-  // not by actual work) was never going to get deep enough within one run's
-  // budget for an account with hundreds of pages of history.
+  // horizon, or genuinely running out of pages.
+  //
+  // Pages are read one at a time, not several in parallel — BGA answered a
+  // burst of concurrent requests to this endpoint with HTTP 503 during
+  // testing, so catching up a large backlog now happens gradually over many
+  // runs (daily cron, plus whenever the dashboard triggers a sync) rather
+  // than all at once.
   const horizon = Date.now() / 1000 - BACKFILL_DAYS * 86400
   let page = meta.indexComplete ? 1 : meta.nextIndexPage
   let caughtUp = false
-  let stop = false
-  while (!stop && timeLeft() > 5000) {
-    const batch = Array.from({ length: PAGE_FETCH_CONCURRENCY }, (_, i) => page + i)
-    const batchRows = await Promise.all(batch.map(p => fetchFinishedPage(session, p)))
-    for (const rows of batchRows) {
-      if (rows.length === 0) { meta.indexComplete = true; caughtUp = true; stop = true; break }
-      let oldest = Infinity
-      for (const r of rows) {
-        const id = String(r.table_id)
-        const start = Number(r.start)
-        const end = Number(r.end)
-        oldest = Math.min(oldest, start)
-        const existing = tables[id]
-        if (existing && existing.end !== null) continue
-        if (r.cancelled === '1' || r.cancelled === 1) continue
-        const realtime = end - start < REALTIME_MAX_SECONDS
-        // BGA archives a finished table's move log within hours ("Cannot find
-        // gamenotifs log file of an archived table"), so the archive is only
-        // worth one try right after a game ends. Turns come from reading tables
-        // while they run; a table never read while running has none.
-        const logMayExist = Date.now() / 1000 - end < ARCHIVE_GRACE_SECONDS
-        upsert({
-          id, game: r.game_name, server: existing?.server, start, end,
-          history: !realtime && logMayExist ? 'pending' : 'done',
-          state: existing?.state ?? INITIAL_TURN_STATE,
-          // An active table's turn count so far — carried over, not reset, so a
-          // game that finishes outside the archive grace window still keeps
-          // whatever was already counted while it ran, instead of losing it
-          totalTurnState: existing?.totalTurnState,
-          playerCount: String(r.players ?? '').split(',').filter(Boolean).length || existing?.playerCount,
-          realtime,
-        })
-      }
-      if (oldest < horizon) { meta.indexComplete = true; caughtUp = true; stop = true; break }
+  while (timeLeft() > 5000) {
+    const rows = await fetchFinishedPage(session, page)
+    if (rows.length === 0) { meta.indexComplete = true; caughtUp = true; break }
+    let oldest = Infinity
+    for (const r of rows) {
+      const id = String(r.table_id)
+      const start = Number(r.start)
+      const end = Number(r.end)
+      oldest = Math.min(oldest, start)
+      const existing = tables[id]
+      if (existing && existing.end !== null) continue
+      if (r.cancelled === '1' || r.cancelled === 1) continue
+      const realtime = end - start < REALTIME_MAX_SECONDS
+      // BGA archives a finished table's move log within hours ("Cannot find
+      // gamenotifs log file of an archived table"), so the archive is only
+      // worth one try right after a game ends. Turns come from reading tables
+      // while they run; a table never read while running has none.
+      const logMayExist = Date.now() / 1000 - end < ARCHIVE_GRACE_SECONDS
+      upsert({
+        id, game: r.game_name, server: existing?.server, start, end,
+        history: !realtime && logMayExist ? 'pending' : 'done',
+        state: existing?.state ?? INITIAL_TURN_STATE,
+        // An active table's turn count so far — carried over, not reset, so a
+        // game that finishes outside the archive grace window still keeps
+        // whatever was already counted while it ran, instead of losing it
+        totalTurnState: existing?.totalTurnState,
+        playerCount: String(r.players ?? '').split(',').filter(Boolean).length || existing?.playerCount,
+        realtime,
+      })
     }
-    page += PAGE_FETCH_CONCURRENCY
+    if (oldest < horizon) { meta.indexComplete = true; caughtUp = true; break }
+    page++
     if (!meta.indexComplete) meta.nextIndexPage = page
   }
 
