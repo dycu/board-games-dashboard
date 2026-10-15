@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { LoadBucket, WeekPoint } from '@/lib/pace/stats'
 
 const ACCENT = '#5e6ad2'
@@ -98,6 +98,95 @@ export function LoadChart({ buckets, knee, xLabel }: { buckets: LoadBucket[]; kn
           <div className="text-[#6b6b6b]">{hovered.load} games running · {hovered.n} turns{hovered.n < MIN_RELIABLE_N ? ' (few)' : ''}</div>
         </Tooltip>
       )}
+    </div>
+  )
+}
+
+export interface ActiveGameEta {
+  id: string
+  game: string // BGA slug — resolve to a display name via `names` before passing in
+  percent: number
+  sampleCount: number
+  timeBased?: boolean
+  etaSeconds?: number
+}
+
+function formatEtaShort(seconds: number): string {
+  if (seconds <= 0) return 'any time'
+  const days = seconds / 86400
+  if (days < 1) return `${Math.max(1, Math.round(seconds / 3600))}h`
+  if (days < 14) return `${days.toFixed(1)}d`
+  return `${Math.round(days / 7)}w`
+}
+
+// One horizontal bar per active game, soonest-to-finish at the top — games
+// with no eta yet (just started, or nothing to estimate from) aren't shown;
+// there's nothing useful to place on a timeline for them.
+export function FinishTimelineChart({ games, names }: { games: ActiveGameEta[]; names: Record<string, string> }) {
+  const [hover, setHover] = useState<string | null>(null)
+  // eslint-disable-next-line react-hooks/purity -- the finish date shown on hover is relative to now
+  const now = useMemo(() => Date.now(), [hover])
+  const withEta = games.filter((g): g is ActiveGameEta & { etaSeconds: number } => g.etaSeconds !== undefined)
+  if (withEta.length === 0) {
+    return <p className="text-xs text-[#9b9b9b] py-6 text-center">No active games with an estimate yet.</p>
+  }
+
+  const ROW_H = 28
+  const W = 640, L = 132, R = 46, T = 6, B = 16
+  const H = T + withEta.length * ROW_H + B
+  const maxDays = niceMax(Math.max(1, ...withEta.map(g => g.etaSeconds / 86400)))
+  const x = (days: number) => L + Math.min(1, days / maxDays) * (W - L - R)
+  const ticks = [0, 0.25, 0.5, 0.75, 1]
+
+  return (
+    <div className="relative">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Projected finish time for each active game">
+        {ticks.map(f => (
+          <line key={f} x1={L + f * (W - L - R)} x2={L + f * (W - L - R)} y1={T} y2={H - B + 2} stroke={GRID} />
+        ))}
+        {withEta.map((g, i) => {
+          const y = T + i * ROW_H + ROW_H / 2
+          const days = g.etaSeconds / 86400
+          const overflow = days > maxDays
+          const faint = !!g.timeBased || g.sampleCount < 3
+          const label = names[g.game] ?? g.game
+          return (
+            <g key={g.id} opacity={faint ? 0.55 : 1}>
+              <text x={L - 8} y={y} dy="0.32em" textAnchor="end" fontSize="11" fill={INK}>
+                {label.length > 16 ? `${label.slice(0, 15)}…` : label}
+              </text>
+              <line x1={L} x2={x(days)} y1={y} y2={y} stroke={ACCENT} strokeWidth={7} strokeLinecap="round" />
+              <text x={x(days) + 6} y={y} dy="0.32em" fontSize="10" fill={MUTED}>
+                {formatEtaShort(g.etaSeconds)}{overflow ? '+' : ''}
+              </text>
+              <rect x={0} y={y - ROW_H / 2} width={W} height={ROW_H} fill="transparent"
+                tabIndex={0}
+                onPointerEnter={() => setHover(g.id)} onPointerLeave={() => setHover(null)}
+                onFocus={() => setHover(g.id)} onBlur={() => setHover(null)} />
+            </g>
+          )
+        })}
+        {ticks.map(f => (
+          <text key={f} x={L + f * (W - L - R)} y={H - 2} textAnchor="middle" fontSize="9" fill={MUTED}>{Math.round(f * maxDays)}d</text>
+        ))}
+      </svg>
+      {hover && (() => {
+        const g = withEta.find(w => w.id === hover)
+        if (!g) return null
+        const i = withEta.indexOf(g)
+        const finishDate = new Date(now + g.etaSeconds * 1000)
+        return (
+          <Tooltip x={x(g.etaSeconds / 86400)} top={`${((T + i * ROW_H) / H) * 100}%`} width={W}>
+            <div className="font-semibold text-[#1a1a1a]">{names[g.game] ?? g.game} · {g.percent}%</div>
+            <div className="text-[#6b6b6b]">
+              {g.etaSeconds <= 0 ? 'any time now' : `around ${finishDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
+            </div>
+            <div className="text-[#6b6b6b]">
+              {g.timeBased ? 'time-based' : 'turn-based'} · {g.sampleCount} sample{g.sampleCount === 1 ? '' : 's'}{g.sampleCount < 3 ? ' (few)' : ''}
+            </div>
+          </Tooltip>
+        )
+      })()}
     </div>
   )
 }

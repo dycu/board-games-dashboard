@@ -1,7 +1,7 @@
 jest.mock('@vercel/kv', () => ({ kv: { hgetall: jest.fn() } }))
 
 import { kv } from '@vercel/kv'
-import { estimateProgress, attachProgress, attachTurns } from '../progress'
+import { estimateProgress, attachProgress, attachTurns, listActiveGameEtas } from '../progress'
 import { PaceTable } from '../store'
 import { INITIAL_TURN_STATE } from '../bgaTurns'
 import { Game, FinishedGame } from '../../types'
@@ -228,5 +228,37 @@ describe('attachTurns', () => {
     mockHgetall.mockResolvedValue({})
     const [game] = await attachTurns([finished('bga:1')])
     expect(game.turns).toBeUndefined()
+  })
+})
+
+describe('listActiveGameEtas', () => {
+  const NOW = Date.parse('2026-01-10T00:00:00Z') / 1000
+  beforeEach(() => jest.spyOn(Date, 'now').mockReturnValue(NOW * 1000))
+  afterEach(() => jest.restoreAllMocks())
+
+  it('lists running games with an estimate, soonest finish first', () => {
+    const dayAgo = NOW - 86400
+    const tables = {
+      slow: table('slow', 'thecrew', null, 5, { start: dayAgo }), // 5 turns/day, 25 to go => 5 days
+      fast: table('fast', 'wingspan', null, 20, { start: dayAgo }), // 20 turns/day, 20 to go => 1 day
+      f1: table('f1', 'thecrew', 1000, 30),
+      f2: table('f2', 'wingspan', 1000, 40),
+    }
+    const result = listActiveGameEtas(tables)
+    expect(result.map(g => g.id)).toEqual(['fast', 'slow'])
+    expect(result[0]).toMatchObject({ game: 'wingspan', sampleCount: 1 })
+  })
+
+  it('leaves out a running game with no estimate yet', () => {
+    const tables = { onlyOne: table('onlyOne', 'thecrew', null, 5, { start: NOW - 86400 }) }
+    expect(listActiveGameEtas(tables)).toEqual([])
+  })
+
+  it('leaves out finished tables', () => {
+    const tables = {
+      active: table('active', 'thecrew', null, 5, { start: NOW - 86400 }),
+      done: table('done', 'thecrew', 1000, 30),
+    }
+    expect(listActiveGameEtas(tables).map(g => g.id)).toEqual(['active'])
   })
 })

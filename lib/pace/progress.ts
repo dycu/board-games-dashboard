@@ -103,6 +103,31 @@ export function estimateProgress(tables: Record<string, PaceTable>, tableId: str
   return estimateTimeProgress(tables, tableId)
 }
 
+export interface ActiveGameEta {
+  id: string
+  game: string // BGA slug — resolved to a display name by the caller
+  percent: number
+  sampleCount: number
+  timeBased?: boolean
+  etaSeconds?: number
+}
+
+// Every currently-running table with an estimate, soonest finish first — for
+// a "when are your active games likely to end" view (the Pace page).
+// Running tables with no estimate yet (too new, or no history to compare
+// against) are left out rather than shown with nothing useful to say.
+export function listActiveGameEtas(tables: Record<string, PaceTable>): ActiveGameEta[] {
+  return Object.values(tables)
+    .filter(t => t.end === null)
+    .map(t => ({ table: t, progress: estimateProgress(tables, t.id) }))
+    .filter((x): x is { table: PaceTable; progress: GameProgress } => x.progress !== null)
+    .map(({ table, progress }) => ({
+      id: table.id, game: table.game, percent: progress.percent, sampleCount: progress.sampleCount,
+      timeBased: progress.timeBased, etaSeconds: progress.etaSeconds,
+    }))
+    .sort((a, b) => (a.etaSeconds ?? Infinity) - (b.etaSeconds ?? Infinity))
+}
+
 // Attaches `progress` to every BGA game in a live list (Active tab)
 export async function attachProgress(games: Game[]): Promise<Game[]> {
   if (!games.some(g => g.platform === 'bga')) return games

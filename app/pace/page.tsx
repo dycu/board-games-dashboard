@@ -1,12 +1,24 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import TopNav from '@/components/TopNav'
-import { LoadChart, WeekChart, formatHours, MIN_RELIABLE_N } from '@/components/pace/charts'
+import { LoadChart, WeekChart, FinishTimelineChart, formatHours, MIN_RELIABLE_N, type ActiveGameEta } from '@/components/pace/charts'
 import type { PaceStats } from '@/lib/pace/stats'
+
+interface TrackerHealth {
+  tracked: number
+  finishedWithSample: number
+}
 
 interface PaceResponse {
   stats: PaceStats
   names: Record<string, string>
+  activeEtas: ActiveGameEta[]
+  health: {
+    bga: TrackerHealth
+    rally: TrackerHealth
+    eighteenxx: TrackerHealth
+    hansa: null // no stored tracker — recomputed live from the public API every request
+  }
   sync: {
     lastSyncAt: number | null
     trackingStartedAt: number
@@ -156,6 +168,13 @@ export default function PacePage() {
             </div>
 
             <Section
+              title="When your active games are projected to finish"
+              note="Each bar is that game's own pace since it started — not just the typical length for its type — projected forward. Faded = either a time-based estimate (no turn-count history for this game type) or fewer than 3 finished games to compare against, so treat it as rougher."
+            >
+              <FinishTimelineChart games={data!.activeEtas} names={data!.names} />
+            </Section>
+
+            <Section
               title="Response time by number of games running"
               note={scope === 'bga'
                 ? `How long you took to move on BGA, depending on how many async BGA games were running at the time. Dot = median, bar = middle half of turns. Faint = fewer than ${MIN_RELIABLE_N} turns.`
@@ -241,6 +260,35 @@ export default function PacePage() {
                 </ul>
               </Section>
             )}
+
+            <Section title="Tracker health" note="How much history each platform's progress-bar tracker actually has to work with — so a missing bar reads as 'not enough data yet' rather than a mystery.">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-[#6b6b6b] border-b border-[#e5e5e5]">
+                    <th className="py-1 font-normal">Platform</th>
+                    <th className="py-1 font-normal text-right">Tracked</th>
+                    <th className="py-1 font-normal text-right">Finished w/ a sample</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {([
+                    ['BGA', data!.health.bga],
+                    ['Rally the Troops', data!.health.rally],
+                    ['18xx.games', data!.health.eighteenxx],
+                  ] as const).map(([label, h]) => (
+                    <tr key={label} className="border-b border-[#f3f3f3] text-[#1a1a1a]">
+                      <td className="py-1">{label}</td>
+                      <td className="py-1 text-right">{h.tracked}</td>
+                      <td className="py-1 text-right">{h.finishedWithSample}</td>
+                    </tr>
+                  ))}
+                  <tr className="text-[#9b9b9b]">
+                    <td className="py-1">Hansa Teutonica</td>
+                    <td className="py-1 text-right" colSpan={2}>no tracker — read live from the public API each time</td>
+                  </tr>
+                </tbody>
+              </table>
+            </Section>
 
             <p className="text-[11px] text-[#9b9b9b] mb-6">
               Based on move timestamps from BGA. Real-time games (finished within 4 hours) are left out.
