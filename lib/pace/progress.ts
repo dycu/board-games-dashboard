@@ -12,6 +12,7 @@ export interface GameProgress {
   sameSizeSampleCount: number // finished games of this type with the same player count
   totalSampleCount: number    // finished games of this type, any player count
   etaSeconds?: number         // projected time left, from now
+  actualTurnsSoFar?: number   // the real turn count, alongside a timeBased estimate, when known
 }
 
 function median(sorted: number[]): number {
@@ -66,10 +67,15 @@ function estimateTimeProgress(tables: Record<string, PaceTable>, tableId: string
 
   const estimatedTotalSeconds = median(durations)
   const percent = Math.max(0, Math.min(100, Math.round((elapsedSeconds / estimatedTotalSeconds) * 100)))
+  // Falling back to time only means there's no turn-count *sample* to
+  // estimate a total from — this game's own running turn count can still be
+  // read and worth showing alongside the time-based estimate.
+  const actualTurnsSoFar = active.totalTurnState?.count ?? 0
   return withEta(active, {
     percent, turnsSoFar: Math.round(elapsedSeconds), estimatedTotalTurns: Math.round(estimatedTotalSeconds),
     sampleCount: durations.length, samples: durations, sameSizeOnly: pool === sameSize, timeBased: true,
     sameSizeSampleCount: sameSize.length, totalSampleCount: finishedOfType.length,
+    ...(actualTurnsSoFar > 0 && { actualTurnsSoFar }),
   })
 }
 

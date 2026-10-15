@@ -46,10 +46,15 @@ function estimateEighteenxxTimeProgress(games: Record<string, EighteenxxPaceGame
 
   const estimatedTotalSeconds = median(durations)
   const percent = Math.max(0, Math.min(100, Math.round((elapsedSeconds / estimatedTotalSeconds) * 100)))
+  // Falling back to time only means there's no action-count *sample* to
+  // estimate a total from — this game's own running action count can still
+  // be read and worth showing alongside the time-based estimate.
+  const actualTurnsSoFar = active.actionCount ?? 0
   return withEta(active, {
     percent, turnsSoFar: Math.round(elapsedSeconds), estimatedTotalTurns: Math.round(estimatedTotalSeconds),
     sampleCount: durations.length, samples: durations, sameSizeOnly: pool === sameSize, timeBased: true,
     sameSizeSampleCount: sameSize.length, totalSampleCount: finishedOfType.length,
+    ...(actualTurnsSoFar > 0 && { actualTurnsSoFar }),
   })
 }
 

@@ -142,6 +142,28 @@ describe('estimateProgress', () => {
       const tables = { active: table('active', 'thecrew', null, null, { start: NOW - 86400 }) }
       expect(estimateProgress(tables, 'active')).toBeNull()
     })
+
+    it("includes the active game's real turn count alongside the time-based estimate, when known", () => {
+      const dayAgo = NOW - 86400
+      const tables = {
+        active: table('active', 'thecrew', null, 7, { start: dayAgo }), // turn count known, but...
+        f1: table('f1', 'thecrew', dayAgo + 2 * 86400, null, { start: dayAgo }), // ...no finished sample has one
+        f2: table('f2', 'thecrew', dayAgo + 4 * 86400, null, { start: dayAgo }),
+      }
+      const result = estimateProgress(tables, 'active')
+      expect(result?.timeBased).toBe(true)
+      expect(result?.actualTurnsSoFar).toBe(7)
+    })
+
+    it('omits actualTurnsSoFar when the active game has no turn count read yet', () => {
+      const dayAgo = NOW - 86400
+      const tables = {
+        active: table('active', 'thecrew', null, null, { start: dayAgo }),
+        f1: table('f1', 'thecrew', dayAgo + 2 * 86400, null, { start: dayAgo }),
+      }
+      const result = estimateProgress(tables, 'active')
+      expect(result?.actualTurnsSoFar).toBeUndefined()
+    })
   })
 
   describe('eta', () => {

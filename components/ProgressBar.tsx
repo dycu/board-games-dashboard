@@ -79,11 +79,13 @@ function HoldTooltip({ ariaLabel, tooltip, children }: { ariaLabel: string; tool
 // same thing more concisely, with the basis broken out as a bulleted list
 // instead of folded into one sentence.
 export function progressLabel(platform: Platform, progress: NonNullable<Game['progress']>): string {
-  const { turnsSoFar, estimatedTotalTurns, sampleCount, sameSizeOnly, exact, timeBased } = progress
+  const { turnsSoFar, estimatedTotalTurns, sampleCount, sameSizeOnly, exact, timeBased, actualTurnsSoFar } = progress
   const basis = sampleCount === 1 ? '1 finished game' : `${sampleCount} finished games`
   const qualifier = sameSizeOnly ? ' with the same player count' : ''
   if (timeBased) {
-    return `Time-based estimate: ~${formatDuration(turnsSoFar)} in, typically takes about ${formatDuration(estimatedTotalTurns)} (median of ${basis}${qualifier})`
+    const unit = unitWord(platform)
+    const turnNote = actualTurnsSoFar !== undefined ? `, ${unit} ${actualTurnsSoFar} so far` : ''
+    return `Time-based estimate: ~${formatDuration(turnsSoFar)} in${turnNote}, typically takes about ${formatDuration(estimatedTotalTurns)} (median of ${basis}${qualifier})`
   }
   const unit = unitWord(platform, true)
   if (exact) return `${unit} ${turnsSoFar} of ${estimatedTotalTurns} (reported by the game itself)`
@@ -91,8 +93,11 @@ export function progressLabel(platform: Platform, progress: NonNullable<Game['pr
 }
 
 function headline(platform: Platform, progress: NonNullable<Game['progress']>): string {
-  const { turnsSoFar, estimatedTotalTurns, exact, timeBased } = progress
-  if (timeBased) return `~${formatDuration(turnsSoFar)} in, typically takes about ${formatDuration(estimatedTotalTurns)}`
+  const { turnsSoFar, estimatedTotalTurns, exact, timeBased, actualTurnsSoFar } = progress
+  if (timeBased) {
+    const turnNote = actualTurnsSoFar !== undefined ? ` (${unitWord(platform)} ${actualTurnsSoFar})` : ''
+    return `~${formatDuration(turnsSoFar)} in${turnNote}, typically takes about ${formatDuration(estimatedTotalTurns)}`
+  }
   const unit = unitWord(platform, true)
   if (exact) return `${unit} ${turnsSoFar} of ${estimatedTotalTurns} (reported by the game itself)`
   return `${unit} ${turnsSoFar} of an estimated ${estimatedTotalTurns}`

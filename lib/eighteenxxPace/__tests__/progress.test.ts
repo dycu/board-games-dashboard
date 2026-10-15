@@ -111,6 +111,28 @@ describe('estimateEighteenxxProgress', () => {
       }
       expect(estimateEighteenxxProgress(games, 'active')).toBeUndefined()
     })
+
+    it("includes the active game's real action count alongside the time-based estimate, when known", () => {
+      const dayAgo = NOW - 86400
+      const games = {
+        active: game('active', '18Chesapeake', null, 15, { start: dayAgo }), // action count known, but...
+        f1: game('f1', '18Chesapeake', dayAgo + 2 * 86400, null, { start: dayAgo }), // ...no finished sample has one
+        f2: game('f2', '18Chesapeake', dayAgo + 4 * 86400, null, { start: dayAgo }),
+      }
+      const result = estimateEighteenxxProgress(games, 'active')
+      expect(result?.timeBased).toBe(true)
+      expect(result?.actualTurnsSoFar).toBe(15)
+    })
+
+    it('omits actualTurnsSoFar when the active game has no action count read yet', () => {
+      const dayAgo = NOW - 86400
+      const games = {
+        active: game('active', '18Chesapeake', null, null, { start: dayAgo }),
+        f1: game('f1', '18Chesapeake', dayAgo + 2 * 86400, null, { start: dayAgo }),
+      }
+      const result = estimateEighteenxxProgress(games, 'active')
+      expect(result?.actualTurnsSoFar).toBeUndefined()
+    })
   })
 
   describe('eta', () => {

@@ -56,6 +56,13 @@ export interface Game {
     // time isn't known (e.g. Rally, or a BGA/18xx game tracked before this
     // was added).
     etaSeconds?: number
+    // The real turn/action count so far, shown alongside a timeBased estimate
+    // when it's known (the fallback to time only means there's no *sample* of
+    // other finished games' turn counts to estimate a total from — the
+    // running game's own count can still be read). Omitted otherwise,
+    // including whenever timeBased is unset (turnsSoFar already is the real
+    // count then).
+    actualTurnsSoFar?: number
   }
   // Set instead of `progress` when the last attempt to read this specific
   // game's live state failed — distinguishes "no estimate yet" (nothing

@@ -242,6 +242,20 @@ describe('progress bar', () => {
     expect(tooltip).not.toHaveTextContent(/turn \d/i)
   })
 
+  it("shows the game's real turn count alongside a time-based estimate, when known", async () => {
+    const timeBasedProgress = {
+      percent: 33, turnsSoFar: 86400, estimatedTotalTurns: 3 * 86400, sampleCount: 2, samples: [2 * 86400, 4 * 86400], sameSizeOnly: false, timeBased: true,
+      actualTurnsSoFar: 12,
+    }
+    const bgaGame = { ...game, progress: timeBasedProgress }
+    render(<GameCard {...props({ game: bgaGame })} />)
+    const bar = screen.getByLabelText(/time-based estimate/i)
+    await userEvent.hover(bar)
+    const tooltip = screen.getByRole('tooltip')
+    expect(tooltip).toHaveTextContent(/turn 12/i)
+    expect(screen.getByLabelText(/turn 12 so far/i)).toBeInTheDocument()
+  })
+
   it('fades a time-based bar to tell it apart from a real turn/move count', () => {
     const timeBasedProgress = { percent: 33, turnsSoFar: 86400, estimatedTotalTurns: 3 * 86400, sampleCount: 2, samples: [2 * 86400, 4 * 86400], sameSizeOnly: false, timeBased: true }
     const bgaGame = { ...game, progress: timeBasedProgress }
