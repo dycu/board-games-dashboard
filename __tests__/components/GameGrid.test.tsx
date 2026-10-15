@@ -69,6 +69,10 @@ describe('GameGrid platform filter', () => {
     render(<GameGrid {...defaultGridProps} onPrefsChange={onPrefsChange} data={data} />)
     await userEvent.click(screen.getByRole('button', { name: /^Yucata/ }))
     expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ filter: expect.objectContaining({ platforms: ['bga'] }) }))
+    // and saved to the server, not just local state — otherwise it reverts on the next load
+    expect(global.fetch).toHaveBeenCalledWith('/api/prefs', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ filter: { ...DEFAULT_PREFS.filter, platforms: ['bga'] } }),
+    }))
   })
 
   it('each chip also offers a link to open the platform site itself, separate from the filter toggle', () => {

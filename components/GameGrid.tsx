@@ -80,7 +80,15 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   const showWaiting = prefs.filter.turnStatus !== 'my-turn'
   const platformFilter = prefs.filter.platforms
 
-  const setPlatformFilter = (platforms: Platform[]) => onPrefsChange({ ...prefs, filter: { ...prefs.filter, platforms } })
+  // Saved to the server too (not just local state), the same way pins/sunk/
+  // watchedGames below are — otherwise it only ever lives in localStorage,
+  // and the plain fetch('/api/prefs') on mount (app/page.tsx) overwrites it
+  // back to the stale server copy on the very next load.
+  const setPlatformFilter = (platforms: Platform[]) => {
+    const filter = { ...prefs.filter, platforms }
+    onPrefsChange({ ...prefs, filter })
+    fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ filter }), headers: { 'Content-Type': 'application/json' } }).catch(() => {})
+  }
   // Every chip starts shown (platformFilter empty = "all"); clicking one
   // hides just that platform, leaving the rest visible — not a single-select
   // narrow-to-this-one filter. A shown chip toggles off; a hidden chip comes

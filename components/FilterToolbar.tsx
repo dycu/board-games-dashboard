@@ -6,10 +6,24 @@ interface Props {
   onChange: (updated: UserPrefs) => void
 }
 
+// Saved to the server too (not just local state via onChange) — otherwise
+// it only ever lives in localStorage, and the plain fetch('/api/prefs') on
+// mount (app/page.tsx) overwrites it back to the stale server copy on the
+// very next load, same gap togglePin/toggleSink/toggleWatch don't have.
+function save(partial: Partial<UserPrefs>) {
+  fetch('/api/prefs', { method: 'POST', body: JSON.stringify(partial), headers: { 'Content-Type': 'application/json' } }).catch(() => {})
+}
+
 export default function FilterToolbar({ prefs, onChange }: Props) {
-  const setSort = (sort: UserPrefs['sort']) => onChange({ ...prefs, sort })
-  const setTurnStatus = (turnStatus: UserPrefs['filter']['turnStatus']) =>
-    onChange({ ...prefs, filter: { ...prefs.filter, turnStatus } })
+  const setSort = (sort: UserPrefs['sort']) => {
+    onChange({ ...prefs, sort })
+    save({ sort })
+  }
+  const setTurnStatus = (turnStatus: UserPrefs['filter']['turnStatus']) => {
+    const filter = { ...prefs.filter, turnStatus }
+    onChange({ ...prefs, filter })
+    save({ filter })
+  }
 
   return (
     <div className="flex items-center gap-2">
