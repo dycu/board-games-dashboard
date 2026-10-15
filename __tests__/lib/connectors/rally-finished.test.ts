@@ -1,4 +1,4 @@
-import { fetchFinishedRally } from '@/lib/connectors/rally'
+import { fetchFinishedRally, fetchFinishedRallyWithCookie } from '@/lib/connectors/rally'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { createHash } from 'crypto'
@@ -40,6 +40,7 @@ describe('fetchFinishedRally', () => {
       completedAgo: expect.any(String),
     })
     expect(games[0].completedAt).toBeInstanceOf(Date)
+    expect(games[0].playerCount).toBe(2)
     expect(games[1].id).toBe('rally:502')
     expect(games[1].gameName).toBe('Paths of Glory')
   })
@@ -50,5 +51,18 @@ describe('fetchFinishedRally', () => {
 
     const games = await fetchFinishedRally('testuser', 'pass')
     expect(games).toHaveLength(0)
+  })
+})
+
+describe('fetchFinishedRallyWithCookie', () => {
+  beforeEach(() => mockFetch.mockReset())
+
+  it('fetches /games/finished with the given cookie, skipping login entirely', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, text: async () => fixture })
+
+    const games = await fetchFinishedRallyWithCookie('login=sid123')
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/games/finished'), expect.objectContaining({ headers: expect.objectContaining({ Cookie: 'login=sid123' }) }))
+    expect(games).toHaveLength(2)
   })
 })

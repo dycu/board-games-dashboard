@@ -171,6 +171,11 @@ function parseGamesFinished(html: string): FinishedGame[] {
     const finishedMatch = chunk.match(/Finished:\s*([^<]+)</)
     const completedAt = finishedMatch ? parseHumanDate(finishedMatch[1].trim()) : new Date()
 
+    // Same "Players:" block the active page uses — just the count this time,
+    // for lib/rallyPace's progress estimate to prefer same-size samples with
+    const playersSection = chunk.match(/Players:\s*([\s\S]*?)<\/div>/)?.[1] ?? ''
+    const playerCount = [...playersSection.matchAll(/<a[^>]+href="\/user\/[^"]*"[^>]*>([^<]+)<\/a>/g)].length || undefined
+
     games.push({
       id: `rally:${gameId}`,
       platform: 'rally',
@@ -178,26 +183,16 @@ function parseGamesFinished(html: string): FinishedGame[] {
       completedAt,
       completedAgo: formatTimeAgo(completedAt),
       gameUrl,
+      ...(playerCount !== undefined && { playerCount }),
     })
   }
   return games
 }
 
-export async function fetchFinishedRally(username: string, password: string): Promise<FinishedGame[]> {
-  const chRes = await fetch(`${BASE}/altcha-challenge`)
-  const challenge: AltchaChallenge = await chRes.json()
-  const altcha = await solveAltcha(challenge)
-
-  const loginRes = await fetch(`${BASE}/login`, {
-    method: 'POST',
-    headers: { ...HEADERS, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ username, password, altcha }),
-    redirect: 'manual',
-  })
-  if (loginRes.status !== 302) throw new Error('Rally the Troops login failed')
-  const cookie = loginRes.headers.get('set-cookie')?.split(';')[0] ?? ''
-  if (!cookie) throw new Error('Rally the Troops login failed: no session cookie')
-
+// Shared by fetchFinishedRally and lib/rallyPace/sync.ts, which already has
+// a cookie from logging in for the active-games list and would otherwise
+// have to solve a second ALTCHA challenge just to re-log in for this.
+export async function fetchFinishedRallyWithCookie(cookie: string): Promise<FinishedGame[]> {
   const gamesRes = await fetch(`${BASE}/games/finished`, {
     headers: { ...HEADERS, Cookie: cookie },
   })
@@ -205,4 +200,9 @@ export async function fetchFinishedRally(username: string, password: string): Pr
 
   const html = await gamesRes.text()
   return parseGamesFinished(html)
+}
+
+export async function fetchFinishedRally(username: string, password: string): Promise<FinishedGame[]> {
+  const cookie = await loginRally(username, password)
+  return fetchFinishedRallyWithCookie(cookie)
 }

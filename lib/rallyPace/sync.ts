@@ -1,5 +1,5 @@
 import WebSocket from 'ws'
-import { fetchRallyWithSession, HEADERS } from '../connectors/rally'
+import { fetchRallyWithSession, fetchFinishedRallyWithCookie, HEADERS } from '../connectors/rally'
 import { getRallyGames, putRallyGames, RallyPaceGame } from './store'
 
 // fnv1a_log([]) (Rally's own hash of an empty client-side log) — the seed
@@ -53,7 +53,7 @@ function fetchTurn(gameUrl: string, cookie: string): Promise<FetchResult> {
   })
 }
 
-export async function syncRally(username: string, password: string, budgetMs: number): Promise<{ games: number; read: number }> {
+export async function syncRally(username: string, password: string, budgetMs: number): Promise<{ games: number; read: number; backfilled: number }> {
   const deadline = Date.now() + budgetMs
   const { cookie, games } = await fetchRallyWithSession(username, password)
   const stored = await getRallyGames()
@@ -96,6 +96,43 @@ export async function syncRally(username: string, password: string, budgetMs: nu
     }
   }
 
+  // Backfill: unlike BGA's archive, Rally's own live-state socket still
+  // answers for a game that's already finished, so there's no need to wait
+  // for games to finish while being tracked — every finished game Rally
+  // still lists is a sample, read the same way, once.
+  let backfilled = 0
+  try {
+    const finished = await fetchFinishedRallyWithCookie(cookie)
+    const jobs = finished.filter(g => {
+      const existing = stored[g.id.slice('rally:'.length)]
+      return !(existing && existing.end !== null && existing.turn != null)
+    })
+    let bfNext = 0
+    async function backfillWorker() {
+      while (bfNext < jobs.length && Date.now() < deadline - CONNECT_TIMEOUT_MS) {
+        const g = jobs[bfNext++]
+        const id = g.id.slice('rally:'.length)
+        const end = Math.floor(g.completedAt.getTime() / 1000)
+        const result = await fetchTurn(g.gameUrl, cookie)
+        const now = Math.floor(Date.now() / 1000)
+        if ('turn' in result) {
+          backfilled++
+          updates.push({ id, game: titleFromGameUrl(g.gameUrl), end, turn: result.turn, playerCount: g.playerCount, lastCheckedAt: now })
+        } else {
+          const existing = stored[id]
+          updates.push({
+            ...(existing ?? { id, game: titleFromGameUrl(g.gameUrl), end, turn: null }),
+            lastError: result.error, lastCheckedAt: now,
+          })
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: CONCURRENCY }, backfillWorker))
+  } catch {
+    // The active-games sync above already succeeded — a failure fetching
+    // the finished-games list for backfill shouldn't throw that work away
+  }
+
   await putRallyGames(updates)
-  return { games: games.length, read }
+  return { games: games.length, read, backfilled }
 }
