@@ -70,7 +70,7 @@ describe('syncBga: finished-table discovery', () => {
     mockGet.mockResolvedValue(meta)
     mockHgetall.mockResolvedValue({})
 
-    const veryOldEnd = Math.floor(Date.now() / 1000) - 400 * 86400 // past the 365-day horizon
+    const veryOldEnd = Math.floor(Date.now() / 1000) - 800 * 86400 // past the 730-day horizon
     mockGamesPage([{ table_id: '1', game_name: 'thecrew', start: veryOldEnd - 20000, end: veryOldEnd, cancelled: '0', players: 'a,b' }])
 
     await syncBga('me', 'pass', 15000)

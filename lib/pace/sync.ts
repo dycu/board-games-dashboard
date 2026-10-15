@@ -3,7 +3,11 @@ import { extractTurns, countTurns, INITIAL_TURN_STATE, BgaPacket } from './bgaTu
 import { getMeta, setMeta, getTables, putTables, appendTurns, PaceTable } from './store'
 
 const BASE = 'https://boardgamearena.com'
-const BACKFILL_DAYS = 365
+// A slow-to-finish game type (e.g. a multi-week game only a handful of
+// people ever finish) needs enough history to get a real sample from —
+// 365 days turned out too tight for one found this way (10 samples instead
+// of several times that, all from the last year of a much longer history).
+const BACKFILL_DAYS = 730
 // A finished table that lasted less than this was a real-time game; its turns
 // say nothing about async pace and it doesn't count toward async load.
 export const REALTIME_MAX_SECONDS = 4 * 3600
