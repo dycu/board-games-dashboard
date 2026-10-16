@@ -1,6 +1,6 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
-import { FinishedGame, PLATFORM_SHORT_LABELS, PLATFORM_LABELS } from '@/lib/types'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { FinishedGame, UserPrefs, DEFAULT_PREFS, PLATFORM_SHORT_LABELS, PLATFORM_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { summarizePeriod, presetRange, PeriodPreset, GameBreakdown } from '@/lib/summary'
 import Link from 'next/link'
@@ -33,13 +33,48 @@ const SORTERS: Record<SortKey, (a: GameBreakdown, b: GameBreakdown) => number> =
 }
 
 // History over a chosen period: results, per-game breakdown, ELO and BGA pace
-export default function PeriodSummary({ games }: { games: FinishedGame[] }) {
+export default function PeriodSummary({ games, prefs = DEFAULT_PREFS, onPrefsChange }: { games: FinishedGame[]; prefs?: UserPrefs; onPrefsChange?: (p: UserPrefs) => void }) {
   const [preset, setPreset] = useState<PeriodPreset>('7d')
   const [now] = useState(() => new Date())
   const [customFrom, setCustomFrom] = useState(() => dateInput(new Date(now.getTime() - 14 * 86_400_000)))
   const [customTo, setCustomTo] = useState(() => dateInput(now))
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('plays')
+
+  // prefs arrives asynchronously (localStorage, then the server) — adopt the
+  // saved timeframe once, the first time it's defined, so it doesn't fight a
+  // later click. Saved to prefs (local + server) the same way other choices
+  // across the app are — otherwise it'd only ever live here and reset to 7d
+  // on the next visit.
+  const hydrated = useRef(false)
+  useEffect(() => {
+    if (hydrated.current || prefs.summaryPeriod === undefined) return
+    hydrated.current = true
+    setPreset(prefs.summaryPeriod)
+    if (prefs.summaryPeriod === 'custom') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time adoption of the async-loaded saved prefs value
+      if (prefs.summaryCustomFrom) setCustomFrom(prefs.summaryCustomFrom)
+      if (prefs.summaryCustomTo) setCustomTo(prefs.summaryCustomTo)
+    }
+  }, [prefs.summaryPeriod, prefs.summaryCustomFrom, prefs.summaryCustomTo])
+
+  const savePeriod = (partial: Partial<Pick<UserPrefs, 'summaryPeriod' | 'summaryCustomFrom' | 'summaryCustomTo'>>) => {
+    if (!onPrefsChange) return
+    onPrefsChange({ ...prefs, ...partial })
+    fetch('/api/prefs', { method: 'POST', body: JSON.stringify(partial), headers: { 'Content-Type': 'application/json' } }).catch(() => {})
+  }
+  const choosePreset = (key: PeriodPreset) => {
+    setPreset(key)
+    savePeriod({ summaryPeriod: key })
+  }
+  const chooseCustomFrom = (value: string) => {
+    setCustomFrom(value)
+    savePeriod({ summaryCustomFrom: value })
+  }
+  const chooseCustomTo = (value: string) => {
+    setCustomTo(value)
+    savePeriod({ summaryCustomTo: value })
+  }
 
   const { from, to } = useMemo(() => {
     if (preset !== 'custom') return presetRange(preset, now)
@@ -76,14 +111,14 @@ export default function PeriodSummary({ games }: { games: FinishedGame[] }) {
       <div className="flex flex-wrap items-center gap-1.5 mb-3">
         <h2 className="text-sm font-semibold text-[#1a1a1a] mr-1">Summary</h2>
         {PRESETS.map(([key, label]) => (
-          <button key={key} onClick={() => setPreset(key)} className={pill(preset === key)}>{label}</button>
+          <button key={key} onClick={() => choosePreset(key)} className={pill(preset === key)}>{label}</button>
         ))}
         {preset === 'custom' && (
           <span className="flex items-center gap-1 text-xs text-[#6b6b6b]">
-            <input type="date" aria-label="From" value={customFrom} max={customTo} onChange={e => setCustomFrom(e.target.value)}
+            <input type="date" aria-label="From" value={customFrom} max={customTo} onChange={e => chooseCustomFrom(e.target.value)}
               className="bg-white border border-[#e5e5e5] rounded px-1.5 py-0.5" />
             –
-            <input type="date" aria-label="To" value={customTo} min={customFrom} max={dateInput(now)} onChange={e => setCustomTo(e.target.value)}
+            <input type="date" aria-label="To" value={customTo} min={customFrom} max={dateInput(now)} onChange={e => chooseCustomTo(e.target.value)}
               className="bg-white border border-[#e5e5e5] rounded px-1.5 py-0.5" />
           </span>
         )}

@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import PeriodSummary from '@/components/PeriodSummary'
-import { FinishedGame } from '@/lib/types'
+import { FinishedGame, DEFAULT_PREFS, UserPrefs } from '@/lib/types'
 
 const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000)
 
@@ -100,5 +100,55 @@ describe('PeriodSummary', () => {
 
     await userEvent.selectOptions(sortSelect, 'ELO')
     expect(rowNames().map(t => t?.match(/Catan|Brass|Dune/)?.[0])).toEqual(['Dune', 'Catan', 'Brass'])
+  })
+})
+
+describe('PeriodSummary period persistence', () => {
+  const games = [fg('1', 1, { result: 'won' }), fg('2', 20, { gameName: 'Navegador', result: 'won' })]
+
+  it('saves the chosen preset to prefs and the server, not just local state', async () => {
+    const onPrefsChange = jest.fn()
+    render(<PeriodSummary games={games} prefs={DEFAULT_PREFS} onPrefsChange={onPrefsChange} />)
+
+    await userEvent.click(screen.getByRole('button', { name: '30d' }))
+
+    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ summaryPeriod: '30d' }))
+    expect(global.fetch).toHaveBeenCalledWith('/api/prefs', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ summaryPeriod: '30d' }),
+    }))
+  })
+
+  it('starts from the saved prefs value instead of always defaulting to 7d', () => {
+    const prefs: UserPrefs = { ...DEFAULT_PREFS, summaryPeriod: '30d' }
+    render(<PeriodSummary games={games} prefs={prefs} />)
+    expect(screen.getByText('Navegador')).toBeInTheDocument() // only in range once 30d actually took effect
+  })
+
+  it('restores a saved custom range, not just the custom preset itself', () => {
+    const veryOld = fg('old', 100, { gameName: 'Acquire', result: 'won' })
+    const prefs: UserPrefs = { ...DEFAULT_PREFS, summaryPeriod: 'custom', summaryCustomFrom: '2000-01-01', summaryCustomTo: '2099-01-01' }
+    render(<PeriodSummary games={[...games, veryOld]} prefs={prefs} />)
+    expect(screen.getByLabelText('From')).toHaveValue('2000-01-01')
+    expect(screen.getByLabelText('To')).toHaveValue('2099-01-01')
+    expect(screen.getByText('Acquire')).toBeInTheDocument()
+  })
+
+  it('saves a custom date change too, once already on the custom preset', async () => {
+    const onPrefsChange = jest.fn()
+    const prefs: UserPrefs = { ...DEFAULT_PREFS, summaryPeriod: 'custom' }
+    render(<PeriodSummary games={games} prefs={prefs} onPrefsChange={onPrefsChange} />)
+
+    const from = screen.getByLabelText('From')
+    fireEvent.change(from, { target: { value: '2020-06-15' } })
+
+    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ summaryCustomFrom: '2020-06-15' }))
+    expect(global.fetch).toHaveBeenCalledWith('/api/prefs', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ summaryCustomFrom: '2020-06-15' }),
+    }))
+  })
+
+  it('works without prefs/onPrefsChange at all, defaulting to 7d as before', async () => {
+    render(<PeriodSummary games={games} />)
+    expect(screen.queryByText('Navegador')).toBeNull()
   })
 })

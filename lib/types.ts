@@ -96,6 +96,12 @@ export interface UserPrefs {
   ntfyTopic?: string      // your ntfy.sh topic — install the ntfy app and subscribe to this same topic to receive the push
   showProgress?: boolean  // show the "% through the game" bar (beta — undefined/missing defaults to on; off reverts to the old cards)
   refreshIntervalSeconds?: number // auto-refresh dropdown choice (0/30/60/300 — undefined/missing defaults to off, i.e. 0)
+  // Last-selected timeframe in the History page's "Summary" card. A literal
+  // copy of lib/summary.ts's PeriodPreset rather than an import of it — that
+  // module imports from this file, and importing back would cycle.
+  summaryPeriod?: '7d' | '30d' | 'month' | 'all' | 'custom' // undefined/missing defaults to '7d'
+  summaryCustomFrom?: string // YYYY-MM-DD; only meaningful when summaryPeriod is 'custom'
+  summaryCustomTo?: string
 }
 
 export const DEFAULT_BACKLOG_PLATFORMS: Platform[] = ['bga', 'yucata']

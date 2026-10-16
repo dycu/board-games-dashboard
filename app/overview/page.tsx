@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
+import { usePrefs } from '@/hooks/usePrefs'
 import FinishedGameCard from '@/components/FinishedGameCard'
 import FetchProgress from '@/components/FetchProgress'
 import TopNav from '@/components/TopNav'
@@ -18,6 +19,7 @@ const PAGE_SIZE = 20
 
 export default function OverviewPage() {
   const { data, isLoading, lastError, platformStatuses, refresh } = useFinishedGamesData()
+  const { prefs, updatePrefs } = usePrefs()
   const backlog = useBacklog()
   const bgaTotals = useBgaPlayTotals()
   const [platformFilter, setPlatformFilter] = useState<Platform | null>(null)
@@ -128,7 +130,7 @@ export default function OverviewPage() {
             individual finished-game cards below don't benefit from extra
             width the same way, so they stay their own section underneath. */}
         <div className="flex flex-col gap-5">
-          <PeriodSummary games={filtered} />
+          <PeriodSummary games={filtered} prefs={prefs} onPrefsChange={updatePrefs} />
 
           <section className="min-w-0">
             <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b] mb-2">

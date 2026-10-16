@@ -1,17 +1,15 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { UserPrefs, DEFAULT_PREFS } from '@/lib/types'
 import { useGamesData } from '@/hooks/useGamesData'
+import { usePrefs } from '@/hooks/usePrefs'
 import { isBackForwardNavigation } from '@/lib/navigation'
 import { Presence, Opened, resolveOpened, readStoredOpened, writeStoredOpened, storeOpenedNow, AWAY_REFRESH_MS } from '@/lib/dismissal'
 import GameGrid from '@/components/GameGrid'
 import FetchProgress from '@/components/FetchProgress'
 import NewGamesPopup from '@/components/NewGamesPopup'
 
-const PREFS_KEY = 'user-prefs'
-
 export default function DashboardPage() {
-  const [prefs, setPrefs] = useState<UserPrefs>(DEFAULT_PREFS)
+  const { prefs, updatePrefs } = usePrefs()
   const [opened, setOpened] = useState<Opened>({})
   const dismissed = useMemo(() => new Set(Object.keys(opened)), [opened])
   const {
@@ -62,12 +60,6 @@ export default function DashboardPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after hydration
     setOpened(readStoredOpened())
-    const cachedPrefs = localStorage.getItem(PREFS_KEY)
-    if (cachedPrefs) setPrefs(JSON.parse(cachedPrefs))
-    fetch('/api/prefs').then(r => r.json()).then(p => {
-      setPrefs(p)
-      localStorage.setItem(PREFS_KEY, JSON.stringify(p))
-    }).catch(() => {})
   }, [])
 
   // Fresh server data (not cache loads) decides which opened games stay dimmed;
@@ -86,11 +78,6 @@ export default function DashboardPage() {
   // An opened game is dimmed (and skipped by Next) until fresh data shows its actual state
   const handleOpen = (id: string) => {
     setOpened(storeOpenedNow(id))
-  }
-
-  const updatePrefs = (p: UserPrefs) => {
-    setPrefs(p)
-    localStorage.setItem(PREFS_KEY, JSON.stringify(p))
   }
 
   const hasFreshData = freshDataVersion > 0
