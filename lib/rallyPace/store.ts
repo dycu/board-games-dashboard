@@ -6,7 +6,7 @@ export interface RallyPaceGame {
   id: string            // Rally's numeric table id
   game: string           // title slug, e.g. "maria" — Rally hosts many different games
   end: number | null     // Unix seconds; null while still active
-  turn: number | null    // last known turn number from the game's own live state
+  turn: number | null    // last known position in the game's own action log — a monotonic stand-in for "how far along," not the game's own (sometimes per-round-resetting) turn counter
   playerCount?: number
   // Set when the last attempt to read this game's live state failed (timeout,
   // WS error, no numeric turn in the response); cleared on the next success.

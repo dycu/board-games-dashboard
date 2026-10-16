@@ -17,7 +17,19 @@ type FetchResult = { turn: number } | { error: string }
 
 // Connects to the game's own live-state socket just long enough to read the
 // first "state" message, which carries the whole game's current view — same
-// data the game's own UI renders from, including its own turn counter.
+// data the game's own UI renders from.
+//
+// We read the position in `log` (+ `log_start`, in case the server ever
+// trims it), not the game's own `turn` field. `turn` is each game module's
+// own notion of "turn," which several games (e.g. Julius Caesar's 5 Years,
+// each dealing a fresh hand and starting its turn count back at 1) reset
+// partway through — the dashboard would see that as the game "starting
+// over," percent dropping back to near 0. `log` is the platform's own
+// running history of every action since the start of the match (confirmed
+// present with this same shape across Julius Caesar, Maria, and Traces of
+// War — not a single game's own format), seeded in full by `seen=0` below,
+// so its length only ever grows — a safe stand-in for "how far along," even
+// though it counts logged actions rather than the game's own turn unit.
 function fetchTurn(gameUrl: string, cookie: string): Promise<FetchResult> {
   return new Promise(resolve => {
     const url = new URL(gameUrl)
@@ -41,7 +53,8 @@ function fetchTurn(gameUrl: string, cookie: string): Promise<FetchResult> {
       try {
         const [cmd, arg] = JSON.parse(data.toString())
         if (cmd === 'state') {
-          finish(typeof arg?.turn === 'number' ? { turn: arg.turn } : { error: 'state message had no numeric turn' })
+          const turn = Array.isArray(arg?.log) ? (arg.log_start ?? 0) + arg.log.length : undefined
+          finish(typeof turn === 'number' ? { turn } : { error: 'state message had no log to measure progress from' })
         } else if (cmd === 'error') {
           finish({ error: `server said: ${arg}` })
         }

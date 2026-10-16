@@ -3,12 +3,14 @@ import { useState } from 'react'
 import { Game, Platform } from '@/lib/types'
 import { sampleTier } from '@/lib/sampleConfidence'
 
-// What we're actually counting differs by platform: BGA's and Rally's own
-// data calls it a turn, but 18xx's number is its action log length (every
-// bid, placement, etc.) — calling that a "turn" reads as wrong, especially
-// since 18xx separately has its own much coarser "turn" (a whole stock +
-// operating round cycle) that this isn't.
-const UNIT_WORD: Partial<Record<Platform, string>> = { eighteenxx: 'move' }
+// What we're actually counting differs by platform: BGA's data calls it a
+// turn, but 18xx's and Rally's numbers are each an action log length (every
+// bid, placement, card play, etc.) — calling that a "turn" reads as wrong,
+// especially since 18xx separately has its own much coarser "turn" (a whole
+// stock + operating round cycle) that this isn't, and several Rally games
+// (e.g. Julius Caesar's Years) have their own turn count that resets
+// mid-game, which is exactly why we count log entries there instead.
+const UNIT_WORD: Partial<Record<Platform, string>> = { eighteenxx: 'move', rally: 'move' }
 function unitWord(platform: Platform, capitalize = false): string {
   const word = UNIT_WORD[platform] ?? 'turn'
   return capitalize ? word[0].toUpperCase() + word.slice(1) : word

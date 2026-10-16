@@ -1,5 +1,10 @@
 import WebSocket from 'ws'
+import { kv } from '@vercel/kv'
 import { fetchRallyWithSession, HEADERS } from '@/lib/connectors/rally'
+
+// Same key lib/rallyPace/store.ts uses — duplicated here rather than
+// exporting a clear-everything helper from it for a route this temporary.
+const RALLYPACE_KV_KEY = 'rallypace:v1:games'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,12 +53,23 @@ function fetchRawState(gameUrl: string, cookie: string): Promise<unknown> {
 // state object for whichever active game looks like Julius Caesar so we can
 // see what else is in there (a round/year field, a log length, etc).
 export async function GET(req: Request) {
+  const params = new URL(req.url).searchParams
+
+  // One-time cleanup: every stored `turn` predates the log-based fix and is
+  // on the old, incompatible unit (the game's own per-round turn number) —
+  // mixing those into medians with freshly-synced log-based values would
+  // corrupt the estimate. Wiping lets it rebuild cleanly from here on.
+  if (params.has('clear')) {
+    await kv.del(RALLYPACE_KV_KEY)
+    return Response.json({ cleared: true })
+  }
+
   const username = process.env.RALLY_USERNAME ?? ''
   const password = process.env.RALLY_PASSWORD ?? ''
   if (!username || !password) return Response.json({ error: 'credentials not configured' })
 
   const { cookie, games } = await fetchRallyWithSession(username, password)
-  const all = new URL(req.url).searchParams.has('all')
+  const all = params.has('all')
   const targets = all ? games : [games.find(g => g.gameName.toLowerCase().includes('caesar')) ?? games[0]].filter(Boolean)
   if (targets.length === 0) return Response.json({ error: 'no active Rally games found', games: games.map(g => g.gameName) })
 

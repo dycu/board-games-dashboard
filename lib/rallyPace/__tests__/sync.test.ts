@@ -7,7 +7,11 @@ jest.mock('../../connectors/rally', () => ({
   fetchFinishedRallyWithCookie: jest.fn(),
 }))
 jest.mock('ws', () => {
-  const mockBehavior: Record<string, { turn?: number; error?: string; silent?: boolean }> = {}
+  // `turn` here is the desired *logged* turn count: fetchTurn reads
+  // log_start + log.length (not the game's own `turn` field, which some
+  // games reset mid-match), so the mock reports progress as a log of that
+  // length rather than a raw turn number.
+  const mockBehavior: Record<string, { turn?: number; logStart?: number; error?: string; silent?: boolean }> = {}
   const constructedIds: string[] = []
 
   class MockWebSocket extends EventEmitter {
@@ -19,7 +23,11 @@ jest.mock('ws', () => {
       if (behavior?.silent) return // never responds — exercises the timeout path
       queueMicrotask(() => {
         if (behavior?.error) this.emit('message', Buffer.from(JSON.stringify(['error', behavior.error])))
-        else if (typeof behavior?.turn === 'number') this.emit('message', Buffer.from(JSON.stringify(['state', { turn: behavior.turn }])))
+        else if (typeof behavior?.turn === 'number') {
+          const logStart = behavior.logStart ?? 0
+          const log = new Array(Math.max(0, behavior.turn - logStart)).fill('entry')
+          this.emit('message', Buffer.from(JSON.stringify(['state', { log, log_start: logStart }])))
+        }
       })
     }
     close() {}
@@ -38,7 +46,7 @@ const mockHset = kv.hset as jest.Mock
 const mockFetchActive = fetchRallyWithSession as jest.Mock
 const mockFetchFinished = fetchFinishedRallyWithCookie as jest.Mock
 const wsMock = jest.requireMock('ws') as any
-const mockBehavior = wsMock.__mockBehavior as Record<string, { turn?: number; error?: string; silent?: boolean }>
+const mockBehavior = wsMock.__mockBehavior as Record<string, { turn?: number; logStart?: number; error?: string; silent?: boolean }>
 const constructedIds = wsMock.__constructedIds as string[]
 
 const activeGame = (id: string, title: string, others: string[] = ['carol']): Game => ({
@@ -103,6 +111,30 @@ describe('syncRally backfill', () => {
     await syncRally('me', 'pass', 15000)
     expect(mockHset).toHaveBeenCalledWith('rallypace:v1:games', expect.objectContaining({
       '501': expect.objectContaining({ turn: 14, lastError: 'server said: nope' }),
+    }))
+  })
+
+  it('counts the full log, not the game\'s own turn field — games like Julius Caesar restart that field every round', async () => {
+    // 3 full years already played (18 logged turns) plus 1 turn into year 4:
+    // the game's own `turn` field would read "1" here, which is exactly the
+    // "looks like it restarted" bug this is fixing.
+    mockFetchActive.mockResolvedValue({ cookie: 'login=abc', games: [activeGame('1', 'julius-caesar')] })
+    mockBehavior['1'] = { turn: 19 }
+
+    const result = await syncRally('me', 'pass', 15000)
+    expect(result).toMatchObject({ games: 1, read: 1 })
+    expect(mockHset).toHaveBeenCalledWith('rallypace:v1:games', expect.objectContaining({
+      '1': expect.objectContaining({ turn: 19 }),
+    }))
+  })
+
+  it('accounts for a non-zero log_start, in case the server ever trims the log', async () => {
+    mockFetchActive.mockResolvedValue({ cookie: 'login=abc', games: [activeGame('1', 'julius-caesar')] })
+    mockBehavior['1'] = { turn: 50, logStart: 30 }
+
+    await syncRally('me', 'pass', 15000)
+    expect(mockHset).toHaveBeenCalledWith('rallypace:v1:games', expect.objectContaining({
+      '1': expect.objectContaining({ turn: 50 }),
     }))
   })
 })
