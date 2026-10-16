@@ -47,15 +47,29 @@ function fetchRawState(gameUrl: string, cookie: string): Promise<unknown> {
 // Caesar's 5 Years each dealing fresh cards would suggest)? Dumps the raw
 // state object for whichever active game looks like Julius Caesar so we can
 // see what else is in there (a round/year field, a log length, etc).
-export async function GET() {
+export async function GET(req: Request) {
   const username = process.env.RALLY_USERNAME ?? ''
   const password = process.env.RALLY_PASSWORD ?? ''
   if (!username || !password) return Response.json({ error: 'credentials not configured' })
 
   const { cookie, games } = await fetchRallyWithSession(username, password)
-  const target = games.find(g => g.gameName.toLowerCase().includes('caesar')) ?? games[0]
-  if (!target) return Response.json({ error: 'no active Rally games found', games: games.map(g => g.gameName) })
+  const all = new URL(req.url).searchParams.has('all')
+  const targets = all ? games : [games.find(g => g.gameName.toLowerCase().includes('caesar')) ?? games[0]].filter(Boolean)
+  if (targets.length === 0) return Response.json({ error: 'no active Rally games found', games: games.map(g => g.gameName) })
 
-  const state = await fetchRawState(target.gameUrl, cookie)
-  return Response.json({ gameName: target.gameName, gameUrl: target.gameUrl, state })
+  const results = await Promise.all(targets.map(async g => {
+    const state = await fetchRawState(g.gameUrl, cookie) as Record<string, unknown>
+    const log = state.log
+    return {
+      gameName: g.gameName,
+      gameUrl: g.gameUrl,
+      turn: state.turn,
+      year: state.year,
+      log_start: state.log_start,
+      logLength: Array.isArray(log) ? log.length : null,
+      hasLog: Array.isArray(log),
+      keys: Object.keys(state),
+    }
+  }))
+  return Response.json({ results })
 }
