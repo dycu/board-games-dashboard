@@ -39,12 +39,18 @@ export async function getCatalog(platform: CatalogPlatform): Promise<CatalogEntr
   }
 
   const fresh = await FETCHERS[platform]()
+  await setCatalog(platform, fresh)
+  return fresh
+}
 
+// Lets a caller that already did its own live fetch for the same data (the
+// new-games checker, which never reads this cache — see lib/newGames/sources.ts)
+// refresh it too, instead of "Find a game" staying up to TTL_SECONDS behind on
+// a game that just appeared.
+export async function setCatalog(platform: CatalogPlatform, entries: CatalogEntry[]): Promise<void> {
   try {
-    await kv.set(cacheKey(platform), fresh, { ex: TTL_SECONDS })
+    await kv.set(cacheKey(platform), entries, { ex: TTL_SECONDS })
   } catch {
     // caching is best-effort; the search still works without it
   }
-
-  return fresh
 }
