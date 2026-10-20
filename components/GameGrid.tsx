@@ -241,7 +241,36 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <TopNav right={navRight} />
-      <div className="flex-1 overflow-y-auto p-5">
+      {/* No top padding here — a `sticky top-0` child still sticks at the
+          *padding* edge of its scrolling ancestor, not the true top of the
+          scrollport, so any top padding here would leave a gap above the
+          stuck bar for whatever's mid-scroll to peek through. The lost top
+          padding moves onto the sticky bar below instead, which has nothing
+          above it to leave a gap against. */}
+      <div className="flex-1 overflow-y-auto px-5 pb-5">
+        {/* Sticky, and always the first child of the scrolling div above, for
+            the reason in its comment. The platform filter and sort apply to
+            every section below (Your turn, Waiting), so keeping this
+            reachable without scrolling back up is the point of making it
+            sticky at all. */}
+        <div className="sticky top-0 z-10 bg-[#f7f7f7] -mx-5 px-5 pt-5 pb-2 mb-1 flex flex-wrap items-center gap-3 border-b border-[#e5e5e5]">
+          {/* Wide enough: the chips scroll sideways rather than push the sort
+              controls down. Too narrow for both (phone widths): the min-width
+              floor forces the sort controls to wrap to their own line below
+              instead of squeezing the chips down to an unreadable sliver. */}
+          <div className="flex-1 min-w-[140px]">
+            <PlatformFilterChips
+              platforms={configuredPlatforms}
+              selected={selectedPlatforms}
+              onChange={setSelectedPlatforms}
+              counts={countByPlatform}
+              allCount={visible.length}
+              openLinks
+            />
+          </div>
+          <div className="shrink-0"><FilterToolbar prefs={prefs} onChange={onPrefsChange} /></div>
+        </div>
+
         {lastError && cachedAt && (
           <div className="mb-3 text-xs text-amber-600">
             Last refresh failed — showing cache from {timeAgo(cachedAt)}
@@ -281,29 +310,6 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
             ))}
           </div>
         )}
-
-        {/* Sticky: the platform filter and sort apply to every section below
-            (Your turn, Waiting), so they stay reachable without scrolling
-            back up — the same background as the page itself (not white, like
-            the cards) so content passing underneath doesn't look like it's
-            poking through a gap. */}
-        <div className="sticky top-0 z-10 bg-[#f7f7f7] -mx-5 px-5 py-2 mb-1 flex flex-wrap items-center gap-3 border-b border-[#e5e5e5]">
-          {/* Wide enough: the chips scroll sideways rather than push the sort
-              controls down. Too narrow for both (phone widths): the min-width
-              floor forces the sort controls to wrap to their own line below
-              instead of squeezing the chips down to an unreadable sliver. */}
-          <div className="flex-1 min-w-[140px]">
-            <PlatformFilterChips
-              platforms={configuredPlatforms}
-              selected={selectedPlatforms}
-              onChange={setSelectedPlatforms}
-              counts={countByPlatform}
-              allCount={visible.length}
-              openLinks
-            />
-          </div>
-          <div className="shrink-0"><FilterToolbar prefs={prefs} onChange={onPrefsChange} /></div>
-        </div>
 
         {showMine && (
           <section className="mb-7">
