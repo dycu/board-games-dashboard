@@ -158,46 +158,51 @@ export default function PeriodSummary({ games, prefs = DEFAULT_PREFS, onPrefsCha
             </div>
           )}
 
-          {/* Fixed column widths, so long names are cut off instead of widening the table */}
-          <table className="w-full table-fixed text-sm">
-            <colgroup>
-              <col />
-              <col className="w-14" />
-              <col className="w-14" />
-              <col className="w-24 hidden sm:table-column" />
-            </colgroup>
-            <thead>
-              <tr className="text-[11px] uppercase tracking-wide text-[#9b9b9b] text-left">
-                <th className="font-medium py-1">Game</th>
-                <th className="font-medium py-1 text-right">Plays</th>
-                <th className="font-medium py-1 text-right">W–L</th>
-                <th className="font-medium py-1 text-right hidden sm:table-cell">ELO</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleGames.length === 0 && (
-                <tr><td colSpan={4} className="py-3 text-center text-[#9b9b9b]">No games match &quot;{search}&quot;</td></tr>
-              )}
-              {visibleGames.map(g => (
-                <tr key={`${g.platform}:${g.gameName}`} className="border-t border-[#f0f0f0]">
-                  <td className="py-1.5 pr-2 overflow-hidden" title={g.gameName}>
-                    <span className="flex items-start gap-2 min-w-0">
-                      <span title={PLATFORM_LABELS[g.platform]} className={`shrink-0 mt-0.5 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[g.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
-                        {PLATFORM_SHORT_LABELS[g.platform]}
-                      </span>
-                      {/* up to two lines: one cuts names like "Next Station: Tokyo" too short */}
-                      <Link href={gameHistoryHref(g)} className="text-[#1a1a1a] leading-snug break-words line-clamp-2 hover:text-[#5e6ad2] hover:underline">{g.gameName}</Link>
-                    </span>
-                  </td>
-                  <td className="py-1.5 text-right tabular-nums align-top">{g.played}</td>
-                  <td className="py-1.5 text-right tabular-nums text-[#6b6b6b] align-top">{g.won + g.lost > 0 ? `${g.won}–${g.lost}` : '—'}</td>
-                  <td className="py-1.5 text-right tabular-nums whitespace-nowrap hidden sm:table-cell text-[#6b6b6b] align-top">
-                    {g.eloNow !== undefined ? <>{g.eloNow}{g.eloChange ? <span className={g.eloChange > 0 ? ' text-green-700' : ' text-red-600'}> ({signed(g.eloChange)})</span> : null}</> : '—'}
-                  </td>
+          {/* A wide period can run to hundreds of rows — scrolling within its
+              own box keeps it from pushing the rest of the page down (or, set
+              beside the finished-games list, towering over it). */}
+          <div className="max-h-96 overflow-y-auto">
+            {/* Fixed column widths, so long names are cut off instead of widening the table */}
+            <table className="w-full table-fixed text-sm">
+              <colgroup>
+                <col />
+                <col className="w-14" />
+                <col className="w-14" />
+                <col className="w-24 hidden sm:table-column" />
+              </colgroup>
+              <thead className="sticky top-0 bg-white">
+                <tr className="text-[11px] uppercase tracking-wide text-[#9b9b9b] text-left">
+                  <th className="font-medium py-1">Game</th>
+                  <th className="font-medium py-1 text-right">Plays</th>
+                  <th className="font-medium py-1 text-right">W–L</th>
+                  <th className="font-medium py-1 text-right hidden sm:table-cell">ELO</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {visibleGames.length === 0 && (
+                  <tr><td colSpan={4} className="py-3 text-center text-[#9b9b9b]">No games match &quot;{search}&quot;</td></tr>
+                )}
+                {visibleGames.map(g => (
+                  <tr key={`${g.platform}:${g.gameName}`} className="border-t border-[#f0f0f0]">
+                    <td className="py-1.5 pr-2 overflow-hidden" title={g.gameName}>
+                      <span className="flex items-start gap-2 min-w-0">
+                        <span title={PLATFORM_LABELS[g.platform]} className={`shrink-0 mt-0.5 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[g.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
+                          {PLATFORM_SHORT_LABELS[g.platform]}
+                        </span>
+                        {/* up to two lines: one cuts names like "Next Station: Tokyo" too short */}
+                        <Link href={gameHistoryHref(g)} className="text-[#1a1a1a] leading-snug break-words line-clamp-2 hover:text-[#5e6ad2] hover:underline">{g.gameName}</Link>
+                      </span>
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums align-top">{g.played}</td>
+                    <td className="py-1.5 text-right tabular-nums text-[#6b6b6b] align-top">{g.won + g.lost > 0 ? `${g.won}–${g.lost}` : '—'}</td>
+                    <td className="py-1.5 text-right tabular-nums whitespace-nowrap hidden sm:table-cell text-[#6b6b6b] align-top">
+                      {g.eloNow !== undefined ? <>{g.eloNow}{g.eloChange ? <span className={g.eloChange > 0 ? ' text-green-700' : ' text-red-600'}> ({signed(g.eloChange)})</span> : null}</> : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
 

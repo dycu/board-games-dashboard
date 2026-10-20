@@ -115,11 +115,11 @@ export default function OverviewPage() {
           className="mb-4"
         />
 
-        {/* Summary first, full width — its per-game table can run to hundreds of
-            rows once a wide period is selected, and needs the room. The
-            individual finished-game cards below don't benefit from extra
-            width the same way, so they stay their own section underneath. */}
-        <div className="flex flex-col gap-5">
+        {/* Side by side once there's room for both; stacked on narrower
+            screens so neither gets squeezed. Summary's own table scrolls
+            within its card (see PeriodSummary) rather than stretching this
+            column to match however many rows a wide period turns up. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
           <PeriodSummary games={filtered} prefs={prefs} onPrefsChange={updatePrefs} />
 
           <section className="min-w-0">
