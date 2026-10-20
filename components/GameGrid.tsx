@@ -282,7 +282,12 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-3 mb-3">
+        {/* Sticky: the platform filter and sort apply to every section below
+            (Your turn, Waiting), so they stay reachable without scrolling
+            back up — the same background as the page itself (not white, like
+            the cards) so content passing underneath doesn't look like it's
+            poking through a gap. */}
+        <div className="sticky top-0 z-10 bg-[#f7f7f7] -mx-5 px-5 py-2 mb-1 flex flex-wrap items-center gap-3 border-b border-[#e5e5e5]">
           {/* Wide enough: the chips scroll sideways rather than push the sort
               controls down. Too narrow for both (phone widths): the min-width
               floor forces the sort controls to wrap to their own line below
