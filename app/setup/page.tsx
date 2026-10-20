@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { Platform, PLATFORM_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
+import { CheckResult } from '@/lib/newGames/check'
 import TopNav from '@/components/TopNav'
 import PlatformFilterChips from '@/components/PlatformFilterChips'
 
@@ -42,6 +43,9 @@ export default function SetupPage() {
   const [okcStatus, setOkcStatus] = useState<Record<string, OkcConfiguredStatus>>({})
   const [okcStatusLoading, setOkcStatusLoading] = useState(false)
   const [showProgress, setShowProgress] = useState(true)
+  const [newGamesChecking, setNewGamesChecking] = useState(false)
+  const [newGamesResult, setNewGamesResult] = useState<CheckResult | null>(null)
+  const [newGamesError, setNewGamesError] = useState<string | null>(null)
 
   const loadOkcStatus = async () => {
     setOkcStatusLoading(true)
@@ -165,6 +169,21 @@ export default function SetupPage() {
       body: JSON.stringify({ oldkingscrownGameIds: ids }),
     })
     setOkcSaving(false)
+  }
+
+  const checkNewGamesNow = async () => {
+    setNewGamesChecking(true)
+    setNewGamesError(null)
+    try {
+      const res = await fetch('/api/new-games/sync', { method: 'POST' })
+      const data = await res.json()
+      if (data.error) setNewGamesError(data.error)
+      else setNewGamesResult(data)
+    } catch (e) {
+      setNewGamesError(e instanceof Error ? e.message : 'Check failed')
+    } finally {
+      setNewGamesChecking(false)
+    }
   }
 
   const addOkcGameId = async () => {
@@ -291,6 +310,44 @@ export default function SetupPage() {
             you have at least one finished game of that type with turns tracked, and only for BGA,
             Rally the Troops and 18xx.games for now.
           </p>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
+          <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">New games check</h2>
+          <p className="text-xs text-[#9b9b9b] mb-3">
+            Runs automatically twice a day: new games and release-stage changes on BGA (alpha
+            included), 18xx.games, Rally the Troops and Yucata, plus new Yucata blog posts. Emails
+            what it finds — check now instead of waiting for the next scheduled run.
+          </p>
+          <button
+            onClick={checkNewGamesNow}
+            disabled={newGamesChecking}
+            className="text-xs bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] px-3 py-1.5 rounded-md disabled:opacity-50"
+          >
+            {newGamesChecking ? 'Checking…' : 'Check now'}
+          </button>
+          {newGamesError && <p className="text-xs text-red-500 mt-2">⚠ {newGamesError}</p>}
+          {newGamesResult && (
+            <div className="text-xs text-[#6b6b6b] mt-2">
+              {newGamesResult.events.length === 0 ? (
+                'No new games or changes found.'
+              ) : (
+                <>
+                  Found {newGamesResult.events.length} {newGamesResult.events.length === 1 ? 'item' : 'items'}:{' '}
+                  {newGamesResult.events.slice(0, 5).map(e => e.name).join(', ')}
+                  {newGamesResult.events.length > 5 && `, +${newGamesResult.events.length - 5} more`}.
+                  {newGamesResult.email && (
+                    newGamesResult.email.sent ? ' Email sent.' : ` Email not sent (${newGamesResult.email.reason}).`
+                  )}
+                </>
+              )}
+              {Object.keys(newGamesResult.errors).length > 0 && (
+                <div className="text-amber-600 mt-1">
+                  ⚠ {Object.entries(newGamesResult.errors).map(([src, err]) => `${src}: ${err}`).join('; ')}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
