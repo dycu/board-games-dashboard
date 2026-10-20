@@ -102,6 +102,7 @@ export interface UserPrefs {
   summaryPeriod?: '7d' | '30d' | 'month' | 'all' | 'custom' // undefined/missing defaults to '7d'
   summaryCustomFrom?: string // YYYY-MM-DD; only meaningful when summaryPeriod is 'custom'
   summaryCustomTo?: string
+  historyPlatformFilter?: Platform[] // History page's own platform chips — empty/missing = show all, same convention as filter.platforms
 }
 
 export const DEFAULT_BACKLOG_PLATFORMS: Platform[] = ['bga', 'yucata']

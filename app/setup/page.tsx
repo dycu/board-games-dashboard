@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
-import { BADGE_COLORS } from '@/lib/platform-colors'
+import { Platform, PLATFORM_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
 import TopNav from '@/components/TopNav'
+import PlatformFilterChips from '@/components/PlatformFilterChips'
 
 const PLATFORMS: Platform[] = ['bga', 'eighteenxx', 'obg', 'yucata', 'choochoo', 'hansa', 'rally', 'oldkingscrown']
 
@@ -144,15 +144,15 @@ export default function SetupPage() {
     })
   }
 
-  const toggleBacklogPlatform = async (platform: Platform) => {
-    const next = backlogPlatforms.includes(platform)
-      ? backlogPlatforms.filter(p => p !== platform)
-      : PLATFORMS.filter(p => p === platform || backlogPlatforms.includes(p))
-    setBacklogPlatforms(next)
+  const changeBacklogPlatforms = async (next: Platform[]) => {
+    // Keep PLATFORMS's own order rather than whatever order chips were
+    // clicked in
+    const ordered = PLATFORMS.filter(p => next.includes(p))
+    setBacklogPlatforms(ordered)
     await fetch('/api/prefs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ backlogPlatforms: next }),
+      body: JSON.stringify({ backlogPlatforms: ordered }),
     })
   }
 
@@ -298,20 +298,11 @@ export default function SetupPage() {
           <p className="text-xs text-[#9b9b9b] mb-3">
             Sites shown when adding games on the Backlog page. Others can still be switched on there.
           </p>
-          <div className="flex flex-wrap gap-1.5">
-            {PLATFORMS.map(p => (
-              <button
-                key={p}
-                onClick={() => toggleBacklogPlatform(p)}
-                aria-pressed={backlogPlatforms.includes(p)}
-                title={PLATFORM_LABELS[p]} className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full transition-opacity
-                  ${BADGE_COLORS[p] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}
-                  ${backlogPlatforms.includes(p) ? 'opacity-100 ring-2 ring-[#1a1a1a]/20' : 'opacity-40 hover:opacity-70'}`}
-              >
-                {PLATFORM_SHORT_LABELS[p]}
-              </button>
-            ))}
-          </div>
+          <PlatformFilterChips
+            platforms={PLATFORMS}
+            selected={backlogPlatforms}
+            onChange={changeBacklogPlatforms}
+          />
         </div>
 
         <div className="space-y-3">

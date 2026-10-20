@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import { Game, Platform, UserPrefs, GamesApiResponse, PLATFORM_LABELS, PLATFORM_SHORT_LABELS, PLATFORM_URLS } from '@/lib/types'
+import { Game, Platform, UserPrefs, GamesApiResponse, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { DepartedGame } from '@/hooks/useGamesData'
 import { sortAndFilter } from '@/lib/sort-filter'
 import { BADGE_COLORS } from '@/lib/platform-colors'
@@ -9,6 +9,7 @@ import { useBacklog } from '@/hooks/useBacklog'
 import { useNotes } from '@/hooks/useNotes'
 import { BacklogItem, backlogId, listsOf } from '@/lib/backlog/list'
 import FilterToolbar from './FilterToolbar'
+import PlatformFilterChips from './PlatformFilterChips'
 import TopNav from './TopNav'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { storeOpenedNow } from '@/lib/dismissal'
@@ -84,24 +85,16 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   // watchedGames below are — otherwise it only ever lives in localStorage,
   // and the plain fetch('/api/prefs') on mount (app/page.tsx) overwrites it
   // back to the stale server copy on the very next load.
-  const setPlatformFilter = (platforms: Platform[]) => {
+  //
+  // prefs.filter.platforms itself stores "empty = all" (lib/sort-filter.ts
+  // reads it that way too); PlatformFilterChips wants the already-resolved
+  // list instead, so this is where the two meet.
+  const selectedPlatforms = platformFilter.length === 0 ? configuredPlatforms : platformFilter
+  const setSelectedPlatforms = (next: Platform[]) => {
+    const platforms = configuredPlatforms.every(p => next.includes(p)) ? [] : next
     const filter = { ...prefs.filter, platforms }
     onPrefsChange({ ...prefs, filter })
     fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ filter }), headers: { 'Content-Type': 'application/json' } }).catch(() => {})
-  }
-  // Every chip starts shown (platformFilter empty = "all"); clicking one
-  // hides just that platform, leaving the rest visible — not a single-select
-  // narrow-to-this-one filter. A shown chip toggles off; a hidden chip comes
-  // back, collapsing to the empty "all" list once nothing is excluded.
-  const isPlatformShown = (p: Platform) => platformFilter.length === 0 || platformFilter.includes(p)
-  const togglePlatform = (p: Platform) => {
-    if (isPlatformShown(p)) {
-      const base = platformFilter.length === 0 ? configuredPlatforms : platformFilter
-      setPlatformFilter(base.filter(x => x !== p))
-    } else {
-      const next = [...platformFilter, p]
-      setPlatformFilter(configuredPlatforms.every(cp => next.includes(cp)) ? [] : next)
-    }
   }
 
   // Waiting games are rarely actionable: only pinned ones and ones whose
@@ -294,40 +287,15 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
               controls down. Too narrow for both (phone widths): the min-width
               floor forces the sort controls to wrap to their own line below
               instead of squeezing the chips down to an unreadable sliver. */}
-          <div className="flex-1 min-w-[140px] flex items-center gap-1.5 overflow-x-auto py-1 [scrollbar-width:none]">
-          {configuredPlatforms.length > 1 && (
-            <>
-              <button
-                onClick={() => setPlatformFilter([])}
-                className={`shrink-0 whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors
-                  ${platformFilter.length === 0 ? 'bg-[#1a1a1a] text-white' : 'bg-[#f3f3f3] text-[#6b6b6b] hover:bg-[#ebebeb]'}`}>
-                All ({visible.length})
-              </button>
-              {configuredPlatforms.map(p => (
-                <span
-                  key={p}
-                  className={`shrink-0 inline-flex items-center whitespace-nowrap text-[11px] font-bold uppercase tracking-wide rounded-full transition-opacity ${BADGE_COLORS[p] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}
-                    ${isPlatformShown(p) ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}>
-                  <button
-                    onClick={() => togglePlatform(p)}
-                    aria-pressed={isPlatformShown(p)}
-                    title={isPlatformShown(p) ? `Hide ${PLATFORM_LABELS[p]}` : `Show ${PLATFORM_LABELS[p]}`}
-                    className="pl-2 pr-1 py-0.5 uppercase">
-                    {PLATFORM_SHORT_LABELS[p]} ({countByPlatform[p] ?? 0})
-                  </button>
-                  <a
-                    href={PLATFORM_URLS[p]}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Open ${PLATFORM_LABELS[p]}`}
-                    title={`Open ${PLATFORM_LABELS[p]}`}
-                    className="pl-0.5 pr-2 py-0.5 opacity-70 hover:opacity-100">
-                    ↗
-                  </a>
-                </span>
-              ))}
-            </>
-          )}
+          <div className="flex-1 min-w-[140px]">
+            <PlatformFilterChips
+              platforms={configuredPlatforms}
+              selected={selectedPlatforms}
+              onChange={setSelectedPlatforms}
+              counts={countByPlatform}
+              allCount={visible.length}
+              openLinks
+            />
           </div>
           <div className="shrink-0"><FilterToolbar prefs={prefs} onChange={onPrefsChange} /></div>
         </div>

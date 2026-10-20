@@ -19,6 +19,7 @@ import TopNav from '@/components/TopNav'
 import AddToBacklogButton, { LIST_LABELS } from '@/components/AddToBacklogButton'
 import GameLink, { SMALL_BUTTON, playedGameUrl } from '@/components/GameLink'
 import HistoryLink from '@/components/HistoryLink'
+import PlatformFilterChips from '@/components/PlatformFilterChips'
 
 type Backlog = ReturnType<typeof useBacklog>
 
@@ -391,13 +392,6 @@ export default function BacklogPage() {
     return () => { cancelled = true }
   }, [])
 
-  const toggleSite = (p: Platform) => setSites(prev => {
-    const next = new Set(prev)
-    if (next.has(p)) next.delete(p)
-    else next.add(p)
-    return next
-  })
-
   const navRight = backlog.items ? <span>{backlog.items.length} planned</span> : undefined
   const pill = (active: boolean) => `text-xs px-3 py-1 rounded-full font-medium transition-colors
     ${active ? 'bg-[#1a1a1a] text-white' : 'bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb]'}`
@@ -442,18 +436,11 @@ export default function BacklogPage() {
           </div>
           <div className="flex flex-wrap items-center gap-1.5 mb-4">
             <span className="text-xs text-[#9b9b9b] mr-1">Sites</span>
-            {ALL_PLATFORMS.map(p => (
-              <button
-                key={p}
-                onClick={() => toggleSite(p)}
-                aria-pressed={sites.has(p)}
-                title={PLATFORM_LABELS[p]} className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full transition-opacity
-                  ${BADGE_COLORS[p] ?? BADGE_FALLBACK}
-                  ${sites.has(p) ? 'opacity-100 ring-2 ring-[#1a1a1a]/20' : 'opacity-40 hover:opacity-70'}`}
-              >
-                {PLATFORM_SHORT_LABELS[p]}
-              </button>
-            ))}
+            <PlatformFilterChips
+              platforms={ALL_PLATFORMS}
+              selected={Array.from(sites)}
+              onChange={next => setSites(new Set(next))}
+            />
           </div>
           <div className={source === 'search' ? '' : 'hidden'}><SearchPanel backlog={backlog} target={target} sites={sites} /></div>
           <div className={source === 'played' ? '' : 'hidden'}><PlayedPanel backlog={backlog} target={target} sites={sites} /></div>

@@ -1,13 +1,13 @@
 'use client'
 import { useMemo, useState } from 'react'
-import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
-import { BADGE_COLORS } from '@/lib/platform-colors'
+import { Platform, PLATFORM_LABELS } from '@/lib/types'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
 import { usePrefs } from '@/hooks/usePrefs'
 import FinishedGameCard from '@/components/FinishedGameCard'
 import FetchProgress from '@/components/FetchProgress'
 import TopNav from '@/components/TopNav'
 import AddToBacklogButton from '@/components/AddToBacklogButton'
+import PlatformFilterChips from '@/components/PlatformFilterChips'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useBgaPlayTotals, totalsOf } from '@/hooks/useBgaPlayTotals'
 import { aggregatePlayed, playedKey, playedNote } from '@/lib/backlog/played'
@@ -22,7 +22,6 @@ export default function OverviewPage() {
   const { prefs, updatePrefs } = usePrefs()
   const backlog = useBacklog()
   const bgaTotals = useBgaPlayTotals()
-  const [platformFilter, setPlatformFilter] = useState<Platform | null>(null)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
   // Same fixed order as the Active tab's chips
@@ -30,8 +29,14 @@ export default function OverviewPage() {
     ? (Object.keys(PLATFORM_LABELS) as Platform[]).filter(p => data.games.some(g => g.platform === p))
     : []
 
+  // Same "empty = all" convention prefs.filter.platforms uses on the Active
+  // tab, kept in its own field since History filters a different list
+  // (finished games, not active ones).
+  const platformFilter = prefs.historyPlatformFilter ?? []
+  const selectedPlatforms = platformFilter.length === 0 ? availablePlatforms : platformFilter
+
   const filtered = data
-    ? (platformFilter ? data.games.filter(g => g.platform === platformFilter) : data.games)
+    ? (platformFilter.length === 0 ? data.games : data.games.filter(g => platformFilter.includes(g.platform)))
     : []
 
   // The same per-game details as Backlog's "From your games", running games included
@@ -45,8 +50,10 @@ export default function OverviewPage() {
   const visible = filtered.slice(0, visibleCount)
   const hasMore = filtered.length > visibleCount
 
-  const handleFilterChange = (p: Platform | null) => {
-    setPlatformFilter(p)
+  const handlePlatformChange = (next: Platform[]) => {
+    const historyPlatformFilter = availablePlatforms.every(p => next.includes(p)) ? [] : next
+    updatePrefs({ ...prefs, historyPlatformFilter })
+    fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ historyPlatformFilter }), headers: { 'Content-Type': 'application/json' } }).catch(() => {})
     setVisibleCount(PAGE_SIZE)
   }
 
@@ -99,31 +106,14 @@ export default function OverviewPage() {
           </div>
         )}
 
-        {availablePlatforms.length > 1 && (
-          <div className="flex items-center gap-1.5 mb-4 overflow-x-auto py-1 [scrollbar-width:none]">
-            <button
-              onClick={() => handleFilterChange(null)}
-              className={`shrink-0 whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors
-                ${platformFilter === null ? 'bg-[#1a1a1a] text-white' : 'bg-[#f3f3f3] text-[#6b6b6b] hover:bg-[#ebebeb]'}`}
-            >
-              All ({data.games.length})
-            </button>
-            {availablePlatforms.map(p => (
-              <button
-                key={p}
-                onClick={() => handleFilterChange(platformFilter === p ? null : p)}
-                aria-pressed={platformFilter === p}
-                title={PLATFORM_LABELS[p]}
-                className={`shrink-0 whitespace-nowrap text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full transition-opacity
-                  ${BADGE_COLORS[p] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}
-                  ${platformFilter === null || platformFilter === p ? 'opacity-100' : 'opacity-40 hover:opacity-70'}
-                  ${platformFilter === p ? 'ring-2 ring-[#1a1a1a]/20' : ''}`}
-              >
-                {PLATFORM_SHORT_LABELS[p]} ({data.games.filter(g => g.platform === p).length})
-              </button>
-            ))}
-          </div>
-        )}
+        <PlatformFilterChips
+          platforms={availablePlatforms}
+          selected={selectedPlatforms}
+          onChange={handlePlatformChange}
+          counts={Object.fromEntries(availablePlatforms.map(p => [p, data.games.filter(g => g.platform === p).length]))}
+          allCount={data.games.length}
+          className="mb-4"
+        />
 
         {/* Summary first, full width — its per-game table can run to hundreds of
             rows once a wide period is selected, and needs the room. The
@@ -165,7 +155,7 @@ export default function OverviewPage() {
             ) : !isLoading && (
               <div className="text-center py-12 text-[#9b9b9b]">
                 No recently finished games found
-                {platformFilter && <span> on {PLATFORM_LABELS[platformFilter]}</span>}
+                {platformFilter.length === 1 && <span> on {PLATFORM_LABELS[platformFilter[0]]}</span>}
               </div>
             )}
             {hasMore && (
