@@ -15,8 +15,6 @@ export interface GameItemProps {
   onToggleSink: (id: string) => void
   watched: boolean
   onToggleWatch: (id: string) => void
-  autoNote: boolean
-  onToggleAutoNote: (id: string) => void
   onOpen: () => void // the dashboard dims an opened game until the next refresh
   opponentSlowDays: number
   deadlineSoonHours: number
@@ -94,23 +92,6 @@ function WatchButton({ game, watched, onToggleWatch }: Pick<GameItemProps, 'game
       onClick={() => onToggleWatch(game.id)}
       className={`relative z-10 text-sm transition-colors ${watched ? 'text-sky-500' : 'text-[#c5c5c5] hover:text-sky-500'}`}>
       {watched ? '\u{1F514}︎' : '\u{1F515}︎'}
-    </button>
-  )
-}
-
-// For a game where you want to jot down a plan for next round while it's
-// still fresh in your head: the note box pops open by itself, focused, as
-// soon as the card dims after your move (see NoteEditor's autoOpen) — no
-// hunting for the small pencil icon first. Opt-in per game, since the
-// prompt would just be noise on games you don't bother planning for.
-function AutoNoteButton({ game, autoNote, onToggleAutoNote }: Pick<GameItemProps, 'game' | 'autoNote' | 'onToggleAutoNote'>) {
-  return (
-    <button
-      aria-label={autoNote ? 'Stop prompting for a note after your turn' : 'Prompt for a note after your turn'}
-      title={autoNote ? 'Stop prompting for a note' : 'Prompt for a note after your turn'}
-      onClick={() => onToggleAutoNote(game.id)}
-      className={`relative z-10 text-sm transition-colors ${autoNote ? 'text-amber-500' : 'text-[#c5c5c5] hover:text-amber-500'}`}>
-      💡
     </button>
   )
 }
@@ -221,7 +202,7 @@ function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string,
 }
 
 // A game waiting for my move: a full card
-export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, autoNote, onToggleAutoNote, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, now, opened, showProgress }: GameItemProps) {
+export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, now, opened, showProgress }: GameItemProps) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
@@ -240,7 +221,6 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
           )}
           <HistoryLink game={game} />
           <WatchButton game={game} watched={watched} onToggleWatch={onToggleWatch} />
-          <AutoNoteButton game={game} autoNote={autoNote} onToggleAutoNote={onToggleAutoNote} />
           <SinkButton game={game} sunk={sunk} onToggleSink={onToggleSink} />
           <PinButton game={game} pinned={pinned} onTogglePin={onTogglePin} />
         </div>
@@ -254,7 +234,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
         </div>
       )}
 
-      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} autoOpen={!!opened && autoNote} />
+      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} autoOpen={!!opened} />
 
       {showProgress && <ProgressBar game={game} />}
 
@@ -266,7 +246,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
 }
 
 // A game waiting for someone else: one compact row
-export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, autoNote, onToggleAutoNote, onOpen, opponentSlowDays, note, onSaveNote, now, opened, showProgress }: GameItemProps) {
+export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, note, onSaveNote, now, opened, showProgress }: GameItemProps) {
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   return (
     <div className={`relative flex items-center gap-2 px-3 py-2 rounded-md border bg-white hover:border-[#c5c9f0] transition-colors
@@ -283,10 +263,9 @@ export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched
         {slow ? '⏱ ' : ''}{game.lastMoveAgo}
       </span>
       {showProgress && <ProgressBar game={game} compact />}
-      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact autoOpen={!!opened && autoNote} />
+      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact autoOpen={!!opened} />
       <HistoryLink game={game} />
       <WatchButton game={game} watched={watched} onToggleWatch={onToggleWatch} />
-      <AutoNoteButton game={game} autoNote={autoNote} onToggleAutoNote={onToggleAutoNote} />
       <SinkButton game={game} sunk={sunk} onToggleSink={onToggleSink} />
       <PinButton game={game} pinned={pinned} onTogglePin={onTogglePin} />
     </div>

@@ -73,7 +73,6 @@ export interface Game {
 export interface UserPrefs {
   pins: string[]
   sunk: string[]          // always sorted to the end of their section (e.g. solo games you don't want cluttering the top)
-  autoNoteGames: string[] // the note box pops open by itself, focused, while the card's still dimmed after your move — so a plan for next round can be jotted down before it's forgotten
   sort: 'longest-wait' | 'most-recent' | 'platform' | 'game-name' | 'closest-to-end'
   filter: {
     turnStatus: 'all' | 'my-turn' | 'waiting'
@@ -111,7 +110,6 @@ export const DEFAULT_BACKLOG_PLATFORMS: Platform[] = ['bga', 'yucata']
 export const DEFAULT_PREFS: UserPrefs = {
   pins: [],
   sunk: [],
-  autoNoteGames: [],
   sort: 'longest-wait',
   filter: { turnStatus: 'all', platforms: [] },
   disabledPlatforms: [],
