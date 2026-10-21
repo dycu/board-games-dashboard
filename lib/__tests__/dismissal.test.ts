@@ -1,4 +1,4 @@
-import { presentAt, resolveOpened, parseStoredOpened, Opened, RETURN_GRACE_MS } from '../dismissal'
+import { presentAt, resolveOpened, parseStoredOpened, nextNotePrompt, Opened, RETURN_GRACE_MS } from '../dismissal'
 
 describe('presentAt', () => {
   it('counts a time after returning', () => {
@@ -56,6 +56,27 @@ describe('resolveOpened', () => {
   it('keeps a played game dimmed after a fresh page load', () => {
     const opened: Opened = { moved: { openedAt: T - 60_000 } }
     expect(resolveOpened(opened, games, T, { returnedAt: 0, leftAt: null })).toEqual({ moved: { openedAt: T - 60_000, movedSeenAt: T } })
+  })
+})
+
+describe('nextNotePrompt', () => {
+  it('picks a game whose move is confirmed', () => {
+    const opened: Opened = { a: { openedAt: 1 }, b: { openedAt: 1, movedSeenAt: 2 } }
+    expect(nextNotePrompt(opened, new Set())).toBe('b')
+  })
+
+  it('ignores a game only clicked open, not yet confirmed back on the dashboard', () => {
+    const opened: Opened = { a: { openedAt: 1 } }
+    expect(nextNotePrompt(opened, new Set())).toBeNull()
+  })
+
+  it('skips a game already handled (prompted or dismissed) since it was opened', () => {
+    const opened: Opened = { a: { openedAt: 1, movedSeenAt: 2 } }
+    expect(nextNotePrompt(opened, new Set(['a']))).toBeNull()
+  })
+
+  it('returns null when nothing is confirmed', () => {
+    expect(nextNotePrompt({}, new Set())).toBeNull()
   })
 })
 

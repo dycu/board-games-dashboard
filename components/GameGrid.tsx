@@ -6,7 +6,6 @@ import { sortAndFilter } from '@/lib/sort-filter'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import GameCard, { GameRow, GameItemProps, isOpponentSlow, openTarget } from './GameCard'
 import { useBacklog } from '@/hooks/useBacklog'
-import { useNotes } from '@/hooks/useNotes'
 import { BacklogItem, backlogId, listsOf } from '@/lib/backlog/list'
 import FilterToolbar from './FilterToolbar'
 import PlatformFilterChips from './PlatformFilterChips'
@@ -25,6 +24,8 @@ interface Props {
   cachedAt: string | null
   onOpen: (id: string) => void
   departedGames: DepartedGame[]
+  notes: Record<string, string>
+  onSaveNote: (id: string, text: string) => void
 }
 
 const WAITING_EXPANDED_KEY = 'waiting-expanded'
@@ -57,7 +58,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefresh, isRefreshing, lastError, cachedAt, onOpen, departedGames }: Props) {
+export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefresh, isRefreshing, lastError, cachedAt, onOpen, departedGames, notes, onSaveNote: saveNote }: Props) {
   const { games, errors, fetchedAt } = data
   const configuredPlatforms = data.platforms ?? Array.from(
     new Set([...games.map(g => g.platform), ...errors.map(e => e.platform)])
@@ -130,8 +131,6 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     prefs.pins.includes(g.id) || isOpponentSlow(g, opponentSlowDays, now) || openedRecently(g))
   const shownWaiting = waitingExpanded ? waitingGames : alwaysShownWaiting
   const hiddenWhenCollapsed = waitingGames.length - alwaysShownWaiting.length
-
-  const { notes, saveNote } = useNotes()
 
   // "Next" opens the first game of "Your turn" (most urgent, then the chosen sort)
   const next = myTurnGames[0]

@@ -52,6 +52,20 @@ function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetchStarte
   return o.movedSeenAt === undefined ? { ...o, movedSeenAt } : o
 }
 
+// Which (if any) opened game should prompt for a note right now: the first
+// one whose move is confirmed (movedSeenAt set — see judge() above) and that
+// hasn't already been prompted for since it was opened. Only movedSeenAt
+// counts, not mere presence in `opened`: that becomes true the instant the
+// game is clicked (storeOpenedNow, before any navigation), while movedSeenAt
+// is only set once a fetch made while actually back on the dashboard
+// confirms the move — i.e. the moment to actually ask about the next one.
+export function nextNotePrompt(opened: Opened, handled: ReadonlySet<string>): string | null {
+  for (const [id, o] of Object.entries(opened)) {
+    if (o.movedSeenAt !== undefined && !handled.has(id)) return id
+  }
+  return null
+}
+
 export const OPENED_KEY = 'dismissed-games'
 
 export function readStoredOpened(): Opened {

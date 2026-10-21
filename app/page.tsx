@@ -2,16 +2,36 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useGamesData } from '@/hooks/useGamesData'
 import { usePrefs } from '@/hooks/usePrefs'
+import { useNotes } from '@/hooks/useNotes'
 import { isBackForwardNavigation } from '@/lib/navigation'
-import { Presence, Opened, resolveOpened, readStoredOpened, writeStoredOpened, storeOpenedNow, AWAY_REFRESH_MS } from '@/lib/dismissal'
+import { Presence, Opened, resolveOpened, readStoredOpened, writeStoredOpened, storeOpenedNow, nextNotePrompt, AWAY_REFRESH_MS } from '@/lib/dismissal'
 import GameGrid from '@/components/GameGrid'
 import FetchProgress from '@/components/FetchProgress'
 import NewGamesPopup from '@/components/NewGamesPopup'
+import NotePromptPopup from '@/components/NotePromptPopup'
 
 export default function DashboardPage() {
   const { prefs, updatePrefs } = usePrefs()
+  const { notes, saveNote } = useNotes()
   const [opened, setOpened] = useState<Opened>({})
   const dismissed = useMemo(() => new Set(Object.keys(opened)), [opened])
+
+  // Which opened game (if any) should get a "plan for next round?" popup —
+  // the first one whose move is confirmed and not already prompted for
+  // since it was opened (see nextNotePrompt). Cleared once that game's
+  // entry leaves `opened` altogether, so it can be prompted again next time.
+  const [notePromptHandled, setNotePromptHandled] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    // Ids leave `opened` once resolved (see resolveOpened) — drop them here
+    // too, so the same game gets a fresh prompt opportunity next time it's opened
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reacting to opened's own transitions, not derivable without one
+    setNotePromptHandled(prev => {
+      const next = new Set([...prev].filter(id => id in opened))
+      return next.size === prev.size ? prev : next
+    })
+  }, [opened])
+  const notePromptId = useMemo(() => nextNotePrompt(opened, notePromptHandled), [opened, notePromptHandled])
+  const dismissNotePrompt = (id: string) => setNotePromptHandled(prev => new Set(prev).add(id))
   const {
     displayedData,
     isRefreshing,
@@ -23,6 +43,7 @@ export default function DashboardPage() {
     cachedAt,
     departedGames,
   } = useGamesData()
+  const promptGame = notePromptId ? displayedData?.games.find(g => g.id === notePromptId) : undefined
   const refresh = useCallback(() => triggerRefresh(), [triggerRefresh])
   const presenceRef = useRef<Presence>({ returnedAt: 0, leftAt: null })
 
@@ -104,6 +125,8 @@ export default function DashboardPage() {
           cachedAt={cachedAt}
           onOpen={handleOpen}
           departedGames={departedGames}
+          notes={notes}
+          onSaveNote={saveNote}
         />
       ) : lastError ? (
         <div className="flex-1 flex items-center justify-center">
@@ -118,6 +141,14 @@ export default function DashboardPage() {
           </div>
         </div>
       ) : null}
+      {promptGame && (
+        <NotePromptPopup
+          game={promptGame}
+          note={notes[promptGame.id]}
+          onSave={text => { saveNote(promptGame.id, text); dismissNotePrompt(promptGame.id) }}
+          onDismiss={() => dismissNotePrompt(promptGame.id)}
+        />
+      )}
     </div>
   )
 }

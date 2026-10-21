@@ -34,6 +34,8 @@ const defaultGridProps = {
   cachedAt: null,
   onOpen: () => {},
   departedGames: [],
+  notes: {},
+  onSaveNote: () => {},
 }
 
 function renderGrid(games: Game[] = [], errors: GamesApiResponse['errors'] = []) {

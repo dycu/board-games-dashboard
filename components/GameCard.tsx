@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Game, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { formatTimeRemaining } from '@/lib/connectors/utils'
@@ -104,88 +104,32 @@ export function Badge({ game, small }: { game: Game; small?: boolean }) {
   )
 }
 
-export function NoteEditor({ game, note, onSaveNote, compact, autoOpen }: Pick<GameItemProps, 'game' | 'note' | 'onSaveNote'> & { compact?: boolean; autoOpen?: boolean }) {
+export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemProps, 'game' | 'note' | 'onSaveNote'> & { compact?: boolean }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
-
-  // autoOpen stays true for as long as the card is dimmed after a move (see
-  // GameItemProps.opened) — pop the editor open once per dimmed window, not
-  // on every re-render, so saving (or pressing Escape) doesn't immediately
-  // spring it back open while the card is still dimmed.
-  const autoOpenedRef = useRef(false)
-  // Whether the user has typed anything in the box since it was last opened
-  // — guards the sync effect below from clobbering what they're typing.
-  const touchedRef = useRef(false)
-  // When the box was last auto-opened — lets onBlur below tell a deliberate
-  // click-away from an incidental blur that follows right on auto-open's
-  // heels (see the focus effect further down for why that can happen).
-  const autoOpenedAtRef = useRef(0)
-  useEffect(() => {
-    if (autoOpen && !autoOpenedRef.current) {
-      autoOpenedRef.current = true
-      touchedRef.current = false
-      autoOpenedAtRef.current = Date.now()
-      setEditing(true)
-    } else if (!autoOpen) {
-      autoOpenedRef.current = false
-    }
-  }, [autoOpen])
-
-  // Notes load asynchronously (see useNotes), so `note` can still be
-  // undefined the moment this opens (auto or by hand) — keep the draft in
-  // sync with it until the user actually starts typing, rather than locking
-  // in whatever `note` happened to be at that first instant.
-  useEffect(() => {
-    if (editing && !touchedRef.current) setDraft(note ?? '')
-  }, [editing, note])
-
-  // Focus the box once it's open — deferred to the next frame rather than
-  // the input's own `autoFocus`, which fires synchronously during mount.
-  // autoOpen's usual trigger is switching back to this tab after playing a
-  // move elsewhere, and the browser is doing its own focus-restoration right
-  // at that same moment; racing it with a synchronous autoFocus could lose
-  // (or instead immediately steal back and blur) the focus it just set,
-  // which — since blur saves and closes the box below — could close the box
-  // again before it was ever seen open.
-  const inputRef = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    if (!editing) return
-    const raf = requestAnimationFrame(() => inputRef.current?.focus())
-    return () => cancelAnimationFrame(raf)
-  }, [editing])
 
   if (!onSaveNote) return note ? <p className="text-xs text-[#6b6b6b] italic whitespace-normal break-words">{note}</p> : null
 
   if (editing) {
     const save = () => { onSaveNote(game.id, draft); setEditing(false) }
-    // A blur landing within this of an auto-open is almost certainly the
-    // browser's own focus-restoration passing through on its way elsewhere
-    // (the usual trigger is switching back to this tab), not the user
-    // deliberately clicking away — saving and closing on it would make the
-    // box vanish before it was ever actually seen open.
-    const AUTO_OPEN_BLUR_GRACE_MS = 500
-    const onBlurSave = () => {
-      if (Date.now() - autoOpenedAtRef.current < AUTO_OPEN_BLUR_GRACE_MS) return
-      save()
-    }
     return (
       <input
-        ref={inputRef}
+        autoFocus
         value={draft}
         maxLength={300}
-        onChange={e => { touchedRef.current = true; setDraft(e.target.value) }}
+        onChange={e => setDraft(e.target.value)}
         onKeyDown={e => {
           if (e.key === 'Enter') save()
           if (e.key === 'Escape') setEditing(false)
         }}
-        onBlur={onBlurSave}
+        onBlur={save}
         placeholder="Note for this game…"
         aria-label={`Note for ${game.gameName}`}
         className={`relative z-10 text-xs bg-white text-[#1a1a1a] px-2 py-1 rounded border border-[#5e6ad2] ${compact ? 'w-40 sm:w-56' : 'w-full'}`}
       />
     )
   }
-  const startEditing = () => { touchedRef.current = false; autoOpenedAtRef.current = 0; setDraft(note ?? ''); setEditing(true) }
+  const startEditing = () => { setDraft(note ?? ''); setEditing(true) }
   if (compact) {
     // Rows show the note's text themselves; this is just the edit control
     return (
@@ -264,7 +208,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
         </div>
       )}
 
-      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} autoOpen={!!opened} />
+      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} />
 
       {showProgress && <ProgressBar game={game} />}
 
@@ -293,7 +237,7 @@ export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched
         {slow ? '⏱ ' : ''}{game.lastMoveAgo}
       </span>
       {showProgress && <ProgressBar game={game} compact />}
-      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact autoOpen={!!opened} />
+      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact />
       <HistoryLink game={game} />
       <WatchButton game={game} watched={watched} onToggleWatch={onToggleWatch} />
       <SinkButton game={game} sunk={sunk} onToggleSink={onToggleSink} />
