@@ -30,8 +30,11 @@ export default function NotePromptPopup({ game, note, onSave, onDismiss }: {
   const save = () => onSave(draft)
   const remove = () => onSave('')
 
+  // Top-aligned rather than centered: on a tablet in landscape, the
+  // on-screen keyboard eats the bottom half of the viewport, and a
+  // vertically centered dialog ends up right behind it.
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4" onClick={onDismiss}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 px-4 pt-16 sm:pt-24" onClick={onDismiss}>
       <div
         role="dialog"
         aria-modal="true"
