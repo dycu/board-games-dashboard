@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import GameCard, { GameRow, GameItemProps } from '@/components/GameCard'
 import { Game } from '@/lib/types'
@@ -185,6 +185,54 @@ describe('note auto-opens while the card is dimmed', () => {
     // next round: dims again
     rerender(<GameCard {...props({ opened: true, onSaveNote })} />)
     expect(screen.getByRole('textbox')).toBeInTheDocument()
+  })
+
+  // Returning to this tab after playing a move elsewhere is auto-open's main
+  // trigger — and the browser is doing its own focus-restoration at that
+  // same instant, which can blur our freshly-opened box as a side effect,
+  // not because the user clicked away. Since blur used to always save and
+  // close, that could make the box vanish before it was ever seen open —
+  // exactly what was reported. A blur that lands right on auto-open's heels
+  // is ignored; one after the grace window behaves as before.
+  describe('an incidental blur right after auto-opening (the browser restoring tab focus)', () => {
+    beforeEach(() => jest.useFakeTimers())
+    afterEach(() => jest.useRealTimers())
+
+    it('does not save-and-close on a blur landing immediately after auto-open', () => {
+      const onSaveNote = jest.fn()
+      render(<GameCard {...props({ opened: true, note: 'go for trains', onSaveNote })} />)
+      const input = screen.getByRole('textbox')
+
+      fireEvent.blur(input)
+
+      expect(onSaveNote).not.toHaveBeenCalled()
+      expect(screen.getByRole('textbox')).toBeInTheDocument()
+    })
+
+    it('still saves-and-closes a blur that happens well after auto-open (a deliberate click away)', () => {
+      const onSaveNote = jest.fn()
+      render(<GameCard {...props({ opened: true, note: 'go for trains', onSaveNote })} />)
+      const input = screen.getByRole('textbox')
+
+      act(() => { jest.advanceTimersByTime(600) })
+      fireEvent.blur(input)
+
+      expect(onSaveNote).toHaveBeenCalledWith('bga:1', 'go for trains')
+      expect(screen.queryByRole('textbox')).toBeNull()
+    })
+
+    it('does not suppress blur on a manual (click-to-edit) open, even right after a prior auto-open', () => {
+      const onSaveNote = jest.fn()
+      const { rerender } = render(<GameCard {...props({ opened: true, note: 'go for trains', onSaveNote })} />)
+      fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' })
+
+      // card resolves, then the user manually reopens the (now collapsed) note
+      rerender(<GameCard {...props({ opened: false, note: 'go for trains', onSaveNote })} />)
+      fireEvent.click(screen.getByRole('button', { name: /go for trains/i }))
+      fireEvent.blur(screen.getByRole('textbox'))
+
+      expect(onSaveNote).toHaveBeenCalledWith('bga:1', 'go for trains')
+    })
   })
 })
 

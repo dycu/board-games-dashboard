@@ -116,10 +116,15 @@ export function NoteEditor({ game, note, onSaveNote, compact, autoOpen }: Pick<G
   // Whether the user has typed anything in the box since it was last opened
   // — guards the sync effect below from clobbering what they're typing.
   const touchedRef = useRef(false)
+  // When the box was last auto-opened — lets onBlur below tell a deliberate
+  // click-away from an incidental blur that follows right on auto-open's
+  // heels (see the focus effect further down for why that can happen).
+  const autoOpenedAtRef = useRef(0)
   useEffect(() => {
     if (autoOpen && !autoOpenedRef.current) {
       autoOpenedRef.current = true
       touchedRef.current = false
+      autoOpenedAtRef.current = Date.now()
       setEditing(true)
     } else if (!autoOpen) {
       autoOpenedRef.current = false
@@ -134,13 +139,38 @@ export function NoteEditor({ game, note, onSaveNote, compact, autoOpen }: Pick<G
     if (editing && !touchedRef.current) setDraft(note ?? '')
   }, [editing, note])
 
+  // Focus the box once it's open — deferred to the next frame rather than
+  // the input's own `autoFocus`, which fires synchronously during mount.
+  // autoOpen's usual trigger is switching back to this tab after playing a
+  // move elsewhere, and the browser is doing its own focus-restoration right
+  // at that same moment; racing it with a synchronous autoFocus could lose
+  // (or instead immediately steal back and blur) the focus it just set,
+  // which — since blur saves and closes the box below — could close the box
+  // again before it was ever seen open.
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (!editing) return
+    const raf = requestAnimationFrame(() => inputRef.current?.focus())
+    return () => cancelAnimationFrame(raf)
+  }, [editing])
+
   if (!onSaveNote) return note ? <p className="text-xs text-[#6b6b6b] italic whitespace-normal break-words">{note}</p> : null
 
   if (editing) {
     const save = () => { onSaveNote(game.id, draft); setEditing(false) }
+    // A blur landing within this of an auto-open is almost certainly the
+    // browser's own focus-restoration passing through on its way elsewhere
+    // (the usual trigger is switching back to this tab), not the user
+    // deliberately clicking away — saving and closing on it would make the
+    // box vanish before it was ever actually seen open.
+    const AUTO_OPEN_BLUR_GRACE_MS = 500
+    const onBlurSave = () => {
+      if (Date.now() - autoOpenedAtRef.current < AUTO_OPEN_BLUR_GRACE_MS) return
+      save()
+    }
     return (
       <input
-        autoFocus
+        ref={inputRef}
         value={draft}
         maxLength={300}
         onChange={e => { touchedRef.current = true; setDraft(e.target.value) }}
@@ -148,14 +178,14 @@ export function NoteEditor({ game, note, onSaveNote, compact, autoOpen }: Pick<G
           if (e.key === 'Enter') save()
           if (e.key === 'Escape') setEditing(false)
         }}
-        onBlur={save}
+        onBlur={onBlurSave}
         placeholder="Note for this game…"
         aria-label={`Note for ${game.gameName}`}
         className={`relative z-10 text-xs bg-white text-[#1a1a1a] px-2 py-1 rounded border border-[#5e6ad2] ${compact ? 'w-40 sm:w-56' : 'w-full'}`}
       />
     )
   }
-  const startEditing = () => { touchedRef.current = false; setDraft(note ?? ''); setEditing(true) }
+  const startEditing = () => { touchedRef.current = false; autoOpenedAtRef.current = 0; setDraft(note ?? ''); setEditing(true) }
   if (compact) {
     // Rows show the note's text themselves; this is just the edit control
     return (
