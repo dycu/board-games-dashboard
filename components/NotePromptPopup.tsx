@@ -6,10 +6,11 @@ import { Game } from '@/lib/types'
 // move landed (see lib/dismissal.ts's nextNotePrompt) — the moment the plan
 // for next round is still fresh, and the one moment that's reliably true
 // regardless of whether the game opened in this tab or a new one.
-export default function NotePromptPopup({ game, note, onSave, onDismiss }: {
+export default function NotePromptPopup({ game, note, onSave, onDelete, onDismiss }: {
   game: Game
   note?: string
   onSave: (text: string) => void
+  onDelete: () => void
   onDismiss: () => void
 }) {
   const [draft, setDraft] = useState(note ?? '')
@@ -28,7 +29,10 @@ export default function NotePromptPopup({ game, note, onSave, onDismiss }: {
   }, [onDismiss])
 
   const save = () => onSave(draft)
-  const remove = () => onSave('')
+  // Just clears the saved note, without also closing the popup the way
+  // Skip/Save do — deleting an old plan is a reason to write a fresh one,
+  // not to walk away from the prompt entirely.
+  const remove = () => { onDelete(); setDraft('') }
 
   // Top-aligned rather than centered: on a tablet in landscape, the
   // on-screen keyboard eats the bottom half of the viewport, and a

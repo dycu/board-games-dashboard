@@ -146,6 +146,7 @@ export default function DashboardPage() {
           game={promptGame}
           note={notes[promptGame.id]}
           onSave={text => { saveNote(promptGame.id, text); dismissNotePrompt(promptGame.id) }}
+          onDelete={() => saveNote(promptGame.id, '')}
           onDismiss={() => dismissNotePrompt(promptGame.id)}
         />
       )}
