@@ -62,21 +62,27 @@ describe('resolveOpened', () => {
 describe('nextNotePrompt', () => {
   it('picks a game whose move is confirmed', () => {
     const opened: Opened = { a: { openedAt: 1 }, b: { openedAt: 1, movedSeenAt: 2 } }
-    expect(nextNotePrompt(opened, new Set())).toBe('b')
+    expect(nextNotePrompt(opened)).toBe('b')
   })
 
   it('ignores a game only clicked open, not yet confirmed back on the dashboard', () => {
     const opened: Opened = { a: { openedAt: 1 } }
-    expect(nextNotePrompt(opened, new Set())).toBeNull()
+    expect(nextNotePrompt(opened)).toBeNull()
   })
 
-  it('skips a game already handled (prompted or dismissed) since it was opened', () => {
-    const opened: Opened = { a: { openedAt: 1, movedSeenAt: 2 } }
-    expect(nextNotePrompt(opened, new Set(['a']))).toBeNull()
+  it('skips a game already prompted (saved, deleted or skipped) since it was opened', () => {
+    const opened: Opened = { a: { openedAt: 1, movedSeenAt: 2, notePrompted: true } }
+    expect(nextNotePrompt(opened)).toBeNull()
+  })
+
+  it('stays skipped across a reload — notePrompted is read from the (persisted) opened record itself', () => {
+    // Same shape readStoredOpened() would hand back after JSON round-tripping
+    const opened: Opened = JSON.parse(JSON.stringify({ a: { openedAt: 1, movedSeenAt: 2, notePrompted: true } }))
+    expect(nextNotePrompt(opened)).toBeNull()
   })
 
   it('returns null when nothing is confirmed', () => {
-    expect(nextNotePrompt({}, new Set())).toBeNull()
+    expect(nextNotePrompt({})).toBeNull()
   })
 })
 

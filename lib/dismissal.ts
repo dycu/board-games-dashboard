@@ -9,8 +9,9 @@ export interface Presence {
 }
 
 export interface OpenedGame {
-  openedAt: number     // when it was opened from the dashboard (0 = unknown, saved by an older version)
-  movedSeenAt?: number // start of the first fetch that showed it's no longer my turn
+  openedAt: number       // when it was opened from the dashboard (0 = unknown, saved by an older version)
+  movedSeenAt?: number   // start of the first fetch that showed it's no longer my turn
+  notePrompted?: boolean // the note-prompt popup has already been shown (saved, deleted or skipped) this cycle
 }
 
 export type Opened = Record<string, OpenedGame>
@@ -59,9 +60,12 @@ function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetchStarte
 // game is clicked (storeOpenedNow, before any navigation), while movedSeenAt
 // is only set once a fetch made while actually back on the dashboard
 // confirms the move — i.e. the moment to actually ask about the next one.
-export function nextNotePrompt(opened: Opened, handled: ReadonlySet<string>): string | null {
+// notePrompted lives in `opened` itself (stored alongside openedAt/
+// movedSeenAt — see storeOpenedNow/writeStoredOpened) rather than separate
+// component state, so a plain page reload doesn't forget it was answered.
+export function nextNotePrompt(opened: Opened): string | null {
   for (const [id, o] of Object.entries(opened)) {
-    if (o.movedSeenAt !== undefined && !handled.has(id)) return id
+    if (o.movedSeenAt !== undefined && !o.notePrompted) return id
   }
   return null
 }

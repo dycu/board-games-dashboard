@@ -17,21 +17,21 @@ export default function DashboardPage() {
   const dismissed = useMemo(() => new Set(Object.keys(opened)), [opened])
 
   // Which opened game (if any) should get a "plan for next round?" popup —
-  // the first one whose move is confirmed and not already prompted for
-  // since it was opened (see nextNotePrompt). Cleared once that game's
-  // entry leaves `opened` altogether, so it can be prompted again next time.
-  const [notePromptHandled, setNotePromptHandled] = useState<Set<string>>(new Set())
-  useEffect(() => {
-    // Ids leave `opened` once resolved (see resolveOpened) — drop them here
-    // too, so the same game gets a fresh prompt opportunity next time it's opened
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reacting to opened's own transitions, not derivable without one
-    setNotePromptHandled(prev => {
-      const next = new Set([...prev].filter(id => id in opened))
-      return next.size === prev.size ? prev : next
+  // the first one whose move is confirmed and not already prompted for since
+  // it was opened (see nextNotePrompt). notePrompted lives inside `opened`
+  // itself, so it survives a plain page reload instead of resetting to
+  // unprompted (and popping the popup back up) the way separate component
+  // state would.
+  const notePromptId = useMemo(() => nextNotePrompt(opened), [opened])
+  const dismissNotePrompt = (id: string) => {
+    setOpened(prev => {
+      const entry = prev[id]
+      if (!entry || entry.notePrompted) return prev
+      const next = { ...prev, [id]: { ...entry, notePrompted: true } }
+      writeStoredOpened(next)
+      return next
     })
-  }, [opened])
-  const notePromptId = useMemo(() => nextNotePrompt(opened, notePromptHandled), [opened, notePromptHandled])
-  const dismissNotePrompt = (id: string) => setNotePromptHandled(prev => new Set(prev).add(id))
+  }
   const {
     displayedData,
     isRefreshing,
