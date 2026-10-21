@@ -167,6 +167,14 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     await fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ watchedGames }), headers: { 'Content-Type': 'application/json' } })
   }
 
+  const toggleAutoNote = async (id: string) => {
+    const prevAutoNote = prefs.autoNoteGames ?? []
+    const autoNoteGames = prevAutoNote.includes(id) ? prevAutoNote.filter(p => p !== id) : [...prevAutoNote, id]
+    const updated = { ...prefs, autoNoteGames }
+    onPrefsChange(updated)
+    await fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ autoNoteGames }), headers: { 'Content-Type': 'application/json' } })
+  }
+
   const { intervalSeconds, setIntervalSeconds, countdown } = useAutoRefresh(onRefresh, isRefreshing, prefs.refreshIntervalSeconds)
 
   // Saved to the server too, the same way the filter/pins/sunk/watchedGames
@@ -186,6 +194,8 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     onToggleSink: toggleSink,
     watched: (prefs.watchedGames ?? []).includes(g.id),
     onToggleWatch: toggleWatch,
+    autoNote: (prefs.autoNoteGames ?? []).includes(g.id),
+    onToggleAutoNote: toggleAutoNote,
     onOpen: () => openGame(g.id),
     opponentSlowDays,
     deadlineSoonHours,

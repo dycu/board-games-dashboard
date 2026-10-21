@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Game, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { formatTimeRemaining } from '@/lib/connectors/utils'
@@ -15,6 +15,8 @@ export interface GameItemProps {
   onToggleSink: (id: string) => void
   watched: boolean
   onToggleWatch: (id: string) => void
+  autoNote: boolean
+  onToggleAutoNote: (id: string) => void
   onOpen: () => void // the dashboard dims an opened game until the next refresh
   opponentSlowDays: number
   deadlineSoonHours: number
@@ -96,6 +98,23 @@ function WatchButton({ game, watched, onToggleWatch }: Pick<GameItemProps, 'game
   )
 }
 
+// For a game where you want to jot down a plan for next round while it's
+// still fresh in your head: the note box pops open by itself, focused, as
+// soon as the card dims after your move (see NoteEditor's autoOpen) — no
+// hunting for the small pencil icon first. Opt-in per game, since the
+// prompt would just be noise on games you don't bother planning for.
+function AutoNoteButton({ game, autoNote, onToggleAutoNote }: Pick<GameItemProps, 'game' | 'autoNote' | 'onToggleAutoNote'>) {
+  return (
+    <button
+      aria-label={autoNote ? 'Stop prompting for a note after your turn' : 'Prompt for a note after your turn'}
+      title={autoNote ? 'Stop prompting for a note' : 'Prompt for a note after your turn'}
+      onClick={() => onToggleAutoNote(game.id)}
+      className={`relative z-10 text-sm transition-colors ${autoNote ? 'text-amber-500' : 'text-[#c5c5c5] hover:text-amber-500'}`}>
+      💡
+    </button>
+  )
+}
+
 export function Badge({ game, small }: { game: Game; small?: boolean }) {
   return (
     <span title={PLATFORM_LABELS[game.platform]} className={`shrink-0 font-bold uppercase tracking-wide rounded-full ${small ? 'text-[10px] px-1.5 py-px' : 'text-[11px] px-2 py-0.5'} ${BADGE_COLORS[game.platform] ?? BADGE_FALLBACK}`}>
@@ -104,9 +123,36 @@ export function Badge({ game, small }: { game: Game; small?: boolean }) {
   )
 }
 
-export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemProps, 'game' | 'note' | 'onSaveNote'> & { compact?: boolean }) {
+export function NoteEditor({ game, note, onSaveNote, compact, autoOpen }: Pick<GameItemProps, 'game' | 'note' | 'onSaveNote'> & { compact?: boolean; autoOpen?: boolean }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
+
+  // autoOpen stays true for as long as the card is dimmed after a move (see
+  // GameItemProps.opened) — pop the editor open once per dimmed window, not
+  // on every re-render, so saving (or pressing Escape) doesn't immediately
+  // spring it back open while the card is still dimmed.
+  const autoOpenedRef = useRef(false)
+  // Whether the user has typed anything in the box since it was last opened
+  // — guards the sync effect below from clobbering what they're typing.
+  const touchedRef = useRef(false)
+  useEffect(() => {
+    if (autoOpen && !autoOpenedRef.current) {
+      autoOpenedRef.current = true
+      touchedRef.current = false
+      setEditing(true)
+    } else if (!autoOpen) {
+      autoOpenedRef.current = false
+    }
+  }, [autoOpen])
+
+  // Notes load asynchronously (see useNotes), so `note` can still be
+  // undefined the moment this opens (auto or by hand) — keep the draft in
+  // sync with it until the user actually starts typing, rather than locking
+  // in whatever `note` happened to be at that first instant.
+  useEffect(() => {
+    if (editing && !touchedRef.current) setDraft(note ?? '')
+  }, [editing, note])
+
   if (!onSaveNote) return note ? <p className="text-xs text-[#6b6b6b] italic whitespace-normal break-words">{note}</p> : null
 
   if (editing) {
@@ -116,7 +162,7 @@ export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemPro
         autoFocus
         value={draft}
         maxLength={300}
-        onChange={e => setDraft(e.target.value)}
+        onChange={e => { touchedRef.current = true; setDraft(e.target.value) }}
         onKeyDown={e => {
           if (e.key === 'Enter') save()
           if (e.key === 'Escape') setEditing(false)
@@ -128,7 +174,7 @@ export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemPro
       />
     )
   }
-  const startEditing = () => { setDraft(note ?? ''); setEditing(true) }
+  const startEditing = () => { touchedRef.current = false; setDraft(note ?? ''); setEditing(true) }
   if (compact) {
     // Rows show the note's text themselves; this is just the edit control
     return (
@@ -175,7 +221,7 @@ function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string,
 }
 
 // A game waiting for my move: a full card
-export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, now, opened, showProgress }: GameItemProps) {
+export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, autoNote, onToggleAutoNote, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, now, opened, showProgress }: GameItemProps) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
@@ -194,6 +240,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
           )}
           <HistoryLink game={game} />
           <WatchButton game={game} watched={watched} onToggleWatch={onToggleWatch} />
+          <AutoNoteButton game={game} autoNote={autoNote} onToggleAutoNote={onToggleAutoNote} />
           <SinkButton game={game} sunk={sunk} onToggleSink={onToggleSink} />
           <PinButton game={game} pinned={pinned} onTogglePin={onTogglePin} />
         </div>
@@ -207,7 +254,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
         </div>
       )}
 
-      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} />
+      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} autoOpen={!!opened && autoNote} />
 
       {showProgress && <ProgressBar game={game} />}
 
@@ -219,7 +266,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
 }
 
 // A game waiting for someone else: one compact row
-export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, note, onSaveNote, now, opened, showProgress }: GameItemProps) {
+export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, autoNote, onToggleAutoNote, onOpen, opponentSlowDays, note, onSaveNote, now, opened, showProgress }: GameItemProps) {
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   return (
     <div className={`relative flex items-center gap-2 px-3 py-2 rounded-md border bg-white hover:border-[#c5c9f0] transition-colors
@@ -236,9 +283,10 @@ export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched
         {slow ? '⏱ ' : ''}{game.lastMoveAgo}
       </span>
       {showProgress && <ProgressBar game={game} compact />}
-      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact />
+      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact autoOpen={!!opened && autoNote} />
       <HistoryLink game={game} />
       <WatchButton game={game} watched={watched} onToggleWatch={onToggleWatch} />
+      <AutoNoteButton game={game} autoNote={autoNote} onToggleAutoNote={onToggleAutoNote} />
       <SinkButton game={game} sunk={sunk} onToggleSink={onToggleSink} />
       <PinButton game={game} pinned={pinned} onTogglePin={onTogglePin} />
     </div>

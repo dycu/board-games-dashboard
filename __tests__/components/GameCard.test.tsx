@@ -19,7 +19,7 @@ const game: Game = {
 }
 
 const props = (over: Partial<GameItemProps> = {}): GameItemProps =>
-  ({ game, pinned: false, onTogglePin: () => {}, sunk: false, onToggleSink: () => {}, watched: false, onToggleWatch: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, showProgress: true, ...over })
+  ({ game, pinned: false, onTogglePin: () => {}, sunk: false, onToggleSink: () => {}, watched: false, onToggleWatch: () => {}, autoNote: false, onToggleAutoNote: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, showProgress: true, ...over })
 
 describe('GameCard', () => {
   it('shows game name, platform badge and time', () => {
@@ -125,6 +125,86 @@ describe('note deletion', () => {
     render(<GameCard {...props({ note: 'build mines', onSaveNote })} />)
     await userEvent.click(screen.getByRole('button', { name: /delete the note/i }))
     expect(onSaveNote).toHaveBeenCalledWith('bga:1', '')
+  })
+})
+
+describe('auto-note toggle (💡)', () => {
+  it('toggles on and off', async () => {
+    const onToggleAutoNote = jest.fn()
+    render(<GameCard {...props({ onToggleAutoNote })} />)
+    await userEvent.click(screen.getByRole('button', { name: /prompt for a note after your turn/i }))
+    expect(onToggleAutoNote).toHaveBeenCalledWith('bga:1')
+  })
+
+  it('reads as on once the game is opted in', () => {
+    render(<GameCard {...props({ autoNote: true })} />)
+    expect(screen.getByRole('button', { name: /stop prompting for a note/i })).toBeInTheDocument()
+  })
+})
+
+describe('note auto-opens while the card is dimmed, for an opted-in game', () => {
+  it('pops the note box open, pre-filled, once the card is dimmed', () => {
+    const onSaveNote = jest.fn()
+    render(<GameCard {...props({ autoNote: true, opened: true, note: 'go for trains', onSaveNote })} />)
+    expect(screen.getByRole('textbox', { name: /note for wingspan/i })).toHaveValue('go for trains')
+  })
+
+  it('fills in the real note once it loads, even if that is after the box auto-opened', () => {
+    // Notes load asynchronously (useNotes) — the box can pop open before
+    // that fetch resolves, with `note` still undefined at that instant.
+    const onSaveNote = jest.fn()
+    const { rerender } = render(<GameCard {...props({ autoNote: true, opened: true, note: undefined, onSaveNote })} />)
+    expect(screen.getByRole('textbox')).toHaveValue('')
+
+    rerender(<GameCard {...props({ autoNote: true, opened: true, note: 'go for trains', onSaveNote })} />)
+    expect(screen.getByRole('textbox')).toHaveValue('go for trains')
+  })
+
+  it('does not overwrite what the user already started typing once the real note arrives late', async () => {
+    const onSaveNote = jest.fn()
+    const { rerender } = render(<GameCard {...props({ autoNote: true, opened: true, note: undefined, onSaveNote })} />)
+    await userEvent.type(screen.getByRole('textbox'), 'go for trains')
+
+    // the note fetch finally resolves — with some unrelated older text —
+    // after the user had already started typing their own plan
+    rerender(<GameCard {...props({ autoNote: true, opened: true, note: 'old plan', onSaveNote })} />)
+    expect(screen.getByRole('textbox')).toHaveValue('go for trains')
+  })
+
+  it('does not auto-open for a game not opted in, even while dimmed', () => {
+    const onSaveNote = jest.fn()
+    render(<GameCard {...props({ autoNote: false, opened: true, onSaveNote })} />)
+    expect(screen.queryByRole('textbox')).toBeNull()
+  })
+
+  it('does not auto-open an opted-in game that is not currently dimmed', () => {
+    const onSaveNote = jest.fn()
+    render(<GameCard {...props({ autoNote: true, opened: false, onSaveNote })} />)
+    expect(screen.queryByRole('textbox')).toBeNull()
+  })
+
+  it('does not spring back open right after saving, while still dimmed', async () => {
+    const onSaveNote = jest.fn()
+    render(<GameCard {...props({ autoNote: true, opened: true, onSaveNote })} />)
+    const input = screen.getByRole('textbox')
+    await userEvent.type(input, 'defend the north{Enter}')
+    expect(onSaveNote).toHaveBeenCalledWith('bga:1', 'defend the north')
+    expect(screen.queryByRole('textbox')).toBeNull()
+  })
+
+  it('auto-opens again next time the card dims, after resolving in between', () => {
+    const onSaveNote = jest.fn()
+    const { rerender } = render(<GameCard {...props({ autoNote: true, opened: true, onSaveNote })} />)
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' })
+    expect(screen.queryByRole('textbox')).toBeNull()
+
+    // card resolves (no longer dimmed) between rounds
+    rerender(<GameCard {...props({ autoNote: true, opened: false, onSaveNote })} />)
+    expect(screen.queryByRole('textbox')).toBeNull()
+
+    // next round: dims again
+    rerender(<GameCard {...props({ autoNote: true, opened: true, onSaveNote })} />)
+    expect(screen.getByRole('textbox')).toBeInTheDocument()
   })
 })
 
