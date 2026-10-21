@@ -64,4 +64,16 @@ describe('NotePromptPopup', () => {
     await userEvent.click(screen.getByRole('dialog'))
     expect(onDismiss).not.toHaveBeenCalled()
   })
+
+  it('deletes the existing note with its own button, without requiring the text to be cleared first', async () => {
+    const onSave = jest.fn()
+    render(<NotePromptPopup game={game} note="take the north pass" onSave={onSave} onDismiss={() => {}} />)
+    await userEvent.click(screen.getByRole('button', { name: /delete the note/i }))
+    expect(onSave).toHaveBeenCalledWith('')
+  })
+
+  it('offers no delete button when there is no existing note to delete', () => {
+    render(<NotePromptPopup game={game} onSave={() => {}} onDismiss={() => {}} />)
+    expect(screen.queryByRole('button', { name: /delete the note/i })).toBeNull()
+  })
 })

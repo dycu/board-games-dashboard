@@ -28,6 +28,7 @@ export default function NotePromptPopup({ game, note, onSave, onDismiss }: {
   }, [onDismiss])
 
   const save = () => onSave(draft)
+  const remove = () => onSave('')
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4" onClick={onDismiss}>
@@ -50,13 +51,24 @@ export default function NotePromptPopup({ game, note, onSave, onDismiss }: {
           aria-label={`Note for ${game.gameName}`}
           className="w-full text-sm bg-white text-[#1a1a1a] px-2.5 py-1.5 rounded border border-[#5e6ad2] mb-3"
         />
-        <div className="flex justify-end gap-2">
-          <button onClick={onDismiss} className="text-xs font-medium px-3 py-1.5 rounded-md text-[#6b6b6b] hover:bg-[#f3f3f3]">
-            Skip
-          </button>
-          <button onClick={save} className="text-xs font-medium px-3 py-1.5 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5bc4]">
-            Save
-          </button>
+        <div className="flex items-center justify-between gap-2">
+          {note ? (
+            <button
+              onClick={remove}
+              aria-label={`Delete the note on ${game.gameName}`}
+              title="Delete note"
+              className="text-xs text-[#c5c5c5] hover:text-red-500">
+              ✕
+            </button>
+          ) : <span />}
+          <div className="flex gap-2">
+            <button onClick={onDismiss} className="text-xs font-medium px-3 py-1.5 rounded-md text-[#6b6b6b] hover:bg-[#f3f3f3]">
+              Skip
+            </button>
+            <button onClick={save} className="text-xs font-medium px-3 py-1.5 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5bc4]">
+              Save
+            </button>
+          </div>
         </div>
       </div>
     </div>
