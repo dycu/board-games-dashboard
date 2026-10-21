@@ -1,10 +1,14 @@
-import { fetchRally } from '@/lib/connectors/rally'
+jest.mock('@vercel/kv', () => ({ kv: { get: jest.fn(), set: jest.fn(), del: jest.fn() } }))
+
+import { kv } from '@vercel/kv'
+import { fetchRally, withRallySession } from '@/lib/connectors/rally'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { createHash } from 'crypto'
 
 const mockFetch = jest.fn()
 global.fetch = mockFetch
+const store = new Map<string, unknown>()
 
 const fixture = readFileSync(join(__dirname, '../../../__fixtures__/rally-games.html'), 'utf8')
 
@@ -26,11 +30,17 @@ function setupHappyPath() {
       headers: { get: (h: string) => h === 'set-cookie' ? 'login=abc123; Path=/; HttpOnly' : null },
     })
     // Step 3: games/active HTML page
-    .mockResolvedValueOnce({ ok: true, text: async () => fixture })
+    .mockResolvedValueOnce({ ok: true, url: `${'https://rally-the-troops.com'}/games/active`, text: async () => fixture })
 }
 
 describe('fetchRally', () => {
-  beforeEach(() => mockFetch.mockReset())
+  beforeEach(() => {
+    mockFetch.mockReset()
+    store.clear()
+    ;(kv.get as jest.Mock).mockImplementation(async (k: string) => store.get(k) ?? null)
+    ;(kv.set as jest.Mock).mockImplementation(async (k: string, v: unknown) => { store.set(k, v); return 'OK' })
+    ;(kv.del as jest.Mock).mockImplementation(async (k: string) => { store.delete(k); return 1 })
+  })
 
   it('returns Game[] from scraped HTML', async () => {
     setupHappyPath()
@@ -107,5 +117,60 @@ describe('fetchRally', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ch })
       .mockResolvedValueOnce({ ok: true, status: 200, headers: { get: () => null } })
     await expect(fetchRally('bad', 'creds')).rejects.toThrow('Rally the Troops login failed')
+  })
+})
+
+describe('withRallySession', () => {
+  beforeEach(() => {
+    mockFetch.mockReset()
+    store.clear()
+    ;(kv.get as jest.Mock).mockImplementation(async (k: string) => store.get(k) ?? null)
+    ;(kv.set as jest.Mock).mockImplementation(async (k: string, v: unknown) => { store.set(k, v); return 'OK' })
+    ;(kv.del as jest.Mock).mockImplementation(async (k: string) => { store.delete(k); return 1 })
+  })
+
+  it('reuses a cached cookie instead of solving ALTCHA again', async () => {
+    store.set('rally-session:v1', 'login=cached')
+    const result = await withRallySession('u', 'p', async cookie => cookie)
+    expect(result).toBe('login=cached')
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('caches the cookie from a fresh login for next time', async () => {
+    setupHappyPath()
+    await withRallySession('u', 'p', async () => {})
+    expect(store.get('rally-session:v1')).toBe('login=abc123')
+  })
+
+  it('drops a rejected cached cookie and logs in fresh', async () => {
+    store.set('rally-session:v1', 'login=stale')
+    setupHappyPath()
+    const fn = jest.fn()
+      .mockRejectedValueOnce(new Error('session expired'))
+      .mockResolvedValueOnce('fresh result')
+    const result = await withRallySession('u', 'p', fn)
+    expect(result).toBe('fresh result')
+    expect(fn).toHaveBeenNthCalledWith(1, 'login=stale')
+    expect(fn).toHaveBeenNthCalledWith(2, 'login=abc123')
+    expect(store.get('rally-session:v1')).toBe('login=abc123')
+  })
+
+  it('treats a redirect back to the login page as an expired session', async () => {
+    store.set('rally-session:v1', 'login=stale')
+    const ch = makeRealChallenge('testsalt', 42)
+    mockFetch
+      // 1: games/active with the stale cookie — bounced to the login page
+      .mockResolvedValueOnce({ ok: true, url: 'https://rally-the-troops.com/login', text: async () => '<html>login</html>' })
+      // 2-3: a fresh login
+      .mockResolvedValueOnce({ ok: true, json: async () => ch })
+      .mockResolvedValueOnce({
+        ok: false, status: 302,
+        headers: { get: (h: string) => h === 'set-cookie' ? 'login=abc123; Path=/; HttpOnly' : null },
+      })
+      // 4: games/active again, now with the fresh cookie
+      .mockResolvedValueOnce({ ok: true, url: 'https://rally-the-troops.com/games/active', text: async () => fixture })
+    const games = await fetchRally('u', 'p')
+    expect(games).toHaveLength(3)
+    expect(store.get('rally-session:v1')).toBe('login=abc123')
   })
 })

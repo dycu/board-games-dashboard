@@ -1,3 +1,4 @@
+import { kv } from '@vercel/kv'
 import { Game, FinishedGame } from '../types'
 import { formatTimeAgo } from './utils'
 
@@ -63,15 +64,62 @@ export async function loginRally(username: string, password: string): Promise<st
   return cookie
 }
 
-export async function fetchRallyWithSession(username: string, password: string): Promise<{ cookie: string; games: Game[] }> {
-  const cookie = await loginRally(username, password)
-  const gamesRes = await fetch(`${BASE}/games/active`, {
-    headers: { ...HEADERS, Cookie: cookie },
-  })
-  if (!gamesRes.ok) throw new Error(`Rally the Troops games fetch failed (HTTP ${gamesRes.status})`)
+// Solving the ALTCHA challenge is CPU-bound and can take real wall-clock
+// time (see solveAltcha's batching comment) — caching the session cookie
+// means that only happens once every few hours, not on every single games
+// fetch (the dashboard's auto-refresh calls this every 30s-1m while open).
+const SESSION_KV_KEY = 'rally-session:v1'
+const SESSION_TTL_SECONDS = 6 * 3600
 
-  const html = await gamesRes.text()
-  return { cookie, games: parseGamesActive(html, username) }
+// KV is best-effort here: a KV failure must never break fetching games
+async function quietly<T>(op: () => Promise<T>): Promise<T | null> {
+  try { return await op() } catch { return null }
+}
+
+async function freshRallyCookie(username: string, password: string): Promise<string> {
+  const cookie = await loginRally(username, password)
+  await quietly(() => kv.set(SESSION_KV_KEY, cookie, { ex: SESSION_TTL_SECONDS }))
+  return cookie
+}
+
+// Runs fn with, first, the cached session cookie; a real login (and its
+// ALTCHA solve) only happens when there's no cached cookie or Rally rejects it.
+export async function withRallySession<T>(
+  username: string,
+  password: string,
+  fn: (cookie: string) => Promise<T>,
+): Promise<T> {
+  const cached = await quietly(() => kv.get<string>(SESSION_KV_KEY))
+  if (cached) {
+    try {
+      return await fn(cached)
+    } catch {
+      await quietly(() => kv.del(SESSION_KV_KEY))
+    }
+  }
+  const cookie = await freshRallyCookie(username, password)
+  return fn(cookie)
+}
+
+// An expired/invalid session cookie gets redirected to the login page
+// instead of an error status — treat landing there as session failure, so
+// withRallySession above drops the cache and logs in again.
+function assertStillLoggedIn(res: Response, context: string) {
+  if (res.url?.includes('/login')) throw new Error(`Rally the Troops session expired (${context})`)
+}
+
+async function fetchActiveGamesHtml(cookie: string): Promise<string> {
+  const gamesRes = await fetch(`${BASE}/games/active`, { headers: { ...HEADERS, Cookie: cookie } })
+  if (!gamesRes.ok) throw new Error(`Rally the Troops games fetch failed (HTTP ${gamesRes.status})`)
+  assertStillLoggedIn(gamesRes, 'games/active')
+  return gamesRes.text()
+}
+
+export async function fetchRallyWithSession(username: string, password: string): Promise<{ cookie: string; games: Game[] }> {
+  return withRallySession(username, password, async cookie => {
+    const html = await fetchActiveGamesHtml(cookie)
+    return { cookie, games: parseGamesActive(html, username) }
+  })
 }
 
 export async function fetchRally(username: string, password: string): Promise<Game[]> {
@@ -197,12 +245,12 @@ export async function fetchFinishedRallyWithCookie(cookie: string): Promise<Fini
     headers: { ...HEADERS, Cookie: cookie },
   })
   if (!gamesRes.ok) throw new Error(`Rally finished games fetch failed (HTTP ${gamesRes.status})`)
+  assertStillLoggedIn(gamesRes, 'games/finished')
 
   const html = await gamesRes.text()
   return parseGamesFinished(html)
 }
 
 export async function fetchFinishedRally(username: string, password: string): Promise<FinishedGame[]> {
-  const cookie = await loginRally(username, password)
-  return fetchFinishedRallyWithCookie(cookie)
+  return withRallySession(username, password, fetchFinishedRallyWithCookie)
 }
