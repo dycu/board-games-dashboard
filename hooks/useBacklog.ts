@@ -93,5 +93,13 @@ export function useBacklog() {
     send({ op: 'toggle', id, list })
   }, [send])
 
-  return { items, error, listsFor, add, isAdding, remove, reorder, toggle }
+  // Like toggle, but also works for a game not in the backlog yet — the
+  // first list it's switched into adds it, same as `add` would
+  const toggleOrAdd = useCallback((req: AddRequest) => {
+    const id = backlogId(req.platform, req.gameName)
+    const exists = items?.some(i => i.id === id)
+    return exists ? toggle(id, req.list) : add(req)
+  }, [items, add, toggle])
+
+  return { items, error, listsFor, add, isAdding, remove, reorder, toggle, toggleOrAdd }
 }

@@ -4,7 +4,7 @@ import { PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { NewGameEvent, eventLabel } from '@/lib/newGames/diff'
 import { useBacklog } from '@/hooks/useBacklog'
-import AddToBacklogButton from './AddToBacklogButton'
+import BacklogListChips from './BacklogListChips'
 
 // Shows what the twice-daily check found since the last dismissal
 export default function NewGamesPopup() {
@@ -35,7 +35,7 @@ export default function NewGamesPopup() {
 }
 
 function PopupBody({ events, onDismiss }: { events: NewGameEvent[]; onDismiss: () => void }) {
-  const { listsFor, add, isAdding } = useBacklog()
+  const { listsFor, isAdding, toggleOrAdd } = useBacklog()
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onDismiss() }
@@ -68,11 +68,10 @@ function PopupBody({ events, onDismiss }: { events: NewGameEvent[]; onDismiss: (
                 <span className="text-xs text-[#8a8a8a]">{eventLabel(e)}</span>
               </div>
               {e.kind !== 'post' && (
-                <AddToBacklogButton
-                  targetList="learn"
-                  inTarget={listsFor(e.platform, e.name).includes('learn')}
-                  adding={isAdding(e.platform, e.name)}
-                  onAdd={() => add({ platform: e.platform, gameName: e.name, playUrl: e.url, list: 'learn' })}
+                <BacklogListChips
+                  lists={listsFor(e.platform, e.name)}
+                  disabled={isAdding(e.platform, e.name)}
+                  onToggle={list => toggleOrAdd({ platform: e.platform, gameName: e.name, playUrl: e.url, list })}
                 />
               )}
             </li>

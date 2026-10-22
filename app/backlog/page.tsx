@@ -9,14 +9,14 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
-import { BacklogItem, BacklogList, BACKLOG_LISTS, listsOf } from '@/lib/backlog/list'
+import { BacklogItem, BacklogList, BACKLOG_LISTS, LIST_LABELS, SHORT_LIST_LABELS, listsOf } from '@/lib/backlog/list'
 import { PlayedSort, aggregatePlayed, sortPlayed, playedNote } from '@/lib/backlog/played'
 import { useBgaPlayTotals, totalsOf } from '@/hooks/useBgaPlayTotals'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
 import { readCache } from '@/hooks/useGamesData'
 import TopNav from '@/components/TopNav'
-import AddToBacklogButton, { LIST_LABELS } from '@/components/AddToBacklogButton'
+import BacklogListChips from '@/components/BacklogListChips'
 import GameLink, { SMALL_BUTTON, playedGameUrl } from '@/components/GameLink'
 import HistoryLink from '@/components/HistoryLink'
 import PlatformFilterChips from '@/components/PlatformFilterChips'
@@ -32,32 +32,6 @@ function Badge({ platform }: { platform: Platform }) {
     <span title={PLATFORM_LABELS[platform]} className={`shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[platform] ?? BADGE_FALLBACK}`}>
       {PLATFORM_SHORT_LABELS[platform]}
     </span>
-  )
-}
-
-const SHORT_LIST_LABELS: Record<BacklogList, string> = { play: 'Play', learn: 'Learn', solo: 'Solo', favorite: 'Favorite' }
-
-// Which lists this item belongs to — a game can be in more than one at
-// once (e.g. Play and Solo), so each is its own toggle rather than a
-// single "move to" choice
-function ListToggles({ item, onToggle }: { item: BacklogItem; onToggle: (list: BacklogList) => void }) {
-  const current = listsOf(item)
-  return (
-    <div className="shrink-0 flex items-center gap-1">
-      {BACKLOG_LISTS.map(l => (
-        <button
-          key={l}
-          onClick={() => onToggle(l)}
-          aria-pressed={current.includes(l)}
-          aria-label={`${current.includes(l) ? 'Remove' : 'Add'} ${item.gameName} ${current.includes(l) ? 'from' : 'to'} ${LIST_LABELS[l]}`}
-          title={LIST_LABELS[l]}
-          className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border whitespace-nowrap transition-colors
-            ${current.includes(l) ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]' : 'bg-white text-[#9b9b9b] border-[#e5e5e5] hover:bg-[#f3f3f3]'}`}
-        >
-          {SHORT_LIST_LABELS[l]}
-        </button>
-      ))}
-    </div>
   )
 }
 
@@ -117,7 +91,7 @@ function Row({ item, position, onTop, onToggleList, onRemove }: {
         >
           ⤒
         </button>
-        <ListToggles item={item} onToggle={onToggleList} />
+        <BacklogListChips lists={listsOf(item)} onToggle={onToggleList} gameName={item.gameName} />
         <button onClick={onRemove} title="Remove" aria-label={`Remove ${item.gameName}`} className={SMALL_BUTTON}>
           ✕
         </button>
@@ -143,7 +117,7 @@ function ListSection({ backlog, list }: { backlog: Backlog; list: BacklogList })
   if (items.length === 0) {
     return (
       <p className="text-sm text-[#9b9b9b] text-center py-6 rounded-lg border border-dashed border-[#e5e5e5]">
-        {list === 'play' && 'Nothing here yet. Add games below, or with “+ Backlog” on the History page.'}
+        {list === 'play' && 'Nothing here yet. Add games below, or with the Play/Learn/Solo/Favorite buttons on the History page.'}
         {list === 'learn' && 'No games to learn yet. Choose “Next to learn” in the box below and add some.'}
         {list === 'solo' && 'No solo games queued yet. Choose “Solo” in the box below and add some.'}
         {list === 'favorite' && 'No favorites yet. Choose “Favorite” in the box below and add some — the dashboard will nudge you to start one whenever none of them has a game running.'}
@@ -176,7 +150,7 @@ interface SearchResult {
   matches: { name: string; url: string }[]
 }
 
-function SearchPanel({ backlog, target, sites }: { backlog: Backlog; target: BacklogList; sites: Set<Platform> }) {
+function SearchPanel({ backlog, sites }: { backlog: Backlog; sites: Set<Platform> }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[] | null>(null)
   const [errors, setErrors] = useState<{ platform: Platform }[]>([])
@@ -244,12 +218,10 @@ function SearchPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
                 <span className="text-sm text-[#1a1a1a] truncate flex-1 min-w-0">{m.name}</span>
                 <HistoryLink game={{ platform: m.platform, gameName: m.name }} />
                 <GameLink url={m.url} platform={m.platform} />
-                <AddToBacklogButton
-                  label="+ Add"
-                  targetList={target}
-                  inTarget={backlog.listsFor(m.platform, m.name).includes(target)}
-                  adding={backlog.isAdding(m.platform, m.name)}
-                  onAdd={() => backlog.add({ platform: m.platform, gameName: m.name, playUrl: m.url, list: target })}
+                <BacklogListChips
+                  lists={backlog.listsFor(m.platform, m.name)}
+                  disabled={backlog.isAdding(m.platform, m.name)}
+                  onToggle={list => backlog.toggleOrAdd({ platform: m.platform, gameName: m.name, playUrl: m.url, list })}
                 />
               </li>
             ))}
@@ -262,15 +234,18 @@ function SearchPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
         <div className="mt-3 pt-3 border-t border-[#f0f0f0] flex flex-wrap items-center gap-1.5">
           <span className="text-xs text-[#9b9b9b] mr-1">Not there? Add “{searched}” on</span>
           {ALL_PLATFORMS.filter(p => sites.has(p)).map(p => {
-            const inTarget = backlog.listsFor(p, searched).includes(target)
+            const inBacklog = backlog.listsFor(p, searched).length > 0
             return (
               <button
                 key={p}
-                onClick={() => backlog.add({ platform: p, gameName: searched, list: target })}
-                disabled={inTarget || backlog.isAdding(p, searched)}
+                // No per-list chips here (there's no row to put them on) —
+                // lands in Play, same as everywhere else's default; its
+                // chips in the list below can change that once it's added.
+                onClick={() => backlog.add({ platform: p, gameName: searched, list: 'play' })}
+                disabled={inBacklog || backlog.isAdding(p, searched)}
                 title={PLATFORM_LABELS[p]} className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[p] ?? BADGE_FALLBACK} disabled:opacity-50`}
               >
-                {inTarget ? '✓ ' : '+ '}{PLATFORM_SHORT_LABELS[p]}
+                {inBacklog ? '✓ ' : '+ '}{PLATFORM_SHORT_LABELS[p]}
               </button>
             )
           })}
@@ -283,7 +258,7 @@ function SearchPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
 const SORTS: [PlayedSort, string][] = [['recent', 'Recent'], ['most', 'Most played'], ['least', 'Least played'], ['name', 'A–Z']]
 
 // Loading finished games asks every platform (streamed, so the page isn't held up)
-function PlayedPanel({ backlog, target, sites }: { backlog: Backlog; target: BacklogList; sites: Set<Platform> }) {
+function PlayedPanel({ backlog, sites }: { backlog: Backlog; sites: Set<Platform> }) {
   const finished = useFinishedGamesData()
   const [filter, setFilter] = useState('')
   const [sort, setSort] = useState<PlayedSort>('recent')
@@ -361,12 +336,10 @@ function PlayedPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
             <div className="shrink-0 flex items-center gap-2 ml-auto">
               <HistoryLink game={g} />
               <GameLink url={playedGameUrl(g)} platform={g.platform} />
-              <AddToBacklogButton
-                label="+ Add"
-                targetList={target}
-                inTarget={backlog.listsFor(g.platform, g.gameName).includes(target)}
-                adding={backlog.isAdding(g.platform, g.gameName)}
-                onAdd={() => backlog.add({ platform: g.platform, gameName: g.gameName, gameUrl: g.gameUrl, list: target })}
+              <BacklogListChips
+                lists={backlog.listsFor(g.platform, g.gameName)}
+                disabled={backlog.isAdding(g.platform, g.gameName)}
+                onToggle={list => backlog.toggleOrAdd({ platform: g.platform, gameName: g.gameName, gameUrl: g.gameUrl, list })}
               />
             </div>
           </li>
@@ -382,7 +355,7 @@ function PlayedPanel({ backlog, target, sites }: { backlog: Backlog; target: Bac
 export default function BacklogPage() {
   const backlog = useBacklog()
   const [source, setSource] = useState<'search' | 'played'>('played')
-  const [target, setTarget] = useState<BacklogList>('play')
+  const [activeList, setActiveList] = useState<BacklogList>('play')
   const [sites, setSites] = useState<Set<Platform>>(new Set(DEFAULT_BACKLOG_PLATFORMS))
 
   useEffect(() => {
@@ -407,15 +380,32 @@ export default function BacklogPage() {
 
         {backlog.items === null
           ? !backlog.error && <p className="text-sm text-[#9b9b9b] text-center py-8">Loading…</p>
-          : BACKLOG_LISTS.map(list => (
-            <section key={list} className="mb-6">
-              <h2 className="text-sm font-semibold text-[#1a1a1a] mb-3">{LIST_LABELS[list]}</h2>
-              <ListSection backlog={backlog} list={list} />
+          : (
+            <section className="mb-6">
+              {/* One list visible at a time instead of all four stacked —
+                  keeps this short on a phone and avoids a long scroll to
+                  reach "Add games" below, on any screen size. */}
+              <div className="flex items-center gap-1 mb-3">
+                {BACKLOG_LISTS.map(list => {
+                  const count = backlog.items!.filter(i => listsOf(i).includes(list)).length
+                  return (
+                    <button
+                      key={list}
+                      onClick={() => setActiveList(list)}
+                      title={LIST_LABELS[list]}
+                      className={`flex-1 ${pill(activeList === list)}`}
+                    >
+                      {SHORT_LIST_LABELS[list]} <span className="tabular-nums opacity-70">{count}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              <ListSection backlog={backlog} list={activeList} />
             </section>
-          ))}
+          )}
 
         <div className="bg-white rounded-xl border border-[#e5e5e5] p-5">
-          <div className="flex flex-wrap items-center gap-1 mb-3">
+          <div className="flex flex-wrap items-center gap-1 mb-4">
             <h2 className="text-sm font-semibold text-[#1a1a1a] mr-3">Add games</h2>
             {([['played', 'From your games'], ['search', 'Search']] as const).map(([key, label]) => (
               <button
@@ -427,14 +417,9 @@ export default function BacklogPage() {
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-1 mb-4">
-            <span className="text-xs text-[#9b9b9b] mr-2">Add to</span>
-            {BACKLOG_LISTS.map(list => (
-              <button key={list} onClick={() => setTarget(list)} className={pill(target === list)}>
-                {LIST_LABELS[list]}
-              </button>
-            ))}
-          </div>
+          {/* Each result row below gets its own Play/Learn/Solo/Favorite
+              chips, so a game can go straight into any combination of
+              lists — no page-wide "add to" choice needed first. */}
           <div className="flex flex-wrap items-center gap-1.5 mb-4">
             <span className="text-xs text-[#9b9b9b] mr-1">Sites</span>
             <PlatformFilterChips
@@ -443,8 +428,8 @@ export default function BacklogPage() {
               onChange={next => setSites(new Set(next))}
             />
           </div>
-          <div className={source === 'search' ? '' : 'hidden'}><SearchPanel backlog={backlog} target={target} sites={sites} /></div>
-          <div className={source === 'played' ? '' : 'hidden'}><PlayedPanel backlog={backlog} target={target} sites={sites} /></div>
+          <div className={source === 'search' ? '' : 'hidden'}><SearchPanel backlog={backlog} sites={sites} /></div>
+          <div className={source === 'played' ? '' : 'hidden'}><PlayedPanel backlog={backlog} sites={sites} /></div>
         </div>
       </div>
     </div>

@@ -6,7 +6,7 @@ import { usePrefs } from '@/hooks/usePrefs'
 import FinishedGameCard from '@/components/FinishedGameCard'
 import FetchProgress from '@/components/FetchProgress'
 import TopNav from '@/components/TopNav'
-import AddToBacklogButton from '@/components/AddToBacklogButton'
+import BacklogListChips from '@/components/BacklogListChips'
 import PlatformFilterChips from '@/components/PlatformFilterChips'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useBgaPlayTotals, totalsOf } from '@/hooks/useBgaPlayTotals'
@@ -140,11 +140,10 @@ export default function OverviewPage() {
                         {/* elsewhere the game's page is this table, already linked by View */}
                         {gameUrl !== g.gameUrl && <GameLink url={gameUrl} platform={g.platform} />}
                         {backlog.items && (
-                          <AddToBacklogButton
-                            targetList="play"
-                            inTarget={backlog.listsFor(g.platform, g.gameType || g.gameName).includes('play')}
-                            adding={backlog.isAdding(g.platform, g.gameType || g.gameName)}
-                            onAdd={() => backlog.add({ platform: g.platform, gameName: g.gameType || g.gameName, gameUrl: g.gameUrl, list: 'play' })}
+                          <BacklogListChips
+                            lists={backlog.listsFor(g.platform, g.gameType || g.gameName)}
+                            disabled={backlog.isAdding(g.platform, g.gameType || g.gameName)}
+                            onToggle={list => backlog.toggleOrAdd({ platform: g.platform, gameName: g.gameType || g.gameName, gameUrl: g.gameUrl, list })}
                           />
                         )}
                       </>}

@@ -12,7 +12,7 @@ import { placeLabel, withEloDeltas } from '@/lib/results'
 import { formatTimeAgo } from '@/lib/connectors/utils'
 import TopNav from '@/components/TopNav'
 import GameLink, { playedGameUrl } from '@/components/GameLink'
-import AddToBacklogButton from '@/components/AddToBacklogButton'
+import BacklogListChips from '@/components/BacklogListChips'
 
 const RESULT_STYLE = {
   won: 'bg-green-50 text-green-700',
@@ -140,11 +140,10 @@ function GameHistory() {
           <h1 className="text-xl font-semibold text-[#1a1a1a] mr-2">{name}</h1>
           {latest && <GameLink url={playedGameUrl(latest)} platform={platform} />}
           {backlog.items && (
-            <AddToBacklogButton
-              targetList="play"
-              inTarget={backlog.listsFor(platform, name).includes('play')}
-              adding={backlog.isAdding(platform, name)}
-              onAdd={() => backlog.add({ platform, gameName: name, gameUrl: latest?.gameUrl, list: 'play' })}
+            <BacklogListChips
+              lists={backlog.listsFor(platform, name)}
+              disabled={backlog.isAdding(platform, name)}
+              onToggle={list => backlog.toggleOrAdd({ platform, gameName: name, gameUrl: latest?.gameUrl, list })}
             />
           )}
         </div>
