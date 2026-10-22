@@ -103,9 +103,10 @@ describe('toggleList', () => {
     expect(listsOf(toggled[0])).toEqual(['play'])
   })
 
-  it('refuses to remove the last remaining list', () => {
-    const list = [{ ...item('bga', 'A'), lists: ['solo' as const] }]
-    expect(toggleList(list, list[0].id, 'solo')).toBe(list)
+  it('removes the item entirely when toggling off its last remaining list', () => {
+    const list = [{ ...item('bga', 'A'), lists: ['solo' as const] }, item('bga', 'B')]
+    const toggled = toggleList(list, list[0].id, 'solo')
+    expect(toggled.map(i => i.gameName)).toEqual(['B'])
   })
 
   it('is a no-op for an unknown id', () => {

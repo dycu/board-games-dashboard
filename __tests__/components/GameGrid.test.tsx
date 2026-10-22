@@ -298,9 +298,16 @@ describe('GameGrid favorite suggestions', () => {
     expect(screen.getByText('Navegador')).toBeInTheDocument()
   })
 
-  it('dismissing a favorite suggestion toggles it out of favorites rather than removing it', async () => {
+  it('dismissing a favorite suggestion drops it from the backlog, since favorite was its only list', async () => {
     const items = [{ id: 'bga:gaia', platform: 'bga', gameName: 'Gaia Project', playUrl: 'https://x/1', addedAt: '', lists: ['favorite'] }]
-    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    // The real server applies the same toggleList rule (drop the item once
+    // its last list is toggled off); the POST response reflects that so the
+    // optimistic client-side removal isn't immediately overwritten by a
+    // stale mock response once the request "completes".
+    global.fetch = jest.fn(async (_url, opts) => ({
+      ok: true,
+      json: async () => (opts?.method === 'POST' ? { items: [] } : { notes: {}, items }),
+    })) as unknown as typeof fetch
     renderGrid([])
     expect(await screen.findByText('Gaia Project')).toBeInTheDocument()
 
@@ -310,6 +317,27 @@ describe('GameGrid favorite suggestions', () => {
       method: 'POST',
       body: JSON.stringify({ op: 'toggle', id: 'bga:gaia', list: 'favorite' }),
     }))
+    expect(screen.queryByText('Gaia Project')).toBeNull()
+  })
+
+  it('dismissing a favorite suggestion leaves it in its other lists, if any', async () => {
+    const items = [{ id: 'bga:gaia', platform: 'bga', gameName: 'Gaia Project', playUrl: 'https://x/1', addedAt: '', lists: ['favorite', 'play'] }]
+    const afterToggle = [{ ...items[0], lists: ['play'] }]
+    global.fetch = jest.fn(async (_url, opts) => ({
+      ok: true,
+      json: async () => (opts?.method === 'POST' ? { items: afterToggle } : { notes: {}, items }),
+    })) as unknown as typeof fetch
+    renderGrid([])
+    // Shows twice at first: once as the favorite nudge, once as the
+    // ordinary "Next to play" backlog suggestion
+    expect(await screen.findAllByText('Gaia Project')).toHaveLength(2)
+
+    await userEvent.click(screen.getByRole('button', { name: /Remove Gaia Project from favorites/i }))
+
+    // Gone from the favorite-suggestion banner, but still around as the
+    // ordinary "Next to play" backlog suggestion
+    expect(screen.queryByText('No game running in your favorite:')).toBeNull()
+    expect(screen.getByText('Gaia Project')).toBeInTheDocument()
   })
 })
 

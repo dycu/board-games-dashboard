@@ -53,15 +53,18 @@ export function reorderItems(list: BacklogItem[], ids: string[]): BacklogItem[] 
 }
 
 // Adds or removes membership in one list, leaving any other lists the item
-// belongs to untouched. Never drops the last remaining list — use removeItem
-// to take a game out of the backlog entirely. Gaining a new list moves the
-// item to the end of the array (see addItem); losing one keeps its position.
+// belongs to untouched. Dropping the last remaining list removes the item
+// from the backlog entirely (same as removeItem) — a backlog item with no
+// lists wouldn't show up anywhere anyway, and listsOf()'s legacy fallback
+// would otherwise quietly treat an empty `lists` as still "play". Gaining a
+// new list moves the item to the end of the array (see addItem); losing one
+// keeps its position.
 export function toggleList(list: BacklogItem[], id: string, target: BacklogList): BacklogItem[] {
   const item = list.find(i => i.id === id)
   if (!item) return list
   const current = listsOf(item)
   if (current.includes(target)) {
-    if (current.length <= 1) return list
+    if (current.length <= 1) return removeItem(list, id)
     return list.map(i => i.id === id ? { ...i, lists: current.filter(l => l !== target), list: undefined } : i)
   }
   const lists = [...current, target]
