@@ -4,7 +4,7 @@ import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent,
 } from '@dnd-kit/core'
 import {
-  SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy,
+  SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, rectSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
@@ -127,8 +127,12 @@ function ListSection({ backlog, list }: { backlog: Backlog; list: BacklogList })
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-      <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
-        <ol className="flex flex-col gap-2">
+      {/* rectSortingStrategy (not verticalListSortingStrategy): this is a
+          2-column grid on wider screens, not always a single vertical
+          list, and the strategy needs to know that to drag correctly in
+          both layouts. */}
+      <SortableContext items={items.map(i => i.id)} strategy={rectSortingStrategy}>
+        <ol className="grid grid-cols-1 lg:grid-cols-2 gap-2">
           {items.map((item, i) => (
             <Row
               key={item.id}
@@ -373,7 +377,7 @@ export default function BacklogPage() {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <TopNav right={navRight} />
-      <div className="flex-1 overflow-y-auto p-5 max-w-2xl mx-auto w-full">
+      <div className="flex-1 overflow-y-auto p-5 max-w-5xl mx-auto w-full">
         {backlog.error && (
           <p className="mb-3 text-xs bg-red-100 text-red-600 px-2 py-1 rounded-md">⚠ {backlog.error}</p>
         )}
