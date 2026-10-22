@@ -65,8 +65,18 @@ describe('resolvePlayUrl', () => {
   })
 
   it('uses the platform home for platforms without a catalog', async () => {
+    const url = await resolvePlayUrl({ platform: 'hansa', gameName: 'Hansa Teutonica' }, catalog)
+    expect(url).toBe('https://playhansa.app')
+    expect(catalog).not.toHaveBeenCalled()
+  })
+
+  // OBG's catalog entries all point at the site home anyway (see
+  // lib/catalogs/obg.ts — there's no per-title URL to deep-link to), so a
+  // match or no match land on the same URL either way
+  it('still lands on the platform home via the OBG catalog, which has no per-title URLs', async () => {
+    catalog.mockResolvedValue([{ name: 'Antiquity', url: 'https://www.onlineboardgamers.com' }])
     const url = await resolvePlayUrl({ platform: 'obg', gameName: 'Antiquity' }, catalog)
     expect(url).toBe('https://www.onlineboardgamers.com')
-    expect(catalog).not.toHaveBeenCalled()
+    expect(catalog).toHaveBeenCalledWith('obg')
   })
 })

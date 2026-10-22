@@ -126,7 +126,10 @@ export async function fetchOBG(username: string, password: string): Promise<Game
   return parseGames(html, profileName)
 }
 
-const OBG_GAME_NAMES: Record<string, string> = {
+// Also the catalog "Find a game" searches (see lib/catalogs/obg.ts) — the
+// site has no public endpoint listing its game types, so this already-vetted
+// map (built from table rows actually seen) doubles as that catalog.
+export const OBG_GAME_NAMES: Record<string, string> = {
   FCM: 'Food Chain Magnate',
   HLC: 'Horseless Carriage',
   AQY: 'Antiquity',

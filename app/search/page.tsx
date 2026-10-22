@@ -60,7 +60,7 @@ export default function SearchPage() {
         <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
           <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">Find a game</h2>
           <p className="text-xs text-[#9b9b9b] mb-3">
-            Search BGA, Yucata, Rally the Troops, 18xx.games, choochoo.games, BoardTogether, TableTapas and Boardgamers.space at once to see where a game is available.
+            Search BGA, Yucata, Rally the Troops, 18xx.games, choochoo.games, OnlineBoardGamers, BoardTogether, TableTapas and Boardgamers.space at once to see where a game is available.
           </p>
           <div className="flex gap-2">
             <input
