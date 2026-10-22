@@ -140,13 +140,30 @@ export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemPro
   }
   const startEditing = () => { setDraft(note ?? ''); setEditing(true) }
   if (compact) {
-    // Rows show the note's text themselves; this is just the edit control
-    return (
+    // On a narrow screen, the row hides the note's text and its own
+    // delete button (no room) — so without this, deleting a note here
+    // meant opening the editor, clearing the text, then blurring to save,
+    // which dismisses the keyboard whether or not that was wanted. A
+    // direct delete button skips all of that for the common case (reading
+    // a note once it's done its job) while still leaving edit available
+    // for when the note should stay.
+    return note && onSaveNote ? (
+      <span className="flex items-center gap-1">
+        <button
+          onClick={startEditing}
+          aria-label={`Edit the note on ${game.gameName}`}
+          title={note}
+          className="relative z-10 text-xs text-[#6b6b6b] hover:text-[#1a1a1a]">
+          ✎
+        </button>
+        <DeleteNote game={game} onSaveNote={onSaveNote} />
+      </span>
+    ) : (
       <button
         onClick={startEditing}
-        aria-label={note ? `Edit the note on ${game.gameName}` : `Add a note to ${game.gameName}`}
-        title={note ?? 'Add a note'}
-        className={`relative z-10 text-xs ${note ? 'text-[#6b6b6b]' : 'text-[#c5c5c5]'} hover:text-[#1a1a1a]`}>
+        aria-label={`Add a note to ${game.gameName}`}
+        title="Add a note"
+        className="relative z-10 text-xs text-[#c5c5c5] hover:text-[#1a1a1a]">
         ✎
       </button>
     )
@@ -239,8 +256,9 @@ export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched
       <div className="min-w-0 flex-1 flex items-baseline gap-2">
         <span className="text-sm text-[#1a1a1a] truncate">{game.gameName}</span>
         {game.currentPlayer && <span className="hidden sm:inline text-xs text-[#9b9b9b] truncate">waiting for {game.currentPlayer}</span>}
-        {note && <span className="hidden md:inline text-xs text-[#6b6b6b] italic whitespace-normal break-words">✎ {note}</span>}
-        {note && onSaveNote && <span className="hidden md:inline"><DeleteNote game={game} onSaveNote={onSaveNote} /></span>}
+        {/* Just the text here — its own edit/delete icons are the compact
+            NoteEditor below, shown at every width, not only md:inline */}
+        {note && <span className="hidden md:inline text-xs text-[#6b6b6b] italic whitespace-normal break-words">{note}</span>}
       </div>
       <span className={`shrink-0 text-xs ${slow ? 'text-amber-600 font-medium' : 'text-[#9b9b9b]'}`}>
         {slow ? '⏱ ' : ''}{game.lastMoveAgo}

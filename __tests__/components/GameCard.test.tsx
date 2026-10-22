@@ -164,6 +164,24 @@ describe('GameRow', () => {
     await userEvent.type(screen.getByRole('textbox'), 'ask alice{Enter}')
     expect(onSaveNote).toHaveBeenCalledWith('bga:1', 'ask alice')
   })
+
+  // The row hides the full note text and its delete button below `md`, so
+  // without its own compact delete button, removing a note here meant
+  // opening the keyboard just to clear and blur the editor
+  it('deletes an existing note directly, without opening the editor first', async () => {
+    const onSaveNote = jest.fn()
+    render(<GameRow {...props({ game: waiting, note: 'ask alice', onSaveNote })} />)
+    await userEvent.click(screen.getByRole('button', { name: /delete the note/i }))
+    expect(onSaveNote).toHaveBeenCalledWith('bga:1', '')
+    expect(screen.queryByRole('textbox')).toBeNull()
+  })
+
+  it('still opens the editor from the pencil button when a note already exists', async () => {
+    const onSaveNote = jest.fn()
+    render(<GameRow {...props({ game: waiting, note: 'ask alice', onSaveNote })} />)
+    await userEvent.click(screen.getByRole('button', { name: /edit the note/i }))
+    expect(screen.getByRole('textbox')).toHaveValue('ask alice')
+  })
 })
 
 describe('note deletion', () => {
