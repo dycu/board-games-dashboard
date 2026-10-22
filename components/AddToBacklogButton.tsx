@@ -1,10 +1,10 @@
 'use client'
 import { BacklogList } from '@/lib/backlog/list'
 
-export const LIST_LABELS: Record<BacklogList, string> = { play: 'Next to play', learn: 'Next to learn', solo: 'Solo' }
+export const LIST_LABELS: Record<BacklogList, string> = { play: 'Next to play', learn: 'Next to learn', solo: 'Solo', favorite: 'Favorite' }
 
 // The ✓ status badge: present-tense, shorter than the section/pill labels above
-const STATUS_LABELS: Record<BacklogList, string> = { play: 'To play', learn: 'To learn', solo: 'Solo' }
+const STATUS_LABELS: Record<BacklogList, string> = { play: 'To play', learn: 'To learn', solo: 'Solo', favorite: 'Favorite' }
 
 interface Props {
   // Whether the game is already in the specific list this button adds to —

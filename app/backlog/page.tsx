@@ -35,7 +35,7 @@ function Badge({ platform }: { platform: Platform }) {
   )
 }
 
-const SHORT_LIST_LABELS: Record<BacklogList, string> = { play: 'Play', learn: 'Learn', solo: 'Solo' }
+const SHORT_LIST_LABELS: Record<BacklogList, string> = { play: 'Play', learn: 'Learn', solo: 'Solo', favorite: 'Favorite' }
 
 // Which lists this item belongs to — a game can be in more than one at
 // once (e.g. Play and Solo), so each is its own toggle rather than a
@@ -146,6 +146,7 @@ function ListSection({ backlog, list }: { backlog: Backlog; list: BacklogList })
         {list === 'play' && 'Nothing here yet. Add games below, or with “+ Backlog” on the History page.'}
         {list === 'learn' && 'No games to learn yet. Choose “Next to learn” in the box below and add some.'}
         {list === 'solo' && 'No solo games queued yet. Choose “Solo” in the box below and add some.'}
+        {list === 'favorite' && 'No favorites yet. Choose “Favorite” in the box below and add some — the dashboard will nudge you to start one whenever none of them has a game running.'}
       </p>
     )
   }

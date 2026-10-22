@@ -267,6 +267,52 @@ describe('GameGrid backlog suggestion', () => {
   })
 })
 
+describe('GameGrid favorite suggestions', () => {
+  it('suggests a favorite with no active game, alongside the backlog suggestion', async () => {
+    const items = [
+      { id: 'bga:gaia', platform: 'bga', gameName: 'Gaia Project', playUrl: 'https://x/1', addedAt: '', list: 'favorite' },
+      { id: 'yucata:navegador', platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/3', addedAt: '', list: 'play' },
+    ]
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    renderGrid([makeGame('bga', '1')])
+    expect(await screen.findByText('Gaia Project')).toBeInTheDocument()
+    expect(screen.getByText('Navegador')).toBeInTheDocument()
+  })
+
+  it('does not suggest a favorite that already has an active game', async () => {
+    const items = [{ id: 'bga:1', platform: 'bga', gameName: 'Test Game', playUrl: 'https://x/1', addedAt: '', list: 'favorite' }]
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    renderGrid([makeGame('bga', '1')])
+    await screen.findAllByText('Test Game')
+    expect(screen.queryByText('No game running in your favorite:')).toBeNull()
+  })
+
+  it('suggests every favorite missing an active game, not just one', async () => {
+    const items = [
+      { id: 'bga:gaia', platform: 'bga', gameName: 'Gaia Project', playUrl: 'https://x/1', addedAt: '', list: 'favorite' },
+      { id: 'yucata:navegador', platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/2', addedAt: '', list: 'favorite' },
+    ]
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    renderGrid([])
+    expect(await screen.findByText('Gaia Project')).toBeInTheDocument()
+    expect(screen.getByText('Navegador')).toBeInTheDocument()
+  })
+
+  it('dismissing a favorite suggestion toggles it out of favorites rather than removing it', async () => {
+    const items = [{ id: 'bga:gaia', platform: 'bga', gameName: 'Gaia Project', playUrl: 'https://x/1', addedAt: '', lists: ['favorite'] }]
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    renderGrid([])
+    expect(await screen.findByText('Gaia Project')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /Remove Gaia Project from favorites/i }))
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/backlog', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ op: 'toggle', id: 'bga:gaia', list: 'favorite' }),
+    }))
+  })
+})
+
 describe('GameGrid opened games', () => {
   it('keeps an opened game, dimmed, after the others; Next and the count skip it', () => {
     const a = { ...makeGame('bga', '1'), gameName: 'Opened One' }

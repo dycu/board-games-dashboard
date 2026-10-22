@@ -154,6 +154,11 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   // Shown right under my games: the top "Next to play" game that isn't already running
   const suggestion = (backlog.items ?? []).find(item => listsOf(item).includes('play')
     && !games.some(g => backlogId(g.platform, g.gameType || g.gameName) === item.id))
+  // Every favorite title with no active game of its own — not just the one
+  // overall, since a favorite having a running game shouldn't hide the nudge
+  // for a *different* favorite that doesn't
+  const favoriteSuggestions = (backlog.items ?? []).filter(item => listsOf(item).includes('favorite')
+    && !games.some(g => backlogId(g.platform, g.gameType || g.gameName) === item.id))
 
   const togglePin = async (id: string) => {
     const pins = prefs.pins.includes(id)
@@ -371,6 +376,14 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
           </section>
         )}
 
+        {favoriteSuggestions.length > 0 && (
+          <div className="mb-7 flex flex-col gap-2">
+            {favoriteSuggestions.map(item => (
+              <FavoriteSuggestion key={item.id} item={item} onDismiss={() => backlog.toggle(item.id, 'favorite')} />
+            ))}
+          </div>
+        )}
+
         {suggestion && (
           <BacklogSuggestion item={suggestion} activeCount={games.length} className="mb-7" onRemove={() => backlog.remove(suggestion.id)} />
         )}
@@ -398,6 +411,34 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
           </section>
         )}
       </div>
+    </div>
+  )
+}
+
+function FavoriteSuggestion({ item, onDismiss }: { item: BacklogItem; onDismiss: () => void }) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-amber-300 bg-amber-50">
+      <span className="shrink-0 text-amber-500" aria-hidden="true">★</span>
+      <span className="hidden sm:inline text-xs text-amber-700">No game running in your favorite:</span>
+      <span title={PLATFORM_LABELS[item.platform]} className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[item.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
+        {PLATFORM_SHORT_LABELS[item.platform]}
+      </span>
+      <span className="text-sm font-medium text-[#1a1a1a] truncate flex-1 min-w-0">{item.gameName}</span>
+      <a
+        href={item.playUrl}
+        target={item.platform === 'bga' ? '_self' : '_blank'}
+        rel="noopener noreferrer"
+        className="shrink-0 text-xs font-medium px-3 py-1 rounded-md bg-amber-500 text-white hover:bg-amber-600">
+        Play ↗
+      </a>
+      <button
+        onClick={onDismiss}
+        title="Remove from favorites"
+        aria-label={`Remove ${item.gameName} from favorites`}
+        className="shrink-0 text-xs text-amber-400 hover:text-red-500 px-1"
+      >
+        ✕
+      </button>
     </div>
   )
 }

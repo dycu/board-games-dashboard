@@ -1,8 +1,8 @@
 import { Platform } from '../types'
 
-export type BacklogList = 'play' | 'learn' | 'solo'
+export type BacklogList = 'play' | 'learn' | 'solo' | 'favorite'
 
-export const BACKLOG_LISTS: BacklogList[] = ['play', 'learn', 'solo']
+export const BACKLOG_LISTS: BacklogList[] = ['play', 'learn', 'solo', 'favorite']
 
 export interface BacklogItem {
   id: string        // `${platform}:${normalized name}` — also the duplicate check
