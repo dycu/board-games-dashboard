@@ -77,7 +77,7 @@ export interface UserPrefs {
   sort: 'longest-wait' | 'most-recent' | 'platform' | 'game-name' | 'closest-to-end'
   filter: {
     turnStatus: 'all' | 'my-turn' | 'waiting'
-    platforms: Platform[]  // empty = show all
+    platforms: Platform[] | null  // empty/missing = show all; null = none selected (hidden)
   }
   disabledPlatforms: Platform[]  // skipped entirely during fetch
   eighteenxxSessionCookie?: string
@@ -103,7 +103,7 @@ export interface UserPrefs {
   summaryPeriod?: '7d' | '30d' | 'month' | 'all' | 'custom' // undefined/missing defaults to '7d'
   summaryCustomFrom?: string // YYYY-MM-DD; only meaningful when summaryPeriod is 'custom'
   summaryCustomTo?: string
-  historyPlatformFilter?: Platform[] // History page's own platform chips — empty/missing = show all, same convention as filter.platforms
+  historyPlatformFilter?: Platform[] | null // History page's own platform chips — same convention as filter.platforms: empty/missing = show all, null = none selected (hidden)
 }
 
 export const DEFAULT_BACKLOG_PLATFORMS: Platform[] = ['bga', 'yucata']

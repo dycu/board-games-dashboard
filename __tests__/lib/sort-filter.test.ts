@@ -62,6 +62,14 @@ describe('sortAndFilter', () => {
     expect(result[0].platform).toBe('yucata')
   })
 
+  it('hides every game when platforms is null (All deselected)', () => {
+    const result = sortAndFilter(
+      [myTurnOld, waiting],
+      prefs({ filter: { turnStatus: 'all', platforms: null } }),
+    )
+    expect(result).toHaveLength(0)
+  })
+
   it('sorts by most-recent when selected', () => {
     const result = sortAndFilter(
       [myTurnOld, myTurnNew],

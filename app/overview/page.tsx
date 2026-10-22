@@ -29,14 +29,14 @@ export default function OverviewPage() {
     ? (Object.keys(PLATFORM_LABELS) as Platform[]).filter(p => data.games.some(g => g.platform === p))
     : []
 
-  // Same "empty = all" convention prefs.filter.platforms uses on the Active
-  // tab, kept in its own field since History filters a different list
-  // (finished games, not active ones).
-  const platformFilter = prefs.historyPlatformFilter ?? []
-  const selectedPlatforms = platformFilter.length === 0 ? availablePlatforms : platformFilter
+  // Same "empty = all, null = none" convention prefs.filter.platforms uses on
+  // the Active tab, kept in its own field since History filters a different
+  // list (finished games, not active ones).
+  const platformFilter = prefs.historyPlatformFilter === undefined ? [] : prefs.historyPlatformFilter
+  const selectedPlatforms = platformFilter === null ? [] : platformFilter.length === 0 ? availablePlatforms : platformFilter
 
   const filtered = data
-    ? (platformFilter.length === 0 ? data.games : data.games.filter(g => platformFilter.includes(g.platform)))
+    ? (platformFilter === null ? [] : platformFilter.length === 0 ? data.games : data.games.filter(g => platformFilter.includes(g.platform)))
     : []
 
   // The same per-game details as Backlog's "From your games", running games included
@@ -51,7 +51,7 @@ export default function OverviewPage() {
   const hasMore = filtered.length > visibleCount
 
   const handlePlatformChange = (next: Platform[]) => {
-    const historyPlatformFilter = availablePlatforms.every(p => next.includes(p)) ? [] : next
+    const historyPlatformFilter = next.length === 0 ? null : availablePlatforms.every(p => next.includes(p)) ? [] : next
     updatePrefs({ ...prefs, historyPlatformFilter })
     fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ historyPlatformFilter }), headers: { 'Content-Type': 'application/json' } }).catch(() => {})
     setVisibleCount(PAGE_SIZE)
@@ -155,7 +155,7 @@ export default function OverviewPage() {
             ) : !isLoading && (
               <div className="text-center py-12 text-[#9b9b9b]">
                 No recently finished games found
-                {platformFilter.length === 1 && <span> on {PLATFORM_LABELS[platformFilter[0]]}</span>}
+                {platformFilter !== null && platformFilter.length === 1 && <span> on {PLATFORM_LABELS[platformFilter[0]]}</span>}
               </div>
             )}
             {hasMore && (

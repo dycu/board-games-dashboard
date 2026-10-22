@@ -35,7 +35,9 @@ export default function PlatformFilterChips({
   return (
     <div className={`flex items-center gap-1.5 overflow-x-auto py-1 [scrollbar-width:none] ${className ?? ''}`}>
       <button
-        onClick={() => onChange(platforms)}
+        onClick={() => onChange(allOn ? [] : platforms)}
+        aria-pressed={allOn}
+        title={allOn ? `Hide all` : `Show all`}
         className={`shrink-0 whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors
           ${allOn ? 'bg-[#1a1a1a] text-white' : 'bg-[#f3f3f3] text-[#6b6b6b] hover:bg-[#ebebeb]'}`}>
         {allLabel}{allCount !== undefined ? ` (${allCount})` : ''}

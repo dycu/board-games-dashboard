@@ -89,12 +89,12 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   // and the plain fetch('/api/prefs') on mount (app/page.tsx) overwrites it
   // back to the stale server copy on the very next load.
   //
-  // prefs.filter.platforms itself stores "empty = all" (lib/sort-filter.ts
+  // prefs.filter.platforms itself stores "empty = all, null = none" (lib/sort-filter.ts
   // reads it that way too); PlatformFilterChips wants the already-resolved
   // list instead, so this is where the two meet.
-  const selectedPlatforms = platformFilter.length === 0 ? configuredPlatforms : platformFilter
+  const selectedPlatforms = platformFilter === null ? [] : platformFilter.length === 0 ? configuredPlatforms : platformFilter
   const setSelectedPlatforms = (next: Platform[]) => {
-    const platforms = configuredPlatforms.every(p => next.includes(p)) ? [] : next
+    const platforms = next.length === 0 ? null : configuredPlatforms.every(p => next.includes(p)) ? [] : next
     const filter = { ...prefs.filter, platforms }
     onPrefsChange({ ...prefs, filter })
     fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ filter }), headers: { 'Content-Type': 'application/json' } }).catch(() => {})

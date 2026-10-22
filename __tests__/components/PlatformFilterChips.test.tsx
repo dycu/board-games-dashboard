@@ -25,6 +25,20 @@ describe('PlatformFilterChips', () => {
     expect(screen.getByRole('button', { name: /^All/ })).toHaveClass('bg-[#1a1a1a]')
   })
 
+  it('clicking "All" while already fully selected deselects everything', async () => {
+    const onChange = jest.fn()
+    render(<PlatformFilterChips platforms={PLATFORMS} selected={PLATFORMS} onChange={onChange} />)
+    await userEvent.click(screen.getByRole('button', { name: /^All/ }))
+    expect(onChange).toHaveBeenCalledWith([])
+  })
+
+  it('clicking "All" again with nothing selected re-selects everything', async () => {
+    const onChange = jest.fn()
+    render(<PlatformFilterChips platforms={PLATFORMS} selected={[]} onChange={onChange} />)
+    await userEvent.click(screen.getByRole('button', { name: /^All/ }))
+    expect(onChange).toHaveBeenCalledWith(PLATFORMS)
+  })
+
   it('building an arbitrary subset: toggling one platform on adds just that one', async () => {
     const onChange = jest.fn()
     render(<PlatformFilterChips platforms={PLATFORMS} selected={['bga']} onChange={onChange} />)

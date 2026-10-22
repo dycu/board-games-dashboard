@@ -21,6 +21,7 @@ export function sortAndFilter(games: Game[], prefs: UserPrefs, now = Date.now())
   const result = games.filter(g => {
     if (filter.turnStatus === 'my-turn' && !g.myTurn) return false
     if (filter.turnStatus === 'waiting' && g.myTurn) return false
+    if (filter.platforms === null) return false
     if (filter.platforms.length > 0 && !filter.platforms.includes(g.platform)) return false
     return true
   })

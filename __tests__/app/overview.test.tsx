@@ -101,4 +101,14 @@ describe('OverviewPage platform filter', () => {
     expect(shown('Maria')).toBe(true)
     expect(mockUpdatePrefs).toHaveBeenCalledWith(expect.objectContaining({ historyPlatformFilter: [] }))
   })
+
+  it('clicking "All" while already showing every platform hides everything', async () => {
+    render(<OverviewPage />)
+    await userEvent.click(screen.getByRole('button', { name: 'All (3)' }))
+
+    expect(shown('Pax')).toBe(false)
+    expect(shown('Navegador')).toBe(false)
+    expect(shown('Maria')).toBe(false)
+    expect(mockUpdatePrefs).toHaveBeenCalledWith(expect.objectContaining({ historyPlatformFilter: null }))
+  })
 })
