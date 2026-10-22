@@ -14,7 +14,7 @@ export default function NotePromptPopup({ game, note, onSave, onDelete, onDismis
   onDismiss: () => void
 }) {
   const [draft, setDraft] = useState(note ?? '')
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   // Resets the draft when the popup switches to a different game, and fills
   // in the note if it's still loading (useNotes) when the popup first opens
@@ -50,15 +50,16 @@ export default function NotePromptPopup({ game, note, onSave, onDelete, onDismis
       >
         <h2 id="note-prompt-title" className="text-sm font-semibold text-[#1a1a1a] mb-1">{game.gameName}</h2>
         <p className="text-xs text-[#9b9b9b] mb-3">Plan for next round?</p>
-        <input
+        <textarea
           ref={inputRef}
           value={draft}
           maxLength={300}
+          rows={3}
           onChange={e => setDraft(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') save() }}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save() } }}
           placeholder="Note for this game…"
           aria-label={`Note for ${game.gameName}`}
-          className="w-full text-sm bg-white text-[#1a1a1a] px-2.5 py-1.5 rounded border border-[#5e6ad2] mb-3"
+          className="w-full text-sm bg-white text-[#1a1a1a] px-2.5 py-1.5 rounded border border-[#5e6ad2] mb-3 resize-none"
         />
         <div className="flex items-center justify-between gap-2">
           {note ? (

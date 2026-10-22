@@ -40,6 +40,16 @@ describe('NotePromptPopup', () => {
     expect(onSave).toHaveBeenCalledWith('go for trains')
   })
 
+  it('is a multi-line textarea, with Shift+Enter inserting a newline instead of saving', async () => {
+    const onSave = jest.fn()
+    render(<NotePromptPopup {...props({ onSave })} />)
+    const textarea = screen.getByRole('textbox')
+    expect(textarea.tagName).toBe('TEXTAREA')
+    await userEvent.type(textarea, 'go for trains{Shift>}{Enter}{/Shift}then castles')
+    expect(onSave).not.toHaveBeenCalled()
+    expect(textarea).toHaveValue('go for trains\nthen castles')
+  })
+
   it('saves via the Save button without requiring Enter', async () => {
     const onSave = jest.fn()
     render(<NotePromptPopup {...props({ onSave })} />)
