@@ -251,8 +251,17 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
             the reason in its comment. The platform filter and sort apply to
             every section below (Your turn, Waiting), so keeping this
             reachable without scrolling back up is the point of making it
-            sticky at all. */}
-        <div className="sticky top-0 z-10 bg-[#f7f7f7] -mx-5 px-5 pt-5 pb-2 mb-1 flex flex-wrap items-center gap-3 border-b border-[#e5e5e5]">
+            sticky at all.
+
+            z-30, not z-10: GameCard's own buttons (pin/sink/watch/note/...)
+            are `relative z-10` to clear CoverLink *within their own card*,
+            but the card itself has no z-index of its own, so those z-10
+            buttons don't get a separate stacking context — they tie this
+            bar's z-index and, on a tie, paint order falls back to DOM order,
+            which favors the (later) card. On narrow screens, where this bar
+            wraps to two lines and so covers more of a scrolled-past card,
+            that let a card's icon row poke through the sticky bar on top. */}
+        <div className="sticky top-0 z-30 bg-[#f7f7f7] -mx-5 px-5 pt-5 pb-2 mb-1 flex flex-wrap items-center gap-3 border-b border-[#e5e5e5]">
           {/* Wide enough: the chips scroll sideways rather than push the sort
               controls down. Too narrow for both (phone widths): the min-width
               floor forces the sort controls to wrap to their own line below
