@@ -10,7 +10,9 @@ import { BacklogItem, backlogId, listsOf } from '@/lib/backlog/list'
 import FilterToolbar from './FilterToolbar'
 import PlatformFilterChips from './PlatformFilterChips'
 import TopNav from './TopNav'
+import ReadNotePopup from './ReadNotePopup'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
+import { useNoteConfirmedOpen } from '@/hooks/useNoteConfirmedOpen'
 import { storeOpenedNow } from '@/lib/dismissal'
 
 interface Props {
@@ -134,6 +136,18 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
 
   // "Next" opens the first game of "Your turn" (most urgent, then the chosen sort)
   const next = myTurnGames[0]
+  // Marking it opened re-renders this link with the following game's URL;
+  // doing that synchronously would make the browser follow the new URL, so
+  // the state update waits until the click has been handled. Storage is
+  // written now: a BGA game opens in this tab and the page may unload
+  // before the timeout runs.
+  const openNext = () => {
+    if (!next) return
+    const id = next.id
+    markOpenedInStorage(id)
+    setTimeout(() => openGame(id), 0)
+  }
+  const nextNoteConfirm = useNoteConfirmedOpen(next, next ? openTarget(next) : '_blank', next ? notes[next.id] : undefined, openNext)
 
   // With few games going, suggest the top of "Next to play" that isn't already running
   const backlog = useBacklog()
@@ -328,18 +342,16 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                   href={next.gameUrl}
                   target={openTarget(next)}
                   rel="noopener noreferrer"
-                  // Marking it opened re-renders this link with the following
-                  // game's URL; doing that synchronously would make the browser
-                  // follow the new URL, so the state update waits until the click
-                  // has been handled. Storage is written now: a BGA game opens in
-                  // this tab and the page may unload before the timeout runs.
-                  onClick={() => { const id = next.id; markOpenedInStorage(id); setTimeout(() => openGame(id), 0) }}
-                  onAuxClick={() => { const id = next.id; markOpenedInStorage(id); setTimeout(() => openGame(id), 0) }}
+                  onClick={nextNoteConfirm.onClick}
+                  onAuxClick={nextNoteConfirm.onAuxClick}
                   title={`Open ${next.gameName}`}
                   className="min-w-0 max-w-[70%] flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]">
                   <span className="truncate">Next: {next.gameName}</span>
                   <span className="shrink-0">▶</span>
                 </a>
+              )}
+              {nextNoteConfirm.pendingTarget && next && notes[next.id] && (
+                <ReadNotePopup gameName={next.gameName} note={notes[next.id]} onConfirm={nextNoteConfirm.confirm} onCancel={nextNoteConfirm.cancel} />
               )}
               {myTurnGames.length === 0 && (
                 // Where Next would be, the same size

@@ -335,4 +335,18 @@ describe('GameGrid Next link', () => {
     expect(hrefAtClick).toBe('https://example.com/game/1')
     expect(await screen.findByRole('link', { name: /Next: Second/ })).toBeInTheDocument()
   })
+
+  it('holds off opening when the next game has a note, and opens it once confirmed', async () => {
+    jest.spyOn(window, 'open').mockImplementation(() => null)
+    const data: GamesApiResponse = { games: [makeGame('bga', '1')], errors: [], fetchedAt: '' }
+    render(<GameGrid {...defaultGridProps} notes={{ 'bga:1': 'go for trains' }} data={data} />)
+    const link = screen.getByRole('link', { name: /Next:/ })
+    link.addEventListener('click', e => e.preventDefault())
+    await userEvent.click(link)
+    expect(screen.getByRole('dialog')).toHaveTextContent('go for trains')
+
+    await userEvent.click(screen.getByRole('button', { name: /play/i }))
+    expect(window.open).toHaveBeenCalledWith('https://example.com/game/1', '_self', 'noopener,noreferrer')
+    jest.restoreAllMocks()
+  })
 })

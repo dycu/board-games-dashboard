@@ -4,8 +4,10 @@ import { Game, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { formatTimeRemaining } from '@/lib/connectors/utils'
 import { deadlineSoon } from '@/lib/sort-filter'
+import { useNoteConfirmedOpen } from '@/hooks/useNoteConfirmedOpen'
 import HistoryLink from './HistoryLink'
 import ProgressBar from './ProgressBar'
+import ReadNotePopup from './ReadNotePopup'
 
 export interface GameItemProps {
   game: Game
@@ -38,18 +40,25 @@ export function isOpponentSlow(game: Game, opponentSlowDays: number, now: number
 
 // The whole card/row is the link: an invisible layer over it, with the
 // buttons raised above it so they stay clickable
-function CoverLink({ game, onOpen }: { game: Game; onOpen: () => void }) {
+function CoverLink({ game, onOpen, note }: { game: Game; onOpen: () => void; note?: string }) {
+  const target = openTarget(game)
+  const { onClick, onAuxClick, pendingTarget, confirm, cancel } = useNoteConfirmedOpen(game, target, note, onOpen)
   return (
-    <a
-      href={game.gameUrl}
-      target={openTarget(game)}
-      rel="noopener noreferrer"
-      aria-label={`Open ${game.gameName}`}
-      onClick={onOpen}
-      onAuxClick={onOpen}
-      onContextMenu={onOpen}
-      className="absolute inset-0 rounded-[inherit] focus-visible:outline-2 focus-visible:outline-[#5e6ad2]"
-    />
+    <>
+      <a
+        href={game.gameUrl}
+        target={target}
+        rel="noopener noreferrer"
+        aria-label={`Open ${game.gameName}`}
+        onClick={onClick}
+        onAuxClick={onAuxClick}
+        onContextMenu={onOpen}
+        className="absolute inset-0 rounded-[inherit] focus-visible:outline-2 focus-visible:outline-[#5e6ad2]"
+      />
+      {pendingTarget && note && (
+        <ReadNotePopup gameName={game.gameName} note={note} onConfirm={confirm} onCancel={cancel} />
+      )}
+    </>
   )
 }
 
@@ -183,7 +192,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
   return (
     <div className={`relative rounded-lg border p-3.5 flex flex-col gap-2 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] bg-white hover:border-[#c5c9f0]
       ${opened ? 'opacity-55 hover:opacity-100 border-[#e5e5e5]' : soon !== null ? 'border-[#e5e5e5] border-l-[3px] border-l-red-500' : 'border-[#e5e5e5] border-l-[3px] border-l-[#5e6ad2]'}`}>
-      <CoverLink game={game} onOpen={onOpen} />
+      <CoverLink game={game} onOpen={onOpen} note={note} />
       <div className="flex items-center justify-between gap-2">
         <Badge game={game} />
         <div className="flex items-center gap-2">
@@ -225,7 +234,7 @@ export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched
   return (
     <div className={`relative flex items-center gap-2 px-3 py-2 rounded-md border bg-white hover:border-[#c5c9f0] transition-colors
       ${slow ? 'border-amber-200 bg-amber-50/40' : 'border-[#ececec]'} ${opened ? 'opacity-55 hover:opacity-100' : ''}`}>
-      <CoverLink game={game} onOpen={onOpen} />
+      <CoverLink game={game} onOpen={onOpen} note={note} />
       <Badge game={game} small />
       <div className="min-w-0 flex-1 flex items-baseline gap-2">
         <span className="text-sm text-[#1a1a1a] truncate">{game.gameName}</span>
