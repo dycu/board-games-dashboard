@@ -1,8 +1,24 @@
 'use client'
 import { useState } from 'react'
-import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
+import { PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import TopNav from '@/components/TopNav'
+
+// Catalog-only platforms (search support, no live game tracking) aren't part
+// of lib/types.ts's Platform union, so this page can't rely on PLATFORM_LABELS/
+// PLATFORM_SHORT_LABELS having an entry for every result — these cover the gap.
+const EXTRA_PLATFORM_LABELS: Record<string, string> = {
+  boardtogether: 'BoardTogether',
+  tabletapas: 'TableTapas',
+  boardgamers: 'Boardgamers.space',
+}
+const EXTRA_PLATFORM_SHORT_LABELS: Record<string, string> = {
+  boardtogether: 'B2gthr',
+  tabletapas: 'TblTapas',
+  boardgamers: 'BG.space',
+}
+const platformLabel = (p: string) => PLATFORM_LABELS[p as keyof typeof PLATFORM_LABELS] ?? EXTRA_PLATFORM_LABELS[p] ?? p
+const platformShortLabel = (p: string) => PLATFORM_SHORT_LABELS[p as keyof typeof PLATFORM_SHORT_LABELS] ?? EXTRA_PLATFORM_SHORT_LABELS[p] ?? p
 
 interface GameMatch {
   name: string
@@ -10,13 +26,13 @@ interface GameMatch {
 }
 
 interface PlatformResult {
-  platform: Platform
+  platform: string
   matches: GameMatch[]
 }
 
 interface SearchApiResponse {
   results: PlatformResult[]
-  errors: { platform: Platform; error: string }[]
+  errors: { platform: string; error: string }[]
 }
 
 export default function SearchPage() {
@@ -44,7 +60,7 @@ export default function SearchPage() {
         <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
           <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">Find a game</h2>
           <p className="text-xs text-[#9b9b9b] mb-3">
-            Search BGA, Yucata, Rally the Troops, 18xx.games and choochoo.games at once to see where a game is available.
+            Search BGA, Yucata, Rally the Troops, 18xx.games, choochoo.games, BoardTogether, TableTapas and Boardgamers.space at once to see where a game is available.
           </p>
           <div className="flex gap-2">
             <input
@@ -72,13 +88,13 @@ export default function SearchPage() {
               return (
                 <div key={r.platform} className="bg-white rounded-xl border border-[#e5e5e5] p-5">
                   <div className="flex items-center justify-between mb-2">
-                    <span title={PLATFORM_LABELS[r.platform]} className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[r.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
-                      {PLATFORM_SHORT_LABELS[r.platform]}
+                    <span title={platformLabel(r.platform)} className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[r.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
+                      {platformShortLabel(r.platform)}
                     </span>
                   </div>
                   {err ? (
                     <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-md">
-                      ⚠ {PLATFORM_LABELS[r.platform]} unavailable
+                      ⚠ {platformLabel(r.platform)} unavailable
                     </span>
                   ) : r.matches.length === 0 ? (
                     <p className="text-xs text-[#9b9b9b]">No match found</p>

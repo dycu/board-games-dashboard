@@ -5,10 +5,13 @@ import { fetchYucataCatalog } from './yucata'
 import { fetchRallyCatalog } from './rally'
 import { fetchEighteenxxCatalog } from './eighteenxx'
 import { fetchChoochooCatalog } from './choochoo'
+import { fetchBoardTogetherCatalog } from './boardtogether'
+import { fetchTabletapasCatalog } from './tabletapas'
+import { fetchBoardgamersCatalog } from './boardgamers'
 
-export type CatalogPlatform = 'bga' | 'yucata' | 'rally' | 'eighteenxx' | 'choochoo'
+export type CatalogPlatform = 'bga' | 'yucata' | 'rally' | 'eighteenxx' | 'choochoo' | 'boardtogether' | 'tabletapas' | 'boardgamers'
 
-export const CATALOG_PLATFORMS: CatalogPlatform[] = ['bga', 'yucata', 'rally', 'eighteenxx', 'choochoo']
+export const CATALOG_PLATFORMS: CatalogPlatform[] = ['bga', 'yucata', 'rally', 'eighteenxx', 'choochoo', 'boardtogether', 'tabletapas', 'boardgamers']
 
 const TTL_SECONDS = 86400
 
@@ -24,6 +27,9 @@ const FETCHERS: Record<CatalogPlatform, () => Promise<CatalogEntry[]>> = {
   rally: fetchRallyCatalog,
   eighteenxx: fetchEighteenxxCatalog,
   choochoo: fetchChoochooCatalog,
+  boardtogether: fetchBoardTogetherCatalog,
+  tabletapas: fetchTabletapasCatalog,
+  boardgamers: fetchBoardgamersCatalog,
 }
 
 function cacheKey(platform: CatalogPlatform): string {

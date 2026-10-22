@@ -7,4 +7,7 @@ export const BADGE_COLORS: Record<string, string> = {
   hansa: 'bg-purple-100 text-purple-700',
   rally: 'bg-sky-100 text-sky-700',
   oldkingscrown: 'bg-rose-100 text-rose-700',
+  boardtogether: 'bg-teal-100 text-teal-700',
+  tabletapas: 'bg-fuchsia-100 text-fuchsia-700',
+  boardgamers: 'bg-lime-100 text-lime-700',
 }
