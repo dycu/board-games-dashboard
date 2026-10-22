@@ -10,12 +10,10 @@ import TopNav from '@/components/TopNav'
 const EXTRA_PLATFORM_LABELS: Record<string, string> = {
   boardtogether: 'BoardTogether',
   tabletapas: 'TableTapas',
-  boardgamers: 'Boardgamers.space',
 }
 const EXTRA_PLATFORM_SHORT_LABELS: Record<string, string> = {
   boardtogether: 'B2gthr',
   tabletapas: 'TblTapas',
-  boardgamers: 'BG.space',
 }
 const platformLabel = (p: string) => PLATFORM_LABELS[p as keyof typeof PLATFORM_LABELS] ?? EXTRA_PLATFORM_LABELS[p] ?? p
 const platformShortLabel = (p: string) => PLATFORM_SHORT_LABELS[p as keyof typeof PLATFORM_SHORT_LABELS] ?? EXTRA_PLATFORM_SHORT_LABELS[p] ?? p

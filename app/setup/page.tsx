@@ -5,7 +5,7 @@ import { CheckResult } from '@/lib/newGames/check'
 import TopNav from '@/components/TopNav'
 import PlatformFilterChips from '@/components/PlatformFilterChips'
 
-const PLATFORMS: Platform[] = ['bga', 'eighteenxx', 'obg', 'yucata', 'choochoo', 'hansa', 'rally', 'oldkingscrown']
+const PLATFORMS: Platform[] = ['bga', 'eighteenxx', 'obg', 'yucata', 'choochoo', 'hansa', 'rally', 'oldkingscrown', 'boardgamers']
 
 type Status = 'idle' | 'testing' | 'ok' | 'error'
 

@@ -10,11 +10,12 @@ jest.mock('../yucata')
 jest.mock('../hansa')
 jest.mock('../rally')
 jest.mock('../oldkingscrown')
+jest.mock('../boardgamers')
 
-const ALL = ['bga', 'eighteenxx', 'obg', 'yucata', 'choochoo', 'hansa', 'rally', 'oldkingscrown']
+const ALL = ['bga', 'eighteenxx', 'obg', 'yucata', 'choochoo', 'hansa', 'rally', 'oldkingscrown', 'boardgamers']
 
 describe('makeConnectors', () => {
-  it('has a fetcher for all 8 platforms', () => {
+  it('has a fetcher for all 9 platforms', () => {
     expect(Object.keys(makeConnectors()).sort()).toEqual([...ALL].sort())
   })
 
@@ -29,6 +30,8 @@ describe('hasCreds', () => {
     delete process.env.RALLY_USERNAME
     delete process.env.RALLY_PASSWORD
     delete process.env.HANSA_USER_ID
+    delete process.env.BOARDGAMERS_USERNAME
+    delete process.env.BOARDGAMERS_PASSWORD
   })
 
   it('needs both username and password', () => {
@@ -36,6 +39,13 @@ describe('hasCreds', () => {
     expect(hasCreds('rally')).toBe(false)
     process.env.RALLY_PASSWORD = 'p'
     expect(hasCreds('rally')).toBe(true)
+  })
+
+  it('needs both username and password for boardgamers too (the generic prefix convention)', () => {
+    process.env.BOARDGAMERS_USERNAME = 'u'
+    expect(hasCreds('boardgamers')).toBe(false)
+    process.env.BOARDGAMERS_PASSWORD = 'p'
+    expect(hasCreds('boardgamers')).toBe(true)
   })
 
   it('needs only a user id for Hansa and nothing for The Old King\'s Crown', () => {

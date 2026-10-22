@@ -9,6 +9,7 @@ import { fetchYucata, fetchFinishedYucata } from './yucata'
 import { fetchHansa, fetchFinishedHansa } from './hansa'
 import { fetchRally, fetchFinishedRally } from './rally'
 import { fetchOldKingsCrown } from './oldkingscrown'
+import { fetchBoardgamers, fetchFinishedBoardgamers } from './boardgamers'
 import { savePrefs } from '../prefs'
 
 function env(key: string): string {
@@ -42,6 +43,7 @@ export function makeConnectors(prefs: Pick<UserPrefs, 'eighteenxxSessionCookie' 
     hansa: () => fetchHansa(env('HANSA_USER_ID')),
     rally: () => fetchRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
     oldkingscrown: () => fetchOldKingsCrown(env('OLDKINGSCROWN_NICKNAME') || 'Dycu'),
+    boardgamers: () => fetchBoardgamers(env('BOARDGAMERS_USERNAME'), env('BOARDGAMERS_PASSWORD')),
   }
 }
 
@@ -54,6 +56,7 @@ export function makeFinishedConnectors(prefs: Pick<UserPrefs, 'eighteenxxSession
     hansa: () => fetchFinishedHansa(env('HANSA_USER_ID')),
     yucata: () => fetchFinishedYucata(env('YUCATA_USERNAME'), env('YUCATA_PASSWORD')),
     choochoo: () => viaProxy('/api/choochoo-finished'),
+    boardgamers: () => fetchFinishedBoardgamers(env('BOARDGAMERS_USERNAME'), env('BOARDGAMERS_PASSWORD')),
   }
 }
 
