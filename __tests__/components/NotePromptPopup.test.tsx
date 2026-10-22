@@ -84,6 +84,12 @@ describe('NotePromptPopup', () => {
     expect(onDismiss).not.toHaveBeenCalled()
   })
 
+  it('keeps the input focused after deleting, so a replacement can be typed right away', async () => {
+    render(<NotePromptPopup {...props({ note: 'take the north pass' })} />)
+    await userEvent.click(screen.getByRole('button', { name: /delete the note/i }))
+    expect(screen.getByRole('textbox')).toHaveFocus()
+  })
+
   it('offers no delete button when there is no existing note to delete', () => {
     render(<NotePromptPopup {...props()} />)
     expect(screen.queryByRole('button', { name: /delete the note/i })).toBeNull()

@@ -31,8 +31,10 @@ export default function NotePromptPopup({ game, note, onSave, onDelete, onDismis
   const save = () => onSave(draft)
   // Just clears the saved note, without also closing the popup the way
   // Skip/Save do — deleting an old plan is a reason to write a fresh one,
-  // not to walk away from the prompt entirely.
-  const remove = () => { onDelete(); setDraft('') }
+  // not to walk away from the prompt entirely. Keeps the input focused (see
+  // the delete button's onMouseDown below) so a replacement can be typed
+  // right away, without the on-screen keyboard closing and reopening.
+  const remove = () => { onDelete(); setDraft(''); inputRef.current?.focus() }
 
   // Top-aligned rather than centered: on a tablet in landscape, the
   // on-screen keyboard eats the bottom half of the viewport, and a
@@ -62,6 +64,7 @@ export default function NotePromptPopup({ game, note, onSave, onDelete, onDismis
           {note ? (
             <button
               onClick={remove}
+              onMouseDown={e => e.preventDefault()}
               aria-label={`Delete the note on ${game.gameName}`}
               title="Delete note"
               className="text-xs text-[#c5c5c5] hover:text-red-500">
