@@ -6,12 +6,11 @@ import { Game } from '@/lib/types'
 // move landed (see lib/dismissal.ts's nextNotePrompt) — the moment the plan
 // for next round is still fresh, and the one moment that's reliably true
 // regardless of whether the game opened in this tab or a new one.
-export default function NotePromptPopup({ game, note, onSave, onDelete, onDismiss }: {
+export default function NotePromptPopup({ game, note, onSave, onDelete }: {
   game: Game
   note?: string
   onSave: (text: string) => void
   onDelete: () => void
-  onDismiss: () => void
 }) {
   const [draft, setDraft] = useState(note ?? '')
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -22,16 +21,21 @@ export default function NotePromptPopup({ game, note, onSave, onDelete, onDismis
   useEffect(() => { setDraft(note ?? '') }, [note, game.id])
   useEffect(() => { inputRef.current?.focus() }, [game.id])
 
+  // Every way of closing (Escape, clicking outside, the Save button) saves
+  // whatever's in the field — there's no separate "discard my edit" path,
+  // since that scenario doesn't come up in practice.
+  const save = () => onSave(draft)
+  const saveRef = useRef(save)
+  useEffect(() => { saveRef.current = save })
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onDismiss() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') saveRef.current() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onDismiss])
-
-  const save = () => onSave(draft)
+  }, [])
   // Just clears the saved note, without also closing the popup the way
-  // Skip/Save do — deleting an old plan is a reason to write a fresh one,
-  // not to walk away from the prompt entirely. Keeps the input focused (see
+  // Save does — deleting an old plan is a reason to write a fresh one, not
+  // to walk away from the prompt entirely. Keeps the input focused (see
   // the delete button's onMouseDown below) so a replacement can be typed
   // right away, without the on-screen keyboard closing and reopening.
   const remove = () => { onDelete(); setDraft(''); inputRef.current?.focus() }
@@ -40,7 +44,7 @@ export default function NotePromptPopup({ game, note, onSave, onDelete, onDismis
   // on-screen keyboard eats the bottom half of the viewport, and a
   // vertically centered dialog ends up right behind it.
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 px-4 pt-16 sm:pt-24" onClick={onDismiss}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 px-4 pt-16 sm:pt-24" onClick={save}>
       <div
         role="dialog"
         aria-modal="true"
@@ -72,14 +76,9 @@ export default function NotePromptPopup({ game, note, onSave, onDelete, onDismis
               ✕
             </button>
           ) : <span />}
-          <div className="flex gap-2">
-            <button onClick={onDismiss} className="text-xs font-medium px-3 py-1.5 rounded-md text-[#6b6b6b] hover:bg-[#f3f3f3]">
-              Skip
-            </button>
-            <button onClick={save} className="text-xs font-medium px-3 py-1.5 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5bc4]">
-              Save
-            </button>
-          </div>
+          <button onClick={save} className="text-xs font-medium px-3 py-1.5 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5bc4]">
+            Save
+          </button>
         </div>
       </div>
     </div>

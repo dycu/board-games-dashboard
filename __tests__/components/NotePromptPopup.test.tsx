@@ -17,7 +17,7 @@ const game: Game = {
 }
 
 const props = (over: Partial<Parameters<typeof NotePromptPopup>[0]> = {}) =>
-  ({ game, onSave: () => {}, onDelete: () => {}, onDismiss: () => {}, ...over })
+  ({ game, onSave: () => {}, onDelete: () => {}, ...over })
 
 describe('NotePromptPopup', () => {
   it('shows the game name and an empty, focused input when there is no existing note', () => {
@@ -58,24 +58,26 @@ describe('NotePromptPopup', () => {
     expect(onSave).toHaveBeenCalledWith('go for trains')
   })
 
-  it('dismisses without saving on Skip, on Escape, and on a backdrop click', async () => {
-    const onDismiss = jest.fn()
-    const { unmount } = render(<NotePromptPopup {...props({ onDismiss })} />)
-    await userEvent.click(screen.getByRole('button', { name: /skip/i }))
-    expect(onDismiss).toHaveBeenCalledTimes(1)
+  it('saves whatever is in the field on Escape and on a backdrop click', async () => {
+    const onSave = jest.fn()
+    const { unmount } = render(<NotePromptPopup {...props({ onSave })} />)
+    await userEvent.type(screen.getByRole('textbox'), 'go for trains')
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onSave).toHaveBeenCalledWith('go for trains')
     unmount()
 
-    const onDismiss2 = jest.fn()
-    render(<NotePromptPopup {...props({ onDismiss: onDismiss2 })} />)
-    fireEvent.keyDown(window, { key: 'Escape' })
-    expect(onDismiss2).toHaveBeenCalledTimes(1)
+    const onSave2 = jest.fn()
+    render(<NotePromptPopup {...props({ onSave: onSave2 })} />)
+    await userEvent.type(screen.getByRole('textbox'), 'go for trains')
+    await userEvent.click(screen.getByRole('dialog').parentElement!)
+    expect(onSave2).toHaveBeenCalledWith('go for trains')
   })
 
-  it('does not close when clicking inside the dialog itself', async () => {
-    const onDismiss = jest.fn()
-    render(<NotePromptPopup {...props({ onDismiss })} />)
+  it('does not save or close when clicking inside the dialog itself', async () => {
+    const onSave = jest.fn()
+    render(<NotePromptPopup {...props({ onSave })} />)
     await userEvent.click(screen.getByRole('dialog'))
-    expect(onDismiss).not.toHaveBeenCalled()
+    expect(onSave).not.toHaveBeenCalled()
   })
 
   it('deletes the existing note with its own button, without requiring the text to be cleared first', async () => {
@@ -85,13 +87,13 @@ describe('NotePromptPopup', () => {
     expect(onDelete).toHaveBeenCalledTimes(1)
   })
 
-  it('clears the input on delete, but does not close the popup — unlike Skip/Save', async () => {
-    const onDismiss = jest.fn()
-    render(<NotePromptPopup {...props({ note: 'take the north pass', onDismiss })} />)
+  it('clears the input on delete, but does not close the popup — unlike Save', async () => {
+    const onSave = jest.fn()
+    render(<NotePromptPopup {...props({ note: 'take the north pass', onSave })} />)
     await userEvent.click(screen.getByRole('button', { name: /delete the note/i }))
     expect(screen.getByRole('textbox')).toHaveValue('')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(onDismiss).not.toHaveBeenCalled()
+    expect(onSave).not.toHaveBeenCalled()
   })
 
   it('keeps the input focused after deleting, so a replacement can be typed right away', async () => {
