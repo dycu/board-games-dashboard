@@ -91,6 +91,9 @@ export async function GET(request?: Request) {
             if (platform === 'rally') games = await attachRallyProgress(games)
             if (platform === 'eighteenxx') games = await attachEighteenxxProgress(games)
             if (platform === 'obg') games = await attachFirstSeenProgress('obg', games)
+            if (platform === 'yucata') games = await attachFirstSeenProgress('yucata', games)
+            if (platform === 'boardgamers') games = await attachFirstSeenProgress('boardgamers', games)
+            if (platform === 'choochoo') games = await attachFirstSeenProgress('choochoo', games)
             checkGames(platform, games)
             counts[platform] = games.length
             send({ type: 'platform', platform, games, error: null })

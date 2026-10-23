@@ -7,6 +7,16 @@ import { getRallyGames } from '@/lib/rallyPace/store'
 import { getEighteenxxPaceGames } from '@/lib/eighteenxxPace/store'
 import { listActiveEighteenxxGameEtas } from '@/lib/eighteenxxPace/progress'
 import { listActiveHansaGameEtas } from '@/lib/connectors/hansa'
+import { getTracked, getSamples } from '@/lib/firstSeenPace/store'
+import { listTrackedFirstSeenGameEtas } from '@/lib/firstSeenPace/progress'
+import { Platform } from '@/lib/types'
+
+// Platforms with no start-time or turn-count signal of their own at all —
+// tracked by timing games ourselves instead (lib/firstSeenPace). Weaker
+// than every other tracker here (see that module's own comments), which is
+// why the UI calls these out separately rather than presenting them with
+// the same confidence as a real site-reported number.
+const FIRST_SEEN_PLATFORMS: Platform[] = ['obg', 'yucata', 'boardgamers', 'choochoo']
 
 export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
@@ -35,10 +45,16 @@ export async function GET(request?: Request) {
     // a quick way to tell "no bar because no data yet" apart from "something's
     // wrong", without reaching for a one-off debug route each time. Also
     // doubles as the source for each platform's own active-game ETAs below.
-    const [rallyGames, eighteenxxGames, hansaEtas] = await Promise.all([
+    const [rallyGames, eighteenxxGames, hansaEtas, firstSeen] = await Promise.all([
       getRallyGames().catch(() => ({})),
       getEighteenxxPaceGames().catch(() => ({})),
       listActiveHansaGameEtas(process.env.HANSA_USER_ID ?? '').catch(() => []),
+      Promise.all(FIRST_SEEN_PLATFORMS.map(async platform => ({
+        platform,
+        etas: await listTrackedFirstSeenGameEtas(platform),
+        tracked: await getTracked(platform).catch(() => ({})),
+        samples: await getSamples(platform).catch(() => ({})),
+      }))),
     ])
     const rally = Object.values(rallyGames)
     const eighteenxx = Object.values(eighteenxxGames)
@@ -47,11 +63,15 @@ export async function GET(request?: Request) {
     // no accessible game-start timestamp (lib/rallyPace/progress.ts), so it
     // can't project a finish time and stays out of this chart. Each table id
     // is only unique within its own platform's tracker, so it's prefixed
-    // here the same way Game.id/FinishedGame.id already are elsewhere.
+    // here the same way Game.id/FinishedGame.id already are elsewhere — the
+    // firstSeenPace entries are the one exception, already carrying the full
+    // "platform:id" form since that's how Game.id (what they're tracked by)
+    // looks to begin with.
     const activeEtas = [
       ...listActiveGameEtas(tableMap).map(g => ({ ...g, id: `bga:${g.id}`, platform: 'bga' as const })),
       ...listActiveEighteenxxGameEtas(eighteenxxGames).map(g => ({ ...g, id: `eighteenxx:${g.id}`, platform: 'eighteenxx' as const })),
       ...hansaEtas.map(g => ({ ...g, id: `hansa:${g.id}`, platform: 'hansa' as const })),
+      ...firstSeen.flatMap(({ platform, etas }) => etas.map(g => ({ ...g, platform, selfTimed: true as const }))),
     ].sort((a, b) => (a.etaSeconds ?? Infinity) - (b.etaSeconds ?? Infinity))
 
     // Only BGA's `game` is a slug needing this cache — 18xx/Hansa entries are
@@ -68,6 +88,13 @@ export async function GET(request?: Request) {
       rally: { tracked: rally.length, finishedWithSample: rally.filter(g => g.end !== null && (g.turn ?? 0) > 0).length },
       eighteenxx: { tracked: eighteenxx.length, finishedWithSample: eighteenxx.filter(g => g.end !== null && (g.actionCount ?? 0) > 0).length },
       hansa: null, // no stored tracker — the median is recomputed live from the public API on every request
+      // "Tracked" here means currently-active + every duration sample ever
+      // collected (there's no per-game record once a game becomes a sample,
+      // just the rolling duration list — see lib/firstSeenPace/store.ts)
+      ...Object.fromEntries(firstSeen.map(({ platform, tracked, samples }) => {
+        const finishedWithSample = Object.values(samples).reduce((n, arr) => n + arr.length, 0)
+        return [platform, { tracked: Object.keys(tracked).length + finishedWithSample, finishedWithSample }]
+      })),
     }
 
     return Response.json({

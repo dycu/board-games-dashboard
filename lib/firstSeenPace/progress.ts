@@ -93,6 +93,30 @@ export async function listActiveFirstSeenGameEtas(platform: Platform, games: Gam
   }
 }
 
+// Read-only counterpart of listActiveFirstSeenGameEtas, for callers with no
+// live games list to reconcile against (the Pace page's own API route,
+// which only ever reads stored trackers — same as it does for BGA/Rally/
+// 18xx). Reconciliation already happens wherever this platform's games are
+// actually fetched (attachFirstSeenProgress, called from /api/games); this
+// just reports whatever that last left behind, with no KV writes of its own.
+export async function listTrackedFirstSeenGameEtas(platform: Platform): Promise<FirstSeenActiveGameEta[]> {
+  try {
+    const [tracked, samples] = await Promise.all([getTracked(platform), getSamples(platform)])
+    const now = Math.floor(Date.now() / 1000)
+
+    return Object.entries(tracked)
+      .map(([id, entry]) => ({ id, entry, progress: estimate(entry, samples, now) }))
+      .filter((x): x is { id: string; entry: FirstSeenEntry; progress: NonNullable<Game['progress']> } => !!x.progress)
+      .map(({ id, entry, progress }) => ({
+        id, game: entry.typeId, percent: progress.percent,
+        sampleCount: progress.sampleCount, timeBased: progress.timeBased, etaSeconds: progress.etaSeconds,
+      }))
+      .sort((a, b) => (a.etaSeconds ?? Infinity) - (b.etaSeconds ?? Infinity))
+  } catch {
+    return []
+  }
+}
+
 // Attaches `progress` to every game of this platform in a live list, and
 // does the tracking reconciliation (see reconcile() above) as a side effect
 // — this is the one call site that needs to run on every fetch for the

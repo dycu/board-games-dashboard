@@ -1,7 +1,7 @@
 jest.mock('@vercel/kv', () => ({ kv: { hgetall: jest.fn(), hset: jest.fn(), hdel: jest.fn(), get: jest.fn(), set: jest.fn() } }))
 
 import { kv } from '@vercel/kv'
-import { attachFirstSeenProgress, listActiveFirstSeenGameEtas } from '../progress'
+import { attachFirstSeenProgress, listActiveFirstSeenGameEtas, listTrackedFirstSeenGameEtas } from '../progress'
 import { Game } from '../../types'
 
 const tracked = new Map<string, Record<string, unknown>>()
@@ -16,6 +16,7 @@ function game(id: string, gameType: string, overrides: Partial<Game> = {}): Game
 }
 
 beforeEach(() => {
+  jest.clearAllMocks()
   tracked.clear()
   samples.clear()
   jest.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000)
@@ -102,5 +103,25 @@ describe('listActiveFirstSeenGameEtas', () => {
       game('obg:1', 'Indonesia'), game('obg:2', 'Indonesia'), game('obg:3', 'NoSampleGame'),
     ])
     expect(result.map(r => r.id)).toEqual(['obg:1', 'obg:2'])
+  })
+})
+
+describe('listTrackedFirstSeenGameEtas', () => {
+  it('reads straight from storage, without reconciling (no writes)', async () => {
+    tracked.set('firstseenpace:v1:obg:tracked', {
+      'obg:1': { typeId: 'Indonesia', firstSeenAt: 1_700_000_000 - 9000 },
+    })
+    samples.set('firstseenpace:v1:obg:samples', { Indonesia: [10000] })
+
+    const result = await listTrackedFirstSeenGameEtas('obg')
+    expect(result).toEqual([{ id: 'obg:1', game: 'Indonesia', percent: 90, sampleCount: 1, timeBased: true, etaSeconds: 1000 }])
+    expect(kv.hset).not.toHaveBeenCalled()
+    expect(kv.hdel).not.toHaveBeenCalled()
+    expect(kv.set).not.toHaveBeenCalled()
+  })
+
+  it('returns an empty list if a KV read fails', async () => {
+    (kv.hgetall as jest.Mock).mockRejectedValueOnce(new Error('KV unavailable'))
+    expect(await listTrackedFirstSeenGameEtas('obg')).toEqual([])
   })
 })

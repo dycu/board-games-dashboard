@@ -18,6 +18,11 @@ interface PaceResponse {
     rally: TrackerHealth
     eighteenxx: TrackerHealth
     hansa: null // no stored tracker — recomputed live from the public API every request
+    // Self-timed (lib/firstSeenPace) — see ActiveGameEta.selfTimed
+    obg: TrackerHealth
+    yucata: TrackerHealth
+    boardgamers: TrackerHealth
+    choochoo: TrackerHealth
   }
   sync: {
     lastSyncAt: number | null
@@ -286,8 +291,23 @@ export default function PacePage() {
                     <td className="py-1">Hansa Teutonica</td>
                     <td className="py-1 text-right" colSpan={2}>no tracker — read live from the public API each time</td>
                   </tr>
+                  {([
+                    ['OBG', data!.health.obg],
+                    ['Yucata', data!.health.yucata],
+                    ['Boardgamers.space', data!.health.boardgamers],
+                    ['choochoo.games', data!.health.choochoo],
+                  ] as const).map(([label, h]) => (
+                    <tr key={label} className="border-b border-[#f3f3f3] text-amber-700">
+                      <td className="py-1">{label} <span className="text-amber-500">⚠ self-timed</span></td>
+                      <td className="py-1 text-right">{h.tracked}</td>
+                      <td className="py-1 text-right">{h.finishedWithSample}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
+              <p className="mt-2 text-[11px] text-amber-700">
+                ⚠ Self-timed platforms never report a game&apos;s real start time — the clock starts the first time our own tracker sees the game, so early estimates run inflated until enough full games have been watched start to finish.
+              </p>
             </Section>
 
             <p className="text-[11px] text-[#9b9b9b] mb-6">

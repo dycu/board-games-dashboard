@@ -111,6 +111,11 @@ export interface ActiveGameEta {
   percent: number
   sampleCount: number
   timeBased?: boolean
+  // True for lib/firstSeenPace entries (OBG, Yucata, boardgamers.space,
+  // choochoo.games): unlike every other timeBased estimate here, the
+  // "start" it's elapsed from is our own first observation of the game,
+  // not a real one from the site — see that module's own comments.
+  selfTimed?: boolean
   etaSeconds?: number
 }
 
@@ -197,6 +202,11 @@ export function FinishTimelineChart({ games, names }: { games: ActiveGameEta[]; 
             <div className="text-[#6b6b6b]">
               {g.timeBased ? 'time-based' : 'turn-based'} · {sampleConfidenceWord(g.sampleCount)} ({g.sampleCount})
             </div>
+            {g.selfTimed && (
+              <div className="mt-1 text-amber-500 font-medium">
+                ⚠ self-timed — {PLATFORM_LABELS[g.platform]} never reports a start time, so this clock started when we first saw the game, not when it really began
+              </div>
+            )}
             <div className="mt-1 pt-1 border-t border-[#e5e5e5] text-[9px] text-[#9b9b9b] whitespace-normal max-w-[170px]">
               Dotted = time-based · Fainter = fewer finished games to compare against
             </div>

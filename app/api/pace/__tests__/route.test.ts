@@ -11,12 +11,16 @@ jest.mock('@/lib/pace/loadSamples', () => ({ getLoadSamples: jest.fn() }))
 jest.mock('@/lib/rallyPace/store', () => ({ getRallyGames: jest.fn() }))
 jest.mock('@/lib/eighteenxxPace/store', () => ({ getEighteenxxPaceGames: jest.fn() }))
 jest.mock('@/lib/connectors/hansa', () => ({ listActiveHansaGameEtas: jest.fn() }))
+jest.mock('@/lib/firstSeenPace/store', () => ({ getTracked: jest.fn(), getSamples: jest.fn() }))
+jest.mock('@/lib/firstSeenPace/progress', () => ({ listTrackedFirstSeenGameEtas: jest.fn() }))
 
 import { getMeta, getTables, getAllTurns } from '@/lib/pace/store'
 import { getLoadSamples } from '@/lib/pace/loadSamples'
 import { getRallyGames } from '@/lib/rallyPace/store'
 import { getEighteenxxPaceGames } from '@/lib/eighteenxxPace/store'
 import { listActiveHansaGameEtas } from '@/lib/connectors/hansa'
+import { getTracked, getSamples } from '@/lib/firstSeenPace/store'
+import { listTrackedFirstSeenGameEtas } from '@/lib/firstSeenPace/progress'
 import { GET } from '../route'
 import { PaceTable } from '@/lib/pace/store'
 import { INITIAL_TURN_STATE } from '@/lib/pace/bgaTurns'
@@ -28,6 +32,9 @@ const mockGetLoadSamples = getLoadSamples as jest.Mock
 const mockGetRallyGames = getRallyGames as jest.Mock
 const mockGetEighteenxxPaceGames = getEighteenxxPaceGames as jest.Mock
 const mockListActiveHansaGameEtas = listActiveHansaGameEtas as jest.Mock
+const mockGetTracked = getTracked as jest.Mock
+const mockGetSamples = getSamples as jest.Mock
+const mockListTrackedFirstSeenGameEtas = listTrackedFirstSeenGameEtas as jest.Mock
 
 const NOW = Math.floor(Date.now() / 1000)
 const table = (id: string, game: string, end: number | null, turnCount: number | null, extra: Partial<PaceTable> = {}): PaceTable => ({
@@ -44,6 +51,9 @@ describe('GET /api/pace', () => {
     mockGetRallyGames.mockResolvedValue({ r1: { id: 'r1', game: 'maria', end: 1000, turn: 20 } })
     mockGetEighteenxxPaceGames.mockResolvedValue({ e1: { id: 'e1', title: '1846', end: 1000, actionCount: 0 } })
     mockListActiveHansaGameEtas.mockResolvedValue([])
+    mockGetTracked.mockResolvedValue({})
+    mockGetSamples.mockResolvedValue({})
+    mockListTrackedFirstSeenGameEtas.mockResolvedValue([])
   })
 
   it('reports an active game with an estimate in activeEtas, soonest first', async () => {
@@ -99,6 +109,23 @@ describe('GET /api/pace', () => {
       eighteenxx: { tracked: 1, finishedWithSample: 0 },
       hansa: null,
     })
+  })
+
+  it('includes self-timed platforms (OBG etc.) in activeEtas and health', async () => {
+    mockGetTables.mockResolvedValue({})
+    mockListTrackedFirstSeenGameEtas.mockImplementation(async (platform: string) =>
+      platform === 'obg' ? [{ id: 'obg:1', game: 'Indonesia', percent: 60, sampleCount: 4, timeBased: true, etaSeconds: 5000 }] : [])
+    mockGetTracked.mockImplementation(async (platform: string) =>
+      platform === 'obg' ? { 'obg:1': { typeId: 'Indonesia', firstSeenAt: NOW - 1000 } } : {})
+    mockGetSamples.mockImplementation(async (platform: string) =>
+      platform === 'obg' ? { Indonesia: [8000, 9000] } : {})
+
+    const res = await GET()
+    const json = await res.json()
+    const byId = Object.fromEntries(json.activeEtas.map((g: any) => [g.id, g]))
+    expect(byId['obg:1']).toMatchObject({ platform: 'obg', game: 'Indonesia', selfTimed: true, etaSeconds: 5000 })
+    expect(json.health.obg).toEqual({ tracked: 1 + 2, finishedWithSample: 2 })
+    expect(json.health.yucata).toEqual({ tracked: 0, finishedWithSample: 0 })
   })
 
   it('still responds when the rally/18xx stores fail to load', async () => {
