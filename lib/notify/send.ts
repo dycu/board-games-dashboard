@@ -1,33 +1,41 @@
 import { kv } from '@vercel/kv'
 import { getPrefs } from '../prefs'
-import { getBacklog } from '../backlog/store'
-import { listsOf, backlogId } from '../backlog/list'
 import { sendAlertEmail } from './email'
 import { sendNtfy } from './ntfy'
-import { buildDigest } from './digest'
+import { buildYesterdayDigest } from './digest'
 import { dueSoon, deadlineEmail, Warned } from './deadlines'
 import { newlyMyTurn, WatchState } from './watch'
 import { StreamedGame } from './types'
 import { buildWeekly } from './weekly'
-import { FinishedGame, Platform, PLATFORM_LABELS } from '../types'
+import { FinishedGame, PLATFORM_LABELS } from '../types'
 import { getTables, getAllTurns } from '../pace/store'
 import { computePaceStats } from '../pace/stats'
 
 const WARNED_KEY = 'deadline-warned:v1'
 const WATCH_STATE_KEY = 'watch-notified:v1'
 
-export async function sendDigest(games: StreamedGame[], unavailable: Platform[] = [], now = Date.now()) {
-  const [prefs, backlog] = await Promise.all([getPrefs(), getBacklog().catch(() => [])])
-  const nextFromBacklog = backlog.find(item => listsOf(item).includes('play')
-    && !games.some(g => backlogId(g.platform, g.gameName) === item.id))
-  const digest = buildDigest(games, { now, opponentSlowDays: prefs.opponentSlowDays ?? 5, nextFromBacklog, unavailable })
+// `finished` comes from /api/finished-games, with completedAt as an ISO string
+function parseFinished(finished: unknown[]): FinishedGame[] {
+  return (finished as (Omit<FinishedGame, 'completedAt'> & { completedAt: string })[])
+    .map(g => ({ ...g, completedAt: new Date(g.completedAt) }))
+}
+
+export async function sendDigest(finished: unknown[], now = Date.now()) {
+  const games = parseFinished(finished)
+  let pace = null
+  try {
+    const tables = Object.values(await getTables())
+    const turns = await getAllTurns(tables.map(t => t.id))
+    pace = computePaceStats(tables, turns, Math.floor(now / 1000), 1).recent
+  } catch {
+    // the email works without the pace line
+  }
+  const digest = buildYesterdayDigest(games, { now, pace })
   return { subject: digest.subject, email: await sendAlertEmail(digest.subject, digest.text, digest.html) }
 }
 
-// `finished` comes from /api/finished-games, with completedAt as an ISO string
 export async function sendWeekly(finished: unknown[], active: StreamedGame[], now = Date.now()) {
-  const games = (finished as (Omit<FinishedGame, 'completedAt'> & { completedAt: string })[])
-    .map(g => ({ ...g, completedAt: new Date(g.completedAt) }))
+  const games = parseFinished(finished)
   let pace = null
   try {
     const tables = Object.values(await getTables())

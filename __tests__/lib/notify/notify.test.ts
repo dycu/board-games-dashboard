@@ -1,6 +1,7 @@
-import { buildDigest } from '@/lib/notify/digest'
+import { buildYesterdayDigest } from '@/lib/notify/digest'
 import { dueSoon, deadlineEmail } from '@/lib/notify/deadlines'
 import { StreamedGame } from '@/lib/notify/types'
+import { FinishedGame } from '@/lib/types'
 
 const NOW = Date.parse('2026-10-08T06:00:00Z')
 const H = 3600 * 1000
@@ -10,44 +11,39 @@ const game = (id: string, over: Partial<StreamedGame> = {}): StreamedGame => ({
   lastMoveAt: new Date(NOW - 5 * H).toISOString(), gameUrl: `https://x/${id}`, ...over,
 })
 
-describe('buildDigest', () => {
-  it('lists my games, most urgent first, then the longest waiting', () => {
-    const d = buildDigest([
-      game('old', { lastMoveAt: new Date(NOW - 48 * H).toISOString() }),
-      game('due', { deadlineAt: new Date(NOW + 3 * H).toISOString() }),
-      game('new'),
-    ], { now: NOW, opponentSlowDays: 5 })
-    expect(d.subject).toBe('Board games: 3 waiting for you, 1 due within a day')
-    const order = ['Game due', 'Game old', 'Game new'].map(n => d.text.indexOf(n))
-    expect(order).toEqual([...order].sort((a, b) => a - b))
-    expect(d.text).toMatch(/Game due \(BGA\) — waiting 5h · ⏱ 3h left/)
-    expect(d.html).toContain('<a href="https://x/due">Game due</a>')
+const fg = (id: string, hoursAgo: number, over: Partial<FinishedGame> = {}): FinishedGame => ({
+  id, platform: 'bga', gameName: `Game ${id}`, completedAt: new Date(NOW - hoursAgo * H), completedAgo: '', gameUrl: `https://x/${id}`, ...over,
+})
+
+describe('buildYesterdayDigest', () => {
+  it('summarizes games finished in the last 24h, most recent first', () => {
+    const d = buildYesterdayDigest([
+      fg('1', 5, { result: 'won', rank: 1, playerCount: 3, elo: 1340, eloDelta: 30 }),
+      fg('2', 10, { result: 'lost', rank: 2, playerCount: 2 }),
+      fg('old', 2 * 24, { result: 'won' }), // more than a day ago
+    ], { now: NOW })
+    expect(d.subject).toBe('Board games yesterday: 2 finished, 1 won (50%)')
+    expect(d.text).toContain('2 finished · 1 won · 1 lost')
+    expect(d.text).toContain('Finished yesterday')
+    expect(d.text).toContain('• Game 1 — BGA · 1st of 3 · ELO 1340 (+30)')
+    expect(d.text).not.toContain('Game old')
+    expect(d.html).toContain('<a href="https://x/1">Game 1</a>')
   })
 
-  it('lists games stalled on opponents and the next backlog game', () => {
-    const d = buildDigest([
-      game('stalled', { myTurn: false, currentPlayer: 'bob', lastMoveAt: new Date(NOW - 8 * 24 * H).toISOString() }),
-      game('fresh', { myTurn: false, currentPlayer: 'amy' }),
-    ], {
-      now: NOW, opponentSlowDays: 5,
-      nextFromBacklog: { id: 'bga:x', platform: 'bga', gameName: 'Brass', playUrl: 'https://x/brass', addedAt: '' },
-    })
-    expect(d.subject).toBe('Board games: all caught up')
-    expect(d.text).toContain('Stalled on opponents')
-    expect(d.text).toContain("Game stalled (BGA) — bob hasn't moved for 8 days")
-    expect(d.text).not.toContain('Game fresh')
-    expect(d.text).toContain('Next from your backlog: Brass (BGA)')
+  it('reports BGA pace when there is one', () => {
+    const d = buildYesterdayDigest([], { now: NOW, pace: { turns: 4, medianHours: 2.5, turnsPerDay: null } })
+    expect(d.text).toContain('My BGA pace: 4 moves yesterday, median 2.5h to answer.')
   })
 
-  it('names platforms that did not load', () => {
-    const d = buildDigest([game('1')], { now: NOW, opponentSlowDays: 5, unavailable: ['obg', 'rally'] })
-    expect(d.text).toContain("Couldn't load onlineboardgamers, Rally the Troops")
-    expect(d.html).toContain("Couldn't load onlineboardgamers")
-    expect(buildDigest([game('1')], { now: NOW, opponentSlowDays: 5 }).text).not.toContain("Couldn't load")
+  it('omits the pace line and finished section when there is nothing to report', () => {
+    const d = buildYesterdayDigest([], { now: NOW, pace: { turns: 0, medianHours: null, turnsPerDay: null } })
+    expect(d.subject).toBe('Board games yesterday: no games finished')
+    expect(d.text).not.toContain('My BGA pace')
+    expect(d.text).not.toContain('Finished yesterday')
   })
 
   it('escapes HTML in game names', () => {
-    expect(buildDigest([game('1', { gameName: '<b>x</b>' })], { now: NOW, opponentSlowDays: 5 }).html).toContain('&lt;b&gt;x&lt;/b&gt;')
+    expect(buildYesterdayDigest([fg('1', 1, { gameName: '<b>x</b>' })], { now: NOW }).html).toContain('&lt;b&gt;x&lt;/b&gt;')
   })
 })
 
