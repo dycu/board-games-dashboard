@@ -50,7 +50,7 @@ describe('attachFirstSeenProgress', () => {
 
     const result = await attachFirstSeenProgress('obg', [game('obg:1', 'Indonesia')])
     expect(result[0].progress).toMatchObject({
-      percent: 50, turnsSoFar: 5000, estimatedTotalTurns: 10000, sampleCount: 3, timeBased: true, etaSeconds: 5000,
+      percent: 50, turnsSoFar: 5000, estimatedTotalTurns: 10000, sampleCount: 3, timeBased: true, selfTimed: true, etaSeconds: 5000,
     })
   })
 

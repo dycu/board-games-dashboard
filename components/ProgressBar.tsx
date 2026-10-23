@@ -85,13 +85,14 @@ function HoldTooltip({ ariaLabel, tooltip, children }: { ariaLabel: string; tool
 // same thing more concisely, with the basis broken out as a bulleted list
 // instead of folded into one sentence.
 export function progressLabel(platform: Platform, progress: NonNullable<Game['progress']>): string {
-  const { turnsSoFar, estimatedTotalTurns, sampleCount, sameSizeOnly, exact, timeBased, actualTurnsSoFar } = progress
+  const { turnsSoFar, estimatedTotalTurns, sampleCount, sameSizeOnly, exact, timeBased, selfTimed, actualTurnsSoFar } = progress
   const basis = sampleCount === 1 ? '1 finished game' : `${sampleCount} finished games`
   const qualifier = sameSizeOnly ? ' with the same player count' : ''
   if (timeBased) {
     const unit = unitWord(platform)
     const turnNote = actualTurnsSoFar !== undefined ? `, ${unit} ${actualTurnsSoFar} so far` : ''
-    return `Time-based estimate: ~${formatDuration(turnsSoFar)} in${turnNote}, typically takes about ${formatDuration(estimatedTotalTurns)} (median of ${basis}${qualifier})`
+    const label = selfTimed ? 'Self-timed estimate (this site never reports a start time, so the clock started when we first saw this game, not when it really began)' : 'Time-based estimate'
+    return `${label}: ~${formatDuration(turnsSoFar)} in${turnNote}, typically takes about ${formatDuration(estimatedTotalTurns)} (median of ${basis}${qualifier})`
   }
   const unit = unitWord(platform, true)
   if (exact) return `${unit} ${turnsSoFar} of ${estimatedTotalTurns} (reported by the game itself)`
@@ -122,18 +123,20 @@ function BasisLine({ label, strong }: { label: string; strong: boolean }) {
 // player count vs. this type as a whole) — each shown as the one option
 // that applied here, not both.
 function ProgressBasis({ platform, progress }: { platform: Platform; progress: NonNullable<Game['progress']> }) {
-  const { sampleCount, sameSizeOnly, timeBased, sameSizeSampleCount, totalSampleCount } = progress
+  const { sampleCount, sameSizeOnly, timeBased, selfTimed, sameSizeSampleCount, totalSampleCount } = progress
   const total = totalSampleCount ?? sampleCount
   const sameSize = sameSizeSampleCount ?? (sameSizeOnly ? sampleCount : 0)
   const unit = unitWord(platform, true)
+  const timeLabel = selfTimed ? 'Self-timed estimate' : 'Time-based estimate'
 
   return (
     <div className="mt-1 text-left space-y-0.5">
-      <BasisLine label={timeBased ? 'Time-based estimate' : `${unit}-based estimate`} strong={!timeBased} />
+      <BasisLine label={timeBased ? timeLabel : `${unit}-based estimate`} strong={!timeBased} />
       <BasisLine
         label={sameSizeOnly ? `${sameSize} with the same player count` : `${total} game${total === 1 ? '' : 's'} of this type`}
         strong={sameSizeOnly}
       />
+      {selfTimed && <BasisLine label="Clock started when we first saw this game, not its real start" strong={false} />}
     </div>
   )
 }

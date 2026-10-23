@@ -52,6 +52,7 @@ function estimate(entry: FirstSeenEntry, samples: Record<string, number[]>, now:
     samples: pool,
     sameSizeOnly: false,
     timeBased: true,
+    selfTimed: true,
     etaSeconds: Math.max(0, estimatedTotalSeconds - elapsedSeconds),
   }
 }

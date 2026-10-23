@@ -65,6 +65,18 @@ export interface Game {
     // including whenever timeBased is unset (turnsSoFar already is the real
     // count then).
     actualTurnsSoFar?: number
+    // Marks an estimate where `timeBased` is true for a different reason
+    // than BGA/18xx's fallback above: there, turnsSoFar is elapsed time
+    // because the turn/action count ran out, but the game's own real start
+    // time still came from the site itself. Here (lib/firstSeenPace — OBG
+    // and, later, other platforms with no start/turn signal of their own at
+    // all) turnsSoFar is elapsed time because there was never a turn count
+    // to begin with, and the "start" it's elapsed from is our own first
+    // observation of the game, not a real one — so both ends of the
+    // estimate (a too-late start, a sample built from games we watched
+    // ourselves) can be off, and the UI calls this out rather than
+    // presenting it with the same confidence as a site-reported number.
+    selfTimed?: boolean
   }
   // Set instead of `progress` when the last attempt to read this specific
   // game's live state failed — distinguishes "no estimate yet" (nothing
