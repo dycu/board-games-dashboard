@@ -27,10 +27,22 @@ const ALL_PLATFORMS = Object.keys(PLATFORM_LABELS) as Platform[]
 
 const BADGE_FALLBACK = 'bg-[#f3f3f3] text-[#6b6b6b]'
 
-function Badge({ platform }: { platform: Platform }) {
+// TableTapas is search-only: it has no per-game deep link (every match
+// points at its library, not the specific game) and no live tracker, so
+// it's not part of lib/types.ts's Platform union and can't be added to the
+// backlog the way every other site's results can. It still needs to show
+// up here, though — it's a real catalog match, just a dead end past "go
+// play it".
+type SearchSite = Platform | 'tabletapas'
+const TABLETAPAS_LABEL = 'TableTapas'
+const TABLETAPAS_SHORT_LABEL = 'TblTapas'
+const siteLabel = (p: SearchSite): string => p === 'tabletapas' ? TABLETAPAS_LABEL : PLATFORM_LABELS[p]
+const siteShortLabel = (p: SearchSite): string => p === 'tabletapas' ? TABLETAPAS_SHORT_LABEL : PLATFORM_SHORT_LABELS[p]
+
+function Badge({ platform }: { platform: SearchSite }) {
   return (
-    <span title={PLATFORM_LABELS[platform]} className={`shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[platform] ?? BADGE_FALLBACK}`}>
-      {PLATFORM_SHORT_LABELS[platform]}
+    <span title={siteLabel(platform)} className={`shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[platform] ?? BADGE_FALLBACK}`}>
+      {siteShortLabel(platform)}
     </span>
   )
 }
@@ -150,14 +162,14 @@ function ListSection({ backlog, list }: { backlog: Backlog; list: BacklogList })
 }
 
 interface SearchResult {
-  platform: Platform
+  platform: SearchSite
   matches: { name: string; url: string }[]
 }
 
-function SearchPanel({ backlog, sites }: { backlog: Backlog; sites: Set<Platform> }) {
+function SearchPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSite> }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[] | null>(null)
-  const [errors, setErrors] = useState<{ platform: Platform }[]>([])
+  const [errors, setErrors] = useState<{ platform: SearchSite }[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [searched, setSearched] = useState('') // the query the results belong to
 
@@ -199,13 +211,13 @@ function SearchPanel({ backlog, sites }: { backlog: Backlog; sites: Set<Platform
           {isSearching ? 'Searching…' : 'Search'}
         </button>
       </div>
-      <p className="text-xs text-[#9b9b9b] mt-2">Searches BGA, Yucata, Rally the Troops, 18xx.games and choochoo.games.</p>
+      <p className="text-xs text-[#9b9b9b] mt-2">Searches every site above a filter is checked for, in one go.</p>
 
       {errors.some(e => sites.has(e.platform)) && (
         <div className="mt-3 flex flex-wrap gap-2">
           {errors.filter(e => sites.has(e.platform)).map(e => (
             <span key={e.platform} className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-md">
-              ⚠ {PLATFORM_LABELS[e.platform]} unavailable
+              ⚠ {siteLabel(e.platform)} unavailable
             </span>
           ))}
         </div>
@@ -216,19 +228,42 @@ function SearchPanel({ backlog, sites }: { backlog: Backlog; sites: Set<Platform
           <p className="text-xs text-[#9b9b9b] mt-3">No match found</p>
         ) : (
           <ul className="mt-3 flex flex-col divide-y divide-[#f0f0f0]">
-            {found.map(m => (
-              <li key={`${m.platform}:${m.name}`} className="flex items-center gap-2 py-2">
-                <Badge platform={m.platform} />
-                <span className="text-sm text-[#1a1a1a] truncate flex-1 min-w-0">{m.name}</span>
-                <HistoryLink game={{ platform: m.platform, gameName: m.name }} />
-                <GameLink url={m.url} platform={m.platform} />
-                <BacklogListChips
-                  lists={backlog.listsFor(m.platform, m.name)}
-                  disabled={backlog.isAdding(m.platform, m.name)}
-                  onToggle={list => backlog.toggleOrAdd({ platform: m.platform, gameName: m.name, playUrl: m.url, list })}
-                />
-              </li>
-            ))}
+            {found.map(m => {
+              const prefix = (
+                <>
+                  <Badge platform={m.platform} />
+                  <span className="text-sm text-[#1a1a1a] truncate flex-1 min-w-0">{m.name}</span>
+                </>
+              )
+              // No history, no backlog chips: there's no Platform value for
+              // TableTapas to be tracked or added under — see the SearchSite
+              // note above. Narrowing m.platform to a plain const (rather than
+              // using m.platform directly below) is what lets it carry into
+              // the nested onToggle closure as Platform, not SearchSite.
+              if (m.platform === 'tabletapas') {
+                return (
+                  <li key={`${m.platform}:${m.name}`} className="flex items-center gap-2 py-2">
+                    {prefix}
+                    <a href={m.url} target="_blank" rel="noopener noreferrer" title="Open the game's library page" className={SMALL_BUTTON}>
+                      Play ↗
+                    </a>
+                  </li>
+                )
+              }
+              const platform = m.platform
+              return (
+                <li key={`${platform}:${m.name}`} className="flex items-center gap-2 py-2">
+                  {prefix}
+                  <HistoryLink game={{ platform, gameName: m.name }} />
+                  <GameLink url={m.url} platform={platform} />
+                  <BacklogListChips
+                    lists={backlog.listsFor(platform, m.name)}
+                    disabled={backlog.isAdding(platform, m.name)}
+                    onToggle={list => backlog.toggleOrAdd({ platform, gameName: m.name, playUrl: m.url, list })}
+                  />
+                </li>
+              )
+            })}
           </ul>
         )
       )}
@@ -262,7 +297,7 @@ function SearchPanel({ backlog, sites }: { backlog: Backlog; sites: Set<Platform
 const SORTS: [PlayedSort, string][] = [['recent', 'Recent'], ['most', 'Most played'], ['least', 'Least played'], ['name', 'A–Z']]
 
 // Loading finished games asks every platform (streamed, so the page isn't held up)
-function PlayedPanel({ backlog, sites }: { backlog: Backlog; sites: Set<Platform> }) {
+function PlayedPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSite> }) {
   const finished = useFinishedGamesData()
   const [filter, setFilter] = useState('')
   const [sort, setSort] = useState<PlayedSort>('recent')
@@ -360,7 +395,7 @@ export default function BacklogPage() {
   const backlog = useBacklog()
   const [source, setSource] = useState<'search' | 'played'>('played')
   const [activeList, setActiveList] = useState<BacklogList>('play')
-  const [sites, setSites] = useState<Set<Platform>>(new Set(DEFAULT_BACKLOG_PLATFORMS))
+  const [sites, setSites] = useState<Set<SearchSite>>(new Set(DEFAULT_BACKLOG_PLATFORMS))
 
   useEffect(() => {
     let cancelled = false
@@ -428,9 +463,25 @@ export default function BacklogPage() {
             <span className="text-xs text-[#9b9b9b] mr-1">Sites</span>
             <PlatformFilterChips
               platforms={ALL_PLATFORMS}
-              selected={Array.from(sites)}
-              onChange={next => setSites(new Set(next))}
+              selected={Array.from(sites).filter((s): s is Platform => s !== 'tabletapas')}
+              onChange={next => setSites(prev => new Set<SearchSite>([...next, ...(prev.has('tabletapas') ? ['tabletapas' as const] : [])]))}
             />
+            {/* Not a PlatformFilterChips entry: that component is Platform-only
+                (it also drives the dashboard/history filters, which can't
+                include a search-only site) — see the SearchSite note above. */}
+            <button
+              onClick={() => setSites(prev => {
+                const next = new Set(prev)
+                if (next.has('tabletapas')) next.delete('tabletapas')
+                else next.add('tabletapas')
+                return next
+              })}
+              aria-pressed={sites.has('tabletapas')}
+              title={sites.has('tabletapas') ? `Hide ${TABLETAPAS_LABEL}` : `Show ${TABLETAPAS_LABEL}`}
+              className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full transition-opacity ${BADGE_COLORS.tabletapas ?? BADGE_FALLBACK} ${sites.has('tabletapas') ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
+            >
+              {TABLETAPAS_SHORT_LABEL}
+            </button>
           </div>
           <div className={source === 'search' ? '' : 'hidden'}><SearchPanel backlog={backlog} sites={sites} /></div>
           <div className={source === 'played' ? '' : 'hidden'}><PlayedPanel backlog={backlog} sites={sites} /></div>
