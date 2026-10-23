@@ -7,6 +7,7 @@ import { withTimeout } from '@/lib/connectors/utils'
 import { attachProgress } from '@/lib/pace/progress'
 import { attachRallyProgress } from '@/lib/rallyPace/progress'
 import { attachEighteenxxProgress } from '@/lib/eighteenxxPace/progress'
+import { attachFirstSeenProgress } from '@/lib/firstSeenPace/progress'
 
 export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
@@ -89,6 +90,7 @@ export async function GET(request?: Request) {
             if (platform === 'bga') games = await attachProgress(games)
             if (platform === 'rally') games = await attachRallyProgress(games)
             if (platform === 'eighteenxx') games = await attachEighteenxxProgress(games)
+            if (platform === 'obg') games = await attachFirstSeenProgress('obg', games)
             checkGames(platform, games)
             counts[platform] = games.length
             send({ type: 'platform', platform, games, error: null })
