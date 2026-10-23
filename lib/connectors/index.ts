@@ -10,6 +10,7 @@ import { fetchHansa, fetchFinishedHansa } from './hansa'
 import { fetchRally, fetchFinishedRally } from './rally'
 import { fetchOldKingsCrown } from './oldkingscrown'
 import { fetchBoardgamers, fetchFinishedBoardgamers } from './boardgamers'
+import { fetchBoardtogether, fetchFinishedBoardtogether } from './boardtogether'
 import { savePrefs } from '../prefs'
 
 function env(key: string): string {
@@ -44,6 +45,7 @@ export function makeConnectors(prefs: Pick<UserPrefs, 'eighteenxxSessionCookie' 
     rally: () => fetchRally(env('RALLY_USERNAME'), env('RALLY_PASSWORD')),
     oldkingscrown: () => fetchOldKingsCrown(env('OLDKINGSCROWN_NICKNAME') || 'Dycu'),
     boardgamers: () => fetchBoardgamers(env('BOARDGAMERS_USERNAME'), env('BOARDGAMERS_PASSWORD')),
+    boardtogether: () => fetchBoardtogether(env('BOARDTOGETHER_USERNAME'), env('BOARDTOGETHER_PASSWORD')),
   }
 }
 
@@ -57,6 +59,7 @@ export function makeFinishedConnectors(prefs: Pick<UserPrefs, 'eighteenxxSession
     yucata: () => fetchFinishedYucata(env('YUCATA_USERNAME'), env('YUCATA_PASSWORD')),
     choochoo: () => viaProxy('/api/choochoo-finished'),
     boardgamers: () => fetchFinishedBoardgamers(env('BOARDGAMERS_USERNAME'), env('BOARDGAMERS_PASSWORD')),
+    boardtogether: () => fetchFinishedBoardtogether(env('BOARDTOGETHER_USERNAME'), env('BOARDTOGETHER_PASSWORD')),
   }
 }
 

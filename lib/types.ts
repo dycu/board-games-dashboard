@@ -8,6 +8,7 @@ export type Platform =
   | 'rally'
   | 'oldkingscrown'
   | 'boardgamers'
+  | 'boardtogether'
 
 export interface Game {
   id: string              // e.g. "bga:12345"
@@ -163,6 +164,7 @@ export const PLATFORM_SHORT_LABELS: Record<Platform, string> = {
   rally: 'Rally',
   oldkingscrown: 'OKC',
   boardgamers: 'BGS',
+  boardtogether: 'BT',
 }
 
 export const PLATFORM_LABELS: Record<Platform, string> = {
@@ -175,6 +177,7 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
   rally: 'Rally the Troops',
   oldkingscrown: "The Old King's Crown",
   boardgamers: 'Boardgamers.space',
+  boardtogether: 'Boardtogether.games',
 }
 
 export const PLATFORM_URLS: Record<Platform, string> = {
@@ -187,4 +190,5 @@ export const PLATFORM_URLS: Record<Platform, string> = {
   rally: 'https://rally-the-troops.com',
   oldkingscrown: 'https://oldkingscrown.fly.dev',
   boardgamers: 'https://boardgamers.space/?tab=mine',
+  boardtogether: 'https://boardtogether.games/',
 }
