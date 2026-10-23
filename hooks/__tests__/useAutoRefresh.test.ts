@@ -122,3 +122,56 @@ describe('useAutoRefresh', () => {
     expect(result.current.intervalSeconds).toBe(0)
   })
 })
+
+function setHidden(hidden: boolean) {
+  Object.defineProperty(document, 'hidden', { value: hidden, configurable: true })
+  Object.defineProperty(document, 'visibilityState', { value: hidden ? 'hidden' : 'visible', configurable: true })
+}
+
+describe('useAutoRefresh — backgrounded tab', () => {
+  beforeEach(() => { jest.useFakeTimers() })
+  afterEach(() => { jest.useRealTimers(); setHidden(false) })
+
+  it('freezes the countdown while the tab is hidden, instead of firing unseen', () => {
+    const onRefresh = jest.fn()
+    const { result } = renderHook(() => useAutoRefresh(onRefresh, false))
+    act(() => { result.current.setIntervalSeconds(30) })
+    act(() => { jest.advanceTimersByTime(10000) })
+    expect(result.current.countdown).toBe(20)
+
+    setHidden(true)
+    act(() => { jest.advanceTimersByTime(60000) })
+    expect(result.current.countdown).toBe(20) // frozen — never reached 0, never fired
+    expect(onRefresh).not.toHaveBeenCalled()
+  })
+
+  it('refreshes immediately and resets the countdown the moment the tab becomes visible again', () => {
+    const onRefresh = jest.fn()
+    const { result } = renderHook(() => useAutoRefresh(onRefresh, false))
+    act(() => { result.current.setIntervalSeconds(30) })
+
+    setHidden(true)
+    act(() => { jest.advanceTimersByTime(90000) }) // backgrounded well past the interval
+    expect(onRefresh).not.toHaveBeenCalled()
+
+    setHidden(false)
+    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+    expect(onRefresh).toHaveBeenCalledTimes(1)
+    expect(result.current.countdown).toBe(30)
+  })
+
+  it('does not refresh on becoming visible while a refresh is already in flight', () => {
+    const onRefresh = jest.fn()
+    const { result, rerender } = renderHook(
+      ({ r }: { r: boolean }) => useAutoRefresh(onRefresh, r),
+      { initialProps: { r: true } },
+    )
+    act(() => { result.current.setIntervalSeconds(30) })
+
+    setHidden(true)
+    setHidden(false)
+    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+    expect(onRefresh).not.toHaveBeenCalled()
+    rerender({ r: true })
+  })
+})

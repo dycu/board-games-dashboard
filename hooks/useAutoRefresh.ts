@@ -34,7 +34,11 @@ export function useAutoRefresh(onRefresh: () => void, isRefreshing: boolean, sav
     wasRefreshingRef.current = isRefreshing
   }, [isRefreshing, intervalSeconds])
 
-  // Start/restart ticker whenever the selected interval changes
+  // Start/restart ticker whenever the selected interval changes. Frozen
+  // (not ticking down, so never fires) while the tab is in the background —
+  // see the visibilitychange effect below, which is what actually catches
+  // the dashboard back up once it's looked at again, rather than this timer
+  // having kept firing unseen the whole time it was backgrounded.
   useEffect(() => {
     if (intervalSeconds === 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- interval turned off
@@ -43,7 +47,7 @@ export function useAutoRefresh(onRefresh: () => void, isRefreshing: boolean, sav
     }
     setCountdown(intervalSeconds)
     const id = setInterval(() => {
-      if (isRefreshingRef.current) return
+      if (isRefreshingRef.current || document.hidden) return
       setCountdown(prev => {
         if (prev <= 1) {
           onRefreshRef.current()
@@ -53,6 +57,21 @@ export function useAutoRefresh(onRefresh: () => void, isRefreshing: boolean, sav
       })
     }, 1000)
     return () => clearInterval(id)
+  }, [intervalSeconds])
+
+  // Catches the dashboard up the moment it's looked at again, rather than
+  // on whatever stale data was last shown before it was backgrounded —
+  // the ticker above does nothing while hidden, so without this a tab left
+  // in the background would just show year-old-feeling data indefinitely.
+  useEffect(() => {
+    if (intervalSeconds === 0) return
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return
+      if (!isRefreshingRef.current) onRefreshRef.current()
+      setCountdown(intervalSeconds)
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
   }, [intervalSeconds])
 
   return { intervalSeconds, setIntervalSeconds, countdown }
