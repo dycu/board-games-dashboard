@@ -3,7 +3,6 @@ import { getPrefs } from '../prefs'
 import { sendAlertEmail } from './email'
 import { sendNtfy } from './ntfy'
 import { buildYesterdayDigest } from './digest'
-import { dueSoon, deadlineEmail, Warned } from './deadlines'
 import { newlyMyTurn, WatchState } from './watch'
 import { StreamedGame } from './types'
 import { buildWeekly } from './weekly'
@@ -11,7 +10,6 @@ import { FinishedGame, PLATFORM_LABELS } from '../types'
 import { getTables, getAllTurns } from '../pace/store'
 import { computePaceStats } from '../pace/stats'
 
-const WARNED_KEY = 'deadline-warned:v1'
 const WATCH_STATE_KEY = 'watch-notified:v1'
 
 // `finished` comes from /api/finished-games, with completedAt as an ISO string
@@ -46,19 +44,6 @@ export async function sendWeekly(finished: unknown[], active: StreamedGame[], no
   }
   const weekly = buildWeekly(games, active, { now, pace })
   return { subject: weekly.subject, email: await sendAlertEmail(weekly.subject, weekly.text, weekly.html) }
-}
-
-export async function sendDeadlineWarnings(games: StreamedGame[], now = Date.now()) {
-  const before = (await kv.get<Warned>(WARNED_KEY).catch(() => null)) ?? {}
-  const { toWarn, warned } = dueSoon(games, before, now)
-  let email: { sent: boolean; reason?: string } | null = null
-  if (toWarn.length > 0) {
-    const { subject, text } = deadlineEmail(toWarn, now)
-    email = await sendAlertEmail(subject, text)
-  }
-  // Remember warnings only once they went out, so a failed send is retried next time
-  if (toWarn.length === 0 || email?.sent) await kv.set(WARNED_KEY, warned).catch(() => {})
-  return { warned: toWarn.map(g => g.id), email }
 }
 
 // Pushes an instant ntfy alert the moment a watched game flips to myTurn,
