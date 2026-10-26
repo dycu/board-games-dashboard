@@ -53,7 +53,7 @@ export default function FinishedGameCard({ game, action, details }: Props) {
           </p>
         </div>
       </div>
-      <div className="shrink-0 flex items-center gap-2">
+      <div className="w-full sm:w-auto shrink-0 flex flex-wrap items-center gap-x-2 gap-y-1">
         {action}
         <a
           href={game.gameUrl}
