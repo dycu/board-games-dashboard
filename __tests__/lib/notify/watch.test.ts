@@ -1,4 +1,4 @@
-import { newlyMyTurn } from '@/lib/notify/watch'
+import { newlyMyTurn, watchedPlatforms } from '@/lib/notify/watch'
 import { StreamedGame } from '@/lib/notify/types'
 
 const game = (id: string, myTurn: boolean): StreamedGame => ({
@@ -39,5 +39,15 @@ describe('newlyMyTurn', () => {
     // it becomes my turn again — notified again, not suppressed
     const secondTurn = newlyMyTurn([game('a', true)], ['a'], whileWaiting)
     expect(secondTurn.toNotify.map(g => g.id)).toEqual(['a'])
+  })
+})
+
+describe('watchedPlatforms', () => {
+  it('extracts the distinct platforms from watched game ids', () => {
+    expect(watchedPlatforms(['rally:262709', 'rally:260229', 'bga:1'])).toEqual(['rally', 'bga'])
+  })
+
+  it('returns an empty list when nothing is watched', () => {
+    expect(watchedPlatforms([])).toEqual([])
   })
 })

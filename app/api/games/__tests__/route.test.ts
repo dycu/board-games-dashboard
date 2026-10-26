@@ -96,4 +96,15 @@ describe('GET /api/games', () => {
     expect(events[0]).toEqual({ type: 'start', platforms: [] })
     expect(events[events.length - 1].type).toBe('done')
   })
+
+  it('scopes to ?platforms= when given, for the watch cron\'s frequent single-platform pings', async () => {
+    mockHasCreds.mockReturnValue(true)
+    mockBgaFetch.mockResolvedValue([])
+
+    const included = await GET(new Request('https://x/api/games?platforms=bga'))
+    expect((await consumeSSE(included.body as ReadableStream<Uint8Array>))[0]).toEqual({ type: 'start', platforms: ['bga'] })
+
+    const excluded = await GET(new Request('https://x/api/games?platforms=rally'))
+    expect((await consumeSSE(excluded.body as ReadableStream<Uint8Array>))[0]).toEqual({ type: 'start', platforms: [] })
+  })
 })
