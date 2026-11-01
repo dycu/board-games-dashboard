@@ -242,9 +242,9 @@ function SearchPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSi
               // the nested onToggle closure as Platform, not SearchSite.
               if (m.platform === 'tabletapas') {
                 return (
-                  <li key={`${m.platform}:${m.name}`} className="flex items-center gap-2 py-2">
-                    {prefix}
-                    <a href={m.url} target="_blank" rel="noopener noreferrer" title="Open the game's library page" className={SMALL_BUTTON}>
+                  <li key={`${m.platform}:${m.name}`} className="flex flex-wrap items-center gap-2 py-2">
+                    <div className="flex items-center gap-2 min-w-[140px] flex-1">{prefix}</div>
+                    <a href={m.url} target="_blank" rel="noopener noreferrer" title="Open the game's library page" className={`shrink-0 ${SMALL_BUTTON}`}>
                       Play ↗
                     </a>
                   </li>
@@ -252,15 +252,17 @@ function SearchPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSi
               }
               const platform = m.platform
               return (
-                <li key={`${platform}:${m.name}`} className="flex items-center gap-2 py-2">
-                  {prefix}
-                  <HistoryLink game={{ platform, gameName: m.name }} />
-                  <GameLink url={m.url} platform={platform} />
-                  <BacklogListChips
-                    lists={backlog.listsFor(platform, m.name)}
-                    disabled={backlog.isAdding(platform, m.name)}
-                    onToggle={list => backlog.toggleOrAdd({ platform, gameName: m.name, playUrl: m.url, list })}
-                  />
+                <li key={`${platform}:${m.name}`} className="flex flex-wrap items-center gap-2 py-2">
+                  <div className="flex items-center gap-2 min-w-[140px] flex-1">{prefix}</div>
+                  <div className="shrink-0 flex items-center gap-2 ml-auto">
+                    <HistoryLink game={{ platform, gameName: m.name }} />
+                    <GameLink url={m.url} platform={platform} />
+                    <BacklogListChips
+                      lists={backlog.listsFor(platform, m.name)}
+                      disabled={backlog.isAdding(platform, m.name)}
+                      onToggle={list => backlog.toggleOrAdd({ platform, gameName: m.name, playUrl: m.url, list })}
+                    />
+                  </div>
                 </li>
               )
             })}
