@@ -252,6 +252,14 @@ describe('GameGrid backlog suggestion', () => {
     expect(screen.getByRole('link', { name: /Play/ })).toHaveAttribute('href', 'https://x/3')
   })
 
+  it('does not suggest a game whose platform failed to fetch this round', async () => {
+    const items = [{ id: 'yucata:navegador', platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/3', addedAt: '', list: 'play' }]
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    renderGrid([makeGame('bga', '1')], [{ platform: 'yucata', error: 'timed out' }])
+    await screen.findByText('Test Game')
+    expect(screen.queryByText('Navegador')).toBeNull()
+  })
+
   it('removes the suggested game from the backlog once it\'s been set up', async () => {
     const items = [{ id: 'yucata:navegador', platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/3', addedAt: '', list: 'play' }]
     global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
@@ -285,6 +293,14 @@ describe('GameGrid favorite suggestions', () => {
     renderGrid([makeGame('bga', '1')])
     await screen.findAllByText('Test Game')
     expect(screen.queryByText('No game running in your favorite:')).toBeNull()
+  })
+
+  it('does not suggest a favorite whose platform failed to fetch this round', async () => {
+    const items = [{ id: 'yucata:navegador', platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/1', addedAt: '', list: 'favorite' }]
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    renderGrid([makeGame('bga', '1')], [{ platform: 'yucata', error: 'timed out' }])
+    await screen.findByText('Test Game')
+    expect(screen.queryByText('Navegador')).toBeNull()
   })
 
   it('suggests every favorite missing an active game, not just one', async () => {

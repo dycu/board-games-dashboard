@@ -151,13 +151,19 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
 
   // With few games going, suggest the top of "Next to play" that isn't already running
   const backlog = useBacklog()
+  // A platform that failed to fetch this round has no games in `games` for
+  // a reason unrelated to whether one's actually running — never read that
+  // as "nothing running" and nudge to start a duplicate.
+  const erroredPlatforms = new Set(errors.map(e => e.platform))
   // Shown right under my games: the top "Next to play" game that isn't already running
   const suggestion = (backlog.items ?? []).find(item => listsOf(item).includes('play')
+    && !erroredPlatforms.has(item.platform)
     && !games.some(g => backlogId(g.platform, g.gameType || g.gameName) === item.id))
   // Every favorite title with no active game of its own — not just the one
   // overall, since a favorite having a running game shouldn't hide the nudge
   // for a *different* favorite that doesn't
   const favoriteSuggestions = (backlog.items ?? []).filter(item => listsOf(item).includes('favorite')
+    && !erroredPlatforms.has(item.platform)
     && !games.some(g => backlogId(g.platform, g.gameType || g.gameName) === item.id))
 
   const togglePin = async (id: string) => {
