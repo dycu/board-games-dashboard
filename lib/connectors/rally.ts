@@ -66,10 +66,16 @@ export async function loginRally(username: string, password: string): Promise<st
 
 // Solving the ALTCHA challenge is CPU-bound and can take real wall-clock
 // time (see solveAltcha's batching comment) — caching the session cookie
-// means that only happens once every few hours, not on every single games
-// fetch (the dashboard's auto-refresh calls this every 30s-1m while open).
+// avoids that on every single games fetch (the dashboard's auto-refresh
+// calls this every 30s-1m while open). Rally is played async, often with
+// hours between turns, so the TTL needs to outlast that gap too: at 6h it
+// had usually expired by the time someone came back from a round, forcing
+// a cold ALTCHA solve right then — slow enough to occasionally blow past
+// the per-platform fetch timeout and show up as "Rally doesn't work".
+// Longer here costs nothing when it's wrong: withRallySession below drops
+// a cached cookie Rally actually rejects and logs in fresh anyway.
 const SESSION_KV_KEY = 'rally-session:v1'
-const SESSION_TTL_SECONDS = 6 * 3600
+const SESSION_TTL_SECONDS = 24 * 3600
 
 // KV is best-effort here: a KV failure must never break fetching games
 async function quietly<T>(op: () => Promise<T>): Promise<T | null> {
