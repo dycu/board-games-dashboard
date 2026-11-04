@@ -28,11 +28,13 @@ const SESSION_KV_KEY = 'obg-session'
 // The 4-request login dance (CSRF cookie, credentials POST, home page,
 // profile page) is what makes this connector slow, not the HTML parsing —
 // so a logged-in session is cached and reused across calls, cutting a
-// refresh down to the one profile-page request. The TTL is comfortably
-// longer than the dashboard's shortest auto-refresh interval (30s) so
-// almost every refresh hits the cache; if the real site session actually
-// expires sooner, fetchOBGProfileHtml below detects that and re-logs in.
-const SESSION_TTL_SECONDS = 60 * 60
+// refresh down to the one profile-page request. OBG is played async, often
+// with hours between turns, so the TTL needs to outlast that gap — not just
+// the dashboard's auto-refresh interval — or every "come back after my
+// round" visit pays for a fresh login anyway. If the real site session
+// expires sooner than this, fetchOBGProfileHtml below detects that and
+// re-logs in, so a longer TTL here costs nothing when it's wrong.
+const SESSION_TTL_SECONDS = 12 * 60 * 60
 
 async function loginOBG(username: string, password: string): Promise<OBGSession> {
   // Step 1: GET /login/ — Django CSRF cookie + form token
