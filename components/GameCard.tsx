@@ -22,6 +22,12 @@ export interface GameItemProps {
   deadlineSoonHours: number
   note?: string
   onSaveNote?: (id: string, text: string) => void
+  // Only set for a game whose title is GMed in parallel (lib/backlog's
+  // 'gm' list) — distinguishes it from the other simultaneous games of the
+  // same title. Separate from `note`, which is for round-to-round planning
+  // and gets cleared often; a table label needs to survive that.
+  tableLabel?: string
+  onSaveTableLabel?: (id: string, text: string) => void
   now: number
   opened?: boolean // opened since the last refresh that saw me back: dimmed until then
   showProgress: boolean // the "% through the game" bar — a settings toggle, default on
@@ -189,6 +195,54 @@ export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemPro
   )
 }
 
+// Only rendered when a label (or the ability to add one) is actually
+// relevant — GameGrid only passes onSaveTableLabel for a game whose title
+// is in the 'gm' list, so this stays invisible everywhere else.
+export function TableLabelEditor({ game, label, onSaveLabel }: Pick<GameItemProps, 'game'> & { label?: string; onSaveLabel?: (id: string, text: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+
+  if (!onSaveLabel) return null
+
+  if (editing) {
+    const save = () => { onSaveLabel(game.id, draft); setEditing(false) }
+    return (
+      <input
+        autoFocus
+        value={draft}
+        maxLength={60}
+        onChange={e => setDraft(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') save()
+          if (e.key === 'Escape') setEditing(false)
+        }}
+        onBlur={save}
+        placeholder="Table label…"
+        aria-label={`Table label for ${game.gameName}`}
+        className="relative z-10 text-xs bg-white text-[#1a1a1a] px-2 py-0.5 rounded border border-[#5e6ad2] w-24"
+      />
+    )
+  }
+
+  const startEditing = () => { setDraft(label ?? ''); setEditing(true) }
+  return label ? (
+    <button
+      onClick={startEditing}
+      title="Edit table label"
+      className="relative z-10 shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]">
+      {label}
+    </button>
+  ) : (
+    <button
+      onClick={startEditing}
+      aria-label={`Add a table label to ${game.gameName}`}
+      title="Add a table label — distinguishes this from your other parallel games of the title"
+      className="relative z-10 shrink-0 text-[11px] text-[#9b9b9b] hover:text-[#5e6ad2] border border-dashed border-[#d5d5d5] hover:border-[#5e6ad2] px-1.5 py-0.5 rounded">
+      + label
+    </button>
+  )
+}
+
 function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string, text: string) => void }) {
   return (
     <button
@@ -202,7 +256,7 @@ function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string,
 }
 
 // A game waiting for my move: a full card
-export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, now, opened, showProgress }: GameItemProps) {
+export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, showProgress }: GameItemProps) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
@@ -226,7 +280,10 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
         </div>
       </div>
 
-      <div className="font-semibold text-[14px] text-[#1a1a1a]">{game.gameName}</div>
+      <div className="flex items-center gap-1.5">
+        <div className="font-semibold text-[14px] text-[#1a1a1a] truncate">{game.gameName}</div>
+        <TableLabelEditor game={game} label={tableLabel} onSaveLabel={onSaveTableLabel} />
+      </div>
 
       {game.players.length > 0 && (
         <div className="text-xs text-[#9b9b9b] hidden sm:block truncate">
@@ -246,7 +303,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
 }
 
 // A game waiting for someone else: one compact row
-export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, note, onSaveNote, now, opened, showProgress }: GameItemProps) {
+export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, showProgress }: GameItemProps) {
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   return (
     <div className={`relative flex items-center gap-2 px-3 py-2 rounded-md border bg-white hover:border-[#c5c9f0] transition-colors
@@ -255,6 +312,7 @@ export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched
       <Badge game={game} small />
       <div className="min-w-0 flex-1 flex items-baseline gap-2">
         <span className="text-sm text-[#1a1a1a] truncate">{game.gameName}</span>
+        <TableLabelEditor game={game} label={tableLabel} onSaveLabel={onSaveTableLabel} />
         {game.currentPlayer && <span className="hidden sm:inline text-xs text-[#9b9b9b] truncate">waiting for {game.currentPlayer}</span>}
         {/* Just the text here — its own edit/delete icons are the compact
             NoteEditor below, shown at every width, not only md:inline */}

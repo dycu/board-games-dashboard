@@ -193,6 +193,43 @@ describe('note deletion', () => {
   })
 })
 
+describe('table label', () => {
+  it('renders nothing when no onSaveTableLabel is given — not a GMed title', () => {
+    render(<GameCard {...props({ tableLabel: 'Group A' })} />)
+    expect(screen.queryByText('Group A')).toBeNull()
+  })
+
+  it('shows an "add" affordance when GMed but unlabeled yet', () => {
+    render(<GameCard {...props({ onSaveTableLabel: jest.fn() })} />)
+    expect(screen.getByRole('button', { name: /add a table label/i })).toBeInTheDocument()
+  })
+
+  it('shows the label itself once set', () => {
+    render(<GameCard {...props({ tableLabel: 'Group A', onSaveTableLabel: jest.fn() })} />)
+    expect(screen.getByText('Group A')).toBeInTheDocument()
+  })
+
+  it('saves a new label on Enter', async () => {
+    const onSaveTableLabel = jest.fn()
+    render(<GameCard {...props({ onSaveTableLabel })} />)
+    await userEvent.click(screen.getByRole('button', { name: /add a table label/i }))
+    await userEvent.type(screen.getByLabelText('Table label for Wingspan'), 'with Janek{Enter}')
+    expect(onSaveTableLabel).toHaveBeenCalledWith('bga:1', 'with Janek')
+  })
+
+  it('stays independent of the round-planning note — setting one does not touch the other', async () => {
+    const onSaveNote = jest.fn()
+    const onSaveTableLabel = jest.fn()
+    render(<GameCard {...props({ note: 'build mines', onSaveNote, tableLabel: 'Group A', onSaveTableLabel })} />)
+    await userEvent.click(screen.getByText('Group A'))
+    await userEvent.clear(screen.getByLabelText('Table label for Wingspan'))
+    await userEvent.type(screen.getByLabelText('Table label for Wingspan'), 'Group B{Enter}')
+    expect(onSaveTableLabel).toHaveBeenCalledWith('bga:1', 'Group B')
+    expect(onSaveNote).not.toHaveBeenCalled()
+    expect(screen.getByText(/build mines/)).toBeInTheDocument()
+  })
+})
+
 describe('progress bar', () => {
   const withProgress = { ...game, progress: { percent: 42, turnsSoFar: 21, estimatedTotalTurns: 50, sampleCount: 3, samples: [45, 50, 55], sameSizeOnly: false } }
 

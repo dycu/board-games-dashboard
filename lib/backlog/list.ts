@@ -1,11 +1,11 @@
 import { Platform } from '../types'
 
-export type BacklogList = 'play' | 'learn' | 'solo' | 'favorite'
+export type BacklogList = 'play' | 'learn' | 'solo' | 'favorite' | 'gm'
 
-export const BACKLOG_LISTS: BacklogList[] = ['play', 'learn', 'solo', 'favorite']
+export const BACKLOG_LISTS: BacklogList[] = ['play', 'learn', 'solo', 'favorite', 'gm']
 
-export const LIST_LABELS: Record<BacklogList, string> = { play: 'Next to play', learn: 'Next to learn', solo: 'Solo', favorite: 'Favorite' }
-export const SHORT_LIST_LABELS: Record<BacklogList, string> = { play: 'Play', learn: 'Learn', solo: 'Solo', favorite: 'Favorite' }
+export const LIST_LABELS: Record<BacklogList, string> = { play: 'Next to play', learn: 'Next to learn', solo: 'Solo', favorite: 'Favorite', gm: 'GM' }
+export const SHORT_LIST_LABELS: Record<BacklogList, string> = { play: 'Play', learn: 'Learn', solo: 'Solo', favorite: 'Favorite', gm: 'GM' }
 
 export interface BacklogItem {
   id: string        // `${platform}:${normalized name}` — also the duplicate check

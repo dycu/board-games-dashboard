@@ -147,10 +147,11 @@ function ListSection({ backlog, list }: { backlog: Backlog; list: BacklogList })
   if (items.length === 0) {
     return (
       <p className="text-sm text-[#9b9b9b] text-center py-6 rounded-lg border border-dashed border-[#e5e5e5]">
-        {list === 'play' && 'Nothing here yet. Add games below, or with the Play/Learn/Solo/Favorite buttons on the History page.'}
+        {list === 'play' && 'Nothing here yet. Add games below, or with the Play/Learn/Solo/Favorite/GM buttons on the History page.'}
         {list === 'learn' && 'No games to learn yet. Choose “Next to learn” in the box below and add some.'}
         {list === 'solo' && 'No solo games queued yet. Choose “Solo” in the box below and add some.'}
         {list === 'favorite' && 'No favorites yet. Choose “Favorite” in the box below and add some — the dashboard will nudge you to start one whenever none of them has a game running.'}
+        {list === 'gm' && 'No GMed titles yet. Choose “GM” in the box below, set the ×N target on its row, and the dashboard will nudge you to start another whenever you’re under it.'}
       </p>
     )
   }
@@ -442,7 +443,7 @@ export default function BacklogPage() {
           ? !backlog.error && <p className="text-sm text-[#9b9b9b] text-center py-8">Loading…</p>
           : (
             <section className="mb-6">
-              {/* One list visible at a time instead of all four stacked —
+              {/* One list visible at a time instead of all of them stacked —
                   keeps this short on a phone and avoids a long scroll to
                   reach "Add games" below, on any screen size. */}
               <div className="flex items-center gap-1 mb-3">

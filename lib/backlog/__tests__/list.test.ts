@@ -64,8 +64,8 @@ describe('lists', () => {
     expect(listsOf({ ...item('bga', 'B'), list: 'learn' })).toEqual(['learn'])
   })
 
-  it('includes a third "solo" list alongside play and learn', () => {
-    expect(BACKLOG_LISTS).toEqual(['play', 'learn', 'solo', 'favorite'])
+  it('includes solo, favorite and gm alongside play and learn', () => {
+    expect(BACKLOG_LISTS).toEqual(['play', 'learn', 'solo', 'favorite', 'gm'])
   })
 
   it('reordering one list keeps the other list in its order', () => {

@@ -358,17 +358,17 @@ describe('GameGrid favorite suggestions', () => {
   })
 })
 
-describe('GameGrid parallel-games target', () => {
+describe('GameGrid GM parallel-games target', () => {
   it('nudges to start another while under target, showing progress', async () => {
-    const items = [{ id: backlogId('bga', 'Test Game'), platform: 'bga', gameName: 'Test Game', playUrl: 'https://x/1', addedAt: '', list: 'play', parallelTarget: 3 }]
+    const items = [{ id: backlogId('bga', 'Test Game'), platform: 'bga', gameName: 'Test Game', playUrl: 'https://x/1', addedAt: '', list: 'gm', parallelTarget: 3 }]
     global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
     renderGrid([makeGame('bga', '1')])
-    expect(await screen.findByText('Running 1 of 3:')).toBeInTheDocument()
+    expect(await screen.findByText('GM · running 1 of 3:')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Start another/ })).toHaveAttribute('href', 'https://x/1')
   })
 
   it('shows no nudge once the target is met', async () => {
-    const items = [{ id: backlogId('bga', 'Test Game'), platform: 'bga', gameName: 'Test Game', playUrl: 'https://x/1', addedAt: '', list: 'play', parallelTarget: 2 }]
+    const items = [{ id: backlogId('bga', 'Test Game'), platform: 'bga', gameName: 'Test Game', playUrl: 'https://x/1', addedAt: '', list: 'gm', parallelTarget: 2 }]
     global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
     renderGrid([makeGame('bga', '1'), makeGame('bga', '2')])
     await screen.findAllByText('Test Game')
@@ -376,15 +376,34 @@ describe('GameGrid parallel-games target', () => {
     // the backlog's own async load does — give it a tick to land too, or
     // this would pass vacuously regardless of whether the target logic works
     await act(async () => { await new Promise(r => setTimeout(r, 0)) })
-    expect(screen.queryByText(/Running \d of \d:/)).toBeNull()
+    expect(screen.queryByText(/GM · running/)).toBeNull()
+  })
+
+  it('does not nudge for a target set outside the GM list', async () => {
+    const items = [{ id: backlogId('bga', 'Test Game'), platform: 'bga', gameName: 'Test Game', playUrl: 'https://x/1', addedAt: '', list: 'play', parallelTarget: 3 }]
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    renderGrid([makeGame('bga', '1')])
+    await screen.findByText('Test Game')
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    expect(screen.queryByText(/GM · running/)).toBeNull()
   })
 
   it('does not nudge when the platform failed to fetch this round', async () => {
-    const items = [{ id: backlogId('yucata', 'Navegador'), platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/1', addedAt: '', list: 'play', parallelTarget: 3 }]
+    const items = [{ id: backlogId('yucata', 'Navegador'), platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/1', addedAt: '', list: 'gm', parallelTarget: 3 }]
     global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
     renderGrid([makeGame('bga', '1')], [{ platform: 'yucata', error: 'timed out' }])
     expect(await screen.findByText('Test Game')).toBeInTheDocument()
     expect(screen.queryByText('Navegador')).toBeNull()
+  })
+
+  it('offers a table-label editor only on a GMed title, to tell parallel games of it apart', async () => {
+    const items = [{ id: backlogId('bga', 'Test Game'), platform: 'bga', gameName: 'Test Game', playUrl: 'https://x/1', addedAt: '', list: 'gm', parallelTarget: 2 }]
+    global.fetch = jest.fn(async (url: string) => ({
+      ok: true,
+      json: async () => (url === '/api/backlog' ? { items } : url === '/api/table-labels' ? { labels: {} } : { notes: {} }),
+    })) as unknown as typeof fetch
+    renderGrid([makeGame('bga', '1'), makeGame('yucata', '2')])
+    expect(await screen.findAllByRole('button', { name: /Add a table label/ })).toHaveLength(1)
   })
 })
 

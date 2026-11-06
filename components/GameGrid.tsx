@@ -6,6 +6,7 @@ import { sortAndFilter } from '@/lib/sort-filter'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import GameCard, { GameRow, GameItemProps, isOpponentSlow, openTarget } from './GameCard'
 import { useBacklog } from '@/hooks/useBacklog'
+import { useTableLabels } from '@/hooks/useTableLabels'
 import { BacklogItem, backlogId, listsOf } from '@/lib/backlog/list'
 import FilterToolbar from './FilterToolbar'
 import PlatformFilterChips from './PlatformFilterChips'
@@ -151,6 +152,10 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
 
   // With few games going, suggest the top of "Next to play" that isn't already running
   const backlog = useBacklog()
+  const { labels: tableLabels, saveLabel: saveTableLabel } = useTableLabels()
+  // Only a game whose title is GMed gets the table-label editor — everyone
+  // else's cards stay exactly as before
+  const gmBacklogIds = new Set((backlog.items ?? []).filter(i => listsOf(i).includes('gm')).map(i => i.id))
   // A platform that failed to fetch this round has no games in `games` for
   // a reason unrelated to whether one's actually running — never read that
   // as "nothing running" and nudge to start a duplicate.
@@ -165,11 +170,11 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   const favoriteSuggestions = (backlog.items ?? []).filter(item => listsOf(item).includes('favorite')
     && !erroredPlatforms.has(item.platform)
     && !games.some(g => backlogId(g.platform, g.gameType || g.gameName) === item.id))
-  // Titles with a target above 1 running game — e.g. GMing several tables
-  // of the same title at once. Independent of list membership (see
-  // BacklogItem.parallelTarget); only shown while under target.
-  const parallelSuggestions = (backlog.items ?? [])
-    .filter(item => item.parallelTarget && item.parallelTarget > 1 && !erroredPlatforms.has(item.platform))
+  // GMed titles under their running-games target — e.g. hosting several
+  // tables of the same title at once. A dedicated list (not just a
+  // favorite), since it's worth flagging more prominently than that.
+  const gmSuggestions = (backlog.items ?? [])
+    .filter(item => listsOf(item).includes('gm') && item.parallelTarget && item.parallelTarget > 1 && !erroredPlatforms.has(item.platform))
     .map(item => ({ item, running: games.filter(g => backlogId(g.platform, g.gameType || g.gameName) === item.id).length }))
     .filter(({ item, running }) => running < item.parallelTarget!)
 
@@ -209,23 +214,28 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ refreshIntervalSeconds }), headers: { 'Content-Type': 'application/json' } }).catch(() => {})
   }
 
-  const itemProps = (g: Game): GameItemProps => ({
-    game: g,
-    pinned: prefs.pins.includes(g.id),
-    onTogglePin: togglePin,
-    sunk: (prefs.sunk ?? []).includes(g.id),
-    onToggleSink: toggleSink,
-    watched: (prefs.watchedGames ?? []).includes(g.id),
-    onToggleWatch: toggleWatch,
-    onOpen: () => openGame(g.id),
-    opponentSlowDays,
-    deadlineSoonHours,
-    note: notes[g.id],
-    onSaveNote: saveNote,
-    now,
-    opened: isOpened(g),
-    showProgress: prefs.showProgress ?? true,
-  })
+  const itemProps = (g: Game): GameItemProps => {
+    const isGm = gmBacklogIds.has(backlogId(g.platform, g.gameType || g.gameName))
+    return {
+      game: g,
+      pinned: prefs.pins.includes(g.id),
+      onTogglePin: togglePin,
+      sunk: (prefs.sunk ?? []).includes(g.id),
+      onToggleSink: toggleSink,
+      watched: (prefs.watchedGames ?? []).includes(g.id),
+      onToggleWatch: toggleWatch,
+      onOpen: () => openGame(g.id),
+      opponentSlowDays,
+      deadlineSoonHours,
+      note: notes[g.id],
+      onSaveNote: saveNote,
+      tableLabel: isGm ? tableLabels[g.id] : undefined,
+      onSaveTableLabel: isGm ? saveTableLabel : undefined,
+      now,
+      opened: isOpened(g),
+      showProgress: prefs.showProgress ?? true,
+    }
+  }
 
   // Your-turn count in the browser tab, readable without switching to it
   useEffect(() => {
@@ -389,18 +399,18 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
           </section>
         )}
 
-        {favoriteSuggestions.length > 0 && (
+        {gmSuggestions.length > 0 && (
           <div className="mb-7 flex flex-col gap-2">
-            {favoriteSuggestions.map(item => (
-              <FavoriteSuggestion key={item.id} item={item} onDismiss={() => backlog.toggle(item.id, 'favorite')} />
+            {gmSuggestions.map(({ item, running }) => (
+              <GmSuggestion key={item.id} item={item} running={running} />
             ))}
           </div>
         )}
 
-        {parallelSuggestions.length > 0 && (
+        {favoriteSuggestions.length > 0 && (
           <div className="mb-7 flex flex-col gap-2">
-            {parallelSuggestions.map(({ item, running }) => (
-              <ParallelSuggestion key={item.id} item={item} running={running} />
+            {favoriteSuggestions.map(item => (
+              <FavoriteSuggestion key={item.id} item={item} onDismiss={() => backlog.toggle(item.id, 'favorite')} />
             ))}
           </div>
         )}
@@ -464,12 +474,15 @@ function FavoriteSuggestion({ item, onDismiss }: { item: BacklogItem; onDismiss:
   )
 }
 
-function ParallelSuggestion({ item, running }: { item: BacklogItem; running: number }) {
+// Styled distinctly from Favorite (indigo, the app's own accent color,
+// solid border instead of dashed) — this is meant to read as more
+// prominent, not just another variant of the same nudge.
+function GmSuggestion({ item, running }: { item: BacklogItem; running: number }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-amber-300 bg-amber-50">
-      <span className="shrink-0 text-amber-500" aria-hidden="true">⇶</span>
-      <span className="hidden sm:inline text-xs text-amber-700">Running {running} of {item.parallelTarget}:</span>
-      <span className="sm:hidden text-xs text-amber-700 tabular-nums">{running}/{item.parallelTarget}</span>
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#5e6ad2] bg-[#f0f1fb]">
+      <span className="shrink-0 text-[#5e6ad2]" aria-hidden="true">⇶</span>
+      <span className="hidden sm:inline text-xs font-medium text-[#4f5ab8]">GM · running {running} of {item.parallelTarget}:</span>
+      <span className="sm:hidden text-xs font-medium text-[#4f5ab8] tabular-nums">GM {running}/{item.parallelTarget}</span>
       <span title={PLATFORM_LABELS[item.platform]} className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[item.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
         {PLATFORM_SHORT_LABELS[item.platform]}
       </span>
@@ -478,7 +491,7 @@ function ParallelSuggestion({ item, running }: { item: BacklogItem; running: num
         href={item.playUrl}
         target={item.platform === 'bga' ? '_self' : '_blank'}
         rel="noopener noreferrer"
-        className="shrink-0 text-xs font-medium px-3 py-1 rounded-md bg-amber-500 text-white hover:bg-amber-600">
+        className="shrink-0 text-xs font-medium px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]">
         Start another ↗
       </a>
     </div>
