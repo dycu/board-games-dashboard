@@ -2,7 +2,10 @@ import { Game, FinishedGame } from '../types'
 import { formatTimeAgo, withTimeout } from './utils'
 import { resultFromRanks } from '../results'
 
-const API_BASE = 'https://hansa-teutonica-digital.onrender.com'
+// Migrated off Render (hansa-teutonica-digital.onrender.com, now suspended)
+// to this custom domain — confirmed live by extracting it from the site's
+// own Flutter bundle (main.dart.js) after the dev announced the move.
+const API_BASE = 'https://api.playhansa.app'
 const UI_BASE = 'https://playhansa.app'
 
 interface HtPlayer {
