@@ -1,4 +1,4 @@
-import { addItem, removeItem, reorderItems, backlogId, BacklogItem, listsOf, toggleList, BACKLOG_LISTS } from '../list'
+import { addItem, removeItem, reorderItems, backlogId, BacklogItem, listsOf, toggleList, setParallelTarget, BACKLOG_LISTS } from '../list'
 
 const item = (platform: BacklogItem['platform'], gameName: string): BacklogItem => ({
   id: backlogId(platform, gameName),
@@ -112,5 +112,29 @@ describe('toggleList', () => {
   it('is a no-op for an unknown id', () => {
     const list = [item('bga', 'A')]
     expect(toggleList(list, 'bga:nope', 'solo')).toBe(list)
+  })
+})
+
+describe('setParallelTarget', () => {
+  it('sets a target above 1', () => {
+    const list = [item('bga', 'A')]
+    expect(setParallelTarget(list, list[0].id, 3)[0].parallelTarget).toBe(3)
+  })
+
+  it('clears it for a target of 1 or less — no point tracking "just the usual single game"', () => {
+    const list = [{ ...item('bga', 'A'), parallelTarget: 3 }]
+    expect(setParallelTarget(list, list[0].id, 1)[0].parallelTarget).toBeUndefined()
+    expect(setParallelTarget(list, list[0].id, 0)[0].parallelTarget).toBeUndefined()
+  })
+
+  it('clears it for null', () => {
+    const list = [{ ...item('bga', 'A'), parallelTarget: 3 }]
+    expect(setParallelTarget(list, list[0].id, null)[0].parallelTarget).toBeUndefined()
+  })
+
+  it('leaves other items untouched', () => {
+    const list = [item('bga', 'A'), item('bga', 'B')]
+    const result = setParallelTarget(list, list[0].id, 2)
+    expect(result[1]).toBe(list[1])
   })
 })

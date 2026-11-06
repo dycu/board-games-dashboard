@@ -93,6 +93,11 @@ export function useBacklog() {
     send({ op: 'toggle', id, list })
   }, [send])
 
+  const setParallelTarget = useCallback((id: string, target: number | null) => {
+    setItems(prev => prev && prev.map(i => i.id === id ? { ...i, parallelTarget: target && target > 1 ? target : undefined } : i))
+    send({ op: 'setParallelTarget', id, target })
+  }, [send])
+
   // Like toggle, but also works for a game not in the backlog yet — the
   // first list it's switched into adds it, same as `add` would
   const toggleOrAdd = useCallback((req: AddRequest) => {
@@ -101,5 +106,5 @@ export function useBacklog() {
     return exists ? toggle(id, req.list) : add(req)
   }, [items, add, toggle])
 
-  return { items, error, listsFor, add, isAdding, remove, reorder, toggle, toggleOrAdd }
+  return { items, error, listsFor, add, isAdding, remove, reorder, toggle, toggleOrAdd, setParallelTarget }
 }

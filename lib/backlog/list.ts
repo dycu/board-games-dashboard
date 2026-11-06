@@ -15,6 +15,13 @@ export interface BacklogItem {
   addedAt: string   // ISO
   lists?: BacklogList[] // the lists this item belongs to — a game can be in more than one at once
   list?: BacklogList    // legacy single-list field, from before an item could be in more than one list; read as a fallback by listsOf()
+  // How many simultaneous games of this title to keep running at once — for
+  // a title run as more than one concurrent game (e.g. GMing several
+  // tables of it). Independent of list membership; unset/1 means "just the
+  // usual single game", so only a value above that turns on the nudge.
+  // Telling the resulting games apart from each other is what the existing
+  // per-game note is for — no separate labeling field needed here.
+  parallelTarget?: number
 }
 
 export function listsOf(item: BacklogItem): BacklogList[] {
@@ -69,4 +76,10 @@ export function toggleList(list: BacklogItem[], id: string, target: BacklogList)
   }
   const lists = [...current, target]
   return [...list.filter(i => i.id !== id), { ...item, lists, list: undefined }]
+}
+
+// `target` <= 1 clears it (same as "just the usual single game" — no point
+// keeping a target around that'll never trigger the parallel-games nudge)
+export function setParallelTarget(list: BacklogItem[], id: string, target: number | null): BacklogItem[] {
+  return list.map(i => i.id === id ? { ...i, parallelTarget: target && target > 1 ? target : undefined } : i)
 }

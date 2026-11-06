@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Platform, PLATFORM_LABELS } from '@/lib/types'
-import { addItem, removeItem, reorderItems, backlogId, toggleList, BACKLOG_LISTS, BacklogList } from '@/lib/backlog/list'
+import { addItem, removeItem, reorderItems, backlogId, toggleList, setParallelTarget, BACKLOG_LISTS, BacklogList } from '@/lib/backlog/list'
 import { getBacklog, updateBacklog } from '@/lib/backlog/store'
 import { resolvePlayUrl } from '@/lib/backlog/playUrl'
 import { getCatalog } from '@/lib/catalogs/cache'
@@ -45,6 +45,10 @@ export async function POST(req: NextRequest) {
     }
     if (body?.op === 'order' && Array.isArray(body.ids)) {
       return NextResponse.json({ items: await updateBacklog(list => reorderItems(list, body.ids)) })
+    }
+    if (body?.op === 'setParallelTarget' && typeof body.id === 'string') {
+      const target = typeof body.target === 'number' ? body.target : null
+      return NextResponse.json({ items: await updateBacklog(list => setParallelTarget(list, body.id, target)) })
     }
     return fail('Unknown op')
   } catch (e) {

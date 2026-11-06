@@ -165,6 +165,13 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   const favoriteSuggestions = (backlog.items ?? []).filter(item => listsOf(item).includes('favorite')
     && !erroredPlatforms.has(item.platform)
     && !games.some(g => backlogId(g.platform, g.gameType || g.gameName) === item.id))
+  // Titles with a target above 1 running game — e.g. GMing several tables
+  // of the same title at once. Independent of list membership (see
+  // BacklogItem.parallelTarget); only shown while under target.
+  const parallelSuggestions = (backlog.items ?? [])
+    .filter(item => item.parallelTarget && item.parallelTarget > 1 && !erroredPlatforms.has(item.platform))
+    .map(item => ({ item, running: games.filter(g => backlogId(g.platform, g.gameType || g.gameName) === item.id).length }))
+    .filter(({ item, running }) => running < item.parallelTarget!)
 
   const togglePin = async (id: string) => {
     const pins = prefs.pins.includes(id)
@@ -390,6 +397,14 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
           </div>
         )}
 
+        {parallelSuggestions.length > 0 && (
+          <div className="mb-7 flex flex-col gap-2">
+            {parallelSuggestions.map(({ item, running }) => (
+              <ParallelSuggestion key={item.id} item={item} running={running} />
+            ))}
+          </div>
+        )}
+
         {suggestion && (
           <BacklogSuggestion item={suggestion} activeCount={games.length} className="mb-7" onRemove={() => backlog.remove(suggestion.id)} />
         )}
@@ -445,6 +460,27 @@ function FavoriteSuggestion({ item, onDismiss }: { item: BacklogItem; onDismiss:
       >
         ✕
       </button>
+    </div>
+  )
+}
+
+function ParallelSuggestion({ item, running }: { item: BacklogItem; running: number }) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-amber-300 bg-amber-50">
+      <span className="shrink-0 text-amber-500" aria-hidden="true">⇶</span>
+      <span className="hidden sm:inline text-xs text-amber-700">Running {running} of {item.parallelTarget}:</span>
+      <span className="sm:hidden text-xs text-amber-700 tabular-nums">{running}/{item.parallelTarget}</span>
+      <span title={PLATFORM_LABELS[item.platform]} className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[item.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
+        {PLATFORM_SHORT_LABELS[item.platform]}
+      </span>
+      <span className="text-sm font-medium text-[#1a1a1a] truncate flex-1 min-w-0">{item.gameName}</span>
+      <a
+        href={item.playUrl}
+        target={item.platform === 'bga' ? '_self' : '_blank'}
+        rel="noopener noreferrer"
+        className="shrink-0 text-xs font-medium px-3 py-1 rounded-md bg-amber-500 text-white hover:bg-amber-600">
+        Start another ↗
+      </a>
     </div>
   )
 }

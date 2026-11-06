@@ -1,8 +1,9 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import GameGrid from '@/components/GameGrid'
 import { GamesApiResponse, DEFAULT_PREFS, PLATFORM_URLS, Game, UserPrefs } from '@/lib/types'
+import { backlogId } from '@/lib/backlog/list'
 
 beforeEach(() => {
   // notes and backlog load on mount
@@ -354,6 +355,36 @@ describe('GameGrid favorite suggestions', () => {
     // ordinary "Next to play" backlog suggestion
     expect(screen.queryByText('No game running in your favorite:')).toBeNull()
     expect(screen.getByText('Gaia Project')).toBeInTheDocument()
+  })
+})
+
+describe('GameGrid parallel-games target', () => {
+  it('nudges to start another while under target, showing progress', async () => {
+    const items = [{ id: backlogId('bga', 'Test Game'), platform: 'bga', gameName: 'Test Game', playUrl: 'https://x/1', addedAt: '', list: 'play', parallelTarget: 3 }]
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    renderGrid([makeGame('bga', '1')])
+    expect(await screen.findByText('Running 1 of 3:')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Start another/ })).toHaveAttribute('href', 'https://x/1')
+  })
+
+  it('shows no nudge once the target is met', async () => {
+    const items = [{ id: backlogId('bga', 'Test Game'), platform: 'bga', gameName: 'Test Game', playUrl: 'https://x/1', addedAt: '', list: 'play', parallelTarget: 2 }]
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    renderGrid([makeGame('bga', '1'), makeGame('bga', '2')])
+    await screen.findAllByText('Test Game')
+    // The games render synchronously from props, so the above resolves before
+    // the backlog's own async load does — give it a tick to land too, or
+    // this would pass vacuously regardless of whether the target logic works
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    expect(screen.queryByText(/Running \d of \d:/)).toBeNull()
+  })
+
+  it('does not nudge when the platform failed to fetch this round', async () => {
+    const items = [{ id: backlogId('yucata', 'Navegador'), platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/1', addedAt: '', list: 'play', parallelTarget: 3 }]
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    renderGrid([makeGame('bga', '1')], [{ platform: 'yucata', error: 'timed out' }])
+    expect(await screen.findByText('Test Game')).toBeInTheDocument()
+    expect(screen.queryByText('Navegador')).toBeNull()
   })
 })
 

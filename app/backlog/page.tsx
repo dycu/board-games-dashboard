@@ -47,11 +47,28 @@ function Badge({ platform }: { platform: SearchSite }) {
   )
 }
 
-function Row({ item, position, onTop, onToggleList, onRemove }: {
+function ParallelTargetInput({ item, onChange }: { item: BacklogItem; onChange: (target: number | null) => void }) {
+  return (
+    <input
+      type="number"
+      min={1}
+      max={20}
+      value={item.parallelTarget ?? ''}
+      onChange={e => onChange(e.target.value === '' ? null : Number(e.target.value))}
+      placeholder="×1"
+      title="How many of this title to keep running at once — e.g. GMing several tables"
+      aria-label={`Parallel games target for ${item.gameName}`}
+      className="shrink-0 w-11 text-xs text-center px-1 py-1 rounded-md border border-[#e5e5e5] text-[#6b6b6b] focus:border-[#5e6ad2] focus:outline-none"
+    />
+  )
+}
+
+function Row({ item, position, onTop, onToggleList, onSetParallelTarget, onRemove }: {
   item: BacklogItem
   position: number
   onTop?: () => void
   onToggleList: (list: BacklogList) => void
+  onSetParallelTarget: (target: number | null) => void
   onRemove: () => void
 }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
@@ -104,6 +121,7 @@ function Row({ item, position, onTop, onToggleList, onRemove }: {
           ⤒
         </button>
         <BacklogListChips lists={listsOf(item)} onToggle={onToggleList} gameName={item.gameName} />
+        <ParallelTargetInput item={item} onChange={onSetParallelTarget} />
         <button onClick={onRemove} title="Remove" aria-label={`Remove ${item.gameName}`} className={SMALL_BUTTON}>
           ✕
         </button>
@@ -152,6 +170,7 @@ function ListSection({ backlog, list }: { backlog: Backlog; list: BacklogList })
               position={i + 1}
               onTop={i > 0 ? () => backlog.reorder(arrayMove(items, i, 0)) : undefined}
               onToggleList={target => backlog.toggle(item.id, target)}
+              onSetParallelTarget={target => backlog.setParallelTarget(item.id, target)}
               onRemove={() => backlog.remove(item.id)}
             />
           ))}
