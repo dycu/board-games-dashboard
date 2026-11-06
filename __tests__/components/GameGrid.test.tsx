@@ -396,14 +396,16 @@ describe('GameGrid GM parallel-games target', () => {
     expect(screen.queryByText('Navegador')).toBeNull()
   })
 
-  it('offers a table-label editor only on a GMed title, to tell parallel games of it apart', async () => {
-    const items = [{ id: backlogId('bga', 'Test Game'), platform: 'bga', gameName: 'Test Game', playUrl: 'https://x/1', addedAt: '', list: 'gm', parallelTarget: 2 }]
+})
+
+describe('GameGrid table labels', () => {
+  it('offers a table-label editor on every game, not just GMed titles', async () => {
     global.fetch = jest.fn(async (url: string) => ({
       ok: true,
-      json: async () => (url === '/api/backlog' ? { items } : url === '/api/table-labels' ? { labels: {} } : { notes: {} }),
+      json: async () => (url === '/api/backlog' ? { items: [] } : url === '/api/table-labels' ? { labels: {} } : { notes: {} }),
     })) as unknown as typeof fetch
     renderGrid([makeGame('bga', '1'), makeGame('yucata', '2')])
-    expect(await screen.findAllByRole('button', { name: /Add a table label/ })).toHaveLength(1)
+    expect(await screen.findAllByRole('button', { name: /Add a table label/ })).toHaveLength(2)
   })
 })
 

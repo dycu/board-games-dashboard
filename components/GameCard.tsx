@@ -22,10 +22,10 @@ export interface GameItemProps {
   deadlineSoonHours: number
   note?: string
   onSaveNote?: (id: string, text: string) => void
-  // Only set for a game whose title is GMed in parallel (lib/backlog's
-  // 'gm' list) — distinguishes it from the other simultaneous games of the
-  // same title. Separate from `note`, which is for round-to-round planning
-  // and gets cleared often; a table label needs to survive that.
+  // A short persistent label for the game — e.g. to tell apart several
+  // simultaneous games of the same title when GMing. Separate from `note`,
+  // which is for round-to-round planning and gets cleared often; a table
+  // label needs to survive that.
   tableLabel?: string
   onSaveTableLabel?: (id: string, text: string) => void
   now: number
@@ -195,9 +195,10 @@ export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemPro
   )
 }
 
-// Only rendered when a label (or the ability to add one) is actually
-// relevant — GameGrid only passes onSaveTableLabel for a game whose title
-// is in the 'gm' list, so this stays invisible everywhere else.
+// Shown on every game — not just GMed titles, since any active game can
+// use a short label (opponent group, device, whatever helps tell it apart
+// at a glance). onSaveLabel is still optional so a caller can opt a card
+// out entirely if it ever needs to.
 export function TableLabelEditor({ game, label, onSaveLabel }: Pick<GameItemProps, 'game'> & { label?: string; onSaveLabel?: (id: string, text: string) => void }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')

@@ -153,9 +153,6 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   // With few games going, suggest the top of "Next to play" that isn't already running
   const backlog = useBacklog()
   const { labels: tableLabels, saveLabel: saveTableLabel } = useTableLabels()
-  // Only a game whose title is GMed gets the table-label editor — everyone
-  // else's cards stay exactly as before
-  const gmBacklogIds = new Set((backlog.items ?? []).filter(i => listsOf(i).includes('gm')).map(i => i.id))
   // A platform that failed to fetch this round has no games in `games` for
   // a reason unrelated to whether one's actually running — never read that
   // as "nothing running" and nudge to start a duplicate.
@@ -215,7 +212,6 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   }
 
   const itemProps = (g: Game): GameItemProps => {
-    const isGm = gmBacklogIds.has(backlogId(g.platform, g.gameType || g.gameName))
     return {
       game: g,
       pinned: prefs.pins.includes(g.id),
@@ -229,8 +225,8 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
       deadlineSoonHours,
       note: notes[g.id],
       onSaveNote: saveNote,
-      tableLabel: isGm ? tableLabels[g.id] : undefined,
-      onSaveTableLabel: isGm ? saveTableLabel : undefined,
+      tableLabel: tableLabels[g.id],
+      onSaveTableLabel: saveTableLabel,
       now,
       opened: isOpened(g),
       showProgress: prefs.showProgress ?? true,
