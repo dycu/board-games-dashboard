@@ -153,25 +153,26 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   // With few games going, suggest the top of "Next to play" that isn't already running
   const backlog = useBacklog()
   const { labels: tableLabels, saveLabel: saveTableLabel } = useTableLabels()
-  // A platform that failed to fetch this round has no games in `games` for
-  // a reason unrelated to whether one's actually running — never read that
-  // as "nothing running" and nudge to start a duplicate.
-  const erroredPlatforms = new Set(errors.map(e => e.platform))
+  // A platform that failed to fetch this round, or that's turned off in
+  // Settings, has no games in `games` for a reason unrelated to whether
+  // one's actually running — never read that as "nothing running" and
+  // nudge to start a duplicate.
+  const unavailablePlatforms = new Set([...errors.map(e => e.platform), ...(prefs.disabledPlatforms ?? [])])
   // Shown right under my games: the top "Next to play" game that isn't already running
   const suggestion = (backlog.items ?? []).find(item => listsOf(item).includes('play')
-    && !erroredPlatforms.has(item.platform)
+    && !unavailablePlatforms.has(item.platform)
     && !games.some(g => backlogId(g.platform, g.gameType || g.gameName) === item.id))
   // Every favorite title with no active game of its own — not just the one
   // overall, since a favorite having a running game shouldn't hide the nudge
   // for a *different* favorite that doesn't
   const favoriteSuggestions = (backlog.items ?? []).filter(item => listsOf(item).includes('favorite')
-    && !erroredPlatforms.has(item.platform)
+    && !unavailablePlatforms.has(item.platform)
     && !games.some(g => backlogId(g.platform, g.gameType || g.gameName) === item.id))
   // GMed titles under their running-games target — e.g. hosting several
   // tables of the same title at once. A dedicated list (not just a
   // favorite), since it's worth flagging more prominently than that.
   const gmSuggestions = (backlog.items ?? [])
-    .filter(item => listsOf(item).includes('gm') && item.parallelTarget && item.parallelTarget > 1 && !erroredPlatforms.has(item.platform))
+    .filter(item => listsOf(item).includes('gm') && item.parallelTarget && item.parallelTarget > 1 && !unavailablePlatforms.has(item.platform))
     .map(item => ({ item, running: games.filter(g => backlogId(g.platform, g.gameType || g.gameName) === item.id).length }))
     .filter(({ item, running }) => running < item.parallelTarget!)
 

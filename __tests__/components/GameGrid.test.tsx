@@ -39,9 +39,9 @@ const defaultGridProps = {
   onSaveNote: () => {},
 }
 
-function renderGrid(games: Game[] = [], errors: GamesApiResponse['errors'] = []) {
+function renderGrid(games: Game[] = [], errors: GamesApiResponse['errors'] = [], prefs: UserPrefs = DEFAULT_PREFS) {
   const data: GamesApiResponse = { games, errors, fetchedAt: new Date().toISOString() }
-  render(<GameGrid {...defaultGridProps} data={data} />)
+  render(<GameGrid {...defaultGridProps} prefs={prefs} data={data} />)
 }
 
 describe('GameGrid header navigation', () => {
@@ -261,6 +261,14 @@ describe('GameGrid backlog suggestion', () => {
     expect(screen.queryByText('Navegador')).toBeNull()
   })
 
+  it('does not suggest a game whose platform is turned off in Settings', async () => {
+    const items = [{ id: 'yucata:navegador', platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/3', addedAt: '', list: 'play' }]
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    renderGrid([makeGame('bga', '1')], [], { ...DEFAULT_PREFS, disabledPlatforms: ['yucata'] })
+    await screen.findByText('Test Game')
+    expect(screen.queryByText('Navegador')).toBeNull()
+  })
+
   it('removes the suggested game from the backlog once it\'s been set up', async () => {
     const items = [{ id: 'yucata:navegador', platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/3', addedAt: '', list: 'play' }]
     global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
@@ -300,6 +308,14 @@ describe('GameGrid favorite suggestions', () => {
     const items = [{ id: 'yucata:navegador', platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/1', addedAt: '', list: 'favorite' }]
     global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
     renderGrid([makeGame('bga', '1')], [{ platform: 'yucata', error: 'timed out' }])
+    await screen.findByText('Test Game')
+    expect(screen.queryByText('Navegador')).toBeNull()
+  })
+
+  it('does not suggest a favorite whose platform is turned off in Settings', async () => {
+    const items = [{ id: 'yucata:navegador', platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/1', addedAt: '', list: 'favorite' }]
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    renderGrid([makeGame('bga', '1')], [], { ...DEFAULT_PREFS, disabledPlatforms: ['yucata'] })
     await screen.findByText('Test Game')
     expect(screen.queryByText('Navegador')).toBeNull()
   })
@@ -392,6 +408,14 @@ describe('GameGrid GM parallel-games target', () => {
     const items = [{ id: backlogId('yucata', 'Navegador'), platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/1', addedAt: '', list: 'gm', parallelTarget: 3 }]
     global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
     renderGrid([makeGame('bga', '1')], [{ platform: 'yucata', error: 'timed out' }])
+    expect(await screen.findByText('Test Game')).toBeInTheDocument()
+    expect(screen.queryByText('Navegador')).toBeNull()
+  })
+
+  it('does not nudge when the platform is turned off in Settings', async () => {
+    const items = [{ id: backlogId('yucata', 'Navegador'), platform: 'yucata', gameName: 'Navegador', playUrl: 'https://x/1', addedAt: '', list: 'gm', parallelTarget: 3 }]
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
+    renderGrid([makeGame('bga', '1')], [], { ...DEFAULT_PREFS, disabledPlatforms: ['yucata'] })
     expect(await screen.findByText('Test Game')).toBeInTheDocument()
     expect(screen.queryByText('Navegador')).toBeNull()
   })
