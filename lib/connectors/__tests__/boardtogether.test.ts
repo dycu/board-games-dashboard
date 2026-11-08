@@ -64,7 +64,7 @@ describe('fetchBoardtogether', () => {
     expect(games).toEqual([{
       id: 'boardtogether:9p7qhXbCS6dlGOKZ736gp',
       platform: 'boardtogether',
-      gameName: 'Testing game on the service',
+      gameName: 'Indonesia — Testing game on the service',
       gameType: 'Indonesia',
       myTurn: false,
       currentPlayer: 'NickCartel',
@@ -152,6 +152,28 @@ describe('fetchBoardtogether', () => {
     expect(store.get('boardtogether-session')).toMatchObject({ cookie: '__session=fresh' })
   })
 
+  it('leads with the real game type, appending the player-set table title', async () => {
+    store.set('boardtogether-session', session)
+    const game = mockActiveGame({ name: '1830 is here!', typeId: 'indonesia' })
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ payload: { games: [game] } }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => CATALOG })
+
+    const [result] = await fetchBoardtogether('Dycu', 'pw')
+    expect(result.gameName).toBe('Indonesia — 1830 is here!')
+  })
+
+  it('does not repeat the game type when the table has no distinct title', async () => {
+    store.set('boardtogether-session', session)
+    const game = mockActiveGame({ name: '' })
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ payload: { games: [game] } }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => CATALOG })
+
+    const [result] = await fetchBoardtogether('Dycu', 'pw')
+    expect(result.gameName).toBe('Indonesia')
+  })
+
   it('throws when login does not come back with a session cookie', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ payload: { user: { id: MY_ID } } }) })
     await expect(fetchBoardtogether('Dycu', 'wrong')).rejects.toThrow('login failed')
@@ -169,7 +191,7 @@ describe('fetchFinishedBoardtogether', () => {
     const [result] = await fetchFinishedBoardtogether('Dycu', 'pw')
     expect(result).toMatchObject({
       id: 'boardtogether:9p7qhXbCS6dlGOKZ736gp',
-      gameName: 'Testing game on the service',
+      gameName: 'Indonesia — Testing game on the service',
       gameType: 'Indonesia',
       result: 'won',
       playerCount: 3,

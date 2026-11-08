@@ -103,6 +103,17 @@ function gameTypeName(typeId: string, catalogNames: Map<string, string>): string
   return catalogNames.get(typeId) ?? choochooGameType(typeId)
 }
 
+// `game.name` is a free-text table title the creator typed in — often a
+// description or announcement ("1830 is here!", "Game 04 - Asynchronous")
+// rather than anything naming the actual game, which is unhelpful on its
+// own. Lead with the real game type and append the custom title only when
+// it says something beyond that (same pattern as the OBG connector).
+function buildGameName(customTitle: string, gameType: string): string {
+  const title = customTitle.trim()
+  if (!title || title === gameType) return gameType
+  return `${gameType} — ${title}`
+}
+
 function myPlayer(game: BoardtogetherGame, myUserId: string): BoardtogetherPlayer | undefined {
   return game.players.find(p => p.userId === myUserId)
 }
@@ -119,7 +130,7 @@ function toGame(game: BoardtogetherGame, myUserId: string, catalogNames: Map<str
   return {
     id: `boardtogether:${game.id}`,
     platform: 'boardtogether',
-    gameName: game.name || gameType,
+    gameName: buildGameName(game.name, gameType),
     gameType,
     myTurn,
     currentPlayer,
@@ -155,7 +166,7 @@ function toFinishedGame(game: BoardtogetherGame, myUserId: string, catalogNames:
   return {
     id: `boardtogether:${game.id}`,
     platform: 'boardtogether',
-    gameName: game.name || gameType,
+    gameName: buildGameName(game.name, gameType),
     gameType,
     completedAt,
     completedAgo: formatTimeAgo(completedAt),
