@@ -518,6 +518,17 @@ export default function SetupPage() {
                                     </div>
                                   )}
                                 </div>
+                                {/* The game URL only ever needs the id — not the fetched
+                                    snapshot — so this works the same whether the game is
+                                    still active, finished, or failed to load just now. */}
+                                <a
+                                  href={`https://oldkingscrown.fly.dev/game/${id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="shrink-0 text-[#5e6ad2] hover:underline whitespace-nowrap"
+                                >
+                                  Open ↗
+                                </a>
                                 <button
                                   onClick={() => removeOkcGameId(id)}
                                   disabled={okcSaving}
