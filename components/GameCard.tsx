@@ -199,7 +199,7 @@ export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemPro
 // use a short label (opponent group, device, whatever helps tell it apart
 // at a glance). onSaveLabel is still optional so a caller can opt a card
 // out entirely if it ever needs to.
-export function TableLabelEditor({ game, label, onSaveLabel }: Pick<GameItemProps, 'game'> & { label?: string; onSaveLabel?: (id: string, text: string) => void }) {
+export function TableLabelEditor({ game, label, onSaveLabel, compact }: Pick<GameItemProps, 'game'> & { label?: string; onSaveLabel?: (id: string, text: string) => void; compact?: boolean }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
 
@@ -220,7 +220,7 @@ export function TableLabelEditor({ game, label, onSaveLabel }: Pick<GameItemProp
         onBlur={save}
         placeholder="Table label…"
         aria-label={`Table label for ${game.gameName}`}
-        className="relative z-10 text-xs bg-white text-[#1a1a1a] px-2 py-0.5 rounded border border-[#5e6ad2] w-24"
+        className={`relative z-10 text-xs bg-white text-[#1a1a1a] px-2 py-0.5 rounded border border-[#5e6ad2] ${compact ? 'w-20' : 'w-24'}`}
       />
     )
   }
@@ -229,9 +229,17 @@ export function TableLabelEditor({ game, label, onSaveLabel }: Pick<GameItemProp
   return label ? (
     <button
       onClick={startEditing}
-      title="Edit table label"
-      className="relative z-10 shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]">
+      title={compact ? label : 'Edit table label'}
+      className={`relative z-10 shrink-0 font-semibold rounded bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] ${compact ? 'text-[10px] px-1 py-px max-w-[64px] truncate' : 'text-[11px] px-1.5 py-0.5'}`}>
       {label}
+    </button>
+  ) : compact ? (
+    <button
+      onClick={startEditing}
+      aria-label={`Add a table label to ${game.gameName}`}
+      title="Add a table label"
+      className="relative z-10 shrink-0 text-xs text-[#c5c5c5] hover:text-[#5e6ad2]">
+      🏷
     </button>
   ) : (
     <button
@@ -313,7 +321,7 @@ export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched
       <Badge game={game} small />
       <div className="min-w-0 flex-1 flex items-baseline gap-2">
         <span className="text-sm text-[#1a1a1a] truncate">{game.gameName}</span>
-        <TableLabelEditor game={game} label={tableLabel} onSaveLabel={onSaveTableLabel} />
+        <TableLabelEditor game={game} label={tableLabel} onSaveLabel={onSaveTableLabel} compact />
         {game.currentPlayer && <span className="hidden sm:inline text-xs text-[#9b9b9b] truncate">waiting for {game.currentPlayer}</span>}
         {/* Just the text here — its own edit/delete icons are the compact
             NoteEditor below, shown at every width, not only md:inline */}

@@ -182,6 +182,21 @@ describe('GameRow', () => {
     await userEvent.click(screen.getByRole('button', { name: /edit the note/i }))
     expect(screen.getByRole('textbox')).toHaveValue('ask alice')
   })
+
+  // This row is already packed with shrink-0 icons — a wide "+ label" text
+  // pill here overflowed into the timestamp next to it. A small icon, same
+  // size as the row's other compact affordances, doesn't.
+  it('shows the table-label affordance as a small icon, not the wide "+ label" text pill', () => {
+    render(<GameRow {...props({ game: waiting, onSaveTableLabel: jest.fn() })} />)
+    const button = screen.getByRole('button', { name: /add a table label/i })
+    expect(button).toHaveTextContent('🏷')
+    expect(button).not.toHaveTextContent('label')
+  })
+
+  it('truncates a long table label instead of letting it push other row content around', () => {
+    render(<GameRow {...props({ game: waiting, tableLabel: 'A very long table label indeed', onSaveTableLabel: jest.fn() })} />)
+    expect(screen.getByRole('button', { name: 'A very long table label indeed' }).className).toContain('truncate')
+  })
 })
 
 describe('note deletion', () => {
