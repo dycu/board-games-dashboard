@@ -6,12 +6,16 @@ jest.mock('@/lib/connectors', () => ({
   makeFinishedConnectors: jest.fn(),
   hasCreds: jest.fn(),
 }))
+jest.mock('@/lib/prefs')
 
 import { GET } from '../route'
 import { makeFinishedConnectors, hasCreds } from '@/lib/connectors'
+import { getPrefs } from '@/lib/prefs'
+import { DEFAULT_PREFS } from '@/lib/types'
 
 const mockMakeFinished = makeFinishedConnectors as jest.MockedFunction<typeof makeFinishedConnectors>
 const mockHasCreds = hasCreds as jest.MockedFunction<typeof hasCreds>
+const mockGetPrefs = getPrefs as jest.MockedFunction<typeof getPrefs>
 
 async function consumeSSE(body: ReadableStream<Uint8Array>): Promise<any[]> {
   const reader = body.getReader()
@@ -35,6 +39,7 @@ describe('GET /api/finished-games', () => {
   beforeEach(() => {
     mockMakeFinished.mockReset()
     mockHasCreds.mockReset()
+    mockGetPrefs.mockReset().mockResolvedValue(DEFAULT_PREFS)
   })
 
   it('emits start, platform, and done events over SSE', async () => {
@@ -79,5 +84,15 @@ describe('GET /api/finished-games', () => {
     const events = await consumeSSE(res.body as ReadableStream<Uint8Array>)
     expect(events[0]).toEqual({ type: 'start', platforms: [] })
     expect(events[events.length - 1].type).toBe('done')
+  })
+
+  it('skips a platform turned off in Settings even though it has credentials', async () => {
+    mockHasCreds.mockReturnValue(true)
+    mockGetPrefs.mockResolvedValue({ ...DEFAULT_PREFS, disabledPlatforms: ['eighteenxx'] })
+    mockMakeFinished.mockReturnValue({ eighteenxx: jest.fn() } as any)
+
+    const res = await GET()
+    const events = await consumeSSE(res.body as ReadableStream<Uint8Array>)
+    expect(events[0]).toEqual({ type: 'start', platforms: [] })
   })
 })
