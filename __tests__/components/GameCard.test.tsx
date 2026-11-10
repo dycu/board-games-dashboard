@@ -197,6 +197,16 @@ describe('GameRow', () => {
     render(<GameRow {...props({ game: waiting, tableLabel: 'A very long table label indeed', onSaveTableLabel: jest.fn() })} />)
     expect(screen.getByRole('button', { name: 'A very long table label indeed' }).className).toContain('truncate')
   })
+
+  // On narrow screens this zone (name + label icon) can be squeezed below its
+  // children's combined natural width by the row's other shrink-0 siblings
+  // (timestamp, progress bar, note, icon buttons). Without overflow-hidden here,
+  // the overflow bleeds visibly into the next sibling instead of just clipping.
+  it('clips its name/label zone instead of letting squeezed content bleed into the next row element', () => {
+    render(<GameRow {...props({ game: waiting, onSaveTableLabel: jest.fn() })} />)
+    const nameZone = screen.getByText(waiting.gameName).parentElement
+    expect(nameZone?.className).toContain('overflow-hidden')
+  })
 })
 
 describe('note deletion', () => {

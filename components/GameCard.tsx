@@ -319,7 +319,7 @@ export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched
       ${slow ? 'border-amber-200 bg-amber-50/40' : 'border-[#ececec]'} ${opened ? 'opacity-55 hover:opacity-100' : ''}`}>
       <CoverLink game={game} onOpen={onOpen} note={note} />
       <Badge game={game} small />
-      <div className="min-w-0 flex-1 flex items-baseline gap-2">
+      <div className="min-w-0 flex-1 flex items-baseline gap-2 overflow-hidden">
         <span className="text-sm text-[#1a1a1a] truncate">{game.gameName}</span>
         <TableLabelEditor game={game} label={tableLabel} onSaveLabel={onSaveTableLabel} compact />
         {game.currentPlayer && <span className="hidden sm:inline text-xs text-[#9b9b9b] truncate">waiting for {game.currentPlayer}</span>}
