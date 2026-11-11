@@ -57,11 +57,11 @@ function PopupBody({ events, onDismiss }: { events: NewGameEvent[]; onDismiss: (
         </h2>
         <ul className="flex-1 overflow-y-auto px-4 divide-y divide-[#f0f0f0]">
           {events.map(e => (
-            <li key={e.id} className="flex items-center gap-2 py-2 min-w-0">
+            <li key={e.id} className="flex flex-wrap items-center gap-2 py-2 min-w-0">
               <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded ${BADGE_COLORS[e.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
                 {PLATFORM_SHORT_LABELS[e.platform]}
               </span>
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-[140px]">
                 <a href={e.url} target="_blank" rel="noopener noreferrer" className="block truncate text-sm text-[#1a1a1a] hover:underline">
                   {e.name}
                 </a>
