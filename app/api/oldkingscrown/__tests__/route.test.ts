@@ -33,12 +33,16 @@ jest.mock('ws', () => {
   return { __esModule: true, default: MockWebSocket, __mockBehavior: mockBehavior }
 })
 jest.mock('@/lib/prefs')
+jest.mock('@vercel/kv', () => ({ kv: { get: jest.fn(), set: jest.fn() } }))
 
 import { getPrefs } from '@/lib/prefs'
+import { kv } from '@vercel/kv'
 import { GET, fetchOkcSnapshot, isMyTurn, type OkcSnapshot } from '../route'
 import { DEFAULT_PREFS } from '@/lib/types'
 
 const mockGetPrefs = getPrefs as jest.MockedFunction<typeof getPrefs>
+const mockKvGet = kv.get as jest.Mock
+const mockKvSet = kv.set as jest.Mock
 const mockBehavior = (jest.requireMock('ws') as any).__mockBehavior as Record<string, { snapshot?: any; error?: string; closeOnly?: boolean }>
 
 function makeSnapshot(overrides: Partial<OkcSnapshot['state']> & { seats?: OkcSnapshot['seats'] } = {}): OkcSnapshot {
@@ -229,6 +233,8 @@ describe('GET /api/oldkingscrown', () => {
   beforeEach(() => {
     for (const k of Object.keys(mockBehavior)) delete mockBehavior[k]
     mockGetPrefs.mockReset()
+    mockKvGet.mockReset().mockResolvedValue(null)
+    mockKvSet.mockReset().mockResolvedValue(undefined)
   })
 
   it('returns an empty list without connecting anywhere when no game ids are configured', async () => {
@@ -358,5 +364,50 @@ describe('GET /api/oldkingscrown', () => {
     const json = await res.json()
     expect(json.games).toEqual([])
     expect(json.error).toContain('game not found')
+  })
+
+  describe('lastMoveAt tracking', () => {
+    it('treats a game not seen before as a fresh move and stores its state signature', async () => {
+      mockGetPrefs.mockResolvedValue({ ...DEFAULT_PREFS, oldkingscrownGameIds: ['game-1'] })
+      mockBehavior['game-1'] = { snapshot: makeSnapshot({ turnQueue: ['p0'] }) }
+
+      const res = await GET()
+      const json = await res.json()
+      expect(json.games[0].lastMoveAgo).toBe('just now')
+      expect(json.games[0].urgent).toBe(false)
+      expect(mockKvSet).toHaveBeenCalledWith(
+        'okc-activity:v1:game-1',
+        expect.objectContaining({ signature: expect.any(String), lastMoveAt: expect.any(String) }),
+      )
+    })
+
+    it('keeps the stored lastMoveAt when the state signature has not changed since the last poll', async () => {
+      mockGetPrefs.mockResolvedValue({ ...DEFAULT_PREFS, oldkingscrownGameIds: ['game-1'] })
+      const snapshot = makeSnapshot({ turnQueue: ['p0'] })
+      mockBehavior['game-1'] = { snapshot }
+      const staleLastMoveAt = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+      mockKvGet.mockResolvedValue({ signature: JSON.stringify(snapshot.state), lastMoveAt: staleLastMoveAt })
+
+      const res = await GET()
+      const json = await res.json()
+      expect(json.games[0].lastMoveAt).toBe(staleLastMoveAt)
+      expect(json.games[0].urgent).toBe(true)
+      expect(mockKvSet).not.toHaveBeenCalled()
+    })
+
+    it('bumps lastMoveAt to now once the state signature differs from what was last stored', async () => {
+      mockGetPrefs.mockResolvedValue({ ...DEFAULT_PREFS, oldkingscrownGameIds: ['game-1'] })
+      mockBehavior['game-1'] = { snapshot: makeSnapshot({ turnQueue: ['p1'] }) }
+      mockKvGet.mockResolvedValue({
+        signature: JSON.stringify(makeSnapshot({ turnQueue: ['p0'] }).state),
+        lastMoveAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      })
+
+      const res = await GET()
+      const json = await res.json()
+      expect(json.games[0].lastMoveAgo).toBe('just now')
+      expect(json.games[0].urgent).toBe(false)
+      expect(mockKvSet).toHaveBeenCalled()
+    })
   })
 })

@@ -1,6 +1,8 @@
 import WebSocket from 'ws'
 import type { Game } from '@/lib/types'
 import { getPrefs } from '@/lib/prefs'
+import { getActivity, setActivity } from '@/lib/okcActivity/store'
+import { formatTimeAgo } from '@/lib/connectors/utils'
 
 // Needs a real WebSocket client (the 'ws' package) to spectate a running
 // game, which can't run in the edge runtime /api/games and /api/test-connection
@@ -162,6 +164,21 @@ function describeWaitingOn(snapshot: OkcSnapshot, mySeatId: string): string | un
   return undefined
 }
 
+// OKC's state object changes on literally any move (phase/turnQueue advance,
+// a hand or bid changes, a pending-* flag sets/clears, the round counter
+// ticks) and on nothing else, so a straight JSON diff against what we saw
+// last poll is a reliable "did something happen" signal even without the
+// game exposing a revision number of its own.
+async function trackLastMove(gameId: string, snapshot: OkcSnapshot): Promise<Date> {
+  const signature = JSON.stringify(snapshot.state)
+  const previous = await getActivity(gameId)
+  if (previous?.signature === signature) return new Date(previous.lastMoveAt)
+
+  const lastMoveAt = new Date()
+  await setActivity(gameId, { signature, lastMoveAt: lastMoveAt.toISOString() })
+  return lastMoveAt
+}
+
 // Per-configured-game status, returned alongside `games` purely so the Setup
 // page can show enough to tell games apart and know which are safe to stop
 // tracking — there's no account system, so a raw id is otherwise meaningless.
@@ -195,18 +212,17 @@ export async function GET() {
       const myTurn = isMyTurn(snapshot, mySeat.id)
       const others = snapshot.seats.filter(s => s.id !== mySeat.id).flatMap(s => s.occupants.map(o => o.nickname))
 
-      // The snapshot carries no wall-clock timestamps at all (this game tracks
-      // state by revision number, not by time), so there's no real "time since
-      // last move" to report — always "just now", never urgent.
+      const lastMoveAt = await trackLastMove(gameId, snapshot)
+
       const game: Game = {
         id: `oldkingscrown:${gameId}`,
         platform: 'oldkingscrown',
         gameName: "The Old King's Crown",
         myTurn,
         currentPlayer: myTurn ? undefined : describeWaitingOn(snapshot, mySeat.id),
-        lastMoveAt: new Date(),
-        lastMoveAgo: 'just now',
-        urgent: false,
+        lastMoveAt,
+        lastMoveAgo: formatTimeAgo(lastMoveAt),
+        urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
         gameUrl: `${UI_BASE}/game/${gameId}`,
         platformUrl: UI_BASE,
         players: others,
