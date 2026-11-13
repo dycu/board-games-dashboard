@@ -201,7 +201,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     await fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ watchedGames }), headers: { 'Content-Type': 'application/json' } })
   }
 
-  const { intervalSeconds, setIntervalSeconds, countdown } = useAutoRefresh(onRefresh, isRefreshing, prefs.refreshIntervalSeconds)
+  const { intervalSeconds, setIntervalSeconds, countdown } = useAutoRefresh(onRefresh, isRefreshing, prefs.refreshIntervalSeconds, fetchedAt)
 
   // Saved to the server too, the same way the filter/pins/sunk/watchedGames
   // are above — otherwise it only ever lives in the hook's local state and
