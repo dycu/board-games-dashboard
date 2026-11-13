@@ -70,6 +70,13 @@ export function nextNotePrompt(opened: Opened): string | null {
   return null
 }
 
+// The distinct platforms behind the currently-opened games ("bga:12345" ->
+// "bga") — lets a return-from-a-game refresh check only those platforms
+// instead of every configured one.
+export function openedPlatforms(opened: Opened): string[] {
+  return [...new Set(Object.keys(opened).map(id => id.split(':')[0]))]
+}
+
 export const OPENED_KEY = 'dismissed-games'
 
 export function readStoredOpened(): Opened {

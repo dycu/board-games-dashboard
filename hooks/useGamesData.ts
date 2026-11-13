@@ -93,6 +93,43 @@ export type PlatformStatus =
   | { state: 'done'; count: number }
   | { state: 'error' }
 
+// Merges a platform-scoped refresh's results into the previously known full
+// state, keeping every other platform's games/errors untouched. Without
+// this, returning from a single game on one platform would replace the
+// whole dashboard with just that platform's results, erasing every other
+// platform from the UI (and the filter bar) until the next full refresh.
+export function mergePlatformRefresh(
+  previous: GamesApiResponse | null,
+  touchedPlatforms: Platform[],
+  freshGames: Game[],
+  freshErrors: GamesApiResponse['errors'],
+  fetchedAt: string,
+): GamesApiResponse {
+  if (!previous) return { games: freshGames, errors: freshErrors, fetchedAt, platforms: touchedPlatforms }
+  const touched = new Set(touchedPlatforms)
+  return {
+    games: [...previous.games.filter(g => !touched.has(g.platform)), ...freshGames],
+    errors: [...previous.errors.filter(e => !touched.has(e.platform)), ...freshErrors],
+    fetchedAt,
+    platforms: previous.platforms ?? touchedPlatforms,
+  }
+}
+
+// A platform-scoped refresh only checked the platforms it asked for, so a
+// game on any other platform can't be judged "departed" this round — treat
+// every platform outside this refresh as if it had errored, which is
+// exactly how resolveDepartures/computeDeparted already defer a judgment
+// (instead of confirming one) for a platform that failed to load.
+export function departureCheckErrors(
+  freshErrors: GamesApiResponse['errors'],
+  previousPlatforms: Platform[],
+  touchedPlatforms: Platform[],
+): GamesApiResponse['errors'] {
+  const touched = new Set(touchedPlatforms)
+  const untouched = previousPlatforms.filter(p => !touched.has(p))
+  return [...freshErrors, ...untouched.map(platform => ({ platform, error: 'not fetched this round' }))]
+}
+
 interface StoredGame extends Omit<Game, 'lastMoveAt'> {
   lastMoveAt: string
 }
@@ -166,7 +203,9 @@ export interface UseGamesDataResult {
   freshDataVersion: number
   freshDataStartedAt: number // when the fetch behind the latest fresh data started
   // force: abort a fetch already running and start over (its data may predate a change)
-  triggerRefresh: (force?: boolean) => void
+  // platforms: refresh only these platforms, merging into the rest of the
+  // already-known data instead of refetching every configured platform
+  triggerRefresh: (force?: boolean, platforms?: Platform[]) => void
   departedGames: DepartedGame[]
 }
 
@@ -183,7 +222,7 @@ export function useGamesData(): UseGamesDataResult {
   const fetchingRef = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
 
-  const runFetch = useCallback(async (force = false) => {
+  const runFetch = useCallback(async (force = false, platforms?: Platform[]) => {
     if (fetchingRef.current && !force) return
     fetchingRef.current = true
 
@@ -200,7 +239,8 @@ export function useGamesData(): UseGamesDataResult {
     let allPlatforms: Platform[] = []
 
     try {
-      const res = await fetch('/api/games', { signal: controller.signal })
+      const url = platforms && platforms.length > 0 ? `/api/games?platforms=${platforms.join(',')}` : '/api/games'
+      const res = await fetch(url, { signal: controller.signal })
       if (!res.ok) throw new Error(`Server error ${res.status}`)
 
       const reader = res.body!.getReader()
@@ -246,15 +286,20 @@ export function useGamesData(): UseGamesDataResult {
             }
           } else if (event.type === 'done') {
             receivedDone = true
-            const freshData: GamesApiResponse = {
-              games: allGames,
-              errors: allErrors,
-              fetchedAt: event.fetchedAt,
-              platforms: allPlatforms,
-            }
             const prevCache = readCache()
-            const prevGames = prevCache?.data.games ?? []
-            const departures = resolveDepartures(prevGames, readPendingDepartures(), allGames, allErrors)
+            const prevData = prevCache?.data ?? null
+            const touched = platforms && platforms.length > 0 ? platforms : null
+
+            const freshData: GamesApiResponse = touched
+              ? mergePlatformRefresh(prevData, touched, allGames, allErrors, event.fetchedAt)
+              : { games: allGames, errors: allErrors, fetchedAt: event.fetchedAt, platforms: allPlatforms }
+
+            const prevGames = prevData?.games ?? []
+            // A platform-scoped refresh didn't check any other platform, so
+            // its games can't be judged "departed" against this one — defer
+            // that judgment the same way an errored platform already does.
+            const departureErrors = touched ? departureCheckErrors(allErrors, prevData?.platforms ?? allPlatforms, touched) : allErrors
+            const departures = resolveDepartures(prevGames, readPendingDepartures(), allGames, departureErrors)
             writePendingDepartures(departures.pending)
             setDepartedGames(departures.confirmed)
             const newCachedAt = writeCache(freshData)
@@ -296,8 +341,8 @@ export function useGamesData(): UseGamesDataResult {
     }
   }, [runFetch])
 
-  const triggerRefresh = useCallback((force = false) => {
-    runFetch(force)
+  const triggerRefresh = useCallback((force = false, platforms?: Platform[]) => {
+    runFetch(force, platforms)
   }, [runFetch])
 
   return {

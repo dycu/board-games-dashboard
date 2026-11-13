@@ -1,4 +1,4 @@
-import { presentAt, resolveOpened, parseStoredOpened, nextNotePrompt, Opened, RETURN_GRACE_MS } from '../dismissal'
+import { presentAt, resolveOpened, parseStoredOpened, nextNotePrompt, openedPlatforms, Opened, RETURN_GRACE_MS } from '../dismissal'
 
 describe('presentAt', () => {
   it('counts a time after returning', () => {
@@ -83,6 +83,17 @@ describe('nextNotePrompt', () => {
 
   it('returns null when nothing is confirmed', () => {
     expect(nextNotePrompt({})).toBeNull()
+  })
+})
+
+describe('openedPlatforms', () => {
+  it('extracts the distinct platforms from the opened games\' ids', () => {
+    const opened: Opened = { 'bga:1': { openedAt: 1 }, 'bga:2': { openedAt: 1 }, 'rally:3': { openedAt: 1 } }
+    expect(openedPlatforms(opened)).toEqual(['bga', 'rally'])
+  })
+
+  it('returns an empty list when nothing is opened', () => {
+    expect(openedPlatforms({})).toEqual([])
   })
 })
 

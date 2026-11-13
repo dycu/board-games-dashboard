@@ -4,7 +4,8 @@ import { useGamesData } from '@/hooks/useGamesData'
 import { usePrefs } from '@/hooks/usePrefs'
 import { useNotes } from '@/hooks/useNotes'
 import { isBackForwardNavigation } from '@/lib/navigation'
-import { Presence, Opened, resolveOpened, readStoredOpened, writeStoredOpened, storeOpenedNow, nextNotePrompt, AWAY_REFRESH_MS } from '@/lib/dismissal'
+import { Platform } from '@/lib/types'
+import { Presence, Opened, resolveOpened, readStoredOpened, writeStoredOpened, storeOpenedNow, nextNotePrompt, openedPlatforms, AWAY_REFRESH_MS } from '@/lib/dismissal'
 import GameGrid from '@/components/GameGrid'
 import FetchProgress from '@/components/FetchProgress'
 import NewGamesPopup from '@/components/NewGamesPopup'
@@ -46,10 +47,15 @@ export default function DashboardPage() {
   const promptGame = notePromptId ? displayedData?.games.find(g => g.id === notePromptId) : undefined
   const refresh = useCallback(() => triggerRefresh(), [triggerRefresh])
   const presenceRef = useRef<Presence>({ returnedAt: 0, leftAt: null })
+  const openedRef = useRef(opened)
+  useEffect(() => { openedRef.current = opened }, [opened])
 
   // Opening a game takes the user away from this tab (BGA in this tab, others
   // in a new one). Track when they leave and come back, and refresh as soon as
-  // they're back so the hidden game shows its state after their move.
+  // they're back so the hidden game shows its state after their move — but
+  // only the platform(s) of the game(s) actually opened, not every configured
+  // platform: the rest of the dashboard wasn't touched, so there's nothing
+  // there to re-check this instant.
   useEffect(() => {
     const isHere = () => document.visibilityState === 'visible' && document.hasFocus()
     // returnedAt stays 0 on a normal load, so the first fetch counts fully.
@@ -66,7 +72,10 @@ export default function DashboardPage() {
         const awayFor = now - p.leftAt
         presenceRef.current = { returnedAt: now, leftAt: null }
         // The running fetch (if any) began while away, so restart it
-        if (awayFor >= AWAY_REFRESH_MS) triggerRefresh(true)
+        if (awayFor >= AWAY_REFRESH_MS) {
+          const platforms = openedPlatforms(openedRef.current) as Platform[]
+          if (platforms.length > 0) triggerRefresh(true, platforms)
+        }
       }
     }
     const events = ['focus', 'blur', 'pageshow', 'pagehide'] as const
