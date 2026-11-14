@@ -10,6 +10,9 @@ const SOURCE_TITLES: Record<NewGameEvent['source'], string> = {
   rally: 'Rally the Troops',
   yucata: 'Yucata',
   'yucata-blog': 'Yucata blog',
+  choochoo: 'choochoo.games',
+  boardgamers: 'Boardgamers.space',
+  boardtogether: 'BoardTogether',
 }
 
 export function newGamesEmail(events: NewGameEvent[]): { subject: string; text: string; html: string } {

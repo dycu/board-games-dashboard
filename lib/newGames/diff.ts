@@ -8,7 +8,7 @@ export interface WatchedItem {
   status?: string // release stage, where the site has one
 }
 
-export type NewGamesSource = 'bga' | 'eighteenxx' | 'rally' | 'yucata' | 'yucata-blog'
+export type NewGamesSource = 'bga' | 'eighteenxx' | 'rally' | 'yucata' | 'yucata-blog' | 'choochoo' | 'boardgamers' | 'boardtogether'
 
 export const SOURCE_PLATFORM: Record<NewGamesSource, Platform> = {
   bga: 'bga',
@@ -16,6 +16,9 @@ export const SOURCE_PLATFORM: Record<NewGamesSource, Platform> = {
   rally: 'rally',
   yucata: 'yucata',
   'yucata-blog': 'yucata',
+  choochoo: 'choochoo',
+  boardgamers: 'boardgamers',
+  boardtogether: 'boardtogether',
 }
 
 export interface NewGameEvent {

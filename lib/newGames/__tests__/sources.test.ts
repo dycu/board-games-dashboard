@@ -5,12 +5,18 @@ jest.mock('@/lib/catalogs/bga', () => ({ fetchBgaCatalogLoggedIn: jest.fn() }))
 jest.mock('@/lib/catalogs/eighteenxx', () => ({ fetchEighteenxxCatalog: jest.fn() }))
 jest.mock('@/lib/catalogs/rally', () => ({ fetchRallyCatalog: jest.fn() }))
 jest.mock('@/lib/catalogs/yucata', () => ({ fetchYucataCatalog: jest.fn() }))
+jest.mock('@/lib/catalogs/choochoo', () => ({ fetchChoochooCatalog: jest.fn() }))
+jest.mock('@/lib/catalogs/boardgamers', () => ({ fetchBoardgamersCatalog: jest.fn() }))
+jest.mock('@/lib/catalogs/boardtogether', () => ({ fetchBoardTogetherCatalog: jest.fn() }))
 jest.mock('@/lib/catalogs/cache', () => ({ setCatalog: jest.fn() }))
 
 import { fetchBgaCatalogLoggedIn } from '@/lib/catalogs/bga'
 import { fetchEighteenxxCatalog } from '@/lib/catalogs/eighteenxx'
 import { fetchRallyCatalog } from '@/lib/catalogs/rally'
 import { fetchYucataCatalog } from '@/lib/catalogs/yucata'
+import { fetchChoochooCatalog } from '@/lib/catalogs/choochoo'
+import { fetchBoardgamersCatalog } from '@/lib/catalogs/boardgamers'
+import { fetchBoardTogetherCatalog } from '@/lib/catalogs/boardtogether'
 import { setCatalog } from '@/lib/catalogs/cache'
 import { SOURCES } from '../sources'
 
@@ -18,6 +24,9 @@ const mockBga = fetchBgaCatalogLoggedIn as jest.Mock
 const mockEighteenxx = fetchEighteenxxCatalog as jest.Mock
 const mockRally = fetchRallyCatalog as jest.Mock
 const mockYucata = fetchYucataCatalog as jest.Mock
+const mockChoochoo = fetchChoochooCatalog as jest.Mock
+const mockBoardgamers = fetchBoardgamersCatalog as jest.Mock
+const mockBoardtogether = fetchBoardTogetherCatalog as jest.Mock
 const mockSetCatalog = setCatalog as jest.Mock
 
 const entry = (name: string, status?: string) => ({ name, url: `https://x/${name}`, ...(status && { status }) })
@@ -80,6 +89,66 @@ describe('SOURCES: refreshing the "Find a game" catalog cache from the same live
 
     await SOURCES['yucata-blog']()
 
+    expect(mockSetCatalog).not.toHaveBeenCalled()
+  })
+
+  it('choochoo: refreshes the cache only after confirming the site actually has maps', async () => {
+    const entries = [entry('Poland')]
+    mockChoochoo.mockResolvedValue(entries)
+
+    await SOURCES.choochoo()
+
+    expect(mockSetCatalog).toHaveBeenCalledWith('choochoo', entries)
+  })
+
+  it('choochoo: does not poison the cache with an empty result it is about to reject as an error', async () => {
+    mockChoochoo.mockResolvedValue([])
+
+    await expect(SOURCES.choochoo()).rejects.toThrow('choochoo: no maps found')
+    expect(mockSetCatalog).not.toHaveBeenCalled()
+  })
+
+  it('boardgamers: refreshes the cache only after confirming the catalog actually has games', async () => {
+    const entries = [entry('Gaia Project')]
+    mockBoardgamers.mockResolvedValue(entries)
+
+    await SOURCES.boardgamers()
+
+    expect(mockSetCatalog).toHaveBeenCalledWith('boardgamers', entries)
+  })
+
+  it('boardgamers: does not poison the cache with an empty result it is about to reject as an error', async () => {
+    mockBoardgamers.mockResolvedValue([])
+
+    await expect(SOURCES.boardgamers()).rejects.toThrow('Boardgamers.space catalog: no games found')
+    expect(mockSetCatalog).not.toHaveBeenCalled()
+  })
+
+  it('boardtogether: refreshes the cache too', async () => {
+    const entries = [entry('Indonesia')]
+    mockBoardtogether.mockResolvedValue(entries)
+
+    await SOURCES.boardtogether()
+
+    expect(mockSetCatalog).toHaveBeenCalledWith('boardtogether', entries)
+  })
+
+  it('boardtogether: keys items by name, since every entry shares the same /dashboard URL', async () => {
+    const entries = [
+      { name: 'Indonesia', url: 'https://boardtogether.games/dashboard' },
+      { name: '1830', url: 'https://boardtogether.games/dashboard' },
+    ]
+    mockBoardtogether.mockResolvedValue(entries)
+
+    const items = await SOURCES.boardtogether()
+
+    expect(items.map(i => i.key)).toEqual(['Indonesia', '1830'])
+  })
+
+  it('boardtogether: does not poison the cache with an empty result it is about to reject as an error', async () => {
+    mockBoardtogether.mockResolvedValue([])
+
+    await expect(SOURCES.boardtogether()).rejects.toThrow('BoardTogether catalog: no games found')
     expect(mockSetCatalog).not.toHaveBeenCalled()
   })
 })

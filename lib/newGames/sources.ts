@@ -3,6 +3,9 @@ import { fetchBgaCatalogLoggedIn } from '../catalogs/bga'
 import { fetchEighteenxxCatalog } from '../catalogs/eighteenxx'
 import { fetchRallyCatalog } from '../catalogs/rally'
 import { fetchYucataCatalog } from '../catalogs/yucata'
+import { fetchChoochooCatalog } from '../catalogs/choochoo'
+import { fetchBoardgamersCatalog } from '../catalogs/boardgamers'
+import { fetchBoardTogetherCatalog } from '../catalogs/boardtogether'
 import { setCatalog } from '../catalogs/cache'
 import { NewGamesSource, WatchedItem } from './diff'
 
@@ -60,4 +63,26 @@ export const SOURCES: Record<NewGamesSource, () => Promise<WatchedItem[]>> = {
     return items
   },
   'yucata-blog': fetchYucataBlog,
+  choochoo: async () => {
+    const entries = await fetchChoochooCatalog()
+    const items = byUrl(entries)
+    if (items.length === 0) throw new Error('choochoo: no maps found')
+    await setCatalog('choochoo', entries)
+    return items
+  },
+  boardgamers: async () => {
+    const entries = await fetchBoardgamersCatalog()
+    const items = byUrl(entries)
+    if (items.length === 0) throw new Error('Boardgamers.space catalog: no games found')
+    await setCatalog('boardgamers', entries)
+    return items
+  },
+  // Every boardtogether entry shares the same /dashboard URL (no per-title
+  // deep link, like 18xx), so the title is the key
+  boardtogether: async () => {
+    const entries = await fetchBoardTogetherCatalog()
+    if (entries.length === 0) throw new Error('BoardTogether catalog: no games found')
+    await setCatalog('boardtogether', entries)
+    return entries.map(e => ({ key: e.name, name: e.name, url: e.url, ...(e.status && { status: e.status }) }))
+  },
 }
