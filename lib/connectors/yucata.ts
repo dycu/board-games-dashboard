@@ -1,6 +1,6 @@
 import { kv } from '@vercel/kv'
 import { Game, FinishedGame } from '../types'
-import { formatTimeAgo } from './utils'
+import { formatTimeAgo, withTimeout } from './utils'
 import { resultFromRanks } from '../results'
 
 const BASE = 'https://www.yucata.de'
@@ -172,20 +172,23 @@ export async function fetchFinishedYucata(username: string, password: string): P
     // The finished-games endpoint is keyed by numeric user ID, which no API
     // response exposes — the logged-in lobby page declares it as a JS global:
     //   var UserID = '1031968';
-    const overviewRes = await fetch(`${BASE}/en/Overview`, {
+    // Each step gets its own timeout (instead of relying only on the route's
+    // overall one) purely so a failure here says which specific request
+    // stalled, rather than a single generic "yucata timed out".
+    const overviewRes = await withTimeout(fetch(`${BASE}/en/Overview`, {
       headers: { ...headers, Accept: 'text/html' },
-    })
+    }), 10_000, 'Yucata lobby page')
     const overviewHtml = await overviewRes.text()
     const userId = overviewHtml.match(/var\s+UserID\s*=\s*['"]?(\d+)/)?.[1]
     if (!userId) throw new Error('Yucata user ID not found on lobby page')
 
     // Same server-side datatables endpoint the lobby's "Finished games" table uses.
     // Response: {recordsTotal, data: [{gameId, gameName, customGameName, finishedOn, ...}]}
-    const res = await fetch(`${BASE}/api/datatables/${userId}/ranking-details`, {
+    const res = await withTimeout(fetch(`${BASE}/api/datatables/${userId}/ranking-details`, {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/json; charset=utf-8', Accept: 'application/json' },
       body: JSON.stringify({ draw: 1, start: 0, length: 300, oppId: -1, gameType: -1, fromDate: '', toDate: '' }),
-    })
+    }), 10_000, 'Yucata finished-games table')
     if (!res.ok) throw new Error(`Yucata finished games fetch failed: HTTP ${res.status}`)
 
     const data = await res.json()
