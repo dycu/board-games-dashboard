@@ -4,8 +4,8 @@ import { withYucataSession } from '@/lib/connectors/yucata'
 // login, not the lobby-page scrape). Now checking whether a smaller
 // `length` than the connector's usual 300 avoids the hang. Remove once
 // diagnosed.
-export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 const BASE = 'https://www.yucata.de'
 
