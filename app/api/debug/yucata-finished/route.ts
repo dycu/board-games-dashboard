@@ -13,7 +13,10 @@ export async function GET(request: Request) {
   const username = process.env.YUCATA_USERNAME
   const password = process.env.YUCATA_PASSWORD
   if (!username || !password) return Response.json({ error: 'no credentials configured' }, { status: 500 })
-  const length = Number(new URL(request.url).searchParams.get('length') ?? '300')
+  const params = new URL(request.url).searchParams
+  const length = Number(params.get('length') ?? '300')
+  const fromDate = params.get('fromDate') ?? ''
+  const toDate = params.get('toDate') ?? ''
 
   const startedAt = Date.now()
   try {
@@ -32,11 +35,17 @@ export async function GET(request: Request) {
       const res = await fetch(`${BASE}/api/datatables/${userId}/ranking-details`, {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json; charset=utf-8', Accept: 'application/json' },
-        body: JSON.stringify({ draw: 1, start: 0, length, oppId: -1, gameType: -1, fromDate: '', toDate: '' }),
+        body: JSON.stringify({ draw: 1, start: 0, length, oppId: -1, gameType: -1, fromDate, toDate }),
       })
       const tableMs = Date.now() - tableStarted
-      const data = res.ok ? await res.json() : null
-      return { overviewMs, tableMs, tableStatus: res.status, recordsTotal: data?.recordsTotal, rows: data?.data?.length }
+      const bodyText = await res.text()
+      let data: any = null
+      try { data = JSON.parse(bodyText) } catch { /* not JSON */ }
+      return {
+        overviewMs, tableMs, tableStatus: res.status,
+        recordsTotal: data?.recordsTotal, rows: data?.data?.length,
+        bodySnippet: res.ok ? undefined : bodyText.slice(0, 500),
+      }
     })
     return Response.json({ ok: true, length, totalMs: Date.now() - startedAt, ...result })
   } catch (e) {
