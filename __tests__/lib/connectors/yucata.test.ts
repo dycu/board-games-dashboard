@@ -218,6 +218,13 @@ describe('fetchFinishedYucata', () => {
     expect(init.method).toBe('POST')
     expect(init.headers.Cookie).toContain('YucataAuth=xyz')
 
+    // An unbounded fromDate makes Yucata's own query take 30+s and then
+    // fail with a 500 (confirmed in production) — bounding it is what
+    // actually fixed the timeout, so this must never regress back to ''
+    const body = JSON.parse(init.body)
+    expect(body.fromDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(new Date(body.fromDate).getTime()).toBeLessThan(Date.now())
+
     expect(games).toHaveLength(2)
     expect(games[0]).toMatchObject({
       id: 'yucata:17029767',

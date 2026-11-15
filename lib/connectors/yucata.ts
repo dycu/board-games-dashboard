@@ -184,10 +184,19 @@ export async function fetchFinishedYucata(username: string, password: string): P
 
     // Same server-side datatables endpoint the lobby's "Finished games" table uses.
     // Response: {recordsTotal, data: [{gameId, gameName, customGameName, finishedOn, ...}]}
+    //
+    // An unbounded fromDate makes this query itself take 30+ seconds and
+    // then fail with a 500 — confirmed by timing it directly: the cost
+    // scales with how far back the date range reaches, not with how many
+    // rows actually come back (same 21 rows at both a 1-year and a 5-year
+    // window, 3s vs 20s). A 2-year floor keeps every game this account has
+    // ever finished (going back further found nothing older) while staying
+    // fast; a newer account that outgrows it just needs this widened later.
+    const fromDate = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
     const res = await withTimeout(fetch(`${BASE}/api/datatables/${userId}/ranking-details`, {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/json; charset=utf-8', Accept: 'application/json' },
-      body: JSON.stringify({ draw: 1, start: 0, length: 300, oppId: -1, gameType: -1, fromDate: '', toDate: '' }),
+      body: JSON.stringify({ draw: 1, start: 0, length: 300, oppId: -1, gameType: -1, fromDate, toDate: '' }),
     }), 10_000, 'Yucata finished-games table')
     if (!res.ok) throw new Error(`Yucata finished games fetch failed: HTTP ${res.status}`)
 
