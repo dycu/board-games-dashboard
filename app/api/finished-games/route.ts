@@ -21,7 +21,11 @@ const PLATFORM_TIMEOUT_MS = 12_000
 
 // Rally's login solves a CPU-bound ALTCHA proof-of-work challenge first, so
 // it needs more headroom than other platforms, but still under STREAM_DEADLINE_MS.
-const PLATFORM_TIMEOUT_OVERRIDES: Partial<Record<Platform, number>> = { rally: 16_000 }
+// Yucata's finished-games fetch is its own 2-request chain on top of login
+// (scrape the lobby page for a numeric user id, then the datatables POST
+// that actually lists finished games) — more sequential round trips than
+// other platforms' finished-games fetchers, so it gets the same headroom.
+const PLATFORM_TIMEOUT_OVERRIDES: Partial<Record<Platform, number>> = { rally: 16_000, yucata: 16_000 }
 const timeoutFor = (platform: Platform) => PLATFORM_TIMEOUT_OVERRIDES[platform] ?? PLATFORM_TIMEOUT_MS
 
 // Hard backstop, independent of individual platform timeouts: "done" is

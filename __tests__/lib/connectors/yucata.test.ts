@@ -1,7 +1,11 @@
-import { fetchYucata } from '@/lib/connectors/yucata'
+jest.mock('@vercel/kv', () => ({ kv: { get: jest.fn(), set: jest.fn(), del: jest.fn() } }))
+
+import { kv } from '@vercel/kv'
+import { fetchYucata, withYucataSession } from '@/lib/connectors/yucata'
 
 const mockFetch = jest.fn()
 global.fetch = mockFetch
+const store = new Map<string, unknown>()
 
 // Fixture matches the real /api/user/me/games/current response structure
 const FIXTURE = {
@@ -59,8 +63,18 @@ function setupHappyPath() {
     })
 }
 
+function wireKvMock() {
+  store.clear()
+  ;(kv.get as jest.Mock).mockImplementation(async (k: string) => store.get(k) ?? null)
+  ;(kv.set as jest.Mock).mockImplementation(async (k: string, v: unknown) => { store.set(k, v); return 'OK' })
+  ;(kv.del as jest.Mock).mockImplementation(async (k: string) => { store.delete(k); return 1 })
+}
+
 describe('fetchYucata', () => {
-  beforeEach(() => mockFetch.mockClear())
+  beforeEach(() => {
+    mockFetch.mockClear()
+    wireKvMock()
+  })
 
   it('returns Game[] from API response', async () => {
     setupHappyPath()
@@ -168,7 +182,10 @@ describe('fetchYucata', () => {
 })
 
 describe('fetchFinishedYucata', () => {
-  beforeEach(() => mockFetch.mockReset())
+  beforeEach(() => {
+    mockFetch.mockReset()
+    wireKvMock()
+  })
 
   // Matches the real /api/datatables/{userId}/ranking-details response structure
   const FINISHED_FIXTURE = {
@@ -227,5 +244,46 @@ describe('fetchFinishedYucata', () => {
       .mockResolvedValueOnce({ ok: false, status: 500 })
     const { fetchFinishedYucata } = await import('@/lib/connectors/yucata')
     await expect(fetchFinishedYucata('testuser', 'pass')).rejects.toThrow('HTTP 500')
+  })
+})
+
+describe('withYucataSession', () => {
+  beforeEach(() => {
+    mockFetch.mockReset()
+    wireKvMock()
+  })
+
+  it('reuses a cached cookie jar instead of logging in again', async () => {
+    store.set('yucata-session', { ASP: 'cached' })
+    const result = await withYucataSession('u', 'p', async jar => jar)
+    expect(result).toEqual({ ASP: 'cached' })
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('caches the jar from a fresh login for next time', async () => {
+    setupHappyPath()
+    await withYucataSession('testuser', 'pass', async () => {})
+    expect(store.get('yucata-session')).toMatchObject({ 'ASP.NET_SessionId': 'abc', YucataAuth: 'xyz' })
+  })
+
+  it('drops a rejected cached jar and logs in fresh', async () => {
+    store.set('yucata-session', { ASP: 'stale' })
+    setupHappyPath()
+    const fn = jest.fn()
+      .mockRejectedValueOnce(new Error('Yucata user ID not found on lobby page'))
+      .mockResolvedValueOnce('fresh result')
+    const result = await withYucataSession('testuser', 'pass', fn)
+    expect(result).toBe('fresh result')
+    expect(fn).toHaveBeenNthCalledWith(1, { ASP: 'stale' })
+    expect(fn).toHaveBeenNthCalledWith(2, expect.objectContaining({ 'ASP.NET_SessionId': 'abc' }))
+    expect(store.get('yucata-session')).toMatchObject({ 'ASP.NET_SessionId': 'abc' })
+  })
+
+  it('skips the login dance on a warm fetchYucata call', async () => {
+    store.set('yucata-session', { 'ASP.NET_SessionId': 'cached', YucataAuth: 'cached' })
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => FIXTURE })
+    const games = await fetchYucata('testuser', 'pass')
+    expect(games).toHaveLength(2)
+    expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 })
