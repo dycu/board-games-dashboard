@@ -48,15 +48,15 @@ async function login(username: string, password: string): Promise<Record<string,
   const jar: Record<string, string> = {}
 
   // Step 1: get ASP.NET session cookie
-  const initRes = await fetch(`${BASE}/en`, {
+  const initRes = await withTimeout(fetch(`${BASE}/en`, {
     headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'text/html' },
     redirect: 'manual',
-  })
+  }), 10_000, 'Yucata session-cookie request')
   collectCookies(initRes, jar)
 
   // Step 2: login via the REST API (replaces the retired AuthenticateViaAjax WCF
   // service) — returns {success, verificationRequired} and may set/renew cookies
-  const loginRes = await fetch(`${BASE}/api/auth/login`, {
+  const loginRes = await withTimeout(fetch(`${BASE}/api/auth/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
@@ -65,7 +65,7 @@ async function login(username: string, password: string): Promise<Record<string,
       'User-Agent': 'Mozilla/5.0',
     },
     body: JSON.stringify({ login: username, password, remember: false }),
-  })
+  }), 10_000, 'Yucata login request')
   const loginData = await loginRes.json()
   if (loginData.verificationRequired) {
     throw new Error('Yucata login requires additional verification — log in via a browser once to clear it')
