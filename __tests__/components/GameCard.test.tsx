@@ -207,6 +207,18 @@ describe('GameRow', () => {
     const nameZone = screen.getByText(waiting.gameName).parentElement
     expect(nameZone?.className).toContain('overflow-hidden')
   })
+
+  // A row crowded with every icon (progress bar, note, history, watch, sink,
+  // pin) could still squeeze the name down past legibility on a narrow phone
+  // even with overflow-hidden — wrapping those controls to their own line
+  // keeps the name readable instead of shrinking it to a sliver of a letter.
+  it('gives the name zone a width floor and lets the row wrap instead of squeezing it away', () => {
+    render(<GameRow {...props({ game: waiting })} />)
+    const row = screen.getByText(waiting.gameName).closest('.relative.flex')
+    expect(row?.className).toContain('flex-wrap')
+    const nameZone = screen.getByText(waiting.gameName).parentElement
+    expect(nameZone?.className).toMatch(/min-w-\[\d+px\]/)
+  })
 })
 
 describe('note deletion', () => {

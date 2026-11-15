@@ -315,11 +315,16 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
 export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, showProgress }: GameItemProps) {
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   return (
-    <div className={`relative flex items-center gap-2 px-3 py-2 rounded-md border bg-white hover:border-[#c5c9f0] transition-colors
+    <div className={`relative flex flex-wrap items-center gap-2 px-3 py-2 rounded-md border bg-white hover:border-[#c5c9f0] transition-colors
       ${slow ? 'border-amber-200 bg-amber-50/40' : 'border-[#ececec]'} ${opened ? 'opacity-55 hover:opacity-100' : ''}`}>
       <CoverLink game={game} onOpen={onOpen} note={note} />
       <Badge game={game} small />
-      <div className="min-w-0 flex-1 flex items-baseline gap-2 overflow-hidden">
+      {/* A floor instead of min-w-0: once every shrink-0 sibling after this
+          (timestamp, progress, icon buttons) no longer fits alongside a
+          readable name, they wrap to their own line below — rather than
+          this zone shrinking the name down past legibility to keep everyone
+          on one line, as it did when it only had overflow-hidden */}
+      <div className="min-w-[140px] flex-1 flex items-baseline gap-2 overflow-hidden">
         <span className="text-sm text-[#1a1a1a] truncate">{game.gameName}</span>
         <TableLabelEditor game={game} label={tableLabel} onSaveLabel={onSaveTableLabel} compact />
         {game.currentPlayer && <span className="hidden sm:inline text-xs text-[#9b9b9b] truncate">waiting for {game.currentPlayer}</span>}
