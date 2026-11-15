@@ -25,7 +25,7 @@ const PLATFORM_TIMEOUT_MS = 12_000
 // (scrape the lobby page for a numeric user id, then the datatables POST
 // that actually lists finished games) — more sequential round trips than
 // other platforms' finished-games fetchers, so it gets the same headroom.
-const PLATFORM_TIMEOUT_OVERRIDES: Partial<Record<Platform, number>> = { rally: 16_000, yucata: 16_000 }
+const PLATFORM_TIMEOUT_OVERRIDES: Partial<Record<Platform, number>> = { rally: 16_000, yucata: 17_000 }
 const timeoutFor = (platform: Platform) => PLATFORM_TIMEOUT_OVERRIDES[platform] ?? PLATFORM_TIMEOUT_MS
 
 // Hard backstop, independent of individual platform timeouts: "done" is
