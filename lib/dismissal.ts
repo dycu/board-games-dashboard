@@ -77,6 +77,24 @@ export function openedPlatforms(opened: Opened): string[] {
   return [...new Set(Object.keys(opened).map(id => id.split(':')[0]))]
 }
 
+export type ReturnRefresh =
+  | { kind: 'full' }               // the auto-refresh interval has already lapsed — refresh everything, it's all due anyway
+  | { kind: 'platforms'; platforms: string[] } // not due yet, but a game is open — just re-check its platform(s)
+  | { kind: 'none' }                // neither — nothing to do on this return
+
+// The one decision for "what, if anything, to refresh when the tab becomes
+// visible again". Kept as a single pure function (rather than one check in
+// useAutoRefresh and a separate one in app/page.tsx, as it used to be) so
+// there's exactly one place deciding this — two independent checks on the
+// same visibilitychange event could each trigger their own refresh and race
+// each other, which is exactly what made a platform-scoped refresh pointless
+// whenever the interval had also lapsed.
+export function decideReturnRefresh(opened: Opened, staleForMs: number, intervalMs: number): ReturnRefresh {
+  if (intervalMs > 0 && staleForMs >= intervalMs) return { kind: 'full' }
+  const platforms = openedPlatforms(opened)
+  return platforms.length > 0 ? { kind: 'platforms', platforms } : { kind: 'none' }
+}
+
 export const OPENED_KEY = 'dismissed-games'
 
 export function readStoredOpened(): Opened {

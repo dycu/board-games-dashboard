@@ -145,63 +145,9 @@ describe('useAutoRefresh — backgrounded tab', () => {
     expect(onRefresh).not.toHaveBeenCalled()
   })
 
-  it('refreshes immediately and resets the countdown the moment the tab becomes visible again', () => {
-    const onRefresh = jest.fn()
-    const { result } = renderHook(() => useAutoRefresh(onRefresh, false))
-    act(() => { result.current.setIntervalSeconds(30) })
-
-    setHidden(true)
-    act(() => { jest.advanceTimersByTime(90000) }) // backgrounded well past the interval
-    expect(onRefresh).not.toHaveBeenCalled()
-
-    setHidden(false)
-    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
-    expect(onRefresh).toHaveBeenCalledTimes(1)
-    expect(result.current.countdown).toBe(30)
-  })
-
-  it('does not refresh on becoming visible while a refresh is already in flight', () => {
-    const onRefresh = jest.fn()
-    const { result, rerender } = renderHook(
-      ({ r }: { r: boolean }) => useAutoRefresh(onRefresh, r),
-      { initialProps: { r: true } },
-    )
-    act(() => { result.current.setIntervalSeconds(30) })
-
-    setHidden(true)
-    setHidden(false)
-    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
-    expect(onRefresh).not.toHaveBeenCalled()
-    rerender({ r: true })
-  })
-
-  it('does not refresh on becoming visible again when the last fetch is still within the interval', () => {
-    const onRefresh = jest.fn()
-    const lastFetchedAt = new Date().toISOString()
-    const { result } = renderHook(() => useAutoRefresh(onRefresh, false, undefined, lastFetchedAt))
-    act(() => { result.current.setIntervalSeconds(300) })
-
-    setHidden(true)
-    act(() => { jest.advanceTimersByTime(5000) }) // away only briefly, well under the interval
-    setHidden(false)
-    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
-
-    expect(onRefresh).not.toHaveBeenCalled()
-    expect(result.current.countdown).toBe(295) // keeps counting down instead of jumping back to 300
-  })
-
-  it('still refreshes on becoming visible when the data is older than the interval, even after a short time hidden', () => {
-    const onRefresh = jest.fn()
-    const staleFetchedAt = new Date(Date.now() - 400_000).toISOString() // older than the 300s interval
-    const { result } = renderHook(() => useAutoRefresh(onRefresh, false, undefined, staleFetchedAt))
-    act(() => { result.current.setIntervalSeconds(300) })
-
-    setHidden(true)
-    act(() => { jest.advanceTimersByTime(1000) }) // hidden only briefly
-    setHidden(false)
-    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
-
-    expect(onRefresh).toHaveBeenCalledTimes(1)
-    expect(result.current.countdown).toBe(300)
-  })
+  // Deciding what (if anything) to refresh on return now lives solely in
+  // app/page.tsx's presence effect (see lib/dismissal.ts's
+  // decideReturnRefresh and its own tests) — this hook no longer reacts to
+  // visibilitychange at all, so a background tab just resumes ticking from
+  // wherever it was frozen once it's visible again.
 })

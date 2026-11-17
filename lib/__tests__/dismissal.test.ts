@@ -1,4 +1,4 @@
-import { presentAt, resolveOpened, parseStoredOpened, nextNotePrompt, openedPlatforms, Opened, RETURN_GRACE_MS } from '../dismissal'
+import { presentAt, resolveOpened, parseStoredOpened, nextNotePrompt, openedPlatforms, decideReturnRefresh, Opened, RETURN_GRACE_MS } from '../dismissal'
 
 describe('presentAt', () => {
   it('counts a time after returning', () => {
@@ -94,6 +94,28 @@ describe('openedPlatforms', () => {
 
   it('returns an empty list when nothing is opened', () => {
     expect(openedPlatforms({})).toEqual([])
+  })
+})
+
+describe('decideReturnRefresh', () => {
+  it('refreshes everything once the auto-refresh interval has lapsed, even with a game open', () => {
+    const opened: Opened = { 'bga:1': { openedAt: 1 } }
+    expect(decideReturnRefresh(opened, 400_000, 300_000)).toEqual({ kind: 'full' })
+  })
+
+  it('refreshes only the opened game(s) platform when the interval has not lapsed yet', () => {
+    const opened: Opened = { 'bga:1': { openedAt: 1 }, 'rally:2': { openedAt: 1 } }
+    expect(decideReturnRefresh(opened, 5_000, 300_000)).toEqual({ kind: 'platforms', platforms: ['bga', 'rally'] })
+  })
+
+  it('does nothing when the interval has not lapsed and nothing is open', () => {
+    expect(decideReturnRefresh({}, 5_000, 300_000)).toEqual({ kind: 'none' })
+  })
+
+  it('treats auto-refresh being off (intervalMs 0) as never "lapsed"', () => {
+    const opened: Opened = { 'bga:1': { openedAt: 1 } }
+    expect(decideReturnRefresh(opened, 999_999, 0)).toEqual({ kind: 'platforms', platforms: ['bga'] })
+    expect(decideReturnRefresh({}, 999_999, 0)).toEqual({ kind: 'none' })
   })
 })
 

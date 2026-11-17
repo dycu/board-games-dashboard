@@ -5,7 +5,7 @@ import { usePrefs } from '@/hooks/usePrefs'
 import { useNotes } from '@/hooks/useNotes'
 import { isBackForwardNavigation } from '@/lib/navigation'
 import { Platform } from '@/lib/types'
-import { Presence, Opened, resolveOpened, readStoredOpened, writeStoredOpened, storeOpenedNow, nextNotePrompt, openedPlatforms, AWAY_REFRESH_MS } from '@/lib/dismissal'
+import { Presence, Opened, resolveOpened, readStoredOpened, writeStoredOpened, storeOpenedNow, nextNotePrompt, decideReturnRefresh, AWAY_REFRESH_MS } from '@/lib/dismissal'
 import GameGrid from '@/components/GameGrid'
 import FetchProgress from '@/components/FetchProgress'
 import NewGamesPopup from '@/components/NewGamesPopup'
@@ -49,13 +49,22 @@ export default function DashboardPage() {
   const presenceRef = useRef<Presence>({ returnedAt: 0, leftAt: null })
   const openedRef = useRef(opened)
   useEffect(() => { openedRef.current = opened }, [opened])
+  const fetchedAtRef = useRef(displayedData?.fetchedAt)
+  useEffect(() => { fetchedAtRef.current = displayedData?.fetchedAt }, [displayedData?.fetchedAt])
+  const refreshIntervalRef = useRef(prefs.refreshIntervalSeconds)
+  useEffect(() => { refreshIntervalRef.current = prefs.refreshIntervalSeconds }, [prefs.refreshIntervalSeconds])
 
   // Opening a game takes the user away from this tab (BGA in this tab, others
-  // in a new one). Track when they leave and come back, and refresh as soon as
-  // they're back so the hidden game shows its state after their move — but
-  // only the platform(s) of the game(s) actually opened, not every configured
-  // platform: the rest of the dashboard wasn't touched, so there's nothing
-  // there to re-check this instant.
+  // in a new one). Track when they leave and come back, and refresh as soon
+  // as they're back so the hidden game shows its state after their move.
+  // This is the ONLY place that decides what to refresh on return — the
+  // auto-refresh ticker (useAutoRefresh) used to have its own separate
+  // "catch up if stale" check on the same visibilitychange event, which
+  // could fire its own full refresh at the same time as this one's
+  // platform-scoped refresh, racing each other and making the targeted
+  // refresh pointless. So: if the auto-refresh interval has already lapsed,
+  // everything needs refreshing anyway — do that. Otherwise, if a game is
+  // open, refresh just its platform(s), not every configured one.
   useEffect(() => {
     const isHere = () => document.visibilityState === 'visible' && document.hasFocus()
     // returnedAt stays 0 on a normal load, so the first fetch counts fully.
@@ -72,10 +81,15 @@ export default function DashboardPage() {
         const awayFor = now - p.leftAt
         presenceRef.current = { returnedAt: now, leftAt: null }
         // The running fetch (if any) began while away, so restart it
-        if (awayFor >= AWAY_REFRESH_MS) {
-          const platforms = openedPlatforms(openedRef.current) as Platform[]
-          if (platforms.length > 0) triggerRefresh(true, platforms)
-        }
+        if (awayFor < AWAY_REFRESH_MS) return
+
+        const fetchedMs = fetchedAtRef.current ? Date.parse(fetchedAtRef.current) : NaN
+        const staleForMs = Number.isNaN(fetchedMs) ? Infinity : now - fetchedMs
+        const intervalMs = (refreshIntervalRef.current ?? 0) * 1000
+
+        const decision = decideReturnRefresh(openedRef.current, staleForMs, intervalMs)
+        if (decision.kind === 'full') triggerRefresh(true)
+        else if (decision.kind === 'platforms') triggerRefresh(true, decision.platforms as Platform[])
       }
     }
     const events = ['focus', 'blur', 'pageshow', 'pagehide'] as const
