@@ -188,4 +188,17 @@ describe('parseYucataBlog', () => {
   it('throws on anything but a list', () => {
     expect(() => parseYucataBlog({ error: 'x' })).toThrow('expected a list')
   })
+
+  // The endpoint used to return a bare array; it now wraps posts in
+  // {posts, olderCursor, newerCursor} (cursor pagination added) — confirmed
+  // against the live response, which broke this with "expected a list of
+  // posts" until both shapes were accepted.
+  it('reads posts from the newer {posts: [...]} wrapper too', () => {
+    const items = parseYucataBlog({
+      posts: [{ title: 'Tribes: Dawn of Humanity', key: 'TribesBlog', status: 'Published' }],
+      olderCursor: 'abc',
+      newerCursor: null,
+    })
+    expect(items).toEqual([{ key: 'TribesBlog', name: 'Tribes: Dawn of Humanity', url: 'https://www.yucata.de/en/Blog/TribesBlog' }])
+  })
 })

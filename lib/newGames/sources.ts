@@ -15,9 +15,14 @@ function byUrl(entries: CatalogEntry[]): WatchedItem[] {
   return entries.map(e => ({ key: e.url, name: e.name, url: e.url, ...(e.status && { status: e.status }) }))
 }
 
+// The endpoint used to return a bare array; it now wraps posts in
+// {posts, olderCursor, newerCursor} (cursor-based pagination added), with
+// each post's own shape unchanged — accept either.
 export function parseYucataBlog(json: unknown): WatchedItem[] {
-  if (!Array.isArray(json)) throw new Error('Yucata blog: expected a list of posts')
-  return json
+  const wrapped = json as { posts?: unknown } | null
+  const posts = Array.isArray(json) ? json : Array.isArray(wrapped?.posts) ? wrapped.posts : null
+  if (!posts) throw new Error('Yucata blog: expected a list of posts')
+  return posts
     .filter((p: any) => p?.key && p?.title && (p.status ?? 'Published') === 'Published')
     .map((p: any) => ({ key: String(p.key), name: String(p.title), url: `${YUCATA}/en/Blog/${encodeURIComponent(p.key)}` }))
 }
