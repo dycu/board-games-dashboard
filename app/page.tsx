@@ -11,6 +11,16 @@ import FetchProgress from '@/components/FetchProgress'
 import NewGamesPopup from '@/components/NewGamesPopup'
 import NotePromptPopup from '@/components/NotePromptPopup'
 
+// Some sites (OBG, confirmed) don't reflect a just-submitted move in their
+// own data immediately — fetching right on return can still see the old
+// "my turn" state, which un-dims the card as if the move never registered
+// (see judge() in lib/dismissal.ts: a fetch after opening that still shows
+// myTurn just drops the dimming, since from its own perspective nothing was
+// confirmed). This delay before the platform-scoped refresh gives that lag
+// room to settle first; the full-refresh path is left alone since it isn't
+// specifically verifying a just-made move.
+const PLATFORM_REFRESH_DELAY_MS = 3000
+
 export default function DashboardPage() {
   const { prefs, updatePrefs } = usePrefs()
   const { notes, saveNote } = useNotes()
@@ -53,6 +63,7 @@ export default function DashboardPage() {
   useEffect(() => { fetchedAtRef.current = displayedData?.fetchedAt }, [displayedData?.fetchedAt])
   const refreshIntervalRef = useRef(prefs.refreshIntervalSeconds)
   useEffect(() => { refreshIntervalRef.current = prefs.refreshIntervalSeconds }, [prefs.refreshIntervalSeconds])
+  const pendingPlatformRefreshRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Opening a game takes the user away from this tab (BGA in this tab, others
   // in a new one). Track when they leave and come back, and refresh as soon
@@ -88,8 +99,19 @@ export default function DashboardPage() {
         const intervalMs = (refreshIntervalRef.current ?? 0) * 1000
 
         const decision = decideReturnRefresh(openedRef.current, staleForMs, intervalMs)
-        if (decision.kind === 'full') triggerRefresh(true)
-        else if (decision.kind === 'platforms') triggerRefresh(true, decision.platforms as Platform[])
+        if (pendingPlatformRefreshRef.current) {
+          clearTimeout(pendingPlatformRefreshRef.current)
+          pendingPlatformRefreshRef.current = null
+        }
+        if (decision.kind === 'full') {
+          triggerRefresh(true)
+        } else if (decision.kind === 'platforms') {
+          const platforms = decision.platforms as Platform[]
+          pendingPlatformRefreshRef.current = setTimeout(() => {
+            pendingPlatformRefreshRef.current = null
+            triggerRefresh(true, platforms)
+          }, PLATFORM_REFRESH_DELAY_MS)
+        }
       }
     }
     const events = ['focus', 'blur', 'pageshow', 'pagehide'] as const
@@ -98,6 +120,7 @@ export default function DashboardPage() {
     return () => {
       events.forEach(e => window.removeEventListener(e, onChange))
       document.removeEventListener('visibilitychange', onChange)
+      if (pendingPlatformRefreshRef.current) clearTimeout(pendingPlatformRefreshRef.current)
     }
   }, [triggerRefresh])
 
