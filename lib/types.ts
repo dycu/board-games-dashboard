@@ -117,6 +117,7 @@ export interface UserPrefs {
   summaryCustomFrom?: string // YYYY-MM-DD; only meaningful when summaryPeriod is 'custom'
   summaryCustomTo?: string
   historyPlatformFilter?: Platform[] | null // History page's own platform chips — same convention as filter.platforms: empty/missing = show all, null = none selected (hidden)
+  historyBacklogFilter?: boolean // History page: only games whose title is Favorite or GM in the backlog — undefined/false = show all
 }
 
 export const DEFAULT_BACKLOG_PLATFORMS: Platform[] = ['bga', 'yucata']

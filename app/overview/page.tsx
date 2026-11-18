@@ -35,9 +35,18 @@ export default function OverviewPage() {
   const platformFilter = prefs.historyPlatformFilter === undefined ? [] : prefs.historyPlatformFilter
   const selectedPlatforms = platformFilter === null ? [] : platformFilter.length === 0 ? availablePlatforms : platformFilter
 
-  const filtered = data
+  const byPlatform = data
     ? (platformFilter === null ? [] : platformFilter.length === 0 ? data.games : data.games.filter(g => platformFilter.includes(g.platform)))
     : []
+
+  // Matches the backlog's own "is this title in my Favorite or GM list"
+  // check elsewhere on this page (the BacklogListChips below) — one toggle
+  // for both, since what someone wants here is "games I actually care
+  // about", not a choice between the two lists.
+  const backlogFilter = prefs.historyBacklogFilter ?? false
+  const isFavoriteOrGm = (g: { platform: Platform; gameType?: string; gameName: string }) =>
+    backlog.listsFor(g.platform, g.gameType || g.gameName).some(l => l === 'favorite' || l === 'gm')
+  const filtered = backlogFilter ? byPlatform.filter(isFavoriteOrGm) : byPlatform
 
   // The same per-game details as Backlog's "From your games", running games included
   const playedByKey = useMemo(
@@ -54,6 +63,13 @@ export default function OverviewPage() {
     const historyPlatformFilter = next.length === 0 ? null : availablePlatforms.every(p => next.includes(p)) ? [] : next
     updatePrefs({ ...prefs, historyPlatformFilter })
     fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ historyPlatformFilter }), headers: { 'Content-Type': 'application/json' } }).catch(() => {})
+    setVisibleCount(PAGE_SIZE)
+  }
+
+  const toggleBacklogFilter = () => {
+    const historyBacklogFilter = !backlogFilter
+    updatePrefs({ ...prefs, historyBacklogFilter })
+    fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ historyBacklogFilter }), headers: { 'Content-Type': 'application/json' } }).catch(() => {})
     setVisibleCount(PAGE_SIZE)
   }
 
@@ -106,14 +122,25 @@ export default function OverviewPage() {
           </div>
         )}
 
-        <PlatformFilterChips
-          platforms={availablePlatforms}
-          selected={selectedPlatforms}
-          onChange={handlePlatformChange}
-          counts={Object.fromEntries(availablePlatforms.map(p => [p, data.games.filter(g => g.platform === p).length]))}
-          allCount={data.games.length}
-          className="mb-4"
-        />
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <PlatformFilterChips
+            platforms={availablePlatforms}
+            selected={selectedPlatforms}
+            onChange={handlePlatformChange}
+            counts={Object.fromEntries(availablePlatforms.map(p => [p, data.games.filter(g => g.platform === p).length]))}
+            allCount={data.games.length}
+          />
+          {backlog.items && (
+            <button
+              onClick={toggleBacklogFilter}
+              aria-pressed={backlogFilter}
+              title={backlogFilter ? 'Show every finished game' : 'Show only games that are Favorite or GM in the backlog'}
+              className={`shrink-0 whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors
+                ${backlogFilter ? 'bg-[#1a1a1a] text-white' : 'bg-[#f3f3f3] text-[#6b6b6b] hover:bg-[#ebebeb]'}`}>
+              ★ Favorite/GM{backlogFilter ? ` (${byPlatform.filter(isFavoriteOrGm).length})` : ''}
+            </button>
+          )}
+        </div>
 
         {/* Side by side once there's room for both; stacked on narrower
             screens so neither gets squeezed. Summary's own table scrolls

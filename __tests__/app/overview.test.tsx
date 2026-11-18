@@ -31,8 +31,9 @@ jest.mock('@/hooks/usePrefs', () => ({
     return { prefs, updatePrefs: (p: UserPrefs) => { mockUpdatePrefs(p); setPrefs(p) } }
   },
 }))
+let listsForImpl: (platform: string, gameName: string) => string[] = () => []
 jest.mock('@/hooks/useBacklog', () => ({
-  useBacklog: () => ({ items: [], error: null, listsFor: () => [], add: jest.fn(), isAdding: () => false }),
+  useBacklog: () => ({ items: [], error: null, listsFor: (p: string, n: string) => listsForImpl(p, n), add: jest.fn(), isAdding: () => false }),
 }))
 jest.mock('@/hooks/useBgaPlayTotals', () => ({
   useBgaPlayTotals: () => null,
@@ -41,6 +42,7 @@ jest.mock('@/hooks/useBgaPlayTotals', () => ({
 
 beforeEach(() => {
   initialPrefs = DEFAULT_PREFS
+  listsForImpl = () => []
   mockUpdatePrefs.mockClear()
   global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ recent: null }) })) as unknown as typeof fetch
 })
@@ -110,5 +112,53 @@ describe('OverviewPage platform filter', () => {
     expect(shown('Navegador')).toBe(false)
     expect(shown('Maria')).toBe(false)
     expect(mockUpdatePrefs).toHaveBeenCalledWith(expect.objectContaining({ historyPlatformFilter: null }))
+  })
+})
+
+describe('OverviewPage Favorite/GM filter', () => {
+  it('shows every game when off, regardless of backlog list', () => {
+    listsForImpl = () => []
+    render(<OverviewPage />)
+    expect(shown('Pax')).toBe(true)
+    expect(shown('Navegador')).toBe(true)
+    expect(shown('Maria')).toBe(true)
+  })
+
+  it('keeps a game in either Favorite or GM, dropping the rest, and saves the toggle', async () => {
+    listsForImpl = (platform, name) => {
+      if (platform === 'bga' && name === 'Pax') return ['favorite']
+      if (platform === 'rally' && name === 'Maria') return ['gm']
+      return []
+    }
+    render(<OverviewPage />)
+    await userEvent.click(screen.getByRole('button', { name: /Favorite\/GM/ }))
+
+    expect(shown('Pax')).toBe(true)
+    expect(shown('Maria')).toBe(true)
+    expect(shown('Navegador')).toBe(false)
+    expect(mockUpdatePrefs).toHaveBeenCalledWith(expect.objectContaining({ historyBacklogFilter: true }))
+    expect(global.fetch).toHaveBeenCalledWith('/api/prefs', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ historyBacklogFilter: true }),
+    }))
+  })
+
+  it('restores a previously saved toggle instead of always defaulting to off', () => {
+    initialPrefs = { ...DEFAULT_PREFS, historyBacklogFilter: true }
+    listsForImpl = (platform, name) => (platform === 'yucata' && name === 'Navegador' ? ['favorite'] : [])
+    render(<OverviewPage />)
+    expect(shown('Pax')).toBe(false)
+    expect(shown('Navegador')).toBe(true)
+    expect(shown('Maria')).toBe(false)
+  })
+
+  it('toggling it back off restores every game and saves', async () => {
+    initialPrefs = { ...DEFAULT_PREFS, historyBacklogFilter: true }
+    listsForImpl = (platform, name) => (platform === 'yucata' && name === 'Navegador' ? ['favorite'] : [])
+    render(<OverviewPage />)
+    await userEvent.click(screen.getByRole('button', { name: /Favorite\/GM/ }))
+
+    expect(shown('Pax')).toBe(true)
+    expect(shown('Maria')).toBe(true)
+    expect(mockUpdatePrefs).toHaveBeenCalledWith(expect.objectContaining({ historyBacklogFilter: false }))
   })
 })
