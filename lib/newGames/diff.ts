@@ -1,4 +1,4 @@
-import { Platform } from '../types'
+import { Platform, PLATFORM_LABELS } from '../types'
 
 // One thing a source lists: a game in a site's catalog, or a blog post
 export interface WatchedItem {
@@ -111,4 +111,10 @@ export function groupEventsByDay(events: NewGameEvent[], now = new Date()): Even
       events: dayEvents,
     }
   })
+}
+
+// Plain-text, one line per event — meant for pasting into a chat (Claude or
+// otherwise), not for display in the app itself.
+export function formatEventsForCopy(events: NewGameEvent[]): string {
+  return events.map(e => `${PLATFORM_LABELS[e.platform]}: ${e.name} (${eventLabel(e)}) — ${e.url}`).join('\n')
 }

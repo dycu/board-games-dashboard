@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { diffSource, eventLabel, groupEventsByDay, NewGameEvent, SourceSnapshot, WatchedItem } from '../diff'
+import { diffSource, eventLabel, groupEventsByDay, formatEventsForCopy, NewGameEvent, SourceSnapshot, WatchedItem } from '../diff'
 import { checkNewGames, CheckDeps } from '../check'
 import { newGamesEmail } from '../email'
 import { parseYucataBlog } from '../sources'
@@ -145,6 +145,23 @@ describe('groupEventsByDay', () => {
 
   it('returns nothing for an empty list', () => {
     expect(groupEventsByDay([], now)).toEqual([])
+  })
+})
+
+describe('formatEventsForCopy', () => {
+  it('writes one readable line per event, with the full platform name', () => {
+    const text = formatEventsForCopy([
+      { id: 'a', at: AT, source: 'bga', platform: 'bga', kind: 'new', name: 'Hundo', url: 'https://x/hundo', status: 'alpha' },
+      { id: 'b', at: AT, source: 'rally', platform: 'rally', kind: 'status', name: 'Maria', url: 'https://x/maria', status: 'public', from: 'beta' },
+    ])
+    expect(text).toBe(
+      'BGA: Hundo (new (alpha)) — https://x/hundo\n' +
+      'Rally the Troops: Maria (beta → public) — https://x/maria'
+    )
+  })
+
+  it('returns an empty string for an empty list', () => {
+    expect(formatEventsForCopy([])).toBe('')
   })
 })
 

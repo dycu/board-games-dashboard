@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import TopNav from '@/components/TopNav'
 import NewGameEventRow from '@/components/NewGameEventRow'
-import { NewGameEvent, groupEventsByDay } from '@/lib/newGames/diff'
+import { NewGameEvent, groupEventsByDay, formatEventsForCopy } from '@/lib/newGames/diff'
 import { CheckResult } from '@/lib/newGames/check'
 import { useBacklog } from '@/hooks/useBacklog'
 
@@ -16,6 +16,7 @@ export default function NewGamesPage() {
   const [checking, setChecking] = useState(false)
   const [checkError, setCheckError] = useState<string | null>(null)
   const [lastCheck, setLastCheck] = useState<CheckResult | null>(null)
+  const [copied, setCopied] = useState(false)
   const backlog = useBacklog()
 
   const load = () => fetch('/api/new-games?all=1')
@@ -55,6 +56,16 @@ export default function NewGamesPage() {
     }
   }
 
+  const copyToday = async (todaysEvents: NewGameEvent[]) => {
+    try {
+      await navigator.clipboard.writeText(formatEventsForCopy(todaysEvents))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // clipboard access denied/unavailable — nothing more to do here
+    }
+  }
+
   const navRight = (
     <button
       onClick={checkNow}
@@ -88,9 +99,19 @@ export default function NewGamesPage() {
           <div className="flex flex-col gap-4">
             {groupEventsByDay(events).map(group => (
               <div key={group.dateKey}>
-                <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b] mb-1.5 px-1">
-                  {group.label}
-                </h2>
+                <div className="flex items-center justify-between gap-2 mb-1.5 px-1">
+                  <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b]">
+                    {group.label}
+                  </h2>
+                  {group.label === 'Today' && (
+                    <button
+                      onClick={() => copyToday(group.events)}
+                      className="text-[11px] font-medium text-[#5e6ad2] hover:underline"
+                    >
+                      {copied ? 'Copied!' : 'Copy list'}
+                    </button>
+                  )}
+                </div>
                 <ul className="divide-y divide-[#f0f0f0] bg-white rounded-xl border border-[#e5e5e5] px-4">
                   {group.events.map(e => (
                     <NewGameEventRow

@@ -97,4 +97,32 @@ describe('NewGamesPage', () => {
     expect(await screen.findByText(/rally library/)).toBeInTheDocument()
     expect(screen.getByText('Hundo')).toBeInTheDocument()
   })
+
+  it('"Copy list" copies only today\'s events as plain text, and confirms it', async () => {
+    const writeText = jest.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    const today = new Date().toISOString()
+    mockFetchJson({
+      'GET /api/new-games?all=1': { events: [event('a', 'Hundo', today), event('b', 'Riviera', '2020-01-01T00:00:00Z')] },
+      'POST /api/new-games': { ok: true },
+    })
+    render(<NewGamesPage />)
+    await screen.findByText('Hundo')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Copy list' }))
+
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Hundo'))
+    expect(writeText).toHaveBeenCalledWith(expect.not.stringContaining('Riviera'))
+    expect(await screen.findByRole('button', { name: 'Copied!' })).toBeInTheDocument()
+  })
+
+  it('does not offer "Copy list" when there is nothing from today', async () => {
+    mockFetchJson({
+      'GET /api/new-games?all=1': { events: [event('a', 'Riviera', '2020-01-01T00:00:00Z')] },
+      'POST /api/new-games': { ok: true },
+    })
+    render(<NewGamesPage />)
+    await screen.findByText('Riviera')
+    expect(screen.queryByRole('button', { name: 'Copy list' })).not.toBeInTheDocument()
+  })
 })
