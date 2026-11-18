@@ -19,6 +19,25 @@ describe('parseBoardTogetherCatalog', () => {
   it('returns an empty list when the payload is missing', () => {
     expect(parseBoardTogetherCatalog(JSON.stringify({ status: 'ok' }))).toEqual([])
   })
+
+  // Confirmed against the real catalog: GIPF, YINSH, DVONN, LYNGK, TZAAR and
+  // several 18xx titles are all beta:true and can't actually be started —
+  // listing them as available (in search or as a "new game" find) points at
+  // something there's no real game to join.
+  it('drops a beta entry — it is listed but not actually playable', () => {
+    const withBeta = JSON.stringify({
+      status: 'ok',
+      payload: [
+        { id: 'yinsh', metadata: { name: 'YINSH', beta: true } },
+        { id: 'estates', metadata: { name: 'The Estates', beta: false } },
+        { id: 'rides', metadata: { name: 'Ride the Rails' } }, // no beta field at all — treated as released
+      ],
+    })
+    expect(parseBoardTogetherCatalog(withBeta)).toEqual([
+      { name: 'The Estates', url: 'https://boardtogether.games/dashboard' },
+      { name: 'Ride the Rails', url: 'https://boardtogether.games/dashboard' },
+    ])
+  })
 })
 
 describe('fetchBoardTogetherCatalog', () => {

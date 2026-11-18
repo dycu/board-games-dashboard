@@ -9,12 +9,18 @@ const PLAY_URL = `${BASE}/dashboard`
 
 interface CatalogPayload {
   status: string
-  payload: { id: string; metadata: { name: string } }[]
+  payload: { id: string; metadata: { name: string; beta?: boolean } }[]
 }
 
+// A beta entry is listed in the catalog but isn't actually playable yet
+// (confirmed: GIPF, YINSH, DVONN, LYNGK, TZAAR and several 18xx titles all
+// carry beta:true and can't really be started) — surfacing it as "new"
+// here or in search just points at something there's no game to join.
 export function parseBoardTogetherCatalog(json: string): CatalogEntry[] {
   const parsed: CatalogPayload = JSON.parse(json)
-  return (parsed.payload ?? []).map(g => ({ name: g.metadata.name, url: PLAY_URL }))
+  return (parsed.payload ?? [])
+    .filter(g => !g.metadata.beta)
+    .map(g => ({ name: g.metadata.name, url: PLAY_URL }))
 }
 
 export async function fetchBoardTogetherCatalog(): Promise<CatalogEntry[]> {
