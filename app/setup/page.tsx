@@ -317,9 +317,8 @@ export default function SetupPage() {
           <p className="text-xs text-[#9b9b9b] mb-3">
             Runs automatically twice a day: new games and release-stage changes on BGA (alpha
             included), 18xx.games, Rally the Troops, Yucata, choochoo.games, Boardgamers.space and
-            BoardTogether, plus new Yucata blog posts. Emails what it finds — check now instead of
-            waiting for the next scheduled run, or browse everything found so far on the New Games
-            page.
+            BoardTogether. Emails what it finds — check now instead of waiting for the next
+            scheduled run, or browse everything found so far on the New Games page.
           </p>
           <button
             onClick={checkNewGamesNow}

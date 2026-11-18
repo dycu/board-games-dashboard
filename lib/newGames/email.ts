@@ -9,7 +9,6 @@ const SOURCE_TITLES: Record<NewGameEvent['source'], string> = {
   eighteenxx: '18xx.games',
   rally: 'Rally the Troops',
   yucata: 'Yucata',
-  'yucata-blog': 'Yucata blog',
   choochoo: 'choochoo.games',
   boardgamers: 'Boardgamers.space',
   boardtogether: 'BoardTogether',

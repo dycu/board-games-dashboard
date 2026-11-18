@@ -6,9 +6,10 @@ import { sendAlertEmail } from '@/lib/notify/email'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-// Twice a day (vercel.json): new games and release-stage changes on BGA, 18xx,
-// Rally and Yucata, plus new Yucata blog posts. Emails what it finds; the
-// dashboard shows the same events in a popup until dismissed.
+// Twice a day (vercel.json): new games and release-stage changes on BGA,
+// 18xx, Rally, Yucata, choochoo.games, Boardgamers.space and BoardTogether.
+// Emails what it finds; the dashboard shows the same events in a popup
+// until dismissed.
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET
   if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {

@@ -84,14 +84,6 @@ describe('SOURCES: refreshing the "Find a game" catalog cache from the same live
     expect(mockSetCatalog).not.toHaveBeenCalled()
   })
 
-  it('yucata-blog: is not a game catalog, so it never touches the search cache', async () => {
-    global.fetch = jest.fn(async () => ({ ok: true, json: async () => [] })) as unknown as typeof fetch
-
-    await SOURCES['yucata-blog']()
-
-    expect(mockSetCatalog).not.toHaveBeenCalled()
-  })
-
   it('choochoo: refreshes the cache only after confirming the site actually has maps', async () => {
     const entries = [entry('Poland')]
     mockChoochoo.mockResolvedValue(entries)

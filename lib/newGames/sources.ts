@@ -9,34 +9,13 @@ import { fetchBoardTogetherCatalog } from '../catalogs/boardtogether'
 import { setCatalog } from '../catalogs/cache'
 import { NewGamesSource, WatchedItem } from './diff'
 
-const YUCATA = 'https://www.yucata.de'
-
 function byUrl(entries: CatalogEntry[]): WatchedItem[] {
   return entries.map(e => ({ key: e.url, name: e.name, url: e.url, ...(e.status && { status: e.status }) }))
 }
 
-// The endpoint used to return a bare array; it now wraps posts in
-// {posts, olderCursor, newerCursor} (cursor-based pagination added), with
-// each post's own shape unchanged — accept either.
-export function parseYucataBlog(json: unknown): WatchedItem[] {
-  const wrapped = json as { posts?: unknown } | null
-  const posts = Array.isArray(json) ? json : Array.isArray(wrapped?.posts) ? wrapped.posts : null
-  if (!posts) throw new Error('Yucata blog: expected a list of posts')
-  return posts
-    .filter((p: any) => p?.key && p?.title && (p.status ?? 'Published') === 'Published')
-    .map((p: any) => ({ key: String(p.key), name: String(p.title), url: `${YUCATA}/en/Blog/${encodeURIComponent(p.key)}` }))
-}
-
-async function fetchYucataBlog(): Promise<WatchedItem[]> {
-  const res = await fetch(`${YUCATA}/api/blog/posts`, { headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' } })
-  if (!res.ok) throw new Error(`Yucata blog fetch failed: HTTP ${res.status}`)
-  return parseYucataBlog(await res.json())
-}
-
 // Each source fetches live (never the 24h search cache) and throws rather
 // than returning a partial list, so a bad fetch can't look like new games.
-// For the four that are also what "Find a game" searches (bga, eighteenxx,
-// rally, yucata — not yucata-blog, which isn't a game catalog), the fresh
+// Every source here is also what "Find a game" searches, so the fresh
 // result also refreshes that search cache (see lib/catalogs/cache.ts),
 // so a game that only just appeared doesn't stay invisible to search for up
 // to a day until that cache would otherwise expire on its own.
@@ -67,7 +46,6 @@ export const SOURCES: Record<NewGamesSource, () => Promise<WatchedItem[]>> = {
     await setCatalog('yucata', entries)
     return items
   },
-  'yucata-blog': fetchYucataBlog,
   choochoo: async () => {
     const entries = await fetchChoochooCatalog()
     const items = byUrl(entries)

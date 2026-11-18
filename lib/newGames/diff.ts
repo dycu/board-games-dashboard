@@ -1,6 +1,6 @@
 import { Platform, PLATFORM_LABELS } from '../types'
 
-// One thing a source lists: a game in a site's catalog, or a blog post
+// One thing a source lists: a game in a site's catalog
 export interface WatchedItem {
   key: string     // stable id within its source (URL, slug or post key)
   name: string
@@ -8,14 +8,13 @@ export interface WatchedItem {
   status?: string // release stage, where the site has one
 }
 
-export type NewGamesSource = 'bga' | 'eighteenxx' | 'rally' | 'yucata' | 'yucata-blog' | 'choochoo' | 'boardgamers' | 'boardtogether'
+export type NewGamesSource = 'bga' | 'eighteenxx' | 'rally' | 'yucata' | 'choochoo' | 'boardgamers' | 'boardtogether'
 
 export const SOURCE_PLATFORM: Record<NewGamesSource, Platform> = {
   bga: 'bga',
   eighteenxx: 'eighteenxx',
   rally: 'rally',
   yucata: 'yucata',
-  'yucata-blog': 'yucata',
   choochoo: 'choochoo',
   boardgamers: 'boardgamers',
   boardtogether: 'boardtogether',
@@ -26,7 +25,7 @@ export interface NewGameEvent {
   at: string      // ISO, when the check found it
   source: NewGamesSource
   platform: Platform
-  kind: 'new' | 'status' | 'post'
+  kind: 'new' | 'status'
   name: string
   url: string
   status?: string
@@ -53,7 +52,6 @@ export function diffSource(
   const snapshot: SourceSnapshot = { ...(previous ?? {}) }
   const events: NewGameEvent[] = []
   const platform = SOURCE_PLATFORM[source]
-  const kind = source === 'yucata-blog' ? 'post' : 'new'
 
   for (const item of items) {
     const before = previous?.[item.key]
@@ -61,7 +59,7 @@ export function diffSource(
     // The first check of a source only records what's there
     if (!previous) continue
     if (!before) {
-      events.push({ id: `${source}:${item.key}:${kind}`, at, source, platform, kind, name: item.name, url: item.url, ...(item.status !== undefined && { status: item.status }) })
+      events.push({ id: `${source}:${item.key}:new`, at, source, platform, kind: 'new', name: item.name, url: item.url, ...(item.status !== undefined && { status: item.status }) })
       continue
     }
     const was = stageRank(before.status)
@@ -74,7 +72,6 @@ export function diffSource(
 }
 
 export function eventLabel(e: NewGameEvent): string {
-  if (e.kind === 'post') return 'blog post'
   if (e.kind === 'status') return `${e.from} → ${e.status}`
   return e.status && e.status !== 'public' && e.status !== 'production' ? `new (${e.status})` : 'new'
 }

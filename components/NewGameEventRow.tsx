@@ -27,9 +27,7 @@ export default function NewGameEventRow({ event, lists, disabled, onToggle }: Pr
         </a>
         <span className="text-xs text-[#8a8a8a]">{eventLabel(event)}</span>
       </div>
-      {event.kind !== 'post' && (
-        <BacklogListChips lists={lists} disabled={disabled} onToggle={onToggle} />
-      )}
+      <BacklogListChips lists={lists} disabled={disabled} onToggle={onToggle} />
     </li>
   )
 }
