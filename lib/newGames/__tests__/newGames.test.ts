@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { diffSource, eventLabel, NewGameEvent, SourceSnapshot, WatchedItem } from '../diff'
+import { diffSource, eventLabel, groupEventsByDay, NewGameEvent, SourceSnapshot, WatchedItem } from '../diff'
 import { checkNewGames, CheckDeps } from '../check'
 import { newGamesEmail } from '../email'
 import { parseYucataBlog } from '../sources'
@@ -108,6 +108,43 @@ describe('checkNewGames', () => {
     } finally {
       jest.useRealTimers()
     }
+  })
+})
+
+describe('groupEventsByDay', () => {
+  const e = (id: string, at: string): NewGameEvent => ({ id, at, source: 'bga', platform: 'bga', kind: 'new', name: id, url: 'https://x' })
+  const now = new Date('2026-11-18T12:00:00.000Z')
+
+  it('labels today and yesterday, grouping their events together', () => {
+    const groups = groupEventsByDay([
+      e('a', '2026-11-18T07:00:00.000Z'),
+      e('b', '2026-11-18T19:00:00.000Z'),
+      e('c', '2026-11-17T07:00:00.000Z'),
+    ], now)
+    expect(groups.map(g => g.label)).toEqual(['Today', 'Yesterday'])
+    expect(groups[0].events.map(ev => ev.id)).toEqual(['a', 'b'])
+    expect(groups[1].events.map(ev => ev.id)).toEqual(['c'])
+  })
+
+  it('uses a calendar-date label for anything older than yesterday', () => {
+    const groups = groupEventsByDay([e('a', '2026-11-10T07:00:00.000Z')], now)
+    expect(groups[0].label).not.toBe('Today')
+    expect(groups[0].label).not.toBe('Yesterday')
+    expect(groups[0].events).toHaveLength(1)
+  })
+
+  it('preserves the newest-first order of both days and events within a day', () => {
+    const groups = groupEventsByDay([
+      e('newest', '2026-11-18T19:00:00.000Z'),
+      e('older-same-day', '2026-11-18T07:00:00.000Z'),
+      e('yesterday', '2026-11-17T07:00:00.000Z'),
+    ], now)
+    expect(groups.map(g => g.dateKey)).toEqual([groups[0].dateKey, groups[1].dateKey])
+    expect(groups[0].events.map(ev => ev.id)).toEqual(['newest', 'older-same-day'])
+  })
+
+  it('returns nothing for an empty list', () => {
+    expect(groupEventsByDay([], now)).toEqual([])
   })
 })
 

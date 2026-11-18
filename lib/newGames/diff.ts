@@ -78,3 +78,37 @@ export function eventLabel(e: NewGameEvent): string {
   if (e.kind === 'status') return `${e.from} → ${e.status}`
   return e.status && e.status !== 'public' && e.status !== 'production' ? `new (${e.status})` : 'new'
 }
+
+export interface EventDayGroup {
+  dateKey: string // this viewer's local calendar date (toDateString()) — stable, usable as a React key
+  label: string   // "Today" / "Yesterday" / "Mon, Jan 5"
+  events: NewGameEvent[]
+}
+
+// Buckets events (assumed newest-first, as the store already returns them)
+// by the viewer's local calendar day, preserving that order — grouping
+// never needs to re-sort.
+export function groupEventsByDay(events: NewGameEvent[], now = new Date()): EventDayGroup[] {
+  const todayKey = now.toDateString()
+  const yesterdayKey = new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString()
+
+  const order: string[] = []
+  const byDay = new Map<string, { sample: Date; events: NewGameEvent[] }>()
+  for (const e of events) {
+    const date = new Date(e.at)
+    const dateKey = date.toDateString()
+    if (!byDay.has(dateKey)) { byDay.set(dateKey, { sample: date, events: [] }); order.push(dateKey) }
+    byDay.get(dateKey)!.events.push(e)
+  }
+
+  return order.map(dateKey => {
+    const { sample, events: dayEvents } = byDay.get(dateKey)!
+    return {
+      dateKey,
+      label: dateKey === todayKey ? 'Today'
+        : dateKey === yesterdayKey ? 'Yesterday'
+        : sample.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+      events: dayEvents,
+    }
+  })
+}

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import TopNav from '@/components/TopNav'
 import NewGameEventRow from '@/components/NewGameEventRow'
-import { NewGameEvent } from '@/lib/newGames/diff'
+import { NewGameEvent, groupEventsByDay } from '@/lib/newGames/diff'
 import { CheckResult } from '@/lib/newGames/check'
 import { useBacklog } from '@/hooks/useBacklog'
 
@@ -69,13 +69,6 @@ export default function NewGamesPage() {
     <div className="flex flex-col h-screen overflow-hidden">
       <TopNav right={navRight} />
       <div className="flex-1 overflow-y-auto p-5 max-w-2xl mx-auto w-full">
-        <p className="text-xs text-[#9b9b9b] mb-3">
-          New games and release-stage changes on BGA (alpha included), 18xx.games, Rally the
-          Troops, Yucata, choochoo.games, Boardgamers.space and BoardTogether, plus new Yucata blog
-          posts. Checked automatically twice a day and emailed — &quot;Check now&quot; runs the
-          same check immediately instead of waiting.
-        </p>
-
         {checkError && <p className="text-xs text-red-500 mb-3">⚠ {checkError}</p>}
         {lastCheck && !checkError && (
           <p className="text-xs text-[#6b6b6b] mb-3">
@@ -92,17 +85,26 @@ export default function NewGamesPage() {
         ) : events.length === 0 ? (
           <div className="text-center py-12 text-[#9b9b9b]">Nothing found yet.</div>
         ) : (
-          <ul className="divide-y divide-[#f0f0f0] bg-white rounded-xl border border-[#e5e5e5] px-4">
-            {events.map(e => (
-              <NewGameEventRow
-                key={e.id}
-                event={e}
-                lists={backlog.listsFor(e.platform, e.name)}
-                disabled={backlog.isAdding(e.platform, e.name)}
-                onToggle={list => backlog.toggleOrAdd({ platform: e.platform, gameName: e.name, playUrl: e.url, list })}
-              />
+          <div className="flex flex-col gap-4">
+            {groupEventsByDay(events).map(group => (
+              <div key={group.dateKey}>
+                <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b] mb-1.5 px-1">
+                  {group.label}
+                </h2>
+                <ul className="divide-y divide-[#f0f0f0] bg-white rounded-xl border border-[#e5e5e5] px-4">
+                  {group.events.map(e => (
+                    <NewGameEventRow
+                      key={e.id}
+                      event={e}
+                      lists={backlog.listsFor(e.platform, e.name)}
+                      disabled={backlog.isAdding(e.platform, e.name)}
+                      onToggle={list => backlog.toggleOrAdd({ platform: e.platform, gameName: e.name, playUrl: e.url, list })}
+                    />
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </div>

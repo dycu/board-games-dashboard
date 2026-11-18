@@ -28,6 +28,17 @@ describe('NewGamesPage', () => {
     expect(screen.getByText('Riviera')).toBeInTheDocument()
   })
 
+  it('groups events under a day heading instead of one flat list', async () => {
+    const today = new Date().toISOString()
+    mockFetchJson({
+      'GET /api/new-games?all=1': { events: [event('a', 'Hundo', today)] },
+      'POST /api/new-games': { ok: true },
+    })
+    render(<NewGamesPage />)
+    expect(await screen.findByText('Hundo')).toBeInTheDocument()
+    expect(screen.getByText('Today')).toBeInTheDocument()
+  })
+
   it('marks everything shown as seen so the popup does not ask about it again', async () => {
     mockFetchJson({
       'GET /api/new-games?all=1': { events: [event('a', 'Hundo', '2026-01-02T00:00:00Z')] },
