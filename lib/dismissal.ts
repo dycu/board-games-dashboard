@@ -43,7 +43,13 @@ export function resolveOpened(
   return changed ? next : opened
 }
 
-function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetchStartedAt: number, graceMs: number): OpenedGame | null {
+// Exported for the return-refresh verification retry (app/page.tsx): that
+// fetch is deliberately triggered to check a specific just-played game, so
+// it should judge it directly rather than through resolveOpened's presentAt
+// gate — which exists to reject a fetch that might predate the user's move
+// (one that started before they got back), not one we already know is a
+// legitimate post-return check, however many retries it took to land.
+export function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetchStartedAt: number, graceMs: number): OpenedGame | null {
   // Opened after this fetch started: it can't show my move yet
   if (fetchStartedAt < o.openedAt) return o
   // Gone (ended) or still waiting for me: no longer opened

@@ -5,21 +5,23 @@ import { usePrefs } from '@/hooks/usePrefs'
 import { useNotes } from '@/hooks/useNotes'
 import { isBackForwardNavigation } from '@/lib/navigation'
 import { Platform } from '@/lib/types'
-import { Presence, Opened, resolveOpened, readStoredOpened, writeStoredOpened, storeOpenedNow, nextNotePrompt, decideReturnRefresh, AWAY_REFRESH_MS } from '@/lib/dismissal'
+import { Presence, Opened, resolveOpened, readStoredOpened, writeStoredOpened, storeOpenedNow, nextNotePrompt, decideReturnRefresh, judge, RETURN_GRACE_MS, AWAY_REFRESH_MS } from '@/lib/dismissal'
 import GameGrid from '@/components/GameGrid'
 import FetchProgress from '@/components/FetchProgress'
 import NewGamesPopup from '@/components/NewGamesPopup'
 import NotePromptPopup from '@/components/NotePromptPopup'
 
 // Some sites (OBG, confirmed) don't reflect a just-submitted move in their
-// own data immediately — fetching right on return can still see the old
-// "my turn" state, which un-dims the card as if the move never registered
-// (see judge() in lib/dismissal.ts: a fetch after opening that still shows
-// myTurn just drops the dimming, since from its own perspective nothing was
-// confirmed). This delay before the platform-scoped refresh gives that lag
-// room to settle first; the full-refresh path is left alone since it isn't
-// specifically verifying a just-made move.
-const PLATFORM_REFRESH_DELAY_MS = 3000
+// own data right away — a single delayed recheck wasn't enough; the lag is
+// apparently variable, not a fixed couple of seconds. So instead of one
+// delayed refresh, this retries the platform-scoped check a few times with
+// backoff, stopping as soon as the game(s) that were open actually show the
+// move (myTurn false, or gone) — see verifyingRef/the freshDataVersion
+// effect below. Cumulative: ~3s, 10s, 25s from the moment you return. If
+// it's still not confirmed by then, the normal periodic refresh or a manual
+// one will eventually catch it, same as before this existed. The
+// full-refresh path is left alone — it isn't verifying a specific move.
+const PLATFORM_REFRESH_RETRY_DELAYS_MS = [3000, 7000, 15000]
 
 export default function DashboardPage() {
   const { prefs, updatePrefs } = usePrefs()
@@ -64,6 +66,15 @@ export default function DashboardPage() {
   const refreshIntervalRef = useRef(prefs.refreshIntervalSeconds)
   useEffect(() => { refreshIntervalRef.current = prefs.refreshIntervalSeconds }, [prefs.refreshIntervalSeconds])
   const pendingPlatformRefreshRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const verifyingRef = useRef<{ platforms: Platform[]; gameIds: string[]; attempt: number } | null>(null)
+
+  const scheduleVerify = useCallback((platforms: Platform[], attempt: number) => {
+    const delay = PLATFORM_REFRESH_RETRY_DELAYS_MS[attempt]
+    pendingPlatformRefreshRef.current = setTimeout(() => {
+      pendingPlatformRefreshRef.current = null
+      triggerRefresh(true, platforms)
+    }, delay)
+  }, [triggerRefresh])
 
   // Opening a game takes the user away from this tab (BGA in this tab, others
   // in a new one). Track when they leave and come back, and refresh as soon
@@ -104,13 +115,13 @@ export default function DashboardPage() {
           pendingPlatformRefreshRef.current = null
         }
         if (decision.kind === 'full') {
+          verifyingRef.current = null
           triggerRefresh(true)
         } else if (decision.kind === 'platforms') {
           const platforms = decision.platforms as Platform[]
-          pendingPlatformRefreshRef.current = setTimeout(() => {
-            pendingPlatformRefreshRef.current = null
-            triggerRefresh(true, platforms)
-          }, PLATFORM_REFRESH_DELAY_MS)
+          const gameIds = Object.keys(openedRef.current).filter(id => platforms.includes(id.split(':')[0] as Platform))
+          verifyingRef.current = { platforms, gameIds, attempt: 0 }
+          scheduleVerify(platforms, 0)
         }
       }
     }
@@ -122,7 +133,7 @@ export default function DashboardPage() {
       document.removeEventListener('visibilitychange', onChange)
       if (pendingPlatformRefreshRef.current) clearTimeout(pendingPlatformRefreshRef.current)
     }
-  }, [triggerRefresh])
+  }, [triggerRefresh, scheduleVerify])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after hydration
@@ -141,6 +152,48 @@ export default function DashboardPage() {
     // displayedData changes together with freshDataVersion
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freshDataVersion, freshDataStartedAt])
+
+  // Checks whatever the latest fetch (any fetch, not just the one this
+  // scheduled) actually found for the game(s) a return-refresh was
+  // verifying. Still myTurn -> retry with backoff, per
+  // PLATFORM_REFRESH_RETRY_DELAYS_MS. Otherwise judge() these specific
+  // games directly, bypassing resolveOpened's presentAt gate above — by the
+  // time a retry lands, the user may well have glanced away again, which
+  // would otherwise make that effect discard a perfectly good result and
+  // leave the card stuck looking wrong until a manual refresh.
+  useEffect(() => {
+    const v = verifyingRef.current
+    if (!v || freshDataVersion === 0 || !displayedData) return
+    const byId = new Map(displayedData.games.map(g => [g.id, g]))
+    const stillMyTurn = v.gameIds.some(id => byId.get(id)?.myTurn === true)
+
+    if (stillMyTurn) {
+      const nextAttempt = v.attempt + 1
+      if (nextAttempt >= PLATFORM_REFRESH_RETRY_DELAYS_MS.length) { verifyingRef.current = null; return }
+      verifyingRef.current = { ...v, attempt: nextAttempt }
+      scheduleVerify(v.platforms, nextAttempt)
+      return
+    }
+
+    verifyingRef.current = null
+    setOpened(prev => {
+      let changed = false
+      const next = { ...prev }
+      for (const id of v.gameIds) {
+        const o = prev[id]
+        if (!o) continue
+        const kept = judge(o, byId.get(id), freshDataStartedAt, RETURN_GRACE_MS)
+        if (kept !== o) {
+          changed = true
+          if (kept) next[id] = kept
+          else delete next[id]
+        }
+      }
+      if (changed) writeStoredOpened(next)
+      return changed ? next : prev
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freshDataVersion])
 
   // An opened game is dimmed (and skipped by Next) until fresh data shows its actual state
   const handleOpen = (id: string) => {
