@@ -2,11 +2,15 @@ import { getEvents, getSeenAt, setSeenAt } from '@/lib/newGames/store'
 
 export const dynamic = 'force-dynamic'
 
-// GET: events found since the popup was last dismissed (newest first)
-export async function GET() {
+// GET: events found since the popup was last dismissed (newest first).
+// ?all=1 returns everything stored instead, for the persistent /new-games
+// page — so a game that appeared while the popup went unseen is never
+// unreachable, only waiting on the next check or an email.
+export async function GET(request: Request) {
   try {
+    const all = new URL(request.url).searchParams.get('all') === '1'
     const [events, seenAt] = await Promise.all([getEvents(), getSeenAt()])
-    return Response.json({ events: seenAt ? events.filter(e => e.at > seenAt) : events, seenAt })
+    return Response.json({ events: all || !seenAt ? events : events.filter(e => e.at > seenAt), seenAt })
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
   }
