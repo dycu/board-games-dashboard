@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Game, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
+import { BacklogList, SHORT_LIST_LABELS } from '@/lib/backlog/list'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { formatTimeRemaining } from '@/lib/connectors/utils'
 import { deadlineSoon } from '@/lib/sort-filter'
@@ -31,6 +32,7 @@ export interface GameItemProps {
   now: number
   opened?: boolean // opened since the last refresh that saw me back: dimmed until then
   maxMoveCountToday: number // the busiest game's moveCountToday across the board right now — see heatBg
+  backlogLists: BacklogList[] // the backlog list(s) this title is tracked under, if any — see BacklogBadge
 }
 
 const BADGE_FALLBACK = 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'
@@ -107,6 +109,23 @@ function MoveCountBadge({ game, small }: { game: Game; small?: boolean }) {
   return (
     <span className={`shrink-0 font-semibold rounded-full bg-orange-50 text-orange-600 ${small ? 'text-[10px] px-1.5 py-px' : 'text-[11px] px-2 py-0.5'}`}>
       🔥 {count} today
+    </span>
+  )
+}
+
+// Only shown when this title is actually tracked somewhere in the backlog
+// — an untracked game's card looks exactly like it did before this
+// existed. Muted on purpose: this is a cross-reference, not a status that
+// needs attention the way the heat or deadline badges do.
+function BacklogBadge({ lists, small }: { lists: BacklogList[]; small?: boolean }) {
+  if (lists.length === 0) return null
+  const labels = lists.map(l => SHORT_LIST_LABELS[l])
+  const text = labels.length === 1 ? labels[0] : `${labels[0]} +${labels.length - 1}`
+  return (
+    <span
+      title={`In your backlog: ${labels.join(', ')}`}
+      className={`shrink-0 font-medium rounded-full bg-[var(--bg-muted)] text-[var(--text-secondary)] ${small ? 'text-[10px] px-1.5 py-px' : 'text-[11px] px-2 py-0.5'}`}>
+      🔖 {text}
     </span>
   )
 }
@@ -274,7 +293,7 @@ function heatBg(count: number | undefined, maxCount: number, fallback: string): 
 }
 
 // A game waiting for my move: a full card
-export default function GameCard({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, maxMoveCountToday }: GameItemProps) {
+export default function GameCard({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, maxMoveCountToday, backlogLists }: GameItemProps) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
@@ -286,6 +305,7 @@ export default function GameCard({ game, priority, onCyclePriority, onOpen, oppo
         <div className="flex items-center gap-1.5 min-w-0">
           <Badge game={game} />
           <MoveCountBadge game={game} />
+          <BacklogBadge lists={backlogLists} />
         </div>
         <div className="flex items-center gap-2">
           {opened && <span className="text-[11px] text-[var(--text-tertiary)]">opened</span>}
@@ -322,7 +342,7 @@ export default function GameCard({ game, priority, onCyclePriority, onOpen, oppo
 }
 
 // A game waiting for someone else: one compact row
-export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, maxMoveCountToday }: GameItemProps) {
+export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, maxMoveCountToday, backlogLists }: GameItemProps) {
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   return (
     <div className={`relative flex flex-wrap items-center gap-2 px-3 py-2 rounded-md border hover:border-[var(--accent-border-hover)] transition-colors
@@ -330,6 +350,7 @@ export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowD
       <CoverLink game={game} onOpen={onOpen} note={note} />
       <Badge game={game} small />
       <MoveCountBadge game={game} small />
+      <BacklogBadge lists={backlogLists} small />
       {/* A floor instead of min-w-0: once every shrink-0 sibling after this
           (timestamp, progress, icon buttons) no longer fits alongside a
           readable name, they wrap to their own line below — rather than

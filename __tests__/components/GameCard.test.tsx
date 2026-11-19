@@ -19,7 +19,7 @@ const game: Game = {
 }
 
 const props = (over: Partial<GameItemProps> = {}): GameItemProps =>
-  ({ game, priority: null, onCyclePriority: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, maxMoveCountToday: 0, ...over })
+  ({ game, priority: null, onCyclePriority: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, maxMoveCountToday: 0, backlogLists: [], ...over })
 
 describe('GameCard', () => {
   it('shows game name, platform badge and time', () => {
@@ -32,6 +32,22 @@ describe('GameCard', () => {
   it('has no "Your turn" label — the section heading says it', () => {
     render(<GameCard {...props()} />)
     expect(screen.queryByText('Your turn')).toBeNull()
+  })
+
+  it('shows no backlog badge when the title is not tracked there', () => {
+    render(<GameCard {...props()} />)
+    expect(screen.queryByText(/🔖/)).toBeNull()
+  })
+
+  it('shows the backlog list on its badge when the title is tracked there', () => {
+    render(<GameCard {...props({ backlogLists: ['gm'] })} />)
+    expect(screen.getByText('🔖 GM')).toBeInTheDocument()
+  })
+
+  it('collapses more than one backlog list into a "+N" count on the badge', () => {
+    render(<GameCard {...props({ backlogLists: ['gm', 'favorite'] })} />)
+    const badge = screen.getByText('🔖 GM +1')
+    expect(badge).toHaveAttribute('title', 'In your backlog: GM, Favorite')
   })
 
   it('shows the time left when the deadline is under a day away', () => {

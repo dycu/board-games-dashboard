@@ -7,7 +7,7 @@ import { BADGE_COLORS } from '@/lib/platform-colors'
 import GameCard, { GameRow, GameItemProps, Priority, isOpponentSlow, openTarget } from './GameCard'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useTableLabels } from '@/hooks/useTableLabels'
-import { BacklogItem, backlogId, listsOf } from '@/lib/backlog/list'
+import { BacklogItem, BacklogList, backlogId, listsOf } from '@/lib/backlog/list'
 import FilterToolbar from './FilterToolbar'
 import PlatformFilterChips from './PlatformFilterChips'
 import TopNav from './TopNav'
@@ -190,6 +190,11 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     .filter(item => listsOf(item).includes('gm') && item.parallelTarget && item.parallelTarget > 1 && !unavailablePlatforms.has(item.platform))
     .map(item => ({ item, running: games.filter(g => backlogId(g.platform, g.gameType || g.gameName) === item.id).length }))
     .filter(({ item, running }) => running < item.parallelTarget!)
+  // Which backlog list(s) (if any) a running game's title is tracked
+  // under — shown as a small badge on its card. Keyed the same way the
+  // suggestions above match a running game back to its backlog entry.
+  const backlogListsById = new Map((backlog.items ?? []).map(item => [item.id, listsOf(item)]))
+  const backlogListsOf = (g: Game): BacklogList[] => backlogListsById.get(backlogId(g.platform, g.gameType || g.gameName)) ?? []
 
   const priorityOf = (id: string): Priority => prefs.pins.includes(id) ? 'pinned' : (prefs.sunk ?? []).includes(id) ? 'sunk' : null
 
@@ -233,6 +238,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
       now,
       opened: isOpened(g),
       maxMoveCountToday,
+      backlogLists: backlogListsOf(g),
     }
   }
 
