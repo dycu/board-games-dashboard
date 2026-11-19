@@ -1,22 +1,19 @@
 'use client'
 import { useMemo, useState } from 'react'
-import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
+import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS, FinishedGame } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
-import { useBgaPlayTotals, totalsOf } from '@/hooks/useBgaPlayTotals'
+import { BgaPlayTotals, totalsOf } from '@/hooks/useBgaPlayTotals'
 import { readCache } from '@/hooks/useGamesData'
 import { aggregatePlayed, sortPlayed, playedNote, PlayedSort, PlayedGame } from '@/lib/backlog/played'
-import { useAchievements } from '@/hooks/useAchievements'
-import { useAchievementUnlocks } from '@/hooks/useAchievementUnlocks'
-import { progressOf, achievementLabel } from '@/lib/achievements/compute'
+import { achievementLabel, progressOf } from '@/lib/achievements/compute'
 import { Achievement } from '@/lib/achievements/store'
-import AchievementUnlockedBanner from './AchievementUnlockedBanner'
 import type { SearchSite } from '@/app/backlog/page'
 
 const SORTS: [PlayedSort, string][] = [['recent', 'Recent'], ['most', 'Most played'], ['least', 'Least played'], ['name', 'A–Z']]
 const BADGE_FALLBACK = 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'
 
-function Badge({ platform }: { platform: Platform }) {
+export function Badge({ platform }: { platform: Platform }) {
   return (
     <span title={PLATFORM_LABELS[platform]} className={`shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[platform] ?? BADGE_FALLBACK}`}>
       {PLATFORM_SHORT_LABELS[platform]}
@@ -26,7 +23,7 @@ function Badge({ platform }: { platform: Platform }) {
 
 const fmtDate = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 
-function GoalRow({ achievement, progress, onDelete }: { achievement: Achievement; progress: number; onDelete: () => void }) {
+export function GoalRow({ achievement, progress, onDelete }: { achievement: Achievement; progress: number; onDelete: () => void }) {
   const pct = Math.min(100, Math.round((progress / achievement.target) * 100))
   return (
     <div className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
@@ -45,7 +42,7 @@ function GoalRow({ achievement, progress, onDelete }: { achievement: Achievement
   )
 }
 
-function UnlockedRow({ achievement, onDelete }: { achievement: Achievement; onDelete: () => void }) {
+export function UnlockedRow({ achievement, onDelete }: { achievement: Achievement; onDelete: () => void }) {
   return (
     <div className="flex items-center gap-3 px-3 py-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
       <span className="text-base shrink-0">🏆</span>
@@ -53,6 +50,44 @@ function UnlockedRow({ achievement, onDelete }: { achievement: Achievement; onDe
       <span className="flex-1 min-w-0 text-sm text-[var(--text-primary)] truncate">{achievementLabel(achievement)}</span>
       <span className="text-xs text-[var(--text-tertiary)] shrink-0">{fmtDate(new Date(achievement.achievedAt!))}</span>
       <button onClick={onDelete} aria-label="Delete goal" title="Delete goal" className="shrink-0 text-[var(--text-tertiary)] hover:text-red-500 text-sm px-1">✕</button>
+    </div>
+  )
+}
+
+// The top-of-page view of goals already set — shown alongside
+// Play/Learn/Solo/Favorite/GM on the Backlog page itself, same prominence
+// as those lists. Creating a new goal still happens in the "Add games" card
+// below (GoalsPanel's own job) rather than here, to keep this to "what's
+// already set" instead of repeating the whole game-picker twice on one page.
+export function GoalsSummary({ error, inProgress, unlocked, games, onDelete }: {
+  error: string | null
+  inProgress: Achievement[]
+  unlocked: Achievement[]
+  games: FinishedGame[]
+  onDelete: (id: string) => void
+}) {
+  if (error) return <p className="text-xs text-red-500">Failed to load goals: {error}</p>
+  if (inProgress.length === 0 && unlocked.length === 0) {
+    return <p className="text-sm text-[var(--text-tertiary)] text-center py-8">No goals set yet — add one from &quot;Add games&quot; below.</p>
+  }
+  return (
+    <div className="flex flex-col gap-4">
+      {inProgress.length > 0 && (
+        <div>
+          <h3 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)] mb-1.5">In progress</h3>
+          <div className="flex flex-col gap-1.5">
+            {inProgress.map(a => <GoalRow key={a.id} achievement={a} progress={progressOf(a, games)} onDelete={() => onDelete(a.id)} />)}
+          </div>
+        </div>
+      )}
+      {unlocked.length > 0 && (
+        <div>
+          <h3 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)] mb-1.5">Unlocked</h3>
+          <div className="flex flex-col gap-1.5">
+            {unlocked.map(a => <UnlockedRow key={a.id} achievement={a} onDelete={() => onDelete(a.id)} />)}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -111,16 +146,21 @@ function GoalForm({ game, onCancel, onCreate }: {
   )
 }
 
-// Goals, set against your own already-played games (the same filter/sort
-// list as "From your games" above it) rather than a free-text game name —
-// there's no catalog of games you haven't played to pick from, since a
-// goal only ever tracks finished-games history.
-export default function GoalsPanel({ sites }: { sites: Set<SearchSite> }) {
-  const finished = useFinishedGamesData()
-  const bgaTotals = useBgaPlayTotals()
-  const { achievements, error, create, remove, markAchieved } = useAchievements()
-  const { celebrating, dismiss } = useAchievementUnlocks(achievements, finished.data?.games, markAchieved)
-
+// Picks which of your own already-played games (the same filter/sort list
+// as "From your games" above it) a new goal targets — there's no catalog of
+// games you haven't played to choose from, since a goal only ever tracks
+// finished-games history. In-progress/unlocked goals themselves are shown at
+// the top of the Backlog page, alongside Play/Learn/Solo/Favorite/GM, not
+// here — this panel is only for creating a new one. finished/bgaTotals/
+// achievements/onCreate come from the parent (shared with PlayedPanel and
+// the top summary) so visiting this page doesn't pay for several separate
+// finished-games fetches at once.
+export default function GoalsPanel({ sites, finished, bgaTotals, onCreate }: {
+  sites: Set<SearchSite>
+  finished: ReturnType<typeof useFinishedGamesData>
+  bgaTotals: BgaPlayTotals
+  onCreate: (goal: { platform: Platform | null; gameType: string; metric: 'played' | 'won'; target: number }) => Promise<void>
+}) {
   const [filter, setFilter] = useState('')
   const [sort, setSort] = useState<PlayedSort>('recent')
   const [pickingFor, setPickingFor] = useState<string | null>(null)
@@ -136,34 +176,8 @@ export default function GoalsPanel({ sites }: { sites: Set<SearchSite> }) {
     sort,
   )
 
-  const games = finished.data?.games ?? []
-  const inProgress = achievements?.filter(a => !a.achievedAt) ?? []
-  const unlocked = [...(achievements?.filter(a => a.achievedAt) ?? [])]
-    .sort((a, b) => new Date(b.achievedAt!).getTime() - new Date(a.achievedAt!).getTime())
-
   return (
     <div>
-      <AchievementUnlockedBanner achievements={celebrating} onDismiss={dismiss} />
-      {error && <p className="text-xs text-red-500 mb-2">Failed to load goals: {error}</p>}
-
-      {inProgress.length > 0 && (
-        <div className="mb-4">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)] mb-1.5">In progress</h3>
-          <div className="flex flex-col gap-1.5">
-            {inProgress.map(a => <GoalRow key={a.id} achievement={a} progress={progressOf(a, games)} onDelete={() => remove(a.id)} />)}
-          </div>
-        </div>
-      )}
-
-      {unlocked.length > 0 && (
-        <div className="mb-4">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)] mb-1.5">Unlocked</h3>
-          <div className="flex flex-col gap-1.5">
-            {unlocked.map(a => <UnlockedRow key={a.id} achievement={a} onDelete={() => remove(a.id)} />)}
-          </div>
-        </div>
-      )}
-
       <h3 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)] mb-1.5">Set a goal for one of your games</h3>
       <input
         type="text"
@@ -203,7 +217,7 @@ export default function GoalsPanel({ sites }: { sites: Set<SearchSite> }) {
                   {pickingFor === key ? 'Cancel' : '+ Goal'}
                 </button>
               </div>
-              {pickingFor === key && <GoalForm game={g} onCancel={() => setPickingFor(null)} onCreate={create} />}
+              {pickingFor === key && <GoalForm game={g} onCancel={() => setPickingFor(null)} onCreate={onCreate} />}
             </li>
           )
         })}

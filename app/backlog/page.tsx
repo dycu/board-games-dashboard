@@ -11,18 +11,22 @@ import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS, DEFAULT_BACKLOG_PLATF
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { BacklogItem, BacklogList, BACKLOG_LISTS, LIST_LABELS, SHORT_LIST_LABELS, listsOf } from '@/lib/backlog/list'
 import { PlayedSort, aggregatePlayed, sortPlayed, playedNote } from '@/lib/backlog/played'
-import { useBgaPlayTotals, totalsOf } from '@/hooks/useBgaPlayTotals'
+import { useBgaPlayTotals, totalsOf, BgaPlayTotals } from '@/hooks/useBgaPlayTotals'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
 import { readCache } from '@/hooks/useGamesData'
+import { useAchievements } from '@/hooks/useAchievements'
+import { useAchievementUnlocks } from '@/hooks/useAchievementUnlocks'
 import TopNav from '@/components/TopNav'
 import BacklogListChips from '@/components/BacklogListChips'
 import GameLink, { SMALL_BUTTON, playedGameUrl } from '@/components/GameLink'
 import HistoryLink from '@/components/HistoryLink'
 import PlatformFilterChips from '@/components/PlatformFilterChips'
-import GoalsPanel from '@/components/GoalsPanel'
+import AchievementUnlockedBanner from '@/components/AchievementUnlockedBanner'
+import GoalsPanel, { GoalsSummary } from '@/components/GoalsPanel'
 
 type Backlog = ReturnType<typeof useBacklog>
+type FinishedGames = ReturnType<typeof useFinishedGamesData>
 
 const ALL_PLATFORMS = Object.keys(PLATFORM_LABELS) as Platform[]
 
@@ -319,13 +323,14 @@ function SearchPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSi
 
 const SORTS: [PlayedSort, string][] = [['recent', 'Recent'], ['most', 'Most played'], ['least', 'Least played'], ['name', 'A–Z']]
 
-// Loading finished games asks every platform (streamed, so the page isn't held up)
-function PlayedPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSite> }) {
-  const finished = useFinishedGamesData()
+// Loading finished games asks every platform (streamed, so the page isn't held up).
+// finished/bgaTotals come from the parent (shared with GoalsPanel and the
+// top Goals summary) so visiting this page doesn't pay for three separate
+// finished-games fetches at once.
+function PlayedPanel({ backlog, sites, finished, bgaTotals }: { backlog: Backlog; sites: Set<SearchSite>; finished: FinishedGames; bgaTotals: BgaPlayTotals }) {
   const [filter, setFilter] = useState('')
   const [sort, setSort] = useState<PlayedSort>('recent')
   const [finishedOnly, setFinishedOnly] = useState(false)
-  const bgaTotals = useBgaPlayTotals()
 
   const played = useMemo(
     () => aggregatePlayed(
@@ -417,8 +422,18 @@ function PlayedPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSi
 export default function BacklogPage() {
   const backlog = useBacklog()
   const [source, setSource] = useState<'search' | 'played' | 'goals'>('played')
-  const [activeList, setActiveList] = useState<BacklogList>('play')
+  const [activeList, setActiveList] = useState<BacklogList | 'goals'>('play')
   const [sites, setSites] = useState<Set<SearchSite>>(new Set(DEFAULT_BACKLOG_PLATFORMS))
+
+  // Shared across PlayedPanel, GoalsPanel and the Goals summary below, so
+  // visiting this page pays for one finished-games fetch, not three.
+  const finished = useFinishedGamesData()
+  const bgaTotals = useBgaPlayTotals()
+  const { achievements, error: achievementsError, create: createGoal, remove: removeGoal, markAchieved } = useAchievements()
+  const { celebrating, dismiss } = useAchievementUnlocks(achievements, finished.data?.games, markAchieved)
+  const goalsInProgress = achievements?.filter(a => !a.achievedAt) ?? []
+  const goalsUnlocked = [...(achievements?.filter(a => a.achievedAt) ?? [])]
+    .sort((a, b) => new Date(b.achievedAt!).getTime() - new Date(a.achievedAt!).getTime())
 
   useEffect(() => {
     let cancelled = false
@@ -439,6 +454,7 @@ export default function BacklogPage() {
         {backlog.error && (
           <p className="mb-3 text-xs bg-red-100 text-red-600 px-2 py-1 rounded-md">⚠ {backlog.error}</p>
         )}
+        <AchievementUnlockedBanner achievements={celebrating} onDismiss={dismiss} />
 
         {backlog.items === null
           ? !backlog.error && <p className="text-sm text-[var(--text-tertiary)] text-center py-8">Loading…</p>
@@ -446,7 +462,10 @@ export default function BacklogPage() {
             <section className="mb-6">
               {/* One list visible at a time instead of all of them stacked —
                   keeps this short on a phone and avoids a long scroll to
-                  reach "Add games" below, on any screen size. */}
+                  reach "Add games" below, on any screen size. Goals sits
+                  alongside Play/Learn/Solo/Favorite/GM here (same prominence,
+                  no scrolling into "Add games" needed) rather than only
+                  inside the game-picker that creates new ones. */}
               <div className="flex items-center gap-1 mb-3">
                 {BACKLOG_LISTS.map(list => {
                   const count = backlog.items!.filter(i => listsOf(i).includes(list)).length
@@ -461,8 +480,25 @@ export default function BacklogPage() {
                     </button>
                   )
                 })}
+                <button
+                  onClick={() => setActiveList('goals')}
+                  title="Goals"
+                  className={`flex-1 ${pill(activeList === 'goals')}`}
+                >
+                  Goals <span className="tabular-nums opacity-70">{goalsInProgress.length}</span>
+                </button>
               </div>
-              <ListSection backlog={backlog} list={activeList} />
+              {activeList === 'goals' ? (
+                <GoalsSummary
+                  error={achievementsError}
+                  inProgress={goalsInProgress}
+                  unlocked={goalsUnlocked}
+                  games={finished.data?.games ?? []}
+                  onDelete={removeGoal}
+                />
+              ) : (
+                <ListSection backlog={backlog} list={activeList} />
+              )}
             </section>
           )}
 
@@ -507,8 +543,8 @@ export default function BacklogPage() {
             </button>
           </div>
           <div className={source === 'search' ? '' : 'hidden'}><SearchPanel backlog={backlog} sites={sites} /></div>
-          <div className={source === 'played' ? '' : 'hidden'}><PlayedPanel backlog={backlog} sites={sites} /></div>
-          <div className={source === 'goals' ? '' : 'hidden'}><GoalsPanel sites={sites} /></div>
+          <div className={source === 'played' ? '' : 'hidden'}><PlayedPanel backlog={backlog} sites={sites} finished={finished} bgaTotals={bgaTotals} /></div>
+          <div className={source === 'goals' ? '' : 'hidden'}><GoalsPanel sites={sites} finished={finished} bgaTotals={bgaTotals} onCreate={createGoal} /></div>
         </div>
       </div>
     </div>
