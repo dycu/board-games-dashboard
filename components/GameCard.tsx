@@ -350,9 +350,9 @@ function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string,
 function heatBg(count: number | undefined, maxCount: number, fallback: string): string {
   if (!count) return fallback
   const share = maxCount > 0 ? count / maxCount : 0
-  if (share >= 2 / 3) return 'bg-orange-200'
-  if (share >= 1 / 3) return 'bg-orange-100'
-  return 'bg-orange-50'
+  if (share >= 2 / 3) return 'bg-orange-100'
+  if (share >= 1 / 3) return 'bg-orange-50'
+  return fallback
 }
 
 // A game waiting for my move: a full card
