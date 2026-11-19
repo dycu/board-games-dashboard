@@ -11,16 +11,19 @@ import FetchProgress from '@/components/FetchProgress'
 import NewGamesPopup from '@/components/NewGamesPopup'
 import NotePromptPopup from '@/components/NotePromptPopup'
 
-// Some sites (OBG, confirmed) don't reflect a just-submitted move in their
-// own data right away — a single delayed recheck wasn't enough; the lag is
+// OBG (confirmed) doesn't reflect a just-submitted move in its own data
+// right away — a single delayed recheck wasn't enough; the lag is
 // apparently variable, not a fixed couple of seconds. So instead of one
 // delayed refresh, this retries the platform-scoped check a few times with
 // backoff, stopping as soon as the game(s) that were open actually show the
 // move (myTurn false, or gone) — see verifyingRef/the freshDataVersion
 // effect below. Cumulative: ~3s, 10s, 25s from the moment you return. If
 // it's still not confirmed by then, the normal periodic refresh or a manual
-// one will eventually catch it, same as before this existed. The
-// full-refresh path is left alone — it isn't verifying a specific move.
+// one will eventually catch it, same as before this existed. Every other
+// platform refreshes immediately on return, as before — this delay is
+// OBG's problem alone, not a reason to slow down sites that already report
+// the move right away (the full-refresh path was never touched either way).
+const SETTLE_DELAY_PLATFORMS: Platform[] = ['obg']
 const PLATFORM_REFRESH_RETRY_DELAYS_MS = [3000, 7000, 15000]
 
 export default function DashboardPage() {
@@ -119,9 +122,16 @@ export default function DashboardPage() {
           triggerRefresh(true)
         } else if (decision.kind === 'platforms') {
           const platforms = decision.platforms as Platform[]
-          const gameIds = Object.keys(openedRef.current).filter(id => platforms.includes(id.split(':')[0] as Platform))
-          verifyingRef.current = { platforms, gameIds, attempt: 0 }
-          scheduleVerify(platforms, 0)
+          const delayed = platforms.filter(p => SETTLE_DELAY_PLATFORMS.includes(p))
+          const immediate = platforms.filter(p => !SETTLE_DELAY_PLATFORMS.includes(p))
+          if (immediate.length > 0) triggerRefresh(true, immediate)
+          if (delayed.length > 0) {
+            const gameIds = Object.keys(openedRef.current).filter(id => delayed.includes(id.split(':')[0] as Platform))
+            verifyingRef.current = { platforms: delayed, gameIds, attempt: 0 }
+            scheduleVerify(delayed, 0)
+          } else {
+            verifyingRef.current = null
+          }
         }
       }
     }
