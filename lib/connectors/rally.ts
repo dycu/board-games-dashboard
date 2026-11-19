@@ -114,7 +114,7 @@ function assertStillLoggedIn(res: Response, context: string) {
   if (res.url?.includes('/login')) throw new Error(`Rally the Troops session expired (${context})`)
 }
 
-async function fetchActiveGamesHtml(cookie: string): Promise<string> {
+export async function fetchActiveGamesHtml(cookie: string): Promise<string> {
   const gamesRes = await fetch(`${BASE}/games/active`, { headers: { ...HEADERS, Cookie: cookie } })
   if (!gamesRes.ok) throw new Error(`Rally the Troops games fetch failed (HTTP ${gamesRes.status})`)
   assertStillLoggedIn(gamesRes, 'games/active')
