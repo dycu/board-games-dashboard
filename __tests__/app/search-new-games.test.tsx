@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import NewGamesPage from '@/app/new-games/page'
+import { NewGamesPanel as NewGamesPage } from '@/app/search/page'
 
 jest.mock('@/hooks/useBacklog', () => ({
   useBacklog: () => ({ items: [], error: null, listsFor: () => [], isAdding: () => false, toggleOrAdd: jest.fn() }),
@@ -17,7 +17,7 @@ function mockFetchJson(routes: Record<string, unknown>) {
   }) as unknown as typeof fetch
 }
 
-describe('NewGamesPage', () => {
+describe('NewGamesPanel', () => {
   it('shows every stored event, not just unseen ones', async () => {
     mockFetchJson({
       'GET /api/new-games?all=1': { events: [event('a', 'Hundo'), event('b', 'Riviera')] },
