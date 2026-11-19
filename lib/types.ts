@@ -23,6 +23,11 @@ export interface Game {
   gameUrl: string
   platformUrl: string
   players: string[]       // other players; empty array if unavailable
+  // Small avatar image URL per player name, keyed the same as `players` and
+  // `currentPlayer`. BGA only for now (its own CDN, public, no auth needed) —
+  // omitted entirely on platforms that don't expose one, and per-player even
+  // on BGA when their own avatar code doesn't resolve to a real image.
+  playerAvatars?: Record<string, string>
   deadlineAt?: string     // ISO; when the active player's time runs out (BGA)
   gameKey?: string        // the site's id for the game itself (BGA game_id), for its full history
   // How far along this game looks. Usually estimated from turns played so far

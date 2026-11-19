@@ -417,6 +417,21 @@ async function fetchLastMoves(session: BgaSession, tables: any[]): Promise<Map<s
 // Fallback horizon for the time-bank estimate, used only when a table's history can't be read
 const ESTIMATE_CAP_DAYS = 3
 
+// BGA's `avatar` field on a player is a bare code, not a URL: "_def_N" for
+// one of the site's own default pictures (served from a fixed /defaults/
+// path by that number), or a hash for a custom upload (served from a path
+// sharded by the player's own numeric id — the hash only ever shows up as
+// a cache-busting query param on the site itself, so it isn't needed here).
+// Both paths are on BGA's public image CDN, no login required.
+function bgaAvatarUrl(avatar: unknown, id: unknown): string | undefined {
+  if (typeof avatar !== 'string' || !avatar) return undefined
+  const def = avatar.match(/^_def_(\d+)$/)
+  if (def) return `https://x.boardgamearena.net/data/avatar/defaults/default-${def[1]}_32.jpg`
+  const idStr = String(id ?? '')
+  if (!/^\d{5,}$/.test(idStr)) return undefined
+  return `https://x.boardgamearena.net/data/avatar/0/${idStr.slice(0, 2)}/${idStr.slice(0, 5)}/${idStr}_32.jpg`
+}
+
 export async function fetchBGA(username: string, password: string, auth?: BgaAuthOptions): Promise<Game[]> {
   const { session, tables } = await withBgaSession(username, password, async s => ({ session: s, tables: await fetchBgaTables(s) }), auth)
   const { myId, cookies: allCookies } = session
@@ -465,9 +480,14 @@ export async function fetchBGA(username: string, password: string, auth?: BgaAut
     // The deadline is shown from deadlineAt, so only the fallback puts it here
     const lastMoveAgo = realSec !== undefined ? formatTimeAgo(lastMoveAt) : remaining ?? '–'
 
-    const playerNames = Object.values(players)
-      .map((p: any) => p.fullname)
-      .filter((n: string) => n && n !== (myPlayer?.fullname ?? ''))
+    const otherPlayers = Object.values(players)
+      .filter((p: any) => p.fullname && p.fullname !== (myPlayer?.fullname ?? ''))
+    const playerNames = otherPlayers.map((p: any) => p.fullname)
+    const playerAvatars: Record<string, string> = {}
+    for (const p of otherPlayers as any[]) {
+      const url = bgaAvatarUrl(p.avatar, p.id)
+      if (url) playerAvatars[p.fullname] = url
+    }
 
     return {
       id: `bga:${t.id}`,
@@ -483,6 +503,7 @@ export async function fetchBGA(username: string, password: string, auth?: BgaAut
       gameUrl: `${BASE}/${t.gameserver}/${t.game_name}?table=${t.id}`,
       platformUrl: `${BASE}/gameinprogress`,
       players: playerNames,
+      ...(Object.keys(playerAvatars).length > 0 && { playerAvatars }),
     }
   })
 }

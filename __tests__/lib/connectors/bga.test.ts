@@ -116,6 +116,36 @@ describe('fetchBGA', () => {
     })
   })
 
+  it('resolves BGA avatar codes into real image URLs, keyed by player name', async () => {
+    const tables = {
+      status: 1,
+      data: {
+        tables: {
+          '555': {
+            id: '555',
+            game_name: 'testgame',
+            status: 'asyncplay',
+            gamestart: 1750000000,
+            scheduled: 1749990000,
+            players: {
+              '42': { id: '42', fullname: 'testuser', myturn: '0', think_seconds: null, avatar: '_def_2158' },
+              '89293870': { id: '89293870', fullname: 'alice', myturn: '1', think_seconds: '3600', avatar: '5293954a87' },
+              '12': { id: '12', fullname: 'bob', myturn: '0', think_seconds: null, avatar: 'weirdcode' },
+            },
+          },
+        },
+      },
+    }
+    setupHappyPath('42', tables, [])
+    const games = await fetchBGA('user@example.com', 'password')
+    // alice: a custom-avatar hash resolves via her own id, sharded; bob: a
+    // code that isn't "_def_N" and an id too short to shard — left out
+    // rather than guessed; testuser (me) is never in player-facing output
+    expect(games[0].playerAvatars).toEqual({
+      alice: 'https://x.boardgamearena.net/data/avatar/0/89/89293/89293870_32.jpg',
+    })
+  })
+
   it('calls onFreshLogin with the new session once a real login succeeds', async () => {
     setupHappyPath('42')
     const onFreshLogin = jest.fn()

@@ -164,7 +164,7 @@ function PlayersPageInner() {
     let rows = all.filter(o => selectedPlatforms.includes(o.platform))
     if (tagFilter) rows = rows.filter(o => o.tags.includes(tagFilter))
     if (onlyPlayed) rows = rows.filter(o => o.games > 0)
-    if (q) rows = rows.filter(o => o.name.toLowerCase().includes(q))
+    if (q) rows = rows.filter(o => o.name.toLowerCase().includes(q) || o.tags.some(t => t.toLowerCase().includes(q)))
     return [...rows].sort(SORTERS[sortKey])
   }, [all, search, sortKey, selectedPlatforms, tagFilter, onlyPlayed])
 

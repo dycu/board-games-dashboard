@@ -103,12 +103,32 @@ export function Badge({ game, small }: { game: Game; small?: boolean }) {
   )
 }
 
+// A tiny circular avatar before a player's name, when one is available
+// (BGA only so far). Hides itself on load failure rather than showing a
+// broken-image icon — avatar codes don't always resolve to a real picture.
+function Avatar({ url }: { url?: string }) {
+  const [broken, setBroken] = useState(false)
+  if (!url || broken) return null
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- external BGA CDN, not configured for next/image
+    <img
+      src={url}
+      alt=""
+      width={14}
+      height={14}
+      onError={() => setBroken(true)}
+      className="inline-block w-3.5 h-3.5 rounded-full object-cover align-text-bottom mr-1"
+    />
+  )
+}
+
 // A single opponent's name, linking to their Players page entry — relative
 // z-10 to clear CoverLink underneath, same as every other clickable thing
 // on the card.
-function PlayerLink({ platform, name }: { platform: Game['platform']; name: string }) {
+function PlayerLink({ platform, name, avatarUrl }: { platform: Game['platform']; name: string; avatarUrl?: string }) {
   return (
     <Link href={playerHref(platform, name)} className="relative z-10 hover:text-[var(--accent)] hover:underline">
+      <Avatar url={avatarUrl} />
       {name}
     </Link>
   )
@@ -116,13 +136,13 @@ function PlayerLink({ platform, name }: { platform: Game['platform']; name: stri
 
 // A comma-joined list of PlayerLinks — "with {players}"/"waiting for
 // {currentPlayer}" used to be plain text; same look, each name clickable now.
-function PlayerNames({ platform, names }: { platform: Game['platform']; names: string[] }) {
+function PlayerNames({ platform, names, avatars }: { platform: Game['platform']; names: string[]; avatars?: Record<string, string> }) {
   return (
     <>
       {names.map((name, i) => (
         <span key={name}>
           {i > 0 && ', '}
-          <PlayerLink platform={platform} name={name} />
+          <PlayerLink platform={platform} name={name} avatarUrl={avatars?.[name]} />
         </span>
       ))}
     </>
@@ -354,7 +374,7 @@ export default function GameCard({ game, priority, onCyclePriority, onOpen, oppo
 
       {game.players.length > 0 && (
         <div className="text-xs text-[var(--text-tertiary)] hidden sm:block truncate">
-          with <PlayerNames platform={game.platform} names={game.players} />
+          with <PlayerNames platform={game.platform} names={game.players} avatars={game.playerAvatars} />
         </div>
       )}
 
@@ -387,7 +407,7 @@ export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowD
       <div className="min-w-[140px] flex-1 flex items-baseline gap-2 overflow-hidden">
         <span className="text-sm text-[var(--text-primary)] truncate">{game.gameName}</span>
         <TableLabelEditor game={game} label={tableLabel} onSaveLabel={onSaveTableLabel} compact />
-        {game.currentPlayer && <span className="hidden sm:inline text-xs text-[var(--text-tertiary)] truncate">waiting for <PlayerLink platform={game.platform} name={game.currentPlayer} /></span>}
+        {game.currentPlayer && <span className="hidden sm:inline text-xs text-[var(--text-tertiary)] truncate">waiting for <PlayerLink platform={game.platform} name={game.currentPlayer} avatarUrl={game.playerAvatars?.[game.currentPlayer]} /></span>}
         {/* Just the text here — its own edit/delete icons are the compact
             NoteEditor below, shown at every width, not only md:inline */}
         {note && <span className="hidden md:inline text-xs text-[var(--text-secondary)] italic whitespace-normal break-words">{note}</span>}
