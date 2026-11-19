@@ -279,9 +279,11 @@ function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string,
 // Background warmth scales with today's move count (see MoveCountBadge) —
 // a glance at the grid shows where you've been grinding, without reading
 // any number. Tiers, not a continuous scale: a difference of one move
-// rarely means anything, but a couple vs. a lot does.
-function heatBg(count?: number): string {
-  if (!count) return 'bg-white'
+// rarely means anything, but a couple vs. a lot does. Takes priority over
+// whatever background a card would otherwise have (e.g. GameRow's amber
+// tint for a slow opponent) — today's activity is the more specific signal.
+function heatBg(count: number | undefined, fallback: string): string {
+  if (!count) return fallback
   if (count <= 2) return 'bg-orange-50'
   if (count <= 5) return 'bg-orange-100'
   return 'bg-orange-200'
@@ -293,7 +295,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
   return (
-    <div className={`relative rounded-lg border p-3.5 flex flex-col gap-2 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] ${heatBg(game.moveCountToday)} hover:border-[#c5c9f0]
+    <div className={`relative rounded-lg border p-3.5 flex flex-col gap-2 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] ${heatBg(game.moveCountToday, 'bg-white')} hover:border-[#c5c9f0]
       ${opened ? 'opacity-55 hover:opacity-100 border-[#e5e5e5]' : soon !== null ? 'border-[#e5e5e5] border-l-[3px] border-l-red-500' : 'border-[#e5e5e5] border-l-[3px] border-l-[#5e6ad2]'}`}>
       <CoverLink game={game} onOpen={onOpen} note={note} />
       <div className="flex items-center justify-between gap-2">
@@ -341,8 +343,8 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
 export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, showProgress }: GameItemProps) {
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   return (
-    <div className={`relative flex flex-wrap items-center gap-2 px-3 py-2 rounded-md border bg-white hover:border-[#c5c9f0] transition-colors
-      ${slow ? 'border-amber-200 bg-amber-50/40' : 'border-[#ececec]'} ${opened ? 'opacity-55 hover:opacity-100' : ''}`}>
+    <div className={`relative flex flex-wrap items-center gap-2 px-3 py-2 rounded-md border hover:border-[#c5c9f0] transition-colors
+      ${heatBg(game.moveCountToday, slow ? 'bg-amber-50/40' : 'bg-white')} ${slow ? 'border-amber-200' : 'border-[#ececec]'} ${opened ? 'opacity-55 hover:opacity-100' : ''}`}>
       <CoverLink game={game} onOpen={onOpen} note={note} />
       <Badge game={game} small />
       <MoveCountBadge game={game} small />
