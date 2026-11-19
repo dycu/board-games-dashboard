@@ -43,6 +43,27 @@ export default function SetupPage() {
   const [newGamesChecking, setNewGamesChecking] = useState(false)
   const [newGamesResult, setNewGamesResult] = useState<CheckResult | null>(null)
   const [newGamesError, setNewGamesError] = useState<string | null>(null)
+  const [exportStatus, setExportStatus] = useState<'idle' | 'exporting' | 'error'>('idle')
+
+  const exportData = async () => {
+    setExportStatus('exporting')
+    try {
+      const res = await fetch('/api/export')
+      if (!res.ok) throw new Error(`Server error ${res.status}`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `board-games-backup-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      setExportStatus('idle')
+    } catch {
+      setExportStatus('error')
+    }
+  }
 
   const loadOkcStatus = async () => {
     setOkcStatusLoading(true)
@@ -312,6 +333,23 @@ export default function SetupPage() {
               )}
             </div>
           )}
+        </div>
+
+        <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5 mb-5">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-1">Backup</h2>
+          <p className="text-xs text-[var(--text-tertiary)] mb-3">
+            Downloads everything this app itself stores — table notes and labels, backlog lists,
+            opponent tags, achievements and settings — as one JSON file. Not the live game/history
+            data each site already keeps on its own; just what only lives here.
+          </p>
+          <button
+            onClick={exportData}
+            disabled={exportStatus === 'exporting'}
+            className="text-xs bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] px-3 py-1.5 rounded-md disabled:opacity-50"
+          >
+            {exportStatus === 'exporting' ? 'Exporting…' : '⬇ Export data'}
+          </button>
+          {exportStatus === 'error' && <p className="text-xs text-red-500 mt-2">Export failed — try again.</p>}
         </div>
 
         <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5 mb-5">
