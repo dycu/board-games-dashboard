@@ -1,0 +1,104 @@
+jest.mock('@vercel/kv', () => ({ kv: { hgetall: jest.fn(), hset: jest.fn(), hdel: jest.fn() } }))
+
+import { kv } from '@vercel/kv'
+import { attachMoveCounts, todayKey } from '../track'
+import { Game } from '../../types'
+
+const tracked = new Map<string, Record<string, unknown>>()
+
+function game(id: string, myTurn: boolean, overrides: Partial<Game> = {}): Game {
+  return {
+    id, platform: 'obg', gameName: id, myTurn,
+    lastMoveAt: new Date(), lastMoveAgo: '', urgent: false,
+    gameUrl: '', platformUrl: '', players: [], ...overrides,
+  }
+}
+
+const TODAY = '2026-11-19'
+const YESTERDAY = '2026-11-18'
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  tracked.clear()
+  // Noon UTC is safely inside the same Europe/Warsaw calendar day either way
+  jest.spyOn(Date, 'now').mockReturnValue(new Date(`${TODAY}T12:00:00Z`).getTime())
+  ;(kv.hgetall as jest.Mock).mockImplementation(async (k: string) => tracked.get(k) ?? null)
+  ;(kv.hset as jest.Mock).mockImplementation(async (k: string, v: Record<string, unknown>) => {
+    tracked.set(k, { ...(tracked.get(k) ?? {}), ...v })
+  })
+  ;(kv.hdel as jest.Mock).mockImplementation(async (k: string, ...fields: string[]) => {
+    const current = { ...(tracked.get(k) ?? {}) }
+    for (const f of fields) delete current[f]
+    tracked.set(k, current)
+  })
+})
+
+afterEach(() => jest.restoreAllMocks())
+
+describe('todayKey', () => {
+  it('formats as a Europe/Warsaw calendar date', () => {
+    expect(todayKey(new Date(`${TODAY}T12:00:00Z`))).toBe(TODAY)
+  })
+})
+
+describe('attachMoveCounts', () => {
+  it('starts tracking a game the first time it is seen, with no count yet', async () => {
+    const result = await attachMoveCounts('obg', [game('obg:1', true)])
+    expect(result[0].moveCountToday).toBeUndefined()
+    expect(tracked.get('movecounts:v1:obg')).toEqual({
+      'obg:1': { myTurn: true, todayDate: TODAY, todayCount: 0 },
+    })
+  })
+
+  it('counts a move once myTurn flips from true to false', async () => {
+    tracked.set('movecounts:v1:obg', { 'obg:1': { myTurn: true, todayDate: TODAY, todayCount: 0 } })
+    const result = await attachMoveCounts('obg', [game('obg:1', false)])
+    expect(result[0].moveCountToday).toBe(1)
+    expect(tracked.get('movecounts:v1:obg')).toEqual({
+      'obg:1': { myTurn: false, todayDate: TODAY, todayCount: 1 },
+    })
+  })
+
+  it('does not count the opponent moving the turn back to me', async () => {
+    tracked.set('movecounts:v1:obg', { 'obg:1': { myTurn: false, todayDate: TODAY, todayCount: 2 } })
+    const result = await attachMoveCounts('obg', [game('obg:1', true)])
+    expect(result[0].moveCountToday).toBe(2)
+    expect(tracked.get('movecounts:v1:obg')).toEqual({
+      'obg:1': { myTurn: true, todayDate: TODAY, todayCount: 2 },
+    })
+  })
+
+  it('does not write anything when nothing changed', async () => {
+    tracked.set('movecounts:v1:obg', { 'obg:1': { myTurn: true, todayDate: TODAY, todayCount: 0 } })
+    await attachMoveCounts('obg', [game('obg:1', true)])
+    expect(kv.hset).not.toHaveBeenCalled()
+  })
+
+  it('resets the count on a new calendar day instead of carrying it over', async () => {
+    tracked.set('movecounts:v1:obg', { 'obg:1': { myTurn: true, todayDate: YESTERDAY, todayCount: 5 } })
+    const result = await attachMoveCounts('obg', [game('obg:1', false)])
+    expect(result[0].moveCountToday).toBe(1)
+    expect(tracked.get('movecounts:v1:obg')).toEqual({
+      'obg:1': { myTurn: false, todayDate: TODAY, todayCount: 1 },
+    })
+  })
+
+  it('stops tracking a game once it disappears from the live list', async () => {
+    tracked.set('movecounts:v1:obg', { 'obg:1': { myTurn: true, todayDate: TODAY, todayCount: 3 } })
+    await attachMoveCounts('obg', [])
+    expect(tracked.get('movecounts:v1:obg')).toEqual({})
+  })
+
+  it('leaves other platforms\' games untouched', async () => {
+    const other = game('bga:1', true, { platform: 'bga' })
+    const result = await attachMoveCounts('obg', [other])
+    expect(result).toEqual([other])
+    expect(tracked.size).toBe(0)
+  })
+
+  it('returns the games unchanged if a KV read fails, instead of losing the list', async () => {
+    (kv.hgetall as jest.Mock).mockRejectedValueOnce(new Error('KV unavailable'))
+    const games = [game('obg:1', true)]
+    expect(await attachMoveCounts('obg', games)).toEqual(games)
+  })
+})

@@ -119,6 +119,18 @@ export function Badge({ game, small }: { game: Game; small?: boolean }) {
   )
 }
 
+// Only shown once something actually happened today — a game you're not
+// actively grinding on looks exactly like it did before this existed.
+function MoveCountBadge({ game, small }: { game: Game; small?: boolean }) {
+  const count = game.moveCountToday
+  if (!count) return null
+  return (
+    <span className={`shrink-0 font-semibold rounded-full bg-orange-50 text-orange-600 ${small ? 'text-[10px] px-1.5 py-px' : 'text-[11px] px-2 py-0.5'}`}>
+      🔥 {count} today
+    </span>
+  )
+}
+
 export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemProps, 'game' | 'note' | 'onSaveNote'> & { compact?: boolean }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -274,7 +286,10 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
       ${opened ? 'opacity-55 hover:opacity-100 border-[#e5e5e5]' : soon !== null ? 'border-[#e5e5e5] border-l-[3px] border-l-red-500' : 'border-[#e5e5e5] border-l-[3px] border-l-[#5e6ad2]'}`}>
       <CoverLink game={game} onOpen={onOpen} note={note} />
       <div className="flex items-center justify-between gap-2">
-        <Badge game={game} />
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Badge game={game} />
+          <MoveCountBadge game={game} />
+        </div>
         <div className="flex items-center gap-2">
           {opened && <span className="text-[11px] text-[#9b9b9b]">opened</span>}
           {soon !== null && !opened && (
@@ -319,6 +334,7 @@ export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched
       ${slow ? 'border-amber-200 bg-amber-50/40' : 'border-[#ececec]'} ${opened ? 'opacity-55 hover:opacity-100' : ''}`}>
       <CoverLink game={game} onOpen={onOpen} note={note} />
       <Badge game={game} small />
+      <MoveCountBadge game={game} small />
       {/* A floor instead of min-w-0: once every shrink-0 sibling after this
           (timestamp, progress, icon buttons) no longer fits alongside a
           readable name, they wrap to their own line below — rather than

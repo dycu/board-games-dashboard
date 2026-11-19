@@ -82,6 +82,12 @@ export interface Game {
   // game's live state failed — distinguishes "no estimate yet" (nothing
   // shown, normal while samples build up) from "something's actually wrong"
   progressError?: string
+  // How many of *my* turns have landed in this game today — see
+  // lib/moveCounts. Detected server-side from myTurn flipping true to false
+  // between two fetches, not from the dashboard's own open/return flow, so
+  // it's exact regardless of how the move was actually made. Omitted (not
+  // 0) once the count would be zero, so there's nothing to show.
+  moveCountToday?: number
 }
 
 export interface UserPrefs {

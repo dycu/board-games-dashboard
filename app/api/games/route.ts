@@ -8,6 +8,7 @@ import { attachProgress } from '@/lib/pace/progress'
 import { attachRallyProgress } from '@/lib/rallyPace/progress'
 import { attachEighteenxxProgress } from '@/lib/eighteenxxPace/progress'
 import { attachFirstSeenProgress } from '@/lib/firstSeenPace/progress'
+import { attachMoveCounts } from '@/lib/moveCounts/track'
 
 export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
@@ -99,6 +100,7 @@ export async function GET(request?: Request) {
             if (platform === 'yucata') games = await attachFirstSeenProgress('yucata', games)
             if (platform === 'boardgamers') games = await attachFirstSeenProgress('boardgamers', games)
             if (platform === 'choochoo') games = await attachFirstSeenProgress('choochoo', games)
+            games = await attachMoveCounts(platform, games)
             checkGames(platform, games)
             counts[platform] = games.length
             send({ type: 'platform', platform, games, error: null })
