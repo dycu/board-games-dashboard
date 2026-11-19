@@ -15,6 +15,7 @@ import ReadNotePopup from './ReadNotePopup'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { useNoteConfirmedOpen } from '@/hooks/useNoteConfirmedOpen'
 import { storeOpenedNow } from '@/lib/dismissal'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 
 interface Props {
   data: GamesApiResponse
@@ -62,6 +63,12 @@ function timeAgo(iso: string): string {
 }
 
 export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefresh, isRefreshing, lastError, cachedAt, onOpen, departedGames, notes, onSaveNote: saveNote }: Props) {
+  // Animates cards sliding into their new position instead of just jumping
+  // there — on a sort change, a click (opening/dimming a card moves it),
+  // or new data reordering things. One ref per section, since they're
+  // separate DOM containers.
+  const [myTurnGridRef] = useAutoAnimate()
+  const [waitingListRef] = useAutoAnimate()
   const { games, errors } = data
   const configuredPlatforms = data.platforms ?? Array.from(
     new Set([...games.map(g => g.platform), ...errors.map(e => e.platform)])
@@ -394,7 +401,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
               </p>
             </div>
             {myTurnGames.length + openedMyTurnGames.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
+              <div ref={myTurnGridRef} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
                 {[...myTurnGames, ...openedMyTurnGames].map(g => <GameCard key={g.id} {...itemProps(g)} />)}
               </div>
             )}
@@ -433,7 +440,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                 </button>
               )}
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div ref={waitingListRef} className="flex flex-col gap-1.5">
               {shownWaiting.map(g => <GameRow key={g.id} {...itemProps(g)} />)}
             </div>
             {!waitingExpanded && hiddenWhenCollapsed > 0 && (
