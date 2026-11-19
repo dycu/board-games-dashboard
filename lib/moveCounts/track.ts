@@ -1,5 +1,5 @@
 import { Game, Platform } from '../types'
-import { getMoveCounts, putMoveCounts, deleteMoveCounts, MoveCountEntry } from './store'
+import { getMoveCounts, putMoveCounts, deleteMoveCounts, addToMoveCountHistory, MoveCountEntry } from './store'
 
 // Single-user app, computed server-side with no viewer to read a timezone
 // from — "today" means Europe/Warsaw's calendar day, not whichever
@@ -29,11 +29,19 @@ export function todayKey(now = new Date()): string {
 // guaranteed: the opponent has to act in between, and that's itself a fetch
 // opportunity (auto-refresh, the watch cron, a manual refresh...).
 //
-// Returns both the full reconciled set (for attaching to every game) and
-// just the entries that actually changed (all that needs writing back).
-function reconcile(prev: Record<string, MoveCountEntry>, games: Game[], today: string): { all: Record<string, MoveCountEntry>; changed: Record<string, MoveCountEntry> } {
+// Returns the full reconciled set (for attaching to every game), just the
+// entries that actually changed (all that needs writing back), and each
+// entry's final count for the day it's rolling out of (before it resets to
+// 0) — so that day's total survives the reset instead of being overwritten
+// unrecorded; see addToMoveCountHistory.
+function reconcile(prev: Record<string, MoveCountEntry>, games: Game[], today: string): {
+  all: Record<string, MoveCountEntry>
+  changed: Record<string, MoveCountEntry>
+  closedDays: { date: string; count: number }[]
+} {
   const all: Record<string, MoveCountEntry> = {}
   const changed: Record<string, MoveCountEntry> = {}
+  const closedDays: { date: string; count: number }[] = []
 
   for (const g of games) {
     const entry = prev[g.id]
@@ -51,6 +59,7 @@ function reconcile(prev: Record<string, MoveCountEntry>, games: Game[], today: s
       continue
     }
 
+    if (rolledOver) closedDays.push({ date: entry.todayDate, count: entry.todayCount })
     const base = rolledOver ? { ...entry, todayDate: today, todayCount: 0 } : entry
     const next: MoveCountEntry = moved
       ? { myTurn: g.myTurn, todayDate: today, todayCount: base.todayCount + 1 }
@@ -59,7 +68,7 @@ function reconcile(prev: Record<string, MoveCountEntry>, games: Game[], today: s
     changed[g.id] = next
   }
 
-  return { all, changed }
+  return { all, changed, closedDays }
 }
 
 // Attaches `moveCountToday` to every game of this platform in a live list,
@@ -71,10 +80,10 @@ export async function attachMoveCounts(platform: Platform, games: Game[]): Promi
   try {
     const prev = await getMoveCounts(platform)
     const today = todayKey()
-    const { all, changed } = reconcile(prev, relevant, today)
+    const { all, changed, closedDays } = reconcile(prev, relevant, today)
 
     const vanished = Object.keys(prev).filter(id => !(id in all))
-    await Promise.all([putMoveCounts(platform, changed), deleteMoveCounts(platform, vanished)])
+    await Promise.all([putMoveCounts(platform, changed), deleteMoveCounts(platform, vanished), addToMoveCountHistory(closedDays)])
 
     return games.map(g => {
       if (g.platform !== platform) return g

@@ -1,8 +1,9 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import TopNav from '@/components/TopNav'
-import { LoadChart, WeekChart, FinishTimelineChart, formatHours, MIN_RELIABLE_N, type ActiveGameEta } from '@/components/pace/charts'
+import { LoadChart, WeekChart, FinishTimelineChart, DailyMovesChart, formatHours, MIN_RELIABLE_N, type ActiveGameEta, type DailyMoveCount } from '@/components/pace/charts'
 import type { PaceStats } from '@/lib/pace/stats'
+import { todayKey } from '@/lib/moveCounts/track'
 import { readCache } from '@/hooks/useGamesData'
 import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
@@ -112,6 +113,43 @@ function PlatformOverview() {
   )
 }
 
+const MOVES_HISTORY_DAYS = 30
+
+// Every platform's daily move total, same 5am-5am day the live "today"
+// counter on the dashboard uses — history only has days that have already
+// rolled over (lib/moveCounts/track.ts), so today's own bar is filled in
+// live from the dashboard's own cache and will keep growing through the day.
+function MovesPerDayChart() {
+  const [history, setHistory] = useState<Record<string, number> | null>(null)
+  const [cache, setCache] = useState<ReturnType<typeof readCache> | undefined>(undefined)
+
+  useEffect(() => {
+    fetch('/api/move-count-history')
+      .then(r => r.json())
+      .then(json => setHistory(json.history ?? {}))
+      .catch(() => setHistory({}))
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after hydration
+    setCache(readCache())
+  }, [])
+
+  if (history === null || cache === undefined) return null
+
+  const todayCount = cache ? cache.data.games.reduce((sum, g) => sum + (g.moveCountToday ?? 0), 0) : 0
+  const merged: Record<string, number> = { ...history, [todayKey()]: todayCount }
+  const days: DailyMoveCount[] = Object.entries(merged)
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-MOVES_HISTORY_DAYS)
+
+  if (days.every(d => d.count === 0)) return null
+
+  return (
+    <Section title="Moves per day" note="Every platform, same day boundary as the live counter — today's bar is still live.">
+      <DailyMovesChart days={days} />
+    </Section>
+  )
+}
+
 function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
     <section className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 mb-4">
@@ -207,6 +245,7 @@ export default function PacePage() {
         {data && (
           <>
             <PlatformOverview />
+            <MovesPerDayChart />
 
             {data.activeEtas.length > 0 && (
               <Section

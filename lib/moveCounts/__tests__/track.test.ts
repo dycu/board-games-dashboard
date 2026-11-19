@@ -1,4 +1,4 @@
-jest.mock('@vercel/kv', () => ({ kv: { hgetall: jest.fn(), hset: jest.fn(), hdel: jest.fn() } }))
+jest.mock('@vercel/kv', () => ({ kv: { hgetall: jest.fn(), hset: jest.fn(), hdel: jest.fn(), hincrby: jest.fn() } }))
 
 import { kv } from '@vercel/kv'
 import { attachMoveCounts, todayKey } from '../track'
@@ -33,6 +33,12 @@ beforeEach(() => {
     const current = { ...(tracked.get(k) ?? {}) }
     for (const f of fields) delete current[f]
     tracked.set(k, current)
+  })
+  ;(kv.hincrby as jest.Mock).mockImplementation(async (k: string, field: string, amount: number) => {
+    const current = { ...(tracked.get(k) ?? {}) }
+    current[field] = (Number(current[field]) || 0) + amount
+    tracked.set(k, current)
+    return current[field]
   })
 })
 
@@ -95,6 +101,36 @@ describe('attachMoveCounts', () => {
     expect(tracked.get('movecounts:v1:obg')).toEqual({
       'obg:1': { myTurn: false, todayDate: TODAY, todayCount: 1 },
     })
+  })
+
+  it("credits yesterday's history with the final count before resetting it", async () => {
+    tracked.set('movecounts:v1:obg', { 'obg:1': { myTurn: true, todayDate: YESTERDAY, todayCount: 5 } })
+    await attachMoveCounts('obg', [game('obg:1', false)])
+    // The move that landed on the rollover fetch belongs to today, not the
+    // day being closed out — yesterday's history keeps its pre-move total.
+    expect(tracked.get('movecounts-history:v1')).toEqual({ [YESTERDAY]: 5 })
+  })
+
+  it('sums several games rolling over on the same day into one history credit', async () => {
+    tracked.set('movecounts:v1:obg', {
+      'obg:1': { myTurn: false, todayDate: YESTERDAY, todayCount: 3 },
+      'obg:2': { myTurn: false, todayDate: YESTERDAY, todayCount: 7 },
+    })
+    await attachMoveCounts('obg', [game('obg:1', false), game('obg:2', false)])
+    expect(tracked.get('movecounts-history:v1')).toEqual({ [YESTERDAY]: 10 })
+  })
+
+  it('accumulates onto an existing history total instead of overwriting it', async () => {
+    tracked.set('movecounts-history:v1', { [YESTERDAY]: 40 })
+    tracked.set('movecounts:v1:obg', { 'obg:1': { myTurn: true, todayDate: YESTERDAY, todayCount: 5 } })
+    await attachMoveCounts('obg', [game('obg:1', false)])
+    expect(tracked.get('movecounts-history:v1')).toEqual({ [YESTERDAY]: 45 })
+  })
+
+  it('does not credit history for a day that never had any moves', async () => {
+    tracked.set('movecounts:v1:obg', { 'obg:1': { myTurn: true, todayDate: YESTERDAY, todayCount: 0 } })
+    await attachMoveCounts('obg', [game('obg:1', true)])
+    expect(tracked.get('movecounts-history:v1')).toBeUndefined()
   })
 
   it('stops tracking a game once it disappears from the live list', async () => {

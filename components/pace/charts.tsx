@@ -286,3 +286,59 @@ export function WeekChart({
     </div>
   )
 }
+
+export interface DailyMoveCount {
+  date: string // YYYY-MM-DD, the 5am-5am Europe/Warsaw day — see lib/moveCounts/track.ts
+  count: number
+}
+
+// One bar per day, oldest to newest — summed across every platform, not
+// just BGA (lib/moveCounts/track.ts's addToMoveCountHistory), and the same
+// 5am-5am day the live "today" counter on the dashboard uses, so a day's
+// final bar here always matches what that counter last showed for it.
+export function DailyMovesChart({ days }: { days: DailyMoveCount[] }) {
+  const [hover, setHover] = useState<number | null>(null)
+  const W = 640, H = 160, L = 30, R = 12, T = 10, B = 20
+  if (days.length === 0) return null
+
+  const yMax = niceMax(Math.max(1, ...days.map(d => d.count)))
+  const n = days.length
+  const slot = (W - L - R) / n
+  const barW = Math.max(2, slot * 0.6)
+  const y = (v: number) => T + (1 - v / yMax) * (H - T - B)
+  const labelEvery = Math.max(1, Math.ceil(n / 8))
+
+  return (
+    <div className="relative">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Moves per day">
+        {[0, 0.5, 1].map(f => (
+          <g key={f}>
+            <line x1={L} x2={W - R} y1={y(f * yMax)} y2={y(f * yMax)} stroke={GRID} />
+            <text x={L - 6} y={y(f * yMax)} dy="0.32em" textAnchor="end" fontSize="10" fill={MUTED}>{Math.round(f * yMax)}</text>
+          </g>
+        ))}
+        {days.map((d, i) => {
+          const barX = L + i * slot + (slot - barW) / 2
+          return (
+            <g key={d.date} opacity={hover === i ? 1 : 0.85}>
+              <rect x={barX} y={y(d.count)} width={barW} height={Math.max(1, H - B - y(d.count))} rx={1.5} fill={ACCENT} />
+              <rect x={L + i * slot} y={T} width={slot} height={H - T - B} fill="transparent"
+                tabIndex={0}
+                onPointerEnter={() => setHover(i)} onPointerLeave={() => setHover(null)}
+                onFocus={() => setHover(i)} onBlur={() => setHover(null)} />
+            </g>
+          )
+        })}
+        {days.map((d, i) => i % labelEvery === 0 && (
+          <text key={d.date} x={L + i * slot + slot / 2} y={H - 4} textAnchor="middle" fontSize="9" fill={MUTED}>{d.date.slice(5)}</text>
+        ))}
+      </svg>
+      {hover !== null && (
+        <Tooltip x={L + hover * slot + slot / 2} top="0.5rem" width={W}>
+          <div className="font-semibold text-[#1a1a1a]">{days[hover].count} move{days[hover].count === 1 ? '' : 's'}</div>
+          <div className="text-[#6b6b6b]">{days[hover].date}</div>
+        </Tooltip>
+      )}
+    </div>
+  )
+}
