@@ -144,6 +144,12 @@ describe('fetchBGA', () => {
     expect(games[0].playerAvatars).toEqual({
       alice: 'https://x.boardgamearena.net/data/avatar/0/89/89293/89293870_32.jpg',
     })
+    // The profile link only needs the id itself, not a shardable one — bob
+    // gets a link despite having no avatar
+    expect(games[0].playerProfileUrls).toEqual({
+      alice: 'https://boardgamearena.com/player?id=89293870',
+      bob: 'https://boardgamearena.com/player?id=12',
+    })
   })
 
   it('calls onFreshLogin with the new session once a real login succeeds', async () => {

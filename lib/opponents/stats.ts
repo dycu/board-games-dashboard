@@ -19,12 +19,27 @@ export interface GlobalOpponent {
   responseSamples: number[]
   medianResponseSeconds: number | null
   avatarUrl?: string
+  profileUrl?: string
 }
 
 function median(sorted: number[]): number {
   const n = sorted.length
   const mid = Math.floor(n / 2)
   return n % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+}
+
+// Most platforms link to a person's own profile by name alone, so it's
+// computed straight from (platform, name) — no live-game data needed,
+// unlike the avatar, so it's there even for someone never seen in a
+// currently active game. BGA needs its numeric id instead, which only a
+// live game carries (see lib/connectors/bga.ts/lib/opponents/track.ts),
+// so there `storedUrl` (persisted the same way as the avatar) is all
+// there is. Other platforms investigated and found to have no working
+// per-person link (Rally, boardtogether, …) are simply left out.
+export function externalProfileUrl(platform: Platform, name: string, storedUrl?: string): string | undefined {
+  if (platform === 'yucata') return `https://www.yucata.de/en/User/${encodeURIComponent(name)}`
+  if (platform === 'obg') return `https://www.onlineboardgamers.com/profile/${encodeURIComponent(name)}/`
+  return storedUrl
 }
 
 // Across every platform and game type at once — unlike lib/gameStats.ts's
@@ -43,7 +58,7 @@ export function globalOpponents(games: FinishedGame[], entriesByPlatform: Partia
         r = {
           platform: g.platform, name: o.name, games: 0, iWon: 0, theyWon: 0, lastPlayedAt: null,
           tags: entry?.tags ?? [], responseSamples: entry?.responseSamples ?? [], medianResponseSeconds: null,
-          avatarUrl: entry?.avatarUrl,
+          avatarUrl: entry?.avatarUrl, profileUrl: externalProfileUrl(g.platform, o.name, entry?.profileUrl),
         }
         byKey.set(key, r)
       }
@@ -66,11 +81,11 @@ export function globalOpponents(games: FinishedGame[], entriesByPlatform: Partia
     for (const [name, entry] of Object.entries(entries)) {
       const key = `${platform}:${name.toLowerCase()}`
       if (byKey.has(key)) continue
-      if (entry.tags.length === 0 && entry.responseSamples.length === 0 && !entry.avatarUrl) continue
+      if (entry.tags.length === 0 && entry.responseSamples.length === 0 && !entry.avatarUrl && !entry.profileUrl) continue
       byKey.set(key, {
         platform, name, games: 0, iWon: 0, theyWon: 0, lastPlayedAt: null,
         tags: entry.tags, responseSamples: entry.responseSamples, medianResponseSeconds: null,
-        avatarUrl: entry.avatarUrl,
+        avatarUrl: entry.avatarUrl, profileUrl: externalProfileUrl(platform, name, entry.profileUrl),
       })
     }
   }

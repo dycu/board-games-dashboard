@@ -484,9 +484,11 @@ export async function fetchBGA(username: string, password: string, auth?: BgaAut
       .filter((p: any) => p.fullname && p.fullname !== (myPlayer?.fullname ?? ''))
     const playerNames = otherPlayers.map((p: any) => p.fullname)
     const playerAvatars: Record<string, string> = {}
+    const playerProfileUrls: Record<string, string> = {}
     for (const p of otherPlayers as any[]) {
       const url = bgaAvatarUrl(p.avatar, p.id)
       if (url) playerAvatars[p.fullname] = url
+      if (p.id != null) playerProfileUrls[p.fullname] = `${BASE}/player?id=${p.id}`
     }
 
     return {
@@ -504,6 +506,7 @@ export async function fetchBGA(username: string, password: string, auth?: BgaAut
       platformUrl: `${BASE}/gameinprogress`,
       players: playerNames,
       ...(Object.keys(playerAvatars).length > 0 && { playerAvatars }),
+      ...(Object.keys(playerProfileUrls).length > 0 && { playerProfileUrls }),
     }
   })
 }

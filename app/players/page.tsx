@@ -86,6 +86,17 @@ function PersonDetail({ platform, name, person, games, onSaveTags, onBack }: {
         <PlayerAvatar url={person?.avatarUrl} size={36} />
         <Badge platform={platform} />
         <h1 className="text-xl font-semibold text-[var(--text-primary)]">{name}</h1>
+        {person?.profileUrl && (
+          <a
+            href={person.profileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`Open on ${PLATFORM_LABELS[platform]}`}
+            className="text-sm text-[var(--text-tertiary)] hover:text-[var(--accent)]"
+          >
+            ↗
+          </a>
+        )}
       </div>
       <div className="mb-4">
         <TagEditor tags={person?.tags ?? []} onSave={onSaveTags} />

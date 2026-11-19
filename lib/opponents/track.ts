@@ -67,12 +67,31 @@ function reconcile(prevWatch: Record<string, GameWatchEntry>, games: Game[], now
   return { all, changed, oppSamples, mySamples }
 }
 
+// Copies one Game field (keyed by player name, e.g. playerAvatars) onto the
+// matching OpponentEntry field, skipping anyone whose stored value already
+// matches — shared by the avatar and profile-URL mirroring below, so a
+// person seen in the same fetch for both ends up in one merged update
+// rather than two that could race each other.
+function mirrorPlayerField(
+  games: Game[], field: 'playerAvatars' | 'playerProfileUrls', entryKey: 'avatarUrl' | 'profileUrl',
+  current: Record<string, OpponentEntry>, updates: Record<string, OpponentEntry>,
+): void {
+  for (const g of games) {
+    for (const [playerName, value] of Object.entries(g[field] ?? {})) {
+      if (current[playerName]?.[entryKey] === value) continue
+      const existing = updates[playerName] ?? current[playerName] ?? { tags: [], responseSamples: [] }
+      updates[playerName] = { ...existing, [entryKey]: value }
+    }
+  }
+}
+
 // Side effect only: records response-time samples (mine and each resolved
 // opponent's) by comparing this fetch's myTurn to the last one seen for
-// each game, and mirrors any avatar URL a game carries (Game.playerAvatars)
-// onto the matching opponent entry — both feed the Players page (its
-// "typical reply time" stat and its own avatar, which otherwise has no way
-// to see live game data at all). Must run on every fetch, same contract as
+// each game, and mirrors any avatar/profile-URL a game carries
+// (Game.playerAvatars/playerProfileUrls) onto the matching opponent entry —
+// all feed the Players page (its "typical reply time" stat, its avatar and
+// its profile link), which otherwise has no way to see live game data at
+// all. Must run on every fetch, same contract as
 // attachMoveCounts/attachFirstSeenProgress.
 export async function attachOpponentTracking(platform: Platform, games: Game[]): Promise<Game[]> {
   const relevant = games.filter(g => g.platform === platform)
@@ -82,21 +101,16 @@ export async function attachOpponentTracking(platform: Platform, games: Game[]):
     const { all, changed, oppSamples, mySamples } = reconcile(prevWatch, relevant, now)
     const vanished = Object.keys(prevWatch).filter(id => !(id in all))
 
-    const avatarUpdates: Record<string, OpponentEntry> = {}
-    for (const g of relevant) {
-      for (const [playerName, url] of Object.entries(g.playerAvatars ?? {})) {
-        if (currentOpponents[playerName]?.avatarUrl === url) continue
-        const existing = avatarUpdates[playerName] ?? currentOpponents[playerName] ?? { tags: [], responseSamples: [] }
-        avatarUpdates[playerName] = { ...existing, avatarUrl: url }
-      }
-    }
+    const updates: Record<string, OpponentEntry> = {}
+    mirrorPlayerField(relevant, 'playerAvatars', 'avatarUrl', currentOpponents, updates)
+    mirrorPlayerField(relevant, 'playerProfileUrls', 'profileUrl', currentOpponents, updates)
 
     await Promise.all([
       putGameWatch(platform, changed),
       deleteGameWatch(platform, vanished),
       ...oppSamples.map(s => addResponseSample(platform, s.name, s.seconds)),
       ...mySamples.map(s => addMySample(platform, s)),
-      putOpponents(platform, avatarUpdates),
+      putOpponents(platform, updates),
     ])
   } catch {
     // A KV hiccup should just mean no samples recorded this refresh, not

@@ -86,6 +86,28 @@ describe('attachOpponentTracking', () => {
     })
   })
 
+  it("mirrors a game's playerProfileUrls onto the matching opponent entry", async () => {
+    await attachOpponentTracking('obg', [
+      game('obg:1', false, { players: ['Alice'], playerProfileUrls: { Alice: 'https://example.com/profile/alice' } }),
+    ])
+    expect(opponentStore.get('opponents:v1:obg')).toEqual({
+      Alice: { tags: [], responseSamples: [], profileUrl: 'https://example.com/profile/alice' },
+    })
+  })
+
+  it('merges an avatar and a profile url for the same person seen in the same fetch into one update', async () => {
+    await attachOpponentTracking('obg', [
+      game('obg:1', false, {
+        players: ['Alice'],
+        playerAvatars: { Alice: 'https://example.com/alice.jpg' },
+        playerProfileUrls: { Alice: 'https://example.com/profile/alice' },
+      }),
+    ])
+    expect(opponentStore.get('opponents:v1:obg')).toEqual({
+      Alice: { tags: [], responseSamples: [], avatarUrl: 'https://example.com/alice.jpg', profileUrl: 'https://example.com/profile/alice' },
+    })
+  })
+
   it('does not write anything when the avatar url has not changed', async () => {
     opponentStore.set('opponents:v1:obg', { Alice: { tags: [], responseSamples: [], avatarUrl: 'https://example.com/alice.jpg' } })
     await attachOpponentTracking('obg', [

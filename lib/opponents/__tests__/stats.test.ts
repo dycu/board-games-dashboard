@@ -1,4 +1,4 @@
-import { globalOpponents, gamesWith } from '../stats'
+import { globalOpponents, gamesWith, externalProfileUrl } from '../stats'
 import { FinishedGame, Platform } from '../../types'
 import { OpponentEntry } from '../store'
 
@@ -42,10 +42,10 @@ describe('globalOpponents', () => {
   })
 
   it('includes a tagged opponent with no finished games against them yet', () => {
-    const entriesByPlatform = { obg: { Bob: { tags: ['reliable'], responseSamples: [] } as OpponentEntry } }
+    const entriesByPlatform = { bga: { Bob: { tags: ['reliable'], responseSamples: [] } as OpponentEntry } }
     const result = globalOpponents([], entriesByPlatform)
     expect(result).toEqual([{
-      platform: 'obg', name: 'Bob', games: 0, iWon: 0, theyWon: 0, lastPlayedAt: null,
+      platform: 'bga', name: 'Bob', games: 0, iWon: 0, theyWon: 0, lastPlayedAt: null,
       tags: ['reliable'], responseSamples: [], medianResponseSeconds: null,
     }])
   })
@@ -67,11 +67,41 @@ describe('globalOpponents', () => {
   })
 
   it('keeps a stored entry with only an avatar — nothing else to show it by, but still something', () => {
-    const entriesByPlatform = { obg: { Eve: { tags: [], responseSamples: [], avatarUrl: 'https://example.com/eve.jpg' } as OpponentEntry } }
+    const entriesByPlatform = { bga: { Eve: { tags: [], responseSamples: [], avatarUrl: 'https://example.com/eve.jpg' } as OpponentEntry } }
     expect(globalOpponents([], entriesByPlatform)).toEqual([{
-      platform: 'obg', name: 'Eve', games: 0, iWon: 0, theyWon: 0, lastPlayedAt: null,
+      platform: 'bga', name: 'Eve', games: 0, iWon: 0, theyWon: 0, lastPlayedAt: null,
       tags: [], responseSamples: [], medianResponseSeconds: null, avatarUrl: 'https://example.com/eve.jpg',
     }])
+  })
+
+  it('computes a Yucata/OBG profile link from the name alone, even with no stored data at all', () => {
+    const [yucataAlice] = globalOpponents(games, {}).filter(o => o.platform === 'yucata')
+    expect(yucataAlice.profileUrl).toBe('https://www.yucata.de/en/User/Alice')
+  })
+
+  it("uses BGA's stored profile url (needs a numeric id only a live game carries) rather than guessing one", () => {
+    const entriesByPlatform = { bga: { Alice: { tags: [], responseSamples: [], profileUrl: 'https://boardgamearena.com/player?id=123' } as OpponentEntry } }
+    const [bgaAlice] = globalOpponents(games, entriesByPlatform).filter(o => o.platform === 'bga')
+    expect(bgaAlice.profileUrl).toBe('https://boardgamearena.com/player?id=123')
+  })
+})
+
+describe('externalProfileUrl', () => {
+  it('builds a Yucata profile link from the name', () => {
+    expect(externalProfileUrl('yucata', 'Alice')).toBe('https://www.yucata.de/en/User/Alice')
+  })
+
+  it('builds an OBG profile link from the name', () => {
+    expect(externalProfileUrl('obg', 'Alice')).toBe('https://www.onlineboardgamers.com/profile/Alice/')
+  })
+
+  it('falls back to the stored url for a platform with no name-only pattern (BGA)', () => {
+    expect(externalProfileUrl('bga', 'Alice', 'https://boardgamearena.com/player?id=123')).toBe('https://boardgamearena.com/player?id=123')
+    expect(externalProfileUrl('bga', 'Alice')).toBeUndefined()
+  })
+
+  it('is undefined for a platform investigated and found to have no working profile link', () => {
+    expect(externalProfileUrl('rally', 'Alice')).toBeUndefined()
   })
 })
 

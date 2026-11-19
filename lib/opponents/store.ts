@@ -14,6 +14,11 @@ export interface OpponentEntry {
   // same shape as Game.playerAvatars, just persisted per person instead of
   // per live game so it's available on the Players page too.
   avatarUrl?: string
+  // Link to this person's own profile page on the platform, when it needs
+  // data (e.g. BGA's numeric id) only available from a live game — same
+  // shape as Game.playerProfileUrls. Platforms that link by name alone
+  // don't need this; see lib/opponents/stats.ts's externalProfileUrl.
+  profileUrl?: string
 }
 
 const MAX_SAMPLES = 20

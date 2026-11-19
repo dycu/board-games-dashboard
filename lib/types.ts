@@ -28,6 +28,11 @@ export interface Game {
   // omitted entirely on platforms that don't expose one, and per-player even
   // on BGA when their own avatar code doesn't resolve to a real image.
   playerAvatars?: Record<string, string>
+  // Link to a player's own profile page on the platform, same keying —
+  // BGA only (needs their numeric id, which only this platform's live
+  // data carries; other platforms link by name alone, computed directly
+  // from the name in lib/opponents/stats.ts instead of stored per-game).
+  playerProfileUrls?: Record<string, string>
   deadlineAt?: string     // ISO; when the active player's time runs out (BGA)
   gameKey?: string        // the site's id for the game itself (BGA game_id), for its full history
   // How far along this game looks. Usually estimated from turns played so far
