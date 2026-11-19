@@ -20,6 +20,7 @@ import BacklogListChips from '@/components/BacklogListChips'
 import GameLink, { SMALL_BUTTON, playedGameUrl } from '@/components/GameLink'
 import HistoryLink from '@/components/HistoryLink'
 import PlatformFilterChips from '@/components/PlatformFilterChips'
+import GoalsPanel from '@/components/GoalsPanel'
 
 type Backlog = ReturnType<typeof useBacklog>
 
@@ -33,7 +34,7 @@ const BADGE_FALLBACK = 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'
 // backlog the way every other site's results can. It still needs to show
 // up here, though — it's a real catalog match, just a dead end past "go
 // play it".
-type SearchSite = Platform | 'tabletapas'
+export type SearchSite = Platform | 'tabletapas'
 const TABLETAPAS_LABEL = 'TableTapas'
 const TABLETAPAS_SHORT_LABEL = 'TblTapas'
 const siteLabel = (p: SearchSite): string => p === 'tabletapas' ? TABLETAPAS_LABEL : PLATFORM_LABELS[p]
@@ -415,7 +416,7 @@ function PlayedPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSi
 
 export default function BacklogPage() {
   const backlog = useBacklog()
-  const [source, setSource] = useState<'search' | 'played'>('played')
+  const [source, setSource] = useState<'search' | 'played' | 'goals'>('played')
   const [activeList, setActiveList] = useState<BacklogList>('play')
   const [sites, setSites] = useState<Set<SearchSite>>(new Set(DEFAULT_BACKLOG_PLATFORMS))
 
@@ -468,7 +469,7 @@ export default function BacklogPage() {
         <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5">
           <div className="flex flex-wrap items-center gap-1 mb-4">
             <h2 className="text-sm font-semibold text-[var(--text-primary)] mr-3">Add games</h2>
-            {([['played', 'From your games'], ['search', 'Search']] as const).map(([key, label]) => (
+            {([['played', 'From your games'], ['search', 'Search'], ['goals', 'Goals']] as const).map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => setSource(key)}
@@ -507,6 +508,7 @@ export default function BacklogPage() {
           </div>
           <div className={source === 'search' ? '' : 'hidden'}><SearchPanel backlog={backlog} sites={sites} /></div>
           <div className={source === 'played' ? '' : 'hidden'}><PlayedPanel backlog={backlog} sites={sites} /></div>
+          <div className={source === 'goals' ? '' : 'hidden'}><GoalsPanel sites={sites} /></div>
         </div>
       </div>
     </div>
