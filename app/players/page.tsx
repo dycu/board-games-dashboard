@@ -178,7 +178,7 @@ function PlayersPageInner() {
           person={person}
           games={detailGames}
           onSaveTags={tags => opponents.saveTags(platform!, name!, tags)}
-          onBack={() => router.push('/players')}
+          onBack={() => router.back()}
         />
       </div>
     )
