@@ -16,9 +16,18 @@ function setPointerCoarse(coarse: boolean) {
   }))
 }
 
+function setFinishedGamesCache(games: { platform: string; opponents: { name: string }[] }[]) {
+  localStorage.setItem('finished-games-cache', JSON.stringify({
+    games: games.map((g, i) => ({ id: `g${i}`, gameName: 'Test Game', completedAt: '2026-01-01T00:00:00.000Z', completedAgo: '1 day ago', gameUrl: 'https://x', ...g })),
+    errors: [],
+    fetchedAt: '2026-01-01T00:00:00.000Z',
+  }))
+}
+
 beforeEach(() => {
   mockByPlatform = null
   setPointerCoarse(false)
+  localStorage.clear()
 })
 
 describe('PlayerHoverCard', () => {
@@ -45,6 +54,24 @@ describe('PlayerHoverCard', () => {
     expect(screen.getByText('friend')).toBeInTheDocument()
     expect(screen.getByText('fast')).toBeInTheDocument()
     expect(screen.getByText(/Typically replies in ~2 hours/)).toBeInTheDocument()
+  })
+
+  it('shows a games-together count from whatever finished-games cache is already in localStorage', () => {
+    setFinishedGamesCache([
+      { platform: 'bga', opponents: [{ name: 'alice' }] },
+      { platform: 'bga', opponents: [{ name: 'alice' }] },
+      { platform: 'bga', opponents: [{ name: 'bob' }] },
+      { platform: 'yucata', opponents: [{ name: 'alice' }] },
+    ])
+    render(<PlayerHoverCard platform="bga" name="alice" />)
+    fireEvent.mouseEnter(screen.getByRole('link', { name: 'alice' }))
+    expect(screen.getByText('2 games together')).toBeInTheDocument()
+  })
+
+  it('shows nothing for the games-together count when no finished-games cache exists yet', () => {
+    render(<PlayerHoverCard platform="bga" name="alice" />)
+    fireEvent.mouseEnter(screen.getByRole('link', { name: 'alice' }))
+    expect(screen.queryByText(/games? together/)).toBeNull()
   })
 
   it('a click on a mouse device navigates normally, without opening the card first', () => {

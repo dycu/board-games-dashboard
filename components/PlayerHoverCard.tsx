@@ -1,10 +1,11 @@
 'use client'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { Platform } from '@/lib/types'
-import { playerHref, medianResponseSeconds } from '@/lib/opponents/stats'
+import { playerHref, medianResponseSeconds, gamesWith } from '@/lib/opponents/stats'
 import { formatDuration } from '@/lib/connectors/utils'
+import { readFinishedGamesCache } from '@/hooks/useFinishedGamesData'
 import { useOpponentsContext } from './OpponentsProvider'
 import PlayerAvatar from './PlayerAvatar'
 
@@ -45,6 +46,16 @@ export default function PlayerHoverCard({ platform, name, avatarUrl, highlighted
   const href = playerHref(platform, name)
   const median = entry ? medianResponseSeconds(entry.responseSamples) : null
   const cardAvatar = avatarUrl ?? entry?.avatarUrl
+
+  // Reads whatever finished-games cache the browser already has (from a past
+  // History/Players visit) rather than triggering its own fetch — this card
+  // is mounted dozens of times on the Active page alone, so it stays on the
+  // "cheap data only" side of the line medianResponseSeconds already draws.
+  // Computed lazily (only while open) since it's not needed until then.
+  const gamesTogether = useMemo(
+    () => (open ? gamesWith(readFinishedGamesCache()?.games ?? [], platform, name).length : null),
+    [open, platform, name],
+  )
 
   // The card is portaled to <body> (see below) so an ancestor's `truncate`/
   // overflow-hidden — the "with {players}" line always has one — can't
@@ -110,6 +121,9 @@ export default function PlayerHoverCard({ platform, name, avatarUrl, highlighted
             <PlayerAvatar url={cardAvatar} size={32} />
             <span className="font-semibold text-sm text-[var(--text-primary)] truncate">{name}</span>
           </div>
+          {!!gamesTogether && (
+            <p className="text-[var(--text-tertiary)] mb-2">{gamesTogether} game{gamesTogether === 1 ? '' : 's'} together</p>
+          )}
           {entry && entry.tags.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-2">
               {entry.tags.map(t => (

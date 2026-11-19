@@ -13,7 +13,11 @@ const CACHE_KEY = 'finished-games-cache'
 
 type Stored = Omit<FinishedGamesApiResponse, 'games'> & { games: (Omit<FinishedGame, 'completedAt'> & { completedAt: string })[] }
 
-function readCache(): FinishedGamesApiResponse | null {
+// Exported for the lightweight player hover-card (components/PlayerHoverCard),
+// which shows a "games together" count only when this cache already has an
+// answer — it never triggers the live multi-platform fetch itself, the same
+// "cheap data only" boundary medianResponseSeconds draws in lib/opponents/stats.
+export function readFinishedGamesCache(): FinishedGamesApiResponse | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY)
     if (!raw) return null
@@ -105,7 +109,7 @@ export function useFinishedGamesData() {
   }, [])
 
   useEffect(() => {
-    const cached = readCache()
+    const cached = readFinishedGamesCache()
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after hydration
     if (cached) setData(cached)
     load()
