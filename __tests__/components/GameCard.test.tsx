@@ -172,6 +172,22 @@ describe('GameRow', () => {
     expect(screen.getByText(/⏱ 11 days ago/)).toBeInTheDocument()
   })
 
+  it('lists every player, not just the one currently up, with their wait time next to them', () => {
+    render(<GameRow {...props({ game: waiting })} />)
+    const aliceLink = screen.getByRole('link', { name: 'alice' })
+    expect(aliceLink).toHaveClass('font-semibold')
+    expect(screen.getByRole('link', { name: 'bob' })).toBeInTheDocument()
+    expect(screen.getByText(/\(11 days ago\)/)).toBeInTheDocument()
+  })
+
+  it('still lists every player when no one is resolved as currently up, with none highlighted', () => {
+    const ambiguous = { ...waiting, currentPlayer: undefined }
+    render(<GameRow {...props({ game: ambiguous })} />)
+    expect(screen.getByRole('link', { name: 'alice' })).not.toHaveClass('font-semibold')
+    expect(screen.getByRole('link', { name: 'bob' })).toBeInTheDocument()
+    expect(screen.queryByText(/\(11 days ago\)/)).toBeNull()
+  })
+
   it('adds a note from the pencil button', async () => {
     const onSaveNote = jest.fn()
     render(<GameRow {...props({ game: waiting, onSaveNote })} />)

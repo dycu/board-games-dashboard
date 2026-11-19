@@ -67,6 +67,33 @@ describe('attachOpponentTracking', () => {
     })
   })
 
+  it("mirrors a game's playerAvatars onto the matching opponent entry", async () => {
+    await attachOpponentTracking('obg', [
+      game('obg:1', false, { players: ['Alice'], playerAvatars: { Alice: 'https://example.com/alice.jpg' } }),
+    ])
+    expect(opponentStore.get('opponents:v1:obg')).toEqual({
+      Alice: { tags: [], responseSamples: [], avatarUrl: 'https://example.com/alice.jpg' },
+    })
+  })
+
+  it('keeps an existing tag/sample history when only the avatar changes', async () => {
+    opponentStore.set('opponents:v1:obg', { Alice: { tags: ['friend'], responseSamples: [100] } })
+    await attachOpponentTracking('obg', [
+      game('obg:1', false, { players: ['Alice'], playerAvatars: { Alice: 'https://example.com/alice.jpg' } }),
+    ])
+    expect(opponentStore.get('opponents:v1:obg')).toEqual({
+      Alice: { tags: ['friend'], responseSamples: [100], avatarUrl: 'https://example.com/alice.jpg' },
+    })
+  })
+
+  it('does not write anything when the avatar url has not changed', async () => {
+    opponentStore.set('opponents:v1:obg', { Alice: { tags: [], responseSamples: [], avatarUrl: 'https://example.com/alice.jpg' } })
+    await attachOpponentTracking('obg', [
+      game('obg:1', false, { players: ['Alice'], playerAvatars: { Alice: 'https://example.com/alice.jpg' } }),
+    ])
+    expect(kv.hset).not.toHaveBeenCalledWith('opponents:v1:obg', expect.anything())
+  })
+
   it('does not record a sample for an ambiguous multi-player wait with no resolvable opponent', async () => {
     watchStore.set('responsetimewatch:v1:obg', { 'obg:1': { myTurn: false, since: 1795089600 - 7200, opponentName: undefined } })
     await attachOpponentTracking('obg', [game('obg:1', true, { players: ['Alice', 'Bob'], currentPlayer: undefined })])

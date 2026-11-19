@@ -10,6 +10,7 @@ import { formatDuration } from '@/lib/connectors/utils'
 import TopNav from '@/components/TopNav'
 import GameLink, { playedGameUrl } from '@/components/GameLink'
 import PlatformFilterChips from '@/components/PlatformFilterChips'
+import PlayerAvatar from '@/components/PlayerAvatar'
 
 const BADGE_FALLBACK = 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'
 
@@ -82,6 +83,7 @@ function PersonDetail({ platform, name, person, games, onSaveTags, onBack }: {
     <div className="flex-1 overflow-y-auto p-5 max-w-3xl mx-auto w-full">
       <button onClick={onBack} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">← Back</button>
       <div className="flex flex-wrap items-center gap-2 mt-2 mb-1">
+        <PlayerAvatar url={person?.avatarUrl} size={36} />
         <Badge platform={platform} />
         <h1 className="text-xl font-semibold text-[var(--text-primary)]">{name}</h1>
       </div>
@@ -251,6 +253,7 @@ function PlayersPageInner() {
         <div className="flex flex-col gap-1.5">
           {visible.map(o => (
             <div key={`${o.platform}:${o.name}`} className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+              <PlayerAvatar url={o.avatarUrl} />
               <Badge platform={o.platform} small />
               <button
                 onClick={() => router.push(playerHref(o.platform, o.name))}

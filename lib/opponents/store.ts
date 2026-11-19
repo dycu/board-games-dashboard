@@ -10,6 +10,10 @@ export interface OpponentEntry {
   // How long this opponent took to respond after my move landed, in
   // seconds — a rolling window (see track.ts), oldest dropped once full.
   responseSamples: number[]
+  // Small avatar image URL, when the platform exposes one (see track.ts) —
+  // same shape as Game.playerAvatars, just persisted per person instead of
+  // per live game so it's available on the Players page too.
+  avatarUrl?: string
 }
 
 const MAX_SAMPLES = 20

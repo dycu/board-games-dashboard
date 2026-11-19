@@ -1,5 +1,5 @@
 import { Game, Platform } from '../types'
-import { addResponseSample, getGameWatch, putGameWatch, deleteGameWatch, GameWatchEntry } from './store'
+import { addResponseSample, getGameWatch, putGameWatch, deleteGameWatch, getOpponents, putOpponents, GameWatchEntry, OpponentEntry } from './store'
 import { addMySample } from '../responseTime/store'
 
 // The one opponent a waiting game is on, when it can be told apart from a
@@ -69,21 +69,34 @@ function reconcile(prevWatch: Record<string, GameWatchEntry>, games: Game[], now
 
 // Side effect only: records response-time samples (mine and each resolved
 // opponent's) by comparing this fetch's myTurn to the last one seen for
-// each game — feeds the Players page's "typical reply time" stat. Must run
-// on every fetch, same contract as attachMoveCounts/attachFirstSeenProgress.
+// each game, and mirrors any avatar URL a game carries (Game.playerAvatars)
+// onto the matching opponent entry — both feed the Players page (its
+// "typical reply time" stat and its own avatar, which otherwise has no way
+// to see live game data at all). Must run on every fetch, same contract as
+// attachMoveCounts/attachFirstSeenProgress.
 export async function attachOpponentTracking(platform: Platform, games: Game[]): Promise<Game[]> {
   const relevant = games.filter(g => g.platform === platform)
   try {
     const now = Math.floor(Date.now() / 1000)
-    const prevWatch = await getGameWatch(platform)
+    const [prevWatch, currentOpponents] = await Promise.all([getGameWatch(platform), getOpponents(platform)])
     const { all, changed, oppSamples, mySamples } = reconcile(prevWatch, relevant, now)
     const vanished = Object.keys(prevWatch).filter(id => !(id in all))
+
+    const avatarUpdates: Record<string, OpponentEntry> = {}
+    for (const g of relevant) {
+      for (const [playerName, url] of Object.entries(g.playerAvatars ?? {})) {
+        if (currentOpponents[playerName]?.avatarUrl === url) continue
+        const existing = avatarUpdates[playerName] ?? currentOpponents[playerName] ?? { tags: [], responseSamples: [] }
+        avatarUpdates[playerName] = { ...existing, avatarUrl: url }
+      }
+    }
 
     await Promise.all([
       putGameWatch(platform, changed),
       deleteGameWatch(platform, vanished),
       ...oppSamples.map(s => addResponseSample(platform, s.name, s.seconds)),
       ...mySamples.map(s => addMySample(platform, s)),
+      putOpponents(platform, avatarUpdates),
     ])
   } catch {
     // A KV hiccup should just mean no samples recorded this refresh, not

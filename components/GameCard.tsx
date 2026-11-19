@@ -124,27 +124,38 @@ function Avatar({ url }: { url?: string }) {
 
 // A single opponent's name, linking to their Players page entry — relative
 // z-10 to clear CoverLink underneath, same as every other clickable thing
-// on the card.
-function PlayerLink({ platform, name, avatarUrl }: { platform: Game['platform']; name: string; avatarUrl?: string }) {
+// on the card. `highlighted` picks this one out of a list — the specific
+// player a waiting game is actually blocked on.
+function PlayerLink({ platform, name, avatarUrl, highlighted }: { platform: Game['platform']; name: string; avatarUrl?: string; highlighted?: boolean }) {
   return (
-    <Link href={playerHref(platform, name)} className="relative z-10 hover:text-[var(--accent)] hover:underline">
+    <Link href={playerHref(platform, name)} className={`relative z-10 hover:text-[var(--accent)] hover:underline ${highlighted ? 'font-semibold text-[var(--text-primary)]' : ''}`}>
       <Avatar url={avatarUrl} />
       {name}
     </Link>
   )
 }
 
-// A comma-joined list of PlayerLinks — "with {players}"/"waiting for
-// {currentPlayer}" used to be plain text; same look, each name clickable now.
-function PlayerNames({ platform, names, avatars }: { platform: Game['platform']; names: string[]; avatars?: Record<string, string> }) {
+// A comma-joined list of PlayerLinks — "with {players}" used to be plain
+// text; same look, each name clickable now. `highlight` (the resolved
+// currentPlayer, if any) picks one name out to bold, with `highlightNote`
+// (e.g. how long they've been holding things up) shown right after it —
+// used by GameRow's "waiting for" line so it shows the whole table, not
+// just whoever's turn it is.
+function PlayerNames({ platform, names, avatars, highlight, highlightNote }: {
+  platform: Game['platform']; names: string[]; avatars?: Record<string, string>; highlight?: string; highlightNote?: string
+}) {
   return (
     <>
-      {names.map((name, i) => (
-        <span key={name}>
-          {i > 0 && ', '}
-          <PlayerLink platform={platform} name={name} avatarUrl={avatars?.[name]} />
-        </span>
-      ))}
+      {names.map((name, i) => {
+        const isHighlighted = highlight !== undefined && name === highlight
+        return (
+          <span key={name}>
+            {i > 0 && ', '}
+            <PlayerLink platform={platform} name={name} avatarUrl={avatars?.[name]} highlighted={isHighlighted} />
+            {isHighlighted && highlightNote && <span className="text-[var(--text-tertiary)]"> ({highlightNote})</span>}
+          </span>
+        )
+      })}
     </>
   )
 }
@@ -407,7 +418,11 @@ export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowD
       <div className="min-w-[140px] flex-1 flex items-baseline gap-2 overflow-hidden">
         <span className="text-sm text-[var(--text-primary)] truncate">{game.gameName}</span>
         <TableLabelEditor game={game} label={tableLabel} onSaveLabel={onSaveTableLabel} compact />
-        {game.currentPlayer && <span className="hidden sm:inline text-xs text-[var(--text-tertiary)] truncate">waiting for <PlayerLink platform={game.platform} name={game.currentPlayer} avatarUrl={game.playerAvatars?.[game.currentPlayer]} /></span>}
+        {game.players.length > 0 && (
+          <span className="hidden sm:inline text-xs text-[var(--text-tertiary)] truncate">
+            waiting for <PlayerNames platform={game.platform} names={game.players} avatars={game.playerAvatars} highlight={game.currentPlayer} highlightNote={game.currentPlayer ? game.lastMoveAgo : undefined} />
+          </span>
+        )}
         {/* Just the text here — its own edit/delete icons are the compact
             NoteEditor below, shown at every width, not only md:inline */}
         {note && <span className="hidden md:inline text-xs text-[var(--text-secondary)] italic whitespace-normal break-words">{note}</span>}

@@ -54,6 +54,25 @@ describe('globalOpponents', () => {
     const entriesByPlatform = { obg: { Carol: { tags: [], responseSamples: [] } as OpponentEntry } }
     expect(globalOpponents([], entriesByPlatform)).toEqual([])
   })
+
+  it('carries the stored avatar url, for an opponent with finished games or without', () => {
+    const entriesByPlatform = {
+      bga: { Alice: { tags: [], responseSamples: [], avatarUrl: 'https://example.com/alice.jpg' } as OpponentEntry },
+      obg: { Dave: { tags: [], responseSamples: [], avatarUrl: 'https://example.com/dave.jpg' } as OpponentEntry },
+    }
+    const [bgaAlice] = globalOpponents(games, entriesByPlatform).filter(o => o.platform === 'bga')
+    expect(bgaAlice.avatarUrl).toBe('https://example.com/alice.jpg')
+    const [dave] = globalOpponents([], entriesByPlatform).filter(o => o.name === 'Dave')
+    expect(dave.avatarUrl).toBe('https://example.com/dave.jpg')
+  })
+
+  it('keeps a stored entry with only an avatar — nothing else to show it by, but still something', () => {
+    const entriesByPlatform = { obg: { Eve: { tags: [], responseSamples: [], avatarUrl: 'https://example.com/eve.jpg' } as OpponentEntry } }
+    expect(globalOpponents([], entriesByPlatform)).toEqual([{
+      platform: 'obg', name: 'Eve', games: 0, iWon: 0, theyWon: 0, lastPlayedAt: null,
+      tags: [], responseSamples: [], medianResponseSeconds: null, avatarUrl: 'https://example.com/eve.jpg',
+    }])
+  })
 })
 
 describe('gamesWith', () => {

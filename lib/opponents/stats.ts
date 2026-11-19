@@ -18,6 +18,7 @@ export interface GlobalOpponent {
   tags: string[]
   responseSamples: number[]
   medianResponseSeconds: number | null
+  avatarUrl?: string
 }
 
 function median(sorted: number[]): number {
@@ -42,6 +43,7 @@ export function globalOpponents(games: FinishedGame[], entriesByPlatform: Partia
         r = {
           platform: g.platform, name: o.name, games: 0, iWon: 0, theyWon: 0, lastPlayedAt: null,
           tags: entry?.tags ?? [], responseSamples: entry?.responseSamples ?? [], medianResponseSeconds: null,
+          avatarUrl: entry?.avatarUrl,
         }
         byKey.set(key, r)
       }
@@ -64,10 +66,11 @@ export function globalOpponents(games: FinishedGame[], entriesByPlatform: Partia
     for (const [name, entry] of Object.entries(entries)) {
       const key = `${platform}:${name.toLowerCase()}`
       if (byKey.has(key)) continue
-      if (entry.tags.length === 0 && entry.responseSamples.length === 0) continue
+      if (entry.tags.length === 0 && entry.responseSamples.length === 0 && !entry.avatarUrl) continue
       byKey.set(key, {
         platform, name, games: 0, iWon: 0, theyWon: 0, lastPlayedAt: null,
         tags: entry.tags, responseSamples: entry.responseSamples, medianResponseSeconds: null,
+        avatarUrl: entry.avatarUrl,
       })
     }
   }
