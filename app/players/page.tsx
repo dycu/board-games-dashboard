@@ -261,9 +261,12 @@ function PlayersPageInner() {
               ))}
             </div>
           )}
-          <label className="flex items-center gap-1 text-xs text-[var(--text-secondary)] ml-auto">
+          <label
+            title="Hide opponents only seen in a currently active game, with no finished game together yet"
+            className="flex items-center gap-1 text-xs text-[var(--text-secondary)] ml-auto"
+          >
             <input type="checkbox" checked={onlyPlayed} onChange={e => setOnlyPlayed(e.target.checked)} />
-            Only played together
+            Finished a game together
           </label>
         </div>
 
