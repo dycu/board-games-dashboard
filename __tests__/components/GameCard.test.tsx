@@ -240,7 +240,7 @@ describe('GameRow', () => {
   // the overflow bleeds visibly into the next sibling instead of just clipping.
   it('clips its name/label zone instead of letting squeezed content bleed into the next row element', () => {
     render(<GameRow {...props({ game: waiting, onSaveTableLabel: jest.fn() })} />)
-    const nameZone = screen.getByText(waiting.gameName).parentElement
+    const nameZone = screen.getByText(waiting.gameName).parentElement?.parentElement
     expect(nameZone?.className).toContain('overflow-hidden')
   })
 
@@ -252,7 +252,7 @@ describe('GameRow', () => {
     render(<GameRow {...props({ game: waiting })} />)
     const row = screen.getByText(waiting.gameName).closest('.relative.flex')
     expect(row?.className).toContain('flex-wrap')
-    const nameZone = screen.getByText(waiting.gameName).parentElement
+    const nameZone = screen.getByText(waiting.gameName).parentElement?.parentElement
     expect(nameZone?.className).toMatch(/min-w-\[\d+px\]/)
   })
 })

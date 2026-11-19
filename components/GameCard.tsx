@@ -346,7 +346,7 @@ export default function GameCard({ game, priority, onCyclePriority, onOpen, oppo
       </div>
 
       {game.players.length > 0 && (
-        <div className="text-xs text-[var(--text-tertiary)] hidden sm:block truncate">
+        <div className="text-xs text-[var(--text-tertiary)] truncate">
           with <PlayerNames platform={game.platform} names={game.players} avatars={game.playerAvatars} />
         </div>
       )}
@@ -377,17 +377,19 @@ export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowD
           readable name, they wrap to their own line below — rather than
           this zone shrinking the name down past legibility to keep everyone
           on one line, as it did when it only had overflow-hidden */}
-      <div className="min-w-[140px] flex-1 flex items-baseline gap-2 overflow-hidden">
-        <span className="text-sm text-[var(--text-primary)] truncate">{game.gameName}</span>
-        <TableLabelEditor game={game} label={tableLabel} onSaveLabel={onSaveTableLabel} compact />
+      <div className="min-w-[140px] flex-1 overflow-hidden">
+        <div className="flex items-baseline gap-2">
+          <span className="text-sm text-[var(--text-primary)] truncate">{game.gameName}</span>
+          <TableLabelEditor game={game} label={tableLabel} onSaveLabel={onSaveTableLabel} compact />
+          {/* Just the text here — its own edit/delete icons are the compact
+              NoteEditor below, shown at every width, not only md:inline */}
+          {note && <span className="hidden md:inline text-xs text-[var(--text-secondary)] italic whitespace-normal break-words">{note}</span>}
+        </div>
         {game.players.length > 0 && (
-          <span className="hidden sm:inline text-xs text-[var(--text-tertiary)] truncate">
+          <div className="text-xs text-[var(--text-tertiary)] truncate">
             waiting for <PlayerNames platform={game.platform} names={game.players} avatars={game.playerAvatars} highlight={game.currentPlayer} />
-          </span>
+          </div>
         )}
-        {/* Just the text here — its own edit/delete icons are the compact
-            NoteEditor below, shown at every width, not only md:inline */}
-        {note && <span className="hidden md:inline text-xs text-[var(--text-secondary)] italic whitespace-normal break-words">{note}</span>}
       </div>
       <span className={`shrink-0 text-xs ${slow ? 'text-amber-600 font-medium' : 'text-[var(--text-tertiary)]'}`}>
         {slow ? '⏱ ' : ''}{game.lastMoveAgo}
