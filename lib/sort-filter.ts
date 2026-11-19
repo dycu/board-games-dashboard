@@ -14,7 +14,12 @@ export function deadlineSoon(g: Game, now: number, within = DEADLINE_SOON_MS): n
   return left < within ? left : null
 }
 
-export function sortAndFilter(games: Game[], prefs: UserPrefs, now = Date.now()): Game[] {
+// respectPins: false sorts pinned games exactly like unpinned ones — for the
+// Waiting section, where pinning to the top is noise (there's nothing to do
+// with a waiting game regardless of how it's sorted). Your-turn sections
+// (where pinning actually means something — it's what "Next" opens) keep
+// the default.
+export function sortAndFilter(games: Game[], prefs: UserPrefs, now = Date.now(), { respectPins = true } = {}): Game[] {
   const { pins, sort, filter } = prefs
   const sunk = prefs.sunk ?? []
 
@@ -35,8 +40,8 @@ export function sortAndFilter(games: Game[], prefs: UserPrefs, now = Date.now())
     if (aSunk && !bSunk) return 1
     if (bSunk && !aSunk) return -1
 
-    const aPinned = pins.includes(a.id)
-    const bPinned = pins.includes(b.id)
+    const aPinned = respectPins && pins.includes(a.id)
+    const bPinned = respectPins && pins.includes(b.id)
 
     // Pinned + myTurn first
     if (aPinned && a.myTurn && !(bPinned && b.myTurn)) return -1

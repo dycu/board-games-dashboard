@@ -130,6 +130,15 @@ describe('sortAndFilter', () => {
     expect(result.map(g => g.id)).toEqual(['bga:50', 'bga:51', 'bga:52'])
   })
 
+  it('respects pins by default, but ignores them when respectPins is false (Waiting section)', () => {
+    const pinned = base({ id: 'bga:70', lastMoveAt: new Date('2026-06-10') })
+    const older = base({ id: 'bga:71', lastMoveAt: new Date('2026-06-05') })
+    const p = prefs({ pins: ['bga:70'] })
+    expect(sortAndFilter([older, pinned], p).map(g => g.id)).toEqual(['bga:70', 'bga:71'])
+    expect(sortAndFilter([older, pinned], p, Date.now(), { respectPins: false }).map(g => g.id))
+      .toEqual(['bga:71', 'bga:70'])
+  })
+
   it('sorts by moves made today, most or fewest first, treating untouched games as 0', () => {
     const busy = base({ id: 'bga:60', myTurn: true, moveCountToday: 5 })
     const some = base({ id: 'bga:61', myTurn: true, moveCountToday: 2 })

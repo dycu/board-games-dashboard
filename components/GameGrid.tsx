@@ -88,7 +88,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   // An opened game stays with my games even once it's the opponent's turn, until
   // the dashboard stops treating it as opened (a few minutes after I'm back)
   const openedMyTurnGames = sortAndFilter(visible.filter(isOpened), prefs, now)
-  const waitingGames = sortAndFilter(visible.filter(g => !g.myTurn && !isOpened(g)), prefs, now)
+  const waitingGames = sortAndFilter(visible.filter(g => !g.myTurn && !isOpened(g)), prefs, now, { respectPins: false })
   const showMine = prefs.filter.turnStatus !== 'waiting'
   const showWaiting = prefs.filter.turnStatus !== 'my-turn'
   const platformFilter = prefs.filter.platforms
