@@ -33,7 +33,17 @@ const SORTERS: Record<SortKey, (a: GameBreakdown, b: GameBreakdown) => number> =
 }
 
 // History over a chosen period: results, per-game breakdown, ELO and BGA pace
-export default function PeriodSummary({ games, prefs = DEFAULT_PREFS, onPrefsChange }: { games: FinishedGame[]; prefs?: UserPrefs; onPrefsChange?: (p: UserPrefs) => void }) {
+export default function PeriodSummary({ games, prefs = DEFAULT_PREFS, onPrefsChange, onPeriodChange }: {
+  games: FinishedGame[]
+  prefs?: UserPrefs
+  onPrefsChange?: (p: UserPrefs) => void
+  // Lets a caller (the History page) narrow its own finished-games list to
+  // the same period this card is summarizing, instead of the two silently
+  // disagreeing — called whenever the resolved {from, to} changes, not
+  // just on a direct click, since the "custom" inputs and the initial
+  // prefs-hydration both change it too.
+  onPeriodChange?: (from: Date, to: Date) => void
+}) {
   const [preset, setPreset] = useState<PeriodPreset>('7d')
   const [now] = useState(() => new Date())
   const [customFrom, setCustomFrom] = useState(() => dateInput(new Date(now.getTime() - 14 * 86_400_000)))
@@ -84,6 +94,8 @@ export default function PeriodSummary({ games, prefs = DEFAULT_PREFS, onPrefsCha
   }, [preset, customFrom, customTo, now])
 
   const summary = useMemo(() => summarizePeriod(games, from, to), [games, from, to])
+
+  useEffect(() => { onPeriodChange?.(from, to) }, [from, to, onPeriodChange])
 
   const [pace, setPace] = useState<Pace | null>(null)
   useEffect(() => {

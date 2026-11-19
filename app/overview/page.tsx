@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Platform, PLATFORM_LABELS } from '@/lib/types'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
 import { usePrefs } from '@/hooks/usePrefs'
@@ -26,10 +26,21 @@ export default function OverviewPage() {
   const backlog = useBacklog()
   const bgaTotals = useBgaPlayTotals()
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const [search, setSearch] = useState('')
   // Catches a goal crossed between visits here and the Achievements page —
   // whichever one you happen to open first sees it.
   const { achievements, markAchieved } = useAchievements()
   const { celebrating, dismiss } = useAchievementUnlocks(achievements, data?.games, markAchieved)
+
+  // PeriodSummary owns the actual period state (preset/custom dates,
+  // persisted to prefs) — this just mirrors its resolved {from, to} so the
+  // finished-games list below can match it instead of always showing
+  // everything regardless of what the summary above is showing.
+  const [period, setPeriod] = useState<{ from: Date; to: Date } | null>(null)
+  const onPeriodChange = useCallback((from: Date, to: Date) => {
+    setPeriod({ from, to })
+    setVisibleCount(PAGE_SIZE)
+  }, [])
 
   // Same fixed order as the Active tab's chips
   const availablePlatforms = data
@@ -55,6 +66,15 @@ export default function OverviewPage() {
     backlog.listsFor(g.platform, g.gameType || g.gameName).some(l => l === 'favorite' || l === 'gm')
   const filtered = backlogFilter ? byPlatform.filter(isFavoriteOrGm) : byPlatform
 
+  // The list below the summary additionally narrows to the same period
+  // the summary card is showing, and to a text search — neither affects
+  // the summary itself (always the full `filtered` list for its own
+  // period, independent of what's typed in the search box here).
+  const q = search.trim().toLowerCase()
+  const listFiltered = filtered
+    .filter(g => !period || (g.completedAt >= period.from && g.completedAt <= period.to))
+    .filter(g => !q || (g.gameType || g.gameName).toLowerCase().includes(q))
+
   // The same per-game details as Backlog's "From your games", running games included
   const playedByKey = useMemo(
     () => new Map(data
@@ -63,8 +83,8 @@ export default function OverviewPage() {
     [data, bgaTotals],
   )
 
-  const visible = filtered.slice(0, visibleCount)
-  const hasMore = filtered.length > visibleCount
+  const visible = listFiltered.slice(0, visibleCount)
+  const hasMore = listFiltered.length > visibleCount
 
   const handlePlatformChange = (next: Platform[]) => {
     const historyPlatformFilter = next.length === 0 ? null : availablePlatforms.every(p => next.includes(p)) ? [] : next
@@ -156,12 +176,22 @@ export default function OverviewPage() {
             within its card (see PeriodSummary) rather than stretching this
             column to match however many rows a wide period turns up. */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-          <PeriodSummary games={filtered} prefs={prefs} onPrefsChange={updatePrefs} />
+          <PeriodSummary games={filtered} prefs={prefs} onPrefsChange={updatePrefs} onPeriodChange={onPeriodChange} />
 
           <section className="min-w-0">
             <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)] mb-2">
-              Finished games · {filtered.length}
+              Finished games · {listFiltered.length}
             </h2>
+            {filtered.length > 1 && (
+              <input
+                type="text"
+                value={search}
+                onChange={e => { setSearch(e.target.value); setVisibleCount(PAGE_SIZE) }}
+                placeholder={`Filter ${filtered.length} games…`}
+                aria-label="Filter finished games"
+                className="w-full text-xs bg-[var(--bg-surface)] border border-[var(--border-default)] rounded px-2 py-1.5 mb-2 placeholder:text-[var(--text-tertiary)]"
+              />
+            )}
             {visible.length > 0 ? (
               <div className="flex flex-col gap-1.5">
                 {visible.map(g => {
@@ -189,8 +219,12 @@ export default function OverviewPage() {
               </div>
             ) : !isLoading && (
               <div className="text-center py-12 text-[var(--text-tertiary)]">
-                No recently finished games found
-                {platformFilter !== null && platformFilter.length === 1 && <span> on {PLATFORM_LABELS[platformFilter[0]]}</span>}
+                {q ? `No games match "${search}"` : (
+                  <>
+                    No recently finished games found
+                    {platformFilter !== null && platformFilter.length === 1 && <span> on {PLATFORM_LABELS[platformFilter[0]]}</span>}
+                  </>
+                )}
               </div>
             )}
             {hasMore && (
@@ -199,7 +233,7 @@ export default function OverviewPage() {
                   onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
                   className="text-xs bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] px-4 py-2 rounded-md"
                 >
-                  Load more ({filtered.length - visibleCount} remaining)
+                  Load more ({listFiltered.length - visibleCount} remaining)
                 </button>
               </div>
             )}
