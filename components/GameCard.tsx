@@ -137,25 +137,20 @@ function PlayerLink({ platform, name, avatarUrl, highlighted }: { platform: Game
 
 // A comma-joined list of PlayerLinks — "with {players}" used to be plain
 // text; same look, each name clickable now. `highlight` (the resolved
-// currentPlayer, if any) picks one name out to bold, with `highlightNote`
-// (e.g. how long they've been holding things up) shown right after it —
-// used by GameRow's "waiting for" line so it shows the whole table, not
-// just whoever's turn it is.
-function PlayerNames({ platform, names, avatars, highlight, highlightNote }: {
-  platform: Game['platform']; names: string[]; avatars?: Record<string, string>; highlight?: string; highlightNote?: string
+// currentPlayer, if any) picks one name out to bold — used by GameRow's
+// "waiting for" line so it shows the whole table, not just whoever's turn
+// it is. No extra wait-time note here: the row already shows lastMoveAgo.
+function PlayerNames({ platform, names, avatars, highlight }: {
+  platform: Game['platform']; names: string[]; avatars?: Record<string, string>; highlight?: string
 }) {
   return (
     <>
-      {names.map((name, i) => {
-        const isHighlighted = highlight !== undefined && name === highlight
-        return (
-          <span key={name}>
-            {i > 0 && ', '}
-            <PlayerLink platform={platform} name={name} avatarUrl={avatars?.[name]} highlighted={isHighlighted} />
-            {isHighlighted && highlightNote && <span className="text-[var(--text-tertiary)]"> ({highlightNote})</span>}
-          </span>
-        )
-      })}
+      {names.map((name, i) => (
+        <span key={name}>
+          {i > 0 && ', '}
+          <PlayerLink platform={platform} name={name} avatarUrl={avatars?.[name]} highlighted={highlight !== undefined && name === highlight} />
+        </span>
+      ))}
     </>
   )
 }
@@ -420,7 +415,7 @@ export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowD
         <TableLabelEditor game={game} label={tableLabel} onSaveLabel={onSaveTableLabel} compact />
         {game.players.length > 0 && (
           <span className="hidden sm:inline text-xs text-[var(--text-tertiary)] truncate">
-            waiting for <PlayerNames platform={game.platform} names={game.players} avatars={game.playerAvatars} highlight={game.currentPlayer} highlightNote={game.currentPlayer ? game.lastMoveAgo : undefined} />
+            waiting for <PlayerNames platform={game.platform} names={game.players} avatars={game.playerAvatars} highlight={game.currentPlayer} />
           </span>
         )}
         {/* Just the text here — its own edit/delete icons are the compact
