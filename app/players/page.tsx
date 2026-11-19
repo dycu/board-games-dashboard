@@ -1,9 +1,10 @@
 'use client'
 import { Suspense, useId, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
+import { Game, Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
+import { readCache } from '@/hooks/useGamesData'
 import { useOpponentsContext } from '@/components/OpponentsProvider'
 import { globalOpponents, gamesWith, playerHref, GlobalOpponent } from '@/lib/opponents/stats'
 import { formatDuration } from '@/lib/connectors/utils'
@@ -78,13 +79,15 @@ function Stat({ value, label }: { value: React.ReactNode; label: string }) {
 
 const fmtDate = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 
-// One specific opponent: their record, response time, tags, and every
-// finished game against them. Linked to from the list below, and from
-// anywhere else a player's name is shown (GameCard, FinishedGameCard, ...).
-function PersonDetail({ platform, name, person, games, allTags, onSaveTags, onBack }: {
+// One specific opponent: their record, response time, tags, every finished
+// game against them, and whatever's currently in progress with them.
+// Linked to from the list below, and from anywhere else a player's name is
+// shown (GameCard, FinishedGameCard, ...).
+function PersonDetail({ platform, name, person, activeGames, games, allTags, onSaveTags, onBack }: {
   platform: Platform
   name: string
   person: GlobalOpponent | undefined
+  activeGames: Game[]
   games: ReturnType<typeof gamesWith>
   allTags: string[]
   onSaveTags: (tags: string[]) => void
@@ -119,6 +122,23 @@ function PersonDetail({ platform, name, person, games, allTags, onSaveTags, onBa
         <Stat value={person?.medianResponseSeconds != null ? formatDuration(person.medianResponseSeconds) : '—'} label="typical reply time" />
         <Stat value={person?.lastPlayedAt ? fmtDate(person.lastPlayedAt) : '—'} label="last played" />
       </div>
+
+      {activeGames.length > 0 && (
+        <div className="mb-5">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)] mb-1.5">Currently playing</h2>
+          <div className="flex flex-col gap-1.5">
+            {activeGames.map(g => (
+              <div key={g.id} className="flex items-center gap-2 px-3 py-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+                <span className="flex-1 min-w-0 text-sm text-[var(--text-primary)] truncate">{g.gameType || g.gameName}</span>
+                <span className={`shrink-0 text-xs font-medium ${g.myTurn ? 'text-[var(--accent)]' : 'text-[var(--text-tertiary)]'}`}>
+                  {g.myTurn ? 'Your turn' : 'Waiting'}
+                </span>
+                <GameLink url={playedGameUrl(g)} platform={platform} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {games.length > 0 ? (
         <table className="w-full text-sm bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] overflow-hidden">
@@ -178,6 +198,16 @@ function PlayersPageInner() {
   const showDetail = !!(platform && name)
   const person = showDetail ? all.find(o => o.platform === platform && o.name.toLowerCase() === name!.toLowerCase()) : undefined
   const detailGames = showDetail && finished.data ? gamesWith(finished.data.games, platform!, name!) : []
+  // Whatever the Active page's own cache already has, not a fresh fetch —
+  // this detail view is reached dozens of ways (every GameCard/FinishedGameCard
+  // name links here), so it stays on the cheap-data-only side of the line
+  // medianResponseSeconds/the hover card's games-together count already draw.
+  const activeGames = useMemo(
+    () => showDetail
+      ? (readCache()?.data.games ?? []).filter(g => g.platform === platform && g.players.some(p => p.toLowerCase() === name!.toLowerCase()))
+      : [],
+    [showDetail, platform, name],
+  )
 
   const platformsPresent = useMemo(() => [...new Set(all.map(o => o.platform))], [all])
   const allTags = useMemo(() => [...new Set(all.flatMap(o => o.tags))].sort(), [all])
@@ -200,6 +230,7 @@ function PlayersPageInner() {
           platform={platform!}
           name={name!}
           person={person}
+          activeGames={activeGames}
           games={detailGames}
           allTags={allTags}
           onSaveTags={tags => opponents.saveTags(platform!, name!, tags)}
