@@ -24,6 +24,17 @@ export function formatTimeAgo(date: Date): string {
   return `${days} day${days === 1 ? '' : 's'} ago`
 }
 
+// A plain duration ("2 hours", "3 days") — unlike formatTimeRemaining
+// above, which frames it as a countdown ("2h left")
+export function formatDuration(seconds: number): string {
+  const days = Math.floor(seconds / 86400)
+  if (days >= 1) return `${days} day${days === 1 ? '' : 's'}`
+  const hours = Math.floor(seconds / 3600)
+  if (hours >= 1) return `${hours} hour${hours === 1 ? '' : 's'}`
+  const minutes = Math.max(1, Math.floor(seconds / 60))
+  return `${minutes} minute${minutes === 1 ? '' : 's'}`
+}
+
 export function formatTimeRemaining(sec: number): string {
   if (sec <= 0) {
     const abs = Math.abs(sec)

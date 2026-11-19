@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Game, Platform } from '@/lib/types'
 import { sampleTier } from '@/lib/sampleConfidence'
+import { formatDuration } from '@/lib/connectors/utils'
 
 // What we're actually counting differs by platform: BGA's data calls it a
 // turn, but 18xx's and Rally's numbers are each an action log length (every
@@ -14,15 +15,6 @@ const UNIT_WORD: Partial<Record<Platform, string>> = { eighteenxx: 'move', rally
 function unitWord(platform: Platform, capitalize = false): string {
   const word = UNIT_WORD[platform] ?? 'turn'
   return capitalize ? word[0].toUpperCase() + word.slice(1) : word
-}
-
-function formatDuration(seconds: number): string {
-  const days = Math.floor(seconds / 86400)
-  if (days >= 1) return `${days} day${days === 1 ? '' : 's'}`
-  const hours = Math.floor(seconds / 3600)
-  if (hours >= 1) return `${hours} hour${hours === 1 ? '' : 's'}`
-  const minutes = Math.max(1, Math.floor(seconds / 60))
-  return `${minutes} minute${minutes === 1 ? '' : 's'}`
 }
 
 // Hover (desktop) or a tap (touch) reveals where the estimate came from — a

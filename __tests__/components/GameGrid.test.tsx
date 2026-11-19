@@ -234,7 +234,7 @@ describe('GameGrid backlog suggestion', () => {
     global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ notes: {}, items }) })) as unknown as typeof fetch
     renderGrid([makeGame('bga', '1')])
     expect(await screen.findByText('Navegador')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Play/ })).toHaveAttribute('href', 'https://x/3')
+    expect(screen.getByRole('link', { name: /^Play /i })).toHaveAttribute('href', 'https://x/3')
   })
 
   it('does not suggest a game whose platform failed to fetch this round', async () => {
