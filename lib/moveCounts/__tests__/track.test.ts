@@ -20,8 +20,11 @@ const YESTERDAY = '2026-11-18'
 beforeEach(() => {
   jest.clearAllMocks()
   tracked.clear()
-  // Noon UTC is safely inside the same Europe/Warsaw calendar day either way
-  jest.spyOn(Date, 'now').mockReturnValue(new Date(`${TODAY}T12:00:00Z`).getTime())
+  // Noon UTC is safely inside the same Europe/Warsaw calendar day either
+  // way, and past the 5am boundary — attachMoveCounts calls todayKey()
+  // with no argument, so this must mock `new Date()` itself (not just
+  // Date.now()) or these tests would depend on the real wall-clock hour.
+  jest.useFakeTimers().setSystemTime(new Date(`${TODAY}T12:00:00Z`))
   ;(kv.hgetall as jest.Mock).mockImplementation(async (k: string) => tracked.get(k) ?? null)
   ;(kv.hset as jest.Mock).mockImplementation(async (k: string, v: Record<string, unknown>) => {
     tracked.set(k, { ...(tracked.get(k) ?? {}), ...v })
@@ -33,11 +36,22 @@ beforeEach(() => {
   })
 })
 
-afterEach(() => jest.restoreAllMocks())
+afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks() })
 
 describe('todayKey', () => {
   it('formats as a Europe/Warsaw calendar date', () => {
     expect(todayKey(new Date(`${TODAY}T12:00:00Z`))).toBe(TODAY)
+  })
+
+  // November = CET = UTC+1, so Warsaw midnight is 23:00 UTC the day before
+  it('still counts as yesterday just after midnight — the day boundary is 5am, not midnight', () => {
+    expect(todayKey(new Date(`${YESTERDAY}T23:30:00Z`))).toBe(YESTERDAY) // 00:30 Warsaw
+    expect(todayKey(new Date(`${TODAY}T03:30:00Z`))).toBe(YESTERDAY) // 04:30 Warsaw
+  })
+
+  it('rolls over to today once past the 5am boundary', () => {
+    expect(todayKey(new Date(`${TODAY}T04:00:00Z`))).toBe(TODAY) // 05:00 Warsaw exactly
+    expect(todayKey(new Date(`${TODAY}T04:30:00Z`))).toBe(TODAY) // 05:30 Warsaw
   })
 })
 

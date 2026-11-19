@@ -7,8 +7,16 @@ import { getMoveCounts, putMoveCounts, deleteMoveCounts, MoveCountEntry } from '
 const TIME_ZONE = 'Europe/Warsaw'
 const DAY_FORMATTER = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' })
 
+// The "day" runs 5am-5am Europe/Warsaw, not midnight-midnight — a session
+// that runs past midnight (common enough) would otherwise have its count
+// reset to 0 mid-session, making "today's moves" meaningless right when it
+// matters. Shifting the instant back before formatting, rather than
+// special-casing the formatted date string, keeps this correct across a
+// DST transition (the shift is in real elapsed time, not wall-clock hours).
+const DAY_BOUNDARY_HOURS = 5
+
 export function todayKey(now = new Date()): string {
-  return DAY_FORMATTER.format(now)
+  return DAY_FORMATTER.format(new Date(now.getTime() - DAY_BOUNDARY_HOURS * 3600_000))
 }
 
 // Compares this fetch's myTurn against what was last observed to detect a
