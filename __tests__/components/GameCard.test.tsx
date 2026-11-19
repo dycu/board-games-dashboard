@@ -19,7 +19,7 @@ const game: Game = {
 }
 
 const props = (over: Partial<GameItemProps> = {}): GameItemProps =>
-  ({ game, pinned: false, onTogglePin: () => {}, sunk: false, onToggleSink: () => {}, watched: false, onToggleWatch: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, showProgress: true, ...over })
+  ({ game, pinned: false, onTogglePin: () => {}, sunk: false, onToggleSink: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, showProgress: true, maxMoveCountToday: 0, ...over })
 
 describe('GameCard', () => {
   it('shows game name, platform badge and time', () => {
@@ -208,8 +208,8 @@ describe('GameRow', () => {
     expect(nameZone?.className).toContain('overflow-hidden')
   })
 
-  // A row crowded with every icon (progress bar, note, history, watch, sink,
-  // pin) could still squeeze the name down past legibility on a narrow phone
+  // A row crowded with every icon (progress bar, note, history, sink, pin)
+  // could still squeeze the name down past legibility on a narrow phone
   // even with overflow-hidden — wrapping those controls to their own line
   // keeps the name readable instead of shrinking it to a sliver of a letter.
   it('gives the name zone a width floor and lets the row wrap instead of squeezing it away', () => {

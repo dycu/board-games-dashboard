@@ -93,7 +93,7 @@ export interface Game {
 export interface UserPrefs {
   pins: string[]
   sunk: string[]          // always sorted to the end of their section (e.g. solo games you don't want cluttering the top)
-  sort: 'longest-wait' | 'most-recent' | 'platform' | 'game-name' | 'closest-to-end'
+  sort: 'longest-wait' | 'most-recent' | 'platform' | 'game-name' | 'closest-to-end' | 'most-moves-today' | 'least-moves-today'
   filter: {
     turnStatus: 'all' | 'my-turn' | 'waiting'
     platforms: Platform[] | null  // empty/missing = show all; null = none selected (hidden)
@@ -112,8 +112,6 @@ export interface UserPrefs {
   // browser) is only needed to bootstrap it, or when login is stuck.
   bgaSessionCookie?: string
   bgaPlayerId?: string
-  watchedGames: string[] // get an instant ntfy push the moment one of these flips to myTurn, rather than waiting for the twice-daily digest
-  ntfyTopic?: string      // your ntfy.sh topic — install the ntfy app and subscribe to this same topic to receive the push
   showProgress?: boolean  // show the "% through the game" bar (beta — undefined/missing defaults to on; off reverts to the old cards)
   refreshIntervalSeconds?: number // auto-refresh dropdown choice (0/30/60/300 — undefined/missing defaults to off, i.e. 0)
   // Last-selected timeframe in the History page's "Summary" card. A literal
@@ -136,7 +134,6 @@ export const DEFAULT_PREFS: UserPrefs = {
   disabledPlatforms: [],
   opponentSlowDays: 5,
   deadlineSoonHours: 24,
-  watchedGames: [],
 }
 
 export interface GamesApiResponse {

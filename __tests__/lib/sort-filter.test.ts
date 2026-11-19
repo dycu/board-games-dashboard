@@ -130,6 +130,16 @@ describe('sortAndFilter', () => {
     expect(result.map(g => g.id)).toEqual(['bga:50', 'bga:51', 'bga:52'])
   })
 
+  it('sorts by moves made today, most or fewest first, treating untouched games as 0', () => {
+    const busy = base({ id: 'bga:60', myTurn: true, moveCountToday: 5 })
+    const some = base({ id: 'bga:61', myTurn: true, moveCountToday: 2 })
+    const none = base({ id: 'bga:62', myTurn: true })
+    expect(sortAndFilter([some, none, busy], prefs({ sort: 'most-moves-today' })).map(g => g.id))
+      .toEqual(['bga:60', 'bga:61', 'bga:62'])
+    expect(sortAndFilter([some, none, busy], prefs({ sort: 'least-moves-today' })).map(g => g.id))
+      .toEqual(['bga:62', 'bga:61', 'bga:60'])
+  })
+
   it('treats a missing sunk list (prefs saved before the feature existed) as empty', () => {
     const solo = base({ id: 'bga:solo', myTurn: true })
     const legacyPrefs = { ...prefs() } as UserPrefs

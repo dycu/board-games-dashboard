@@ -9,7 +9,7 @@ interface Props {
 // Saved to the server too (not just local state via onChange) — otherwise
 // it only ever lives in localStorage, and the plain fetch('/api/prefs') on
 // mount (app/page.tsx) overwrites it back to the stale server copy on the
-// very next load, same gap togglePin/toggleSink/toggleWatch don't have.
+// very next load, same gap togglePin/toggleSink don't have.
 function save(partial: Partial<UserPrefs>) {
   fetch('/api/prefs', { method: 'POST', body: JSON.stringify(partial), headers: { 'Content-Type': 'application/json' } }).catch(() => {})
 }
@@ -54,6 +54,8 @@ export default function FilterToolbar({ prefs, onChange }: Props) {
           <option value="platform">Platform</option>
           <option value="game-name">Name</option>
           <option value="closest-to-end">Closest to the end</option>
+          <option value="most-moves-today">Most moves today</option>
+          <option value="least-moves-today">Fewest moves today</option>
         </select>
       </label>
     </div>

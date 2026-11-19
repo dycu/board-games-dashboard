@@ -75,6 +75,10 @@ export function sortAndFilter(games: Game[], prefs: UserPrefs, now = Date.now())
       const bPct = b.progress?.percent ?? -1
       return bPct - aPct
     }
+    if (sort === 'most-moves-today' || sort === 'least-moves-today') {
+      const diff = (a.moveCountToday ?? 0) - (b.moveCountToday ?? 0)
+      return sort === 'most-moves-today' ? -diff : diff
+    }
     // longest-wait: oldest move first
     return a.lastMoveAt.getTime() - b.lastMoveAt.getTime()
   })

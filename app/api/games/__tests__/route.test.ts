@@ -97,7 +97,7 @@ describe('GET /api/games', () => {
     expect(events[events.length - 1].type).toBe('done')
   })
 
-  it('scopes to ?platforms= when given, for the watch cron\'s frequent single-platform pings', async () => {
+  it('scopes to ?platforms= when given, for the dashboard\'s own platform-scoped return refresh', async () => {
     mockHasCreds.mockReturnValue(true)
     mockBgaFetch.mockResolvedValue([])
 

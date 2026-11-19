@@ -15,8 +15,6 @@ export interface GameItemProps {
   onTogglePin: (id: string) => void
   sunk: boolean
   onToggleSink: (id: string) => void
-  watched: boolean
-  onToggleWatch: (id: string) => void
   onOpen: () => void // the dashboard dims an opened game until the next refresh
   opponentSlowDays: number
   deadlineSoonHours: number
@@ -31,6 +29,7 @@ export interface GameItemProps {
   now: number
   opened?: boolean // opened since the last refresh that saw me back: dimmed until then
   showProgress: boolean // the "% through the game" bar — a settings toggle, default on
+  maxMoveCountToday: number // the busiest game's moveCountToday across the board right now — see heatBg
 }
 
 const BADGE_FALLBACK = 'bg-[#f3f3f3] text-[#6b6b6b]'
@@ -91,22 +90,6 @@ function SinkButton({ game, sunk, onToggleSink }: Pick<GameItemProps, 'game' | '
       onClick={() => onToggleSink(game.id)}
       className={`relative z-10 text-sm transition-colors ${sunk ? 'text-slate-400' : 'text-[#c5c5c5] hover:text-slate-400'}`}>
       {sunk ? '▼' : '▽'}
-    </button>
-  )
-}
-
-// Pushes an instant notification (ntfy) the moment this game flips to your
-// turn, instead of waiting for the twice-daily digest. Separate from pinning
-// (which only affects sort order) — a muted/lit bell, not a star or triangle,
-// so it reads as its own thing.
-function WatchButton({ game, watched, onToggleWatch }: Pick<GameItemProps, 'game' | 'watched' | 'onToggleWatch'>) {
-  return (
-    <button
-      aria-label={watched ? 'Stop watching game (no more instant notifications)' : "Watch game (notify the instant it's your turn)"}
-      title={watched ? 'Stop watching' : 'Watch for instant notification'}
-      onClick={() => onToggleWatch(game.id)}
-      className={`relative z-10 text-sm transition-colors ${watched ? 'text-sky-500' : 'text-[#c5c5c5] hover:text-sky-500'}`}>
-      {watched ? '\u{1F514}︎' : '\u{1F515}︎'}
     </button>
   )
 }
@@ -276,26 +259,30 @@ function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string,
   )
 }
 
-// Background warmth scales with today's move count (see MoveCountBadge) —
-// a glance at the grid shows where you've been grinding, without reading
-// any number. Tiers, not a continuous scale: a difference of one move
-// rarely means anything, but a couple vs. a lot does. Takes priority over
-// whatever background a card would otherwise have (e.g. GameRow's amber
-// tint for a slow opponent) — today's activity is the more specific signal.
-function heatBg(count: number | undefined, fallback: string): string {
+// Background warmth scales with today's move count *relative to the busiest
+// game today* (see MoveCountBadge), not a fixed scale — on a day you play a
+// lot, a fixed scale would turn everything the same dark orange and lose
+// exactly the signal this is for (which game got the most attention today).
+// Tiers, not a continuous scale: a small difference in share rarely means
+// anything, but "barely any of today's moves" vs. "most of them" does.
+// Takes priority over whatever background a card would otherwise have (e.g.
+// GameRow's amber tint for a slow opponent) — today's activity is the more
+// specific signal.
+function heatBg(count: number | undefined, maxCount: number, fallback: string): string {
   if (!count) return fallback
-  if (count <= 2) return 'bg-orange-50'
-  if (count <= 5) return 'bg-orange-100'
-  return 'bg-orange-200'
+  const share = maxCount > 0 ? count / maxCount : 0
+  if (share >= 2 / 3) return 'bg-orange-200'
+  if (share >= 1 / 3) return 'bg-orange-100'
+  return 'bg-orange-50'
 }
 
 // A game waiting for my move: a full card
-export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, showProgress }: GameItemProps) {
+export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, showProgress, maxMoveCountToday }: GameItemProps) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
   return (
-    <div className={`relative rounded-lg border p-3.5 flex flex-col gap-2 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] ${heatBg(game.moveCountToday, 'bg-white')} hover:border-[#c5c9f0]
+    <div className={`relative rounded-lg border p-3.5 flex flex-col gap-2 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] ${heatBg(game.moveCountToday, maxMoveCountToday, 'bg-white')} hover:border-[#c5c9f0]
       ${opened ? 'opacity-55 hover:opacity-100 border-[#e5e5e5]' : soon !== null ? 'border-[#e5e5e5] border-l-[3px] border-l-red-500' : 'border-[#e5e5e5] border-l-[3px] border-l-[#5e6ad2]'}`}>
       <CoverLink game={game} onOpen={onOpen} note={note} />
       <div className="flex items-center justify-between gap-2">
@@ -311,7 +298,6 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
             </span>
           )}
           <HistoryLink game={game} />
-          <WatchButton game={game} watched={watched} onToggleWatch={onToggleWatch} />
           <SinkButton game={game} sunk={sunk} onToggleSink={onToggleSink} />
           <PinButton game={game} pinned={pinned} onTogglePin={onTogglePin} />
         </div>
@@ -340,11 +326,11 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
 }
 
 // A game waiting for someone else: one compact row
-export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, showProgress }: GameItemProps) {
+export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, showProgress, maxMoveCountToday }: GameItemProps) {
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   return (
     <div className={`relative flex flex-wrap items-center gap-2 px-3 py-2 rounded-md border hover:border-[#c5c9f0] transition-colors
-      ${heatBg(game.moveCountToday, slow ? 'bg-amber-50/40' : 'bg-white')} ${slow ? 'border-amber-200' : 'border-[#ececec]'} ${opened ? 'opacity-55 hover:opacity-100' : ''}`}>
+      ${heatBg(game.moveCountToday, maxMoveCountToday, slow ? 'bg-amber-50/40' : 'bg-white')} ${slow ? 'border-amber-200' : 'border-[#ececec]'} ${opened ? 'opacity-55 hover:opacity-100' : ''}`}>
       <CoverLink game={game} onOpen={onOpen} note={note} />
       <Badge game={game} small />
       <MoveCountBadge game={game} small />
@@ -367,7 +353,6 @@ export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, watched
       {showProgress && <ProgressBar game={game} compact />}
       <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact />
       <HistoryLink game={game} />
-      <WatchButton game={game} watched={watched} onToggleWatch={onToggleWatch} />
       <SinkButton game={game} sunk={sunk} onToggleSink={onToggleSink} />
       <PinButton game={game} pinned={pinned} onTogglePin={onTogglePin} />
     </div>

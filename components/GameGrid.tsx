@@ -70,6 +70,14 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   // after the move; they no longer count as waiting for me
   const visible = games
   const isOpened = (g: Game) => dismissed.has(g.id)
+  // The busiest game's move count today, across every visible game (both
+  // sections) — see GameCard's heatBg. Relative to this instead of a fixed
+  // scale, so a day spent playing a lot doesn't just turn everything the
+  // same dark orange.
+  const maxMoveCountToday = Math.max(0, ...visible.map(g => g.moveCountToday ?? 0))
+  // Sum across every visible game — shown in the top bar (navRight below),
+  // separately from heatBg's per-card relative share
+  const totalMoveCountToday = visible.reduce((sum, g) => sum + (g.moveCountToday ?? 0), 0)
   const countByPlatform = Object.fromEntries(
     configuredPlatforms.map(p => [p, visible.filter(g => g.platform === p).length])
   )
@@ -85,8 +93,8 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   const showWaiting = prefs.filter.turnStatus !== 'my-turn'
   const platformFilter = prefs.filter.platforms
 
-  // Saved to the server too (not just local state), the same way pins/sunk/
-  // watchedGames below are — otherwise it only ever lives in localStorage,
+  // Saved to the server too (not just local state), the same way pins/sunk
+  // below are — otherwise it only ever lives in localStorage,
   // and the plain fetch('/api/prefs') on mount (app/page.tsx) overwrites it
   // back to the stale server copy on the very next load.
   //
@@ -193,17 +201,9 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     await fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ sunk }), headers: { 'Content-Type': 'application/json' } })
   }
 
-  const toggleWatch = async (id: string) => {
-    const prevWatched = prefs.watchedGames ?? []
-    const watchedGames = prevWatched.includes(id) ? prevWatched.filter(p => p !== id) : [...prevWatched, id]
-    const updated = { ...prefs, watchedGames }
-    onPrefsChange(updated)
-    await fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ watchedGames }), headers: { 'Content-Type': 'application/json' } })
-  }
-
   const { intervalSeconds, setIntervalSeconds, countdown } = useAutoRefresh(onRefresh, isRefreshing, prefs.refreshIntervalSeconds)
 
-  // Saved to the server too, the same way the filter/pins/sunk/watchedGames
+  // Saved to the server too, the same way the filter/pins/sunk
   // are above — otherwise it only ever lives in the hook's local state and
   // resets to Off on the next load.
   const setRefreshInterval = (refreshIntervalSeconds: number) => {
@@ -219,8 +219,6 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
       onTogglePin: togglePin,
       sunk: (prefs.sunk ?? []).includes(g.id),
       onToggleSink: toggleSink,
-      watched: (prefs.watchedGames ?? []).includes(g.id),
-      onToggleWatch: toggleWatch,
       onOpen: () => openGame(g.id),
       opponentSlowDays,
       deadlineSoonHours,
@@ -231,6 +229,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
       now,
       opened: isOpened(g),
       showProgress: prefs.showProgress ?? true,
+      maxMoveCountToday,
     }
   }
 
@@ -251,6 +250,12 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
       <span className="hidden sm:inline">
         {games.length}{' '}active &nbsp;·&nbsp;
         <span className="text-[#5e6ad2] font-medium">{myTurnCount}{' '}your turn</span>
+        {totalMoveCountToday > 0 && (
+          <>
+            {' '}&nbsp;·&nbsp;
+            <span className="text-orange-600 font-medium">🔥 {totalMoveCountToday}{' '}today</span>
+          </>
+        )}
       </span>
       <button
         onClick={onRefresh}
@@ -292,7 +297,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
             reachable without scrolling back up is the point of making it
             sticky at all.
 
-            z-30, not z-10: GameCard's own buttons (pin/sink/watch/note/...)
+            z-30, not z-10: GameCard's own buttons (pin/sink/note/...)
             are `relative z-10` to clear CoverLink *within their own card*,
             but the card itself has no z-index of its own, so those z-10
             buttons don't get a separate stacking context — they tie this

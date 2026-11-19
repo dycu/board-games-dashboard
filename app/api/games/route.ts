@@ -47,9 +47,9 @@ export async function GET(request?: Request) {
   const prefs = await getPrefs()
   const disabled = prefs.disabledPlatforms ?? []
   const connectors = makeConnectors(prefs)
-  // ?platforms=a,b — the watch cron pings this every ~15min just to check a
-  // few specific games, so it scopes the fetch to only their platforms
-  // instead of paying for every connector on every ping
+  // ?platforms=a,b — the dashboard's own return-refresh (app/page.tsx,
+  // after coming back from a game you just played) scopes the fetch to
+  // just that platform, instead of paying for every connector on every ping
   const only = request ? new URL(request.url).searchParams.get('platforms')?.split(',') : null
 
   const entries = (Object.entries(connectors) as [Platform, () => Promise<any>][])

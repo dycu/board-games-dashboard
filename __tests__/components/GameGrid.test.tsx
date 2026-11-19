@@ -181,33 +181,6 @@ describe('GameGrid sink toggle', () => {
   })
 })
 
-describe('GameGrid watch toggle', () => {
-  it('adds the game to prefs.watchedGames and saves it when the watch icon is clicked', async () => {
-    const onPrefsChange = jest.fn()
-    const data: GamesApiResponse = { games: [makeGame('bga', '1')], errors: [], fetchedAt: new Date().toISOString() }
-    render(<GameGrid {...defaultGridProps} onPrefsChange={onPrefsChange} data={data} />)
-
-    await userEvent.click(screen.getByRole('button', { name: /watch game/i }))
-
-    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ watchedGames: ['bga:1'] }))
-    expect(global.fetch).toHaveBeenCalledWith('/api/prefs', expect.objectContaining({
-      method: 'POST',
-      body: JSON.stringify({ watchedGames: ['bga:1'] }),
-    }))
-  })
-
-  it('removes the game from prefs.watchedGames when already watched', async () => {
-    const onPrefsChange = jest.fn()
-    const prefs: UserPrefs = { ...DEFAULT_PREFS, watchedGames: ['bga:1'] }
-    const data: GamesApiResponse = { games: [makeGame('bga', '1')], errors: [], fetchedAt: new Date().toISOString() }
-    render(<GameGrid {...defaultGridProps} prefs={prefs} onPrefsChange={onPrefsChange} data={data} />)
-
-    await userEvent.click(screen.getByRole('button', { name: /stop watching/i }))
-
-    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ watchedGames: [] }))
-  })
-})
-
 describe('GameGrid departed games banner', () => {
   it('opens a departed BGA game in the same tab to trigger desktop mode', () => {
     const data: GamesApiResponse = { games: [], errors: [], fetchedAt: new Date().toISOString() }

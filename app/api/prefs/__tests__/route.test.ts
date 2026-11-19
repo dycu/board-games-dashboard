@@ -19,7 +19,6 @@ const defaultPrefs = {
   disabledPlatforms: [],
   opponentSlowDays: 5,
   deadlineSoonHours: 24,
-  watchedGames: [],
 }
 
 describe('GET /api/prefs', () => {
@@ -53,7 +52,6 @@ describe('POST /api/prefs', () => {
       disabledPlatforms: [],
       opponentSlowDays: 5,
       deadlineSoonHours: 24,
-      watchedGames: [],
     }
     mockSavePrefs.mockResolvedValue(undefined)
     mockGetPrefs.mockResolvedValue(updatedPrefs)
