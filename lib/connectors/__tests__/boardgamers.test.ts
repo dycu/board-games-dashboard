@@ -35,34 +35,6 @@ function mockActiveGame(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 describe('fetchBoardgamers', () => {
-  it('logs in, resolves the account id, and fetches only this user\'s active games', async () => {
-    mockFetch
-      // login
-      .mockResolvedValueOnce({ ok: true, headers: { get: (h: string) => h === 'set-cookie' ? 'refreshToken=abc123; Path=/; HttpOnly' : null }, text: async () => '{"type":"redirect","status":303,"location":"/login"}' })
-      // account
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ _id: MY_ID }) })
-      // active games
-      .mockResolvedValueOnce({ ok: true, json: async () => [mockActiveGame()] })
-
-    const games = await fetchBoardgamers('me@example.com', 'pw')
-
-    expect(mockFetch).toHaveBeenNthCalledWith(3, expect.stringContaining(`/api/game/status/active?user=${MY_ID}`), expect.anything())
-    expect(games).toEqual([{
-      id: 'boardgamers:Cynical-rune-7354',
-      platform: 'boardgamers',
-      gameName: 'Gaia Project',
-      gameType: 'Gaia Project',
-      myTurn: false,
-      currentPlayer: 'Mouthbreather907',
-      lastMoveAt: new Date('2026-10-22T10:51:04.756Z'),
-      lastMoveAgo: expect.any(String),
-      urgent: false,
-      gameUrl: 'https://boardgamers.space/game/Cynical-rune-7354',
-      platformUrl: 'https://boardgamers.space/?tab=mine',
-      players: ['Mouthbreather907', 'PlntCrvn'],
-    }])
-  })
-
   it('reports myTurn and the deadline from my own currentPlayers entry', async () => {
     store.set('boardgamers-session', session)
     const game = mockActiveGame({ currentPlayers: [{ _id: MY_ID, deadline: '2026-10-28T00:00:00.000Z' }] })

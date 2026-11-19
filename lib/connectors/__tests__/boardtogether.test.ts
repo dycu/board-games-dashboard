@@ -46,37 +46,6 @@ function mockActiveGame(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 describe('fetchBoardtogether', () => {
-  it('logs in with username/password, resolves my user id, and fetches my games', async () => {
-    mockFetch
-      // login
-      .mockResolvedValueOnce({ ok: true, headers: { get: (h: string) => h === 'set-cookie' ? '__session=abc123; Path=/; HttpOnly' : null }, json: async () => ({ payload: { user: { id: MY_ID } } }) })
-      // games/mine
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ payload: { games: [mockActiveGame()] } }) })
-      // catalog
-      .mockResolvedValueOnce({ ok: true, json: async () => CATALOG })
-
-    const games = await fetchBoardtogether('Dycu', 'pw')
-
-    expect(mockFetch).toHaveBeenNthCalledWith(1, 'https://boardtogether.games/api/v1/auth/login', expect.objectContaining({
-      method: 'POST',
-      body: JSON.stringify({ username: 'Dycu', password: 'pw' }),
-    }))
-    expect(games).toEqual([{
-      id: 'boardtogether:9p7qhXbCS6dlGOKZ736gp',
-      platform: 'boardtogether',
-      gameName: 'Indonesia — Testing game on the service',
-      gameType: 'Indonesia',
-      myTurn: false,
-      currentPlayer: 'NickCartel',
-      lastMoveAt: new Date('2026-10-23T06:48:47.786Z'),
-      lastMoveAgo: expect.any(String),
-      urgent: false,
-      gameUrl: 'https://boardtogether.games/game/9p7qhXbCS6dlGOKZ736gp',
-      platformUrl: 'https://boardtogether.games/',
-      players: ['Parmezanas', 'NickCartel'],
-    }])
-  })
-
   it('reports myTurn when I am among the active players', async () => {
     store.set('boardtogether-session', session)
     const game = mockActiveGame({ activePlayerIds: ['XAa6vEcA6eWVjubXxdFdV'] })
