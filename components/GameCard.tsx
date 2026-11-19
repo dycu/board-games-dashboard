@@ -1,14 +1,13 @@
 'use client'
 import { useState } from 'react'
-import Link from 'next/link'
 import { Game, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BacklogList, SHORT_LIST_LABELS } from '@/lib/backlog/list'
-import { playerHref } from '@/lib/opponents/stats'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { formatTimeRemaining } from '@/lib/connectors/utils'
 import { deadlineSoon } from '@/lib/sort-filter'
 import { useNoteConfirmedOpen } from '@/hooks/useNoteConfirmedOpen'
 import HistoryLink from './HistoryLink'
+import PlayerHoverCard from './PlayerHoverCard'
 import ProgressBar from './ProgressBar'
 import ReadNotePopup from './ReadNotePopup'
 
@@ -103,63 +102,22 @@ export function Badge({ game, small }: { game: Game; small?: boolean }) {
   )
 }
 
-// A tiny circular avatar before a player's name, when one is available
-// (BGA only so far). Hides itself on load failure rather than showing a
-// broken-image icon — avatar codes don't always resolve to a real picture.
-function Avatar({ url }: { url?: string }) {
-  const [broken, setBroken] = useState(false)
-  if (!url || broken) return null
-  return (
-    // eslint-disable-next-line @next/next/no-img-element -- external BGA CDN, not configured for next/image
-    <img
-      src={url}
-      alt=""
-      width={14}
-      height={14}
-      onError={() => setBroken(true)}
-      className="inline-block w-3.5 h-3.5 rounded-full object-cover align-text-bottom mr-1"
-    />
-  )
-}
-
-// A single opponent's name, linking to their Players page entry — relative
-// z-10 to clear CoverLink underneath, same as every other clickable thing
-// on the card. `highlighted` picks this one out of a list — the specific
-// player a waiting game is actually blocked on.
-function PlayerLink({ platform, name, avatarUrl, highlighted }: { platform: Game['platform']; name: string; avatarUrl?: string; highlighted?: boolean }) {
-  return (
-    <Link href={playerHref(platform, name)} className={`relative z-10 hover:text-[var(--accent)] hover:underline ${highlighted ? 'font-semibold text-[var(--text-primary)]' : ''}`}>
-      <Avatar url={avatarUrl} />
-      {name}
-    </Link>
-  )
-}
-
-// A comma-joined list of PlayerLinks — "with {players}" used to be plain
-// text; same look, each name clickable now. `highlight` (the resolved
-// currentPlayer, if any) picks one name out to bold — used by GameRow's
-// "waiting for" line so it shows the whole table, not just whoever's turn
-// it is. No extra wait-time note here: the row already shows lastMoveAgo.
+// A comma-joined list of player names, each hoverable/tappable (see
+// PlayerHoverCard) and clickable through to their Players page entry.
+// `highlight` (the resolved currentPlayer, if any) picks one name out to
+// bold — used by GameRow's "waiting for" line so it shows the whole
+// table, not just whoever's turn it is.
 function PlayerNames({ platform, names, avatars, highlight }: {
   platform: Game['platform']; names: string[]; avatars?: Record<string, string>; highlight?: string
 }) {
   return (
     <>
-      {names.map((name, i) => {
-        const isHighlighted = highlight !== undefined && name === highlight
-        // When there's a highlight at all (GameRow's "waiting for", with
-        // everyone at the table listed), only that one name gets an
-        // avatar — one small image reads as "this is who's up"; one per
-        // name in an already-tight row just reads as clutter. The "with
-        // {players}" line (no highlight concept) is unaffected.
-        const showAvatar = highlight === undefined || isHighlighted
-        return (
-          <span key={name}>
-            {i > 0 && ', '}
-            <PlayerLink platform={platform} name={name} avatarUrl={showAvatar ? avatars?.[name] : undefined} highlighted={isHighlighted} />
-          </span>
-        )
-      })}
+      {names.map((name, i) => (
+        <span key={name}>
+          {i > 0 && ', '}
+          <PlayerHoverCard platform={platform} name={name} avatarUrl={avatars?.[name]} highlighted={highlight !== undefined && name === highlight} />
+        </span>
+      ))}
     </>
   )
 }

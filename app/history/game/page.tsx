@@ -8,13 +8,12 @@ import { readCache } from '@/hooks/useGamesData'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useNotes } from '@/hooks/useNotes'
 import { gameStats, gamesOf } from '@/lib/gameStats'
-import { playerHref } from '@/lib/opponents/stats'
 import { placeLabel, withEloDeltas } from '@/lib/results'
 import { formatTimeAgo } from '@/lib/connectors/utils'
-import Link from 'next/link'
 import TopNav from '@/components/TopNav'
 import GameLink, { playedGameUrl } from '@/components/GameLink'
 import BacklogListChips from '@/components/BacklogListChips'
+import PlayerHoverCard from '@/components/PlayerHoverCard'
 
 const RESULT_STYLE = {
   won: 'bg-green-50 text-green-700',
@@ -175,7 +174,7 @@ function GameHistory() {
                   <ul className="text-sm">
                     {stats.opponents.slice(0, 8).map(o => (
                       <li key={o.name} className="flex justify-between gap-2 py-0.5">
-                        <Link href={playerHref(platform, o.name)} className="truncate text-[var(--text-primary)] hover:text-[var(--accent)] hover:underline">{o.name}</Link>
+                        <PlayerHoverCard platform={platform} name={o.name} className="truncate text-[var(--text-primary)]" />
                         <span className="shrink-0 tabular-nums text-[var(--text-secondary)]">{o.games}× · {o.iWon}–{o.theyWon}</span>
                       </li>
                     ))}
@@ -237,7 +236,7 @@ function GameHistory() {
                             ? g.opponents.map((o, i) => (
                               <span key={o.name}>
                                 {i > 0 && ', '}
-                                <Link href={playerHref(platform, o.name)} className="hover:text-[var(--accent)] hover:underline">{o.name}</Link>
+                                <PlayerHoverCard platform={platform} name={o.name} />
                               </span>
                             ))
                             : '—'}

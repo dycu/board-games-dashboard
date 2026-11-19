@@ -179,12 +179,11 @@ describe('GameRow', () => {
     expect(screen.getByRole('link', { name: 'bob' })).toBeInTheDocument()
   })
 
-  it('shows an avatar only for the player currently up, not for everyone at the table', () => {
+  it('shows an avatar for every player at the table, not just the one currently up', () => {
     const withAvatars = { ...waiting, playerAvatars: { alice: 'https://example.com/alice.jpg', bob: 'https://example.com/bob.jpg' } }
     const { container } = render(<GameRow {...props({ game: withAvatars })} />)
     const images = container.querySelectorAll('img')
-    expect(images).toHaveLength(1)
-    expect(images[0]).toHaveAttribute('src', 'https://example.com/alice.jpg')
+    expect(images).toHaveLength(2)
   })
 
   it('still lists every player when no one is resolved as currently up, with none highlighted', () => {

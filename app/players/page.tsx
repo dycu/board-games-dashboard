@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
-import { useOpponents } from '@/hooks/useOpponents'
+import { useOpponentsContext } from '@/components/OpponentsProvider'
 import { globalOpponents, gamesWith, playerHref, GlobalOpponent } from '@/lib/opponents/stats'
 import { formatDuration } from '@/lib/connectors/utils'
 import TopNav from '@/components/TopNav'
@@ -150,7 +150,7 @@ function PlayersPageInner() {
   const name = params.get('name')
 
   const finished = useFinishedGamesData()
-  const opponents = useOpponents()
+  const opponents = useOpponentsContext()
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('games')
   const [platformFilter, setPlatformFilter] = useState<Platform[] | null>(null) // null = every platform present

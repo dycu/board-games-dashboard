@@ -22,7 +22,13 @@ export interface GlobalOpponent {
   profileUrl?: string
 }
 
-function median(sorted: number[]): number {
+// Exported for the lightweight player hover-card (components/PlayerHoverCard),
+// which only has the raw samples (from useOpponents/OpponentEntry, cheap and
+// loaded everywhere) and not a whole GlobalOpponent — same computation
+// globalOpponents does below, just usable without the finished-games list.
+export function medianResponseSeconds(samples: number[]): number | null {
+  if (samples.length === 0) return null
+  const sorted = [...samples].sort((a, b) => a - b)
   const n = sorted.length
   const mid = Math.floor(n / 2)
   return n % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
@@ -91,7 +97,7 @@ export function globalOpponents(games: FinishedGame[], entriesByPlatform: Partia
   }
 
   for (const r of byKey.values()) {
-    if (r.responseSamples.length > 0) r.medianResponseSeconds = median([...r.responseSamples].sort((a, b) => a - b))
+    r.medianResponseSeconds = medianResponseSeconds(r.responseSamples)
   }
 
   return [...byKey.values()].sort((a, b) => b.games - a.games || a.name.localeCompare(b.name))
