@@ -1,5 +1,5 @@
 import { Game, Platform } from '../types'
-import { getOpponents, addResponseSample, getGameWatch, putGameWatch, deleteGameWatch, GameWatchEntry } from './store'
+import { addResponseSample, getGameWatch, putGameWatch, deleteGameWatch, GameWatchEntry } from './store'
 import { addMySample } from '../responseTime/store'
 
 // The one opponent a waiting game is on, when it can be told apart from a
@@ -12,18 +12,20 @@ function resolveOpponent(game: Pick<Game, 'currentPlayer' | 'players'>): string 
   return game.currentPlayer ?? (game.players.length === 1 ? game.players[0] : undefined)
 }
 
-function median(sorted: number[]): number {
-  const n = sorted.length
-  const mid = Math.floor(n / 2)
-  return n % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
-}
-
 // Compares this fetch's myTurn against what was last observed, the same
 // true/false-flip detection as lib/moveCounts/track.ts, but timing both
 // directions instead of just counting one: myTurn true -> false means I
 // just moved (a sample of *my* response time), false -> true means the
-// resolved opponent just moved (a sample of *theirs*). Only entries that
-// actually changed need writing back — see `changed`.
+// resolved opponent just moved (a sample of *theirs*). The same applies
+// mid-wait, in a 3+ player game, when the resolved opponent changes without
+// myTurn flipping (the currentPlayer moved on to someone else without it
+// coming back to me yet) — that's still a completed response from the
+// *previous* opponent, so it's sampled and the clock restarts for the new
+// one. Without that, a multi-player game's elapsed-since-my-move time would
+// all land on whoever happened to be currentPlayer right before it became
+// my turn again, hugely overstating their response time and ignoring
+// everyone else's. Only entries that actually changed need writing back —
+// see `changed`.
 function reconcile(prevWatch: Record<string, GameWatchEntry>, games: Game[], now: number) {
   const all: Record<string, GameWatchEntry> = {}
   const changed: Record<string, GameWatchEntry> = {}
@@ -43,7 +45,8 @@ function reconcile(prevWatch: Record<string, GameWatchEntry>, games: Game[], now
 
     if (prev.myTurn === g.myTurn) {
       if (opponentName !== undefined && opponentName !== prev.opponentName) {
-        const next = { ...prev, opponentName }
+        if (!prev.myTurn && prev.opponentName) oppSamples.push({ name: prev.opponentName, seconds: now - prev.since })
+        const next: GameWatchEntry = { myTurn: prev.myTurn, since: now, opponentName }
         all[g.id] = next
         changed[g.id] = next
       } else {
@@ -64,13 +67,10 @@ function reconcile(prevWatch: Record<string, GameWatchEntry>, games: Game[], now
   return { all, changed, oppSamples, mySamples }
 }
 
-// Side effect: records response-time samples (mine and the resolved
+// Side effect only: records response-time samples (mine and each resolved
 // opponent's) by comparing this fetch's myTurn to the last one seen for
-// each game. Return value: attaches `predictedReturnAt` to a waiting game
-// whose opponent has enough history to estimate from — lastMoveAt plus
-// the median of their past response times — for the "likely to reply
-// soonest" sort (lib/sort-filter.ts). Must run on every fetch, same
-// contract as attachMoveCounts/attachFirstSeenProgress.
+// each game — feeds the Players page's "typical reply time" stat. Must run
+// on every fetch, same contract as attachMoveCounts/attachFirstSeenProgress.
 export async function attachOpponentTracking(platform: Platform, games: Game[]): Promise<Game[]> {
   const relevant = games.filter(g => g.platform === platform)
   try {
@@ -85,19 +85,9 @@ export async function attachOpponentTracking(platform: Platform, games: Game[]):
       ...oppSamples.map(s => addResponseSample(platform, s.name, s.seconds)),
       ...mySamples.map(s => addMySample(platform, s)),
     ])
-
-    const opponents = await getOpponents(platform)
-    return games.map(g => {
-      if (g.platform !== platform || g.myTurn) return g
-      const name = resolveOpponent(g)
-      const samples = name ? opponents[name]?.responseSamples : undefined
-      if (!samples || samples.length === 0) return g
-      const etaSeconds = median([...samples].sort((a, b) => a - b))
-      return { ...g, predictedReturnAt: new Date(g.lastMoveAt.getTime() + etaSeconds * 1000).toISOString() }
-    })
   } catch {
-    // A KV hiccup should just mean no prediction shown this refresh, not
+    // A KV hiccup should just mean no samples recorded this refresh, not
     // that the games themselves fail to show
-    return games
   }
+  return games
 }

@@ -45,8 +45,7 @@ afterEach(() => jest.restoreAllMocks())
 
 describe('attachOpponentTracking', () => {
   it('starts tracking a game the first time it is seen, recording no sample', async () => {
-    const result = await attachOpponentTracking('obg', [game('obg:1', false)])
-    expect(result[0].predictedReturnAt).toBeUndefined()
+    await attachOpponentTracking('obg', [game('obg:1', false)])
     expect(watchStore.get('responsetimewatch:v1:obg')).toEqual({
       'obg:1': { myTurn: false, since: 1795089600, opponentName: 'Alice' },
     })
@@ -81,12 +80,18 @@ describe('attachOpponentTracking', () => {
     expect(opponentStore.size).toBe(0)
   })
 
-  it("attaches predictedReturnAt to a waiting game once its opponent has response history", async () => {
-    opponentStore.set('opponents:v1:obg', { Alice: { tags: [], responseSamples: [3600, 7200, 10800] } })
-    watchStore.set('responsetimewatch:v1:obg', { 'obg:1': { myTurn: false, since: 1795089600, opponentName: 'Alice' } })
-    const result = await attachOpponentTracking('obg', [game('obg:1', false)])
-    // median of [3600, 7200, 10800] is 7200s, added to lastMoveAt (noon)
-    expect(result[0].predictedReturnAt).toBe(new Date('2026-11-19T14:00:00.000Z').toISOString())
+  it('samples the previous opponent and restarts the clock when currentPlayer changes mid-wait', async () => {
+    // Still waiting (myTurn stays false) but the resolved opponent moved on
+    // from Alice to Bob without it coming back to me — Alice's segment is
+    // sampled on its own, not folded into whatever Bob takes afterward.
+    watchStore.set('responsetimewatch:v1:obg', { 'obg:1': { myTurn: false, since: 1795089600 - 1800, opponentName: 'Alice' } })
+    await attachOpponentTracking('obg', [game('obg:1', false, { players: ['Alice', 'Bob'], currentPlayer: 'Bob' })])
+    expect(opponentStore.get('opponents:v1:obg')).toEqual({
+      Alice: { tags: [], responseSamples: [1800] },
+    })
+    expect(watchStore.get('responsetimewatch:v1:obg')).toEqual({
+      'obg:1': { myTurn: false, since: 1795089600, opponentName: 'Bob' },
+    })
   })
 
   it('leaves other platforms\' games untouched', async () => {

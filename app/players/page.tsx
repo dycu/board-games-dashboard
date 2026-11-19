@@ -9,6 +9,7 @@ import { globalOpponents, gamesWith, playerHref, GlobalOpponent } from '@/lib/op
 import { formatDuration } from '@/lib/connectors/utils'
 import TopNav from '@/components/TopNav'
 import GameLink, { playedGameUrl } from '@/components/GameLink'
+import PlatformFilterChips from '@/components/PlatformFilterChips'
 
 const BADGE_FALLBACK = 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'
 
@@ -139,6 +140,9 @@ function PlayersPageInner() {
   const opponents = useOpponents()
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('games')
+  const [platformFilter, setPlatformFilter] = useState<Platform[] | null>(null) // null = every platform present
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
+  const [onlyPlayed, setOnlyPlayed] = useState(false)
 
   const all = useMemo(
     () => finished.data && opponents.byPlatform ? globalOpponents(finished.data.games, opponents.byPlatform) : [],
@@ -151,11 +155,18 @@ function PlayersPageInner() {
   const person = showDetail ? all.find(o => o.platform === platform && o.name.toLowerCase() === name!.toLowerCase()) : undefined
   const detailGames = showDetail && finished.data ? gamesWith(finished.data.games, platform!, name!) : []
 
+  const platformsPresent = useMemo(() => [...new Set(all.map(o => o.platform))], [all])
+  const allTags = useMemo(() => [...new Set(all.flatMap(o => o.tags))].sort(), [all])
+  const selectedPlatforms = platformFilter ?? platformsPresent
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase()
-    const rows = q ? all.filter(o => o.name.toLowerCase().includes(q)) : all
+    let rows = all.filter(o => selectedPlatforms.includes(o.platform))
+    if (tagFilter) rows = rows.filter(o => o.tags.includes(tagFilter))
+    if (onlyPlayed) rows = rows.filter(o => o.games > 0)
+    if (q) rows = rows.filter(o => o.name.toLowerCase().includes(q))
     return [...rows].sort(SORTERS[sortKey])
-  }, [all, search, sortKey])
+  }, [all, search, sortKey, selectedPlatforms, tagFilter, onlyPlayed])
 
   if (showDetail) {
     return (
@@ -202,9 +213,38 @@ function PlayersPageInner() {
           </select>
         </div>
 
+        <PlatformFilterChips
+          platforms={platformsPresent}
+          selected={selectedPlatforms}
+          onChange={next => setPlatformFilter(next)}
+          className="mb-2"
+        />
+
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1">
+              {allTags.map(t => (
+                <button
+                  key={t}
+                  onClick={() => setTagFilter(tagFilter === t ? null : t)}
+                  aria-pressed={tagFilter === t}
+                  className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full transition-colors
+                    ${tagFilter === t ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-muted)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted-hover)]'}`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
+          <label className="flex items-center gap-1 text-xs text-[var(--text-secondary)] ml-auto">
+            <input type="checkbox" checked={onlyPlayed} onChange={e => setOnlyPlayed(e.target.checked)} />
+            Only played together
+          </label>
+        </div>
+
         {visible.length === 0 && !loading && (
           <p className="text-sm text-[var(--text-tertiary)] py-8 text-center">
-            {all.length === 0 ? 'No opponents found yet — play some finished games to see them here.' : `No opponents match "${search}"`}
+            {all.length === 0 ? 'No opponents found yet — play some finished games to see them here.' : 'No opponents match these filters'}
           </p>
         )}
 
