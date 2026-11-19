@@ -67,6 +67,15 @@ describe('fetchRally', () => {
     expect(g2.gameName).toBe('Julius Caesar')
   })
 
+  it('reports currentPlayer from the is_active marker on the Players: line, omitted when it names me', async () => {
+    setupHappyPath()
+    const games = await fetchRally('testuser', 'pass')
+    // My turn (101): is_active marks me — not reported as someone else's turn
+    expect(games.find(g => g.id === 'rally:101')!.currentPlayer).toBeUndefined()
+    // Waiting (202): is_active marks the opponent actually holding things up
+    expect(games.find(g => g.id === 'rally:202')!.currentPlayer).toBe('bob')
+  })
+
   it('includes a solo game (its own "Solo" section) and still reports its turn correctly', async () => {
     setupHappyPath()
     const games = await fetchRally('testuser', 'pass')

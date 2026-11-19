@@ -114,7 +114,7 @@ function assertStillLoggedIn(res: Response, context: string) {
   if (res.url?.includes('/login')) throw new Error(`Rally the Troops session expired (${context})`)
 }
 
-export async function fetchActiveGamesHtml(cookie: string): Promise<string> {
+async function fetchActiveGamesHtml(cookie: string): Promise<string> {
   const gamesRes = await fetch(`${BASE}/games/active`, { headers: { ...HEADERS, Cookie: cookie } })
   if (!gamesRes.ok) throw new Error(`Rally the Troops games fetch failed (HTTP ${gamesRes.status})`)
   assertStillLoggedIn(gamesRes, 'games/active')
@@ -177,6 +177,14 @@ function parseSection(section: string, username: string): Game[] {
       .map(m => m[1])
       .filter(n => n !== username)
 
+    // Whoever's turn it is gets an is_active class on their own <a> in the
+    // same Players: line — on a game that's myTurn, that's always me, so
+    // currentPlayer only takes it when it names someone else (same
+    // "whose turn when myTurn is false" convention every other connector
+    // follows).
+    const activePlayerMatch = playersSection.match(/<a class="is_active"[^>]*>([^<]+)<\/a>/)
+    const currentPlayer = activePlayerMatch && activePlayerMatch[1] !== username ? activePlayerMatch[1] : undefined
+
     const lastMoveMatch = chunk.match(/Last move:\s*([^<]+)</)
     const lastMoveAt = lastMoveMatch ? parseHumanDate(lastMoveMatch[1].trim()) : new Date()
 
@@ -185,7 +193,7 @@ function parseSection(section: string, username: string): Game[] {
       platform: 'rally',
       gameName,
       myTurn,
-      currentPlayer: undefined,
+      currentPlayer,
       lastMoveAt,
       lastMoveAgo: formatTimeAgo(lastMoveAt),
       urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
