@@ -6,6 +6,7 @@ const TABS = [
   { href: '/', label: 'Active', shortLabel: 'Active' },
   { href: '/overview', label: 'History', shortLabel: 'History' },
   { href: '/players', label: 'Players', shortLabel: 'Players' },
+  { href: '/achievements', label: 'Achievements', shortLabel: 'Goals' },
   { href: '/backlog', label: 'Backlog', shortLabel: 'Backlog' },
   { href: '/pace', label: 'Pace', shortLabel: 'Pace' },
   { href: '/search', label: 'Find a Game', shortLabel: 'Find' },

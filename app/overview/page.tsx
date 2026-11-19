@@ -14,6 +14,9 @@ import { aggregatePlayed, playedKey, playedNote } from '@/lib/backlog/played'
 import { readCache } from '@/hooks/useGamesData'
 import GameLink, { playedGameUrl } from '@/components/GameLink'
 import PeriodSummary from '@/components/PeriodSummary'
+import { useAchievements } from '@/hooks/useAchievements'
+import { useAchievementUnlocks } from '@/hooks/useAchievementUnlocks'
+import AchievementUnlockedBanner from '@/components/AchievementUnlockedBanner'
 
 const PAGE_SIZE = 20
 
@@ -23,6 +26,10 @@ export default function OverviewPage() {
   const backlog = useBacklog()
   const bgaTotals = useBgaPlayTotals()
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  // Catches a goal crossed between visits here and the Achievements page —
+  // whichever one you happen to open first sees it.
+  const { achievements, markAchieved } = useAchievements()
+  const { celebrating, dismiss } = useAchievementUnlocks(achievements, data?.games, markAchieved)
 
   // Same fixed order as the Active tab's chips
   const availablePlatforms = data
@@ -111,6 +118,8 @@ export default function OverviewPage() {
       <TopNav right={navRight} />
       {isLoading && <FetchProgress platformStatuses={platformStatuses} compact />}
       <div className="flex-1 overflow-y-auto p-5 max-w-7xl mx-auto w-full">
+
+        <AchievementUnlockedBanner achievements={celebrating} onDismiss={dismiss} />
 
         {data.errors.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-2">
