@@ -1,4 +1,5 @@
-import { mergePlatformRefresh, departureCheckErrors } from '../useGamesData'
+import { renderHook, act, waitFor } from '@testing-library/react'
+import { mergePlatformRefresh, departureCheckErrors, useGamesData } from '../useGamesData'
 import { Game } from '@/lib/types'
 
 function makeGame(platform: Game['platform'], id: string): Game {
@@ -71,5 +72,79 @@ describe('departureCheckErrors', () => {
 
   it('adds nothing extra when every known platform was part of this refresh', () => {
     expect(departureCheckErrors([], ['bga'], ['bga'])).toEqual([])
+  })
+})
+
+// A controllable fake SSE stream: the test pushes/ends events on its own
+// schedule instead of a real fetch resolving them, so two concurrent
+// requests' relative timing can be driven deterministically.
+function makeChannel() {
+  const pending: (() => { done: boolean; value?: Uint8Array })[] = []
+  let waiting: (() => void) | null = null
+  const push = (next: () => { done: boolean; value?: Uint8Array }) => {
+    pending.push(next)
+    waiting?.()
+  }
+  return {
+    send: (obj: object) => push(() => ({ done: false, value: new TextEncoder().encode(`data: ${JSON.stringify(obj)}\n\n`) })),
+    end: () => push(() => ({ done: true, value: undefined })),
+    reader: {
+      read: () => new Promise<{ done: boolean; value?: Uint8Array }>(resolve => {
+        const tryNext = () => {
+          if (pending.length > 0) resolve(pending.shift()!())
+          else waiting = () => { waiting = null; tryNext() }
+        }
+        tryNext()
+      }),
+    },
+  }
+}
+
+describe('useGamesData concurrency', () => {
+  let channels: ReturnType<typeof makeChannel>[]
+  let signals: AbortSignal[]
+
+  beforeEach(() => {
+    localStorage.clear()
+    channels = []
+    signals = []
+    global.fetch = jest.fn((_url: string, init?: RequestInit) => {
+      const ch = makeChannel()
+      channels.push(ch)
+      signals.push(init!.signal!)
+      return Promise.resolve({ ok: true, body: { getReader: () => ch.reader } } as unknown as Response)
+    }) as unknown as typeof fetch
+  })
+
+  it('lets two disjoint platform-scoped refreshes run to completion without aborting each other', async () => {
+    const { result } = renderHook(() => useGamesData())
+    await waitFor(() => expect(channels.length).toBe(1)) // the initial full fetch on mount
+
+    act(() => { result.current.triggerRefresh(true, ['bga']) })
+    await waitFor(() => expect(channels.length).toBe(2))
+    act(() => { result.current.triggerRefresh(true, ['boardtogether']) })
+    await waitFor(() => expect(channels.length).toBe(3))
+
+    expect(signals[1].aborted).toBe(false) // bga's own fetch
+    expect(signals[2].aborted).toBe(false) // boardtogether's own fetch, not aborting bga's
+
+    expect(result.current.isRefreshing).toBe(true)
+    act(() => { channels[1].send({ type: 'start', platforms: ['bga'] }); channels[1].send({ type: 'done', fetchedAt: 'a' }); channels[1].end() })
+    await waitFor(() => expect(result.current.isRefreshing).toBe(true)) // boardtogether's own fetch still open
+    act(() => { channels[2].send({ type: 'start', platforms: ['boardtogether'] }); channels[2].send({ type: 'done', fetchedAt: 'b' }); channels[2].end() })
+    await waitFor(() => expect(result.current.isRefreshing).toBe(false))
+  })
+
+  it('aborts an earlier refresh only when a new one targets an overlapping platform', async () => {
+    const { result } = renderHook(() => useGamesData())
+    await waitFor(() => expect(channels.length).toBe(1))
+
+    act(() => { result.current.triggerRefresh(true, ['bga']) })
+    await waitFor(() => expect(channels.length).toBe(2))
+    act(() => { result.current.triggerRefresh(true, ['bga']) }) // same platform again
+    await waitFor(() => expect(channels.length).toBe(3))
+
+    expect(signals[1].aborted).toBe(true) // the first bga fetch was superseded
+    expect(signals[2].aborted).toBe(false)
   })
 })

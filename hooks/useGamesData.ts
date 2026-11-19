@@ -219,16 +219,34 @@ export function useGamesData(): UseGamesDataResult {
   const [freshDataStartedAt, setFreshDataStartedAt] = useState(0)
   const [departedGames, setDepartedGames] = useState<DepartedGame[]>([])
 
-  const fetchingRef = useRef(false)
-  const abortRef = useRef<AbortController | null>(null)
+  // Platform-scoped refreshes (the return-from-game "just this platform"
+  // check, and its settle-delay retries for OBG/BoardTogether) can now be
+  // legitimately in flight at the same time as an unrelated one — e.g.
+  // returning with both a BGA and a BoardTogether game open fires an
+  // immediate BGA-scoped fetch AND, a few seconds later, a delayed
+  // BoardTogether-scoped retry. A single shared AbortController used to
+  // treat these as one fetch slot, so the later one silently aborted the
+  // earlier one's in-flight request — and if that abort didn't reliably
+  // reject the earlier fetch's own reader.read() (browser/stream-timing
+  // dependent), its "turn isRefreshing back off" cleanup never ran, leaving
+  // the refresh indicator (and anything gated on a fetch actually
+  // finishing, like the note-prompt popup) stuck until a manual reload
+  // reset all of this in-memory state. Tracking each in-flight fetch
+  // separately, and only aborting ones that target an overlapping platform
+  // set, lets disjoint scoped refreshes run to completion independently.
+  const inFlightRef = useRef<{ controller: AbortController; platforms?: Platform[] }[]>([])
+
+  const overlaps = (a?: Platform[], b?: Platform[]) =>
+    !a || !b || a.some(p => b.includes(p)) // undefined (a full refresh) touches everything
 
   const runFetch = useCallback(async (force = false, platforms?: Platform[]) => {
-    if (fetchingRef.current && !force) return
-    fetchingRef.current = true
+    const conflicting = inFlightRef.current.filter(f => overlaps(f.platforms, platforms))
+    if (conflicting.length > 0 && !force) return
+    conflicting.forEach(f => f.controller.abort())
 
-    abortRef.current?.abort()
     const controller = new AbortController()
-    abortRef.current = controller
+    const entry = { controller, platforms }
+    inFlightRef.current = [...inFlightRef.current.filter(f => !conflicting.includes(f)), entry]
     const startedAt = Date.now()
 
     setIsRefreshing(true)
@@ -266,9 +284,13 @@ export function useGamesData(): UseGamesDataResult {
               return
             }
             allPlatforms = event.platforms
-            setPlatformStatuses(
-              Object.fromEntries(event.platforms.map((p: Platform) => [p, { state: 'loading' }]))
-            )
+            // Merged, not replaced — a concurrent, disjoint scoped fetch's
+            // own statuses (e.g. BoardTogether's) must survive this fetch's
+            // (e.g. BGA's) own 'start' event landing at the same time.
+            setPlatformStatuses(prev => ({
+              ...prev,
+              ...Object.fromEntries(event.platforms.map((p: Platform) => [p, { state: 'loading' }])),
+            }))
           } else if (event.type === 'platform') {
             if (event.error) {
               allErrors.push({ platform: event.platform, error: event.error })
@@ -319,11 +341,8 @@ export function useGamesData(): UseGamesDataResult {
       if (e instanceof Error && e.name === 'AbortError') return
       setLastError(e instanceof Error ? e.message : 'Fetch failed')
     } finally {
-      // A forced refresh replaced this fetch — the new one owns the flags now
-      if (abortRef.current === controller) {
-        setIsRefreshing(false)
-        fetchingRef.current = false
-      }
+      inFlightRef.current = inFlightRef.current.filter(f => f !== entry)
+      if (inFlightRef.current.length === 0) setIsRefreshing(false)
     }
   }, [])
 
@@ -336,8 +355,8 @@ export function useGamesData(): UseGamesDataResult {
     }
     runFetch()
     return () => {
-      abortRef.current?.abort()
-      fetchingRef.current = false
+      inFlightRef.current.forEach(f => f.controller.abort())
+      inFlightRef.current = []
     }
   }, [runFetch])
 
