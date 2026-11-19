@@ -94,7 +94,7 @@ export default function PlayerHoverCard({ platform, name, avatarUrl, highlighted
         onMouseLeave={() => !coarse && setOpen(false)}
         onClick={e => { if (coarse) { e.preventDefault(); setOpen(o => !o) } }}
       >
-        <PlayerAvatar url={avatarUrl} size={14} />
+        <PlayerAvatar url={avatarUrl} size={14} className="mr-1" />
         {name}
       </Link>
       {open && pos && createPortal(
