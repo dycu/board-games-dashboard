@@ -145,12 +145,21 @@ function PlayerNames({ platform, names, avatars, highlight }: {
 }) {
   return (
     <>
-      {names.map((name, i) => (
-        <span key={name}>
-          {i > 0 && ', '}
-          <PlayerLink platform={platform} name={name} avatarUrl={avatars?.[name]} highlighted={highlight !== undefined && name === highlight} />
-        </span>
-      ))}
+      {names.map((name, i) => {
+        const isHighlighted = highlight !== undefined && name === highlight
+        // When there's a highlight at all (GameRow's "waiting for", with
+        // everyone at the table listed), only that one name gets an
+        // avatar — one small image reads as "this is who's up"; one per
+        // name in an already-tight row just reads as clutter. The "with
+        // {players}" line (no highlight concept) is unaffected.
+        const showAvatar = highlight === undefined || isHighlighted
+        return (
+          <span key={name}>
+            {i > 0 && ', '}
+            <PlayerLink platform={platform} name={name} avatarUrl={showAvatar ? avatars?.[name] : undefined} highlighted={isHighlighted} />
+          </span>
+        )
+      })}
     </>
   )
 }
