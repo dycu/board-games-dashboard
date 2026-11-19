@@ -92,9 +92,9 @@ function PersonDetail({ platform, name, person, games, onSaveTags, onBack }: {
             target="_blank"
             rel="noopener noreferrer"
             title={`Open on ${PLATFORM_LABELS[platform]}`}
-            className="text-sm text-[var(--text-tertiary)] hover:text-[var(--accent)]"
+            className="text-xs font-medium text-[var(--text-tertiary)] hover:text-[var(--accent)]"
           >
-            ↗
+            Open on {PLATFORM_LABELS[platform]} ↗
           </a>
         )}
       </div>
