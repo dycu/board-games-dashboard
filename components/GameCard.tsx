@@ -276,13 +276,24 @@ function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string,
   )
 }
 
+// Background warmth scales with today's move count (see MoveCountBadge) —
+// a glance at the grid shows where you've been grinding, without reading
+// any number. Tiers, not a continuous scale: a difference of one move
+// rarely means anything, but a couple vs. a lot does.
+function heatBg(count?: number): string {
+  if (!count) return 'bg-white'
+  if (count <= 2) return 'bg-orange-50'
+  if (count <= 5) return 'bg-orange-100'
+  return 'bg-orange-200'
+}
+
 // A game waiting for my move: a full card
 export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink, watched, onToggleWatch, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, showProgress }: GameItemProps) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
   return (
-    <div className={`relative rounded-lg border p-3.5 flex flex-col gap-2 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] bg-white hover:border-[#c5c9f0]
+    <div className={`relative rounded-lg border p-3.5 flex flex-col gap-2 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] ${heatBg(game.moveCountToday)} hover:border-[#c5c9f0]
       ${opened ? 'opacity-55 hover:opacity-100 border-[#e5e5e5]' : soon !== null ? 'border-[#e5e5e5] border-l-[3px] border-l-red-500' : 'border-[#e5e5e5] border-l-[3px] border-l-[#5e6ad2]'}`}>
       <CoverLink game={game} onOpen={onOpen} note={note} />
       <div className="flex items-center justify-between gap-2">
