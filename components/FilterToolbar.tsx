@@ -56,6 +56,7 @@ export default function FilterToolbar({ prefs, onChange }: Props) {
           <option value="closest-to-end">Closest to the end</option>
           <option value="most-moves-today">Most moves today</option>
           <option value="least-moves-today">Fewest moves today</option>
+          <option value="soonest-reply">Likely to reply soonest</option>
         </select>
       </label>
     </div>

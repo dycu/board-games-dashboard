@@ -84,6 +84,12 @@ export function sortAndFilter(games: Game[], prefs: UserPrefs, now = Date.now(),
       const diff = (a.moveCountToday ?? 0) - (b.moveCountToday ?? 0)
       return sort === 'most-moves-today' ? -diff : diff
     }
+    if (sort === 'soonest-reply') {
+      // No prediction at all sorts last, below every game that has one
+      const aEta = a.predictedReturnAt ? new Date(a.predictedReturnAt).getTime() : Infinity
+      const bEta = b.predictedReturnAt ? new Date(b.predictedReturnAt).getTime() : Infinity
+      return aEta - bEta
+    }
     // longest-wait: oldest move first
     return a.lastMoveAt.getTime() - b.lastMoveAt.getTime()
   })

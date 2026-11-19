@@ -149,6 +149,14 @@ describe('sortAndFilter', () => {
       .toEqual(['bga:62', 'bga:61', 'bga:60'])
   })
 
+  it('sorts waiting games by predicted reply time, soonest first, with no prediction last', () => {
+    const soon = base({ id: 'bga:70', myTurn: false, predictedReturnAt: '2026-06-26T12:00:00Z' })
+    const later = base({ id: 'bga:71', myTurn: false, predictedReturnAt: '2026-06-27T12:00:00Z' })
+    const unknown = base({ id: 'bga:72', myTurn: false })
+    expect(sortAndFilter([unknown, later, soon], prefs({ sort: 'soonest-reply' })).map(g => g.id))
+      .toEqual(['bga:70', 'bga:71', 'bga:72'])
+  })
+
   it('treats a missing sunk list (prefs saved before the feature existed) as empty', () => {
     const solo = base({ id: 'bga:solo', myTurn: true })
     const legacyPrefs = { ...prefs() } as UserPrefs

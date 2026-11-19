@@ -88,12 +88,18 @@ export interface Game {
   // it's exact regardless of how the move was actually made. Omitted (not
   // 0) once the count would be zero, so there's nothing to show.
   moveCountToday?: number
+  // When the currently-responsible opponent is likely to reply, estimated
+  // from their own past response times on this platform (see
+  // lib/opponents/track.ts) — lastMoveAt plus the median of their history.
+  // Only set on a waiting game whose opponent could be resolved AND has
+  // enough history; used by the "likely to reply soonest" sort.
+  predictedReturnAt?: string
 }
 
 export interface UserPrefs {
   pins: string[]
   sunk: string[]          // always sorted to the end of their section (e.g. solo games you don't want cluttering the top)
-  sort: 'longest-wait' | 'most-recent' | 'platform' | 'game-name' | 'closest-to-end' | 'most-moves-today' | 'least-moves-today'
+  sort: 'longest-wait' | 'most-recent' | 'platform' | 'game-name' | 'closest-to-end' | 'most-moves-today' | 'least-moves-today' | 'soonest-reply'
   filter: {
     turnStatus: 'all' | 'my-turn' | 'waiting'
     platforms: Platform[] | null  // empty/missing = show all; null = none selected (hidden)
