@@ -1,6 +1,13 @@
 import { FinishedGame, Platform } from '../types'
 import { OpponentEntry } from './store'
 
+// Mirrors lib/gameStats.ts's gameHistoryHref — the same "platform + name in
+// the query string" shape, so any page linking to a person can build this
+// without importing the whole stats module.
+export function playerHref(platform: Platform, name: string): string {
+  return `/players?${new URLSearchParams({ platform, name })}`
+}
+
 export interface GlobalOpponent {
   platform: Platform
   name: string

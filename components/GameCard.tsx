@@ -1,7 +1,9 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 import { Game, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BacklogList, SHORT_LIST_LABELS } from '@/lib/backlog/list'
+import { playerHref } from '@/lib/opponents/stats'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { formatTimeRemaining } from '@/lib/connectors/utils'
 import { deadlineSoon } from '@/lib/sort-filter'
@@ -98,6 +100,32 @@ export function Badge({ game, small }: { game: Game; small?: boolean }) {
     <span title={PLATFORM_LABELS[game.platform]} className={`shrink-0 font-bold uppercase tracking-wide rounded-full ${small ? 'text-[10px] px-1.5 py-px' : 'text-[11px] px-2 py-0.5'} ${BADGE_COLORS[game.platform] ?? BADGE_FALLBACK}`}>
       {PLATFORM_SHORT_LABELS[game.platform]}
     </span>
+  )
+}
+
+// A single opponent's name, linking to their Players page entry — relative
+// z-10 to clear CoverLink underneath, same as every other clickable thing
+// on the card.
+function PlayerLink({ platform, name }: { platform: Game['platform']; name: string }) {
+  return (
+    <Link href={playerHref(platform, name)} className="relative z-10 hover:text-[var(--accent)] hover:underline">
+      {name}
+    </Link>
+  )
+}
+
+// A comma-joined list of PlayerLinks — "with {players}"/"waiting for
+// {currentPlayer}" used to be plain text; same look, each name clickable now.
+function PlayerNames({ platform, names }: { platform: Game['platform']; names: string[] }) {
+  return (
+    <>
+      {names.map((name, i) => (
+        <span key={name}>
+          {i > 0 && ', '}
+          <PlayerLink platform={platform} name={name} />
+        </span>
+      ))}
+    </>
   )
 }
 
@@ -326,7 +354,7 @@ export default function GameCard({ game, priority, onCyclePriority, onOpen, oppo
 
       {game.players.length > 0 && (
         <div className="text-xs text-[var(--text-tertiary)] hidden sm:block truncate">
-          with {game.players.join(', ')}
+          with <PlayerNames platform={game.platform} names={game.players} />
         </div>
       )}
 
@@ -359,7 +387,7 @@ export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowD
       <div className="min-w-[140px] flex-1 flex items-baseline gap-2 overflow-hidden">
         <span className="text-sm text-[var(--text-primary)] truncate">{game.gameName}</span>
         <TableLabelEditor game={game} label={tableLabel} onSaveLabel={onSaveTableLabel} compact />
-        {game.currentPlayer && <span className="hidden sm:inline text-xs text-[var(--text-tertiary)] truncate">waiting for {game.currentPlayer}</span>}
+        {game.currentPlayer && <span className="hidden sm:inline text-xs text-[var(--text-tertiary)] truncate">waiting for <PlayerLink platform={game.platform} name={game.currentPlayer} /></span>}
         {/* Just the text here — its own edit/delete icons are the compact
             NoteEditor below, shown at every width, not only md:inline */}
         {note && <span className="hidden md:inline text-xs text-[var(--text-secondary)] italic whitespace-normal break-words">{note}</span>}

@@ -168,7 +168,7 @@ describe('GameRow', () => {
 
   it('shows who is up and marks a slow opponent', () => {
     render(<GameRow {...props({ game: waiting })} />)
-    expect(screen.getByText(/waiting for alice/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'alice' })).toBeInTheDocument()
     expect(screen.getByText(/⏱ 11 days ago/)).toBeInTheDocument()
   })
 

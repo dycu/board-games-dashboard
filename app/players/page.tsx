@@ -5,7 +5,7 @@ import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
 import { useOpponents } from '@/hooks/useOpponents'
-import { globalOpponents, gamesWith, GlobalOpponent } from '@/lib/opponents/stats'
+import { globalOpponents, gamesWith, playerHref, GlobalOpponent } from '@/lib/opponents/stats'
 import { formatDuration } from '@/lib/connectors/utils'
 import TopNav from '@/components/TopNav'
 import GameLink, { playedGameUrl } from '@/components/GameLink'
@@ -213,7 +213,7 @@ function PlayersPageInner() {
             <div key={`${o.platform}:${o.name}`} className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
               <Badge platform={o.platform} small />
               <button
-                onClick={() => router.push(`/players?platform=${o.platform}&name=${encodeURIComponent(o.name)}`)}
+                onClick={() => router.push(playerHref(o.platform, o.name))}
                 className="text-sm font-medium text-[var(--text-primary)] hover:text-[var(--accent)] hover:underline truncate"
               >
                 {o.name}
