@@ -44,8 +44,13 @@ export default function FinishedGameCard({ game, action, details }: Props) {
           {PLATFORM_SHORT_LABELS[game.platform]}
         </span>
         <div className="min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <Link href={gameHistoryHref(game)} title="All your games of it" className="text-sm font-medium text-[var(--text-primary)] truncate hover:text-[var(--accent)] hover:underline">{game.gameName}</Link>
+          {/* flex-wrap, not truncate: a custom table title ("Type — long
+              custom title") is common enough on OBG/BoardTogether/choochoo
+              that cutting it short with an ellipsis loses real information —
+              wrapping (the Result pill drops to its own line when there's no
+              room) costs a little vertical space instead. */}
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <Link href={gameHistoryHref(game)} title="All your games of it" className="text-sm font-medium text-[var(--text-primary)] hover:text-[var(--accent)] hover:underline">{game.gameName}</Link>
             <Result game={game} />
           </div>
           <p className="text-xs text-[var(--text-tertiary)]">

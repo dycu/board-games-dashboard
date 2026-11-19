@@ -46,6 +46,13 @@ describe('FinishedGameCard', () => {
     const link = screen.getByRole('link', { name: /view/i })
     expect(link).toHaveAttribute('target', '_self')
   })
+
+  it('wraps a long custom table title instead of cutting it off with an ellipsis', () => {
+    const longName = "Napoleon's Triumph — Game 04 - Asynchronous, please join if you're around"
+    render(<FinishedGameCard game={{ ...game, gameName: longName }} />)
+    const link = screen.getByRole('link', { name: longName })
+    expect(link.className).not.toMatch(/\btruncate\b/)
+  })
 })
 
 describe('FinishedGameCard results', () => {
