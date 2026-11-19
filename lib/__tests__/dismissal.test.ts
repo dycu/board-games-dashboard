@@ -57,6 +57,19 @@ describe('resolveOpened', () => {
     const opened: Opened = { moved: { openedAt: T - 60_000 } }
     expect(resolveOpened(opened, games, T, { returnedAt: 0, leftAt: null })).toEqual({ moved: { openedAt: T - 60_000, movedSeenAt: T } })
   })
+
+  // A return-refresh verification (app/page.tsx) retries a lagging platform
+  // (OBG) with backoff instead of trusting the first fetch — this blanket
+  // judging must leave that game alone meanwhile, or it would bring it back
+  // on an early retry that still shows the stale myTurn, and the retry's own
+  // later direct judge() would then find nothing left to set movedSeenAt on
+  it('leaves an excluded game untouched even though myTurn would otherwise bring it back', () => {
+    const opened: Opened = { moved: { openedAt: T - 5000 }, notMoved: { openedAt: T - 5000 } }
+    expect(resolveOpened(opened, games, T + 1000, here, RETURN_GRACE_MS, new Set(['notMoved']))).toEqual({
+      moved: { openedAt: T - 5000, movedSeenAt: T + 1000 },
+      notMoved: { openedAt: T - 5000 },
+    })
+  })
 })
 
 describe('nextNotePrompt', () => {

@@ -24,18 +24,30 @@ export function presentAt(t: number, presence: Presence): boolean {
   return presence.leftAt === null || t < presence.leftAt
 }
 
+// `exclude` is for a game a dedicated return-refresh verification (see
+// app/page.tsx) is actively retrying with backoff — a platform known to lag
+// (OBG) can still show myTurn true on an early retry, and judge() reads that
+// as "nothing happened, bring it back" exactly as it should for a game the
+// user merely glanced at and didn't play. Letting this blanket judging touch
+// it anyway would un-dim it mid-retry, and then, once the lag finally
+// clears, there'd be no opened entry left to carry movedSeenAt — skipping
+// the few-minutes-dimmed grace period entirely and making the card vanish
+// from "Your turn" instead of settling into it normally. The verify effect
+// is the sole authority over these ids until it resolves them itself.
 export function resolveOpened(
   opened: Opened,
   games: { id: string; myTurn: boolean }[],
   fetchStartedAt: number,
   presence: Presence,
   graceMs = RETURN_GRACE_MS,
+  exclude?: ReadonlySet<string>,
 ): Opened {
   if (!presentAt(fetchStartedAt, presence)) return opened
   const byId = new Map(games.map(g => [g.id, g]))
   const next: Opened = {}
   let changed = false
   for (const [id, o] of Object.entries(opened)) {
+    if (exclude?.has(id)) { next[id] = o; continue }
     const kept = judge(o, byId.get(id), fetchStartedAt, graceMs)
     if (kept) next[id] = kept
     if (kept !== o) changed = true

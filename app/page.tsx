@@ -151,11 +151,14 @@ export default function DashboardPage() {
   }, [])
 
   // Fresh server data (not cache loads) decides which opened games stay dimmed;
-  // see resolveOpened
+  // see resolveOpened. Games a return-refresh verification is actively
+  // retrying are left out — see resolveOpened's own comment on `exclude`.
   useEffect(() => {
     if (freshDataVersion === 0 || !displayedData) return
+    const verifying = verifyingRef.current
+    const excluded = verifying && verifying.gameIds.length > 0 ? new Set(verifying.gameIds) : undefined
     setOpened(prev => {
-      const next = resolveOpened(prev, displayedData.games, freshDataStartedAt, presenceRef.current)
+      const next = resolveOpened(prev, displayedData.games, freshDataStartedAt, presenceRef.current, RETURN_GRACE_MS, excluded)
       if (next !== prev) writeStoredOpened(next)
       return next
     })
