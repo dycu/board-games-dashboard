@@ -19,7 +19,7 @@ const game: Game = {
 }
 
 const props = (over: Partial<GameItemProps> = {}): GameItemProps =>
-  ({ game, pinned: false, onTogglePin: () => {}, sunk: false, onToggleSink: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, showProgress: true, maxMoveCountToday: 0, ...over })
+  ({ game, priority: null, onCyclePriority: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, maxMoveCountToday: 0, ...over })
 
 describe('GameCard', () => {
   it('shows game name, platform badge and time', () => {
@@ -58,26 +58,25 @@ describe('GameCard', () => {
     expect(screen.getByText(/left/)).toBeInTheDocument()
   })
 
-  it('calls onTogglePin when pin icon clicked', async () => {
-    const onTogglePin = jest.fn()
-    render(<GameCard {...props({ onTogglePin })} />)
-    await userEvent.click(screen.getByRole('button', { name: /pin/i }))
-    expect(onTogglePin).toHaveBeenCalledWith('bga:1')
+  it('calls onCyclePriority when the priority icon is clicked, showing the neutral glyph first', async () => {
+    const onCyclePriority = jest.fn()
+    render(<GameCard {...props({ onCyclePriority })} />)
+    const button = screen.getByRole('button', { name: /pin to the top/i })
+    expect(button).toHaveTextContent('☆')
+    await userEvent.click(button)
+    expect(onCyclePriority).toHaveBeenCalledWith('bga:1')
   })
 
-  it('calls onToggleSink when the sink icon is clicked, and shows a different glyph than the pin', async () => {
-    const onToggleSink = jest.fn()
-    render(<GameCard {...props({ onToggleSink })} />)
-    const sinkButton = screen.getByRole('button', { name: /sink game/i })
-    expect(sinkButton).toHaveTextContent('▽')
-    await userEvent.click(sinkButton)
-    expect(onToggleSink).toHaveBeenCalledWith('bga:1')
+  it('shows the pin glyph once pinned, with a label describing the next click', () => {
+    render(<GameCard {...props({ priority: 'pinned' })} />)
+    const button = screen.getByRole('button', { name: /pinned.*sink/i })
+    expect(button).toHaveTextContent('★')
   })
 
-  it('shows the filled sink glyph once a game is sunk, and a distinct label to un-sink it', () => {
-    render(<GameCard {...props({ sunk: true })} />)
-    const sinkButton = screen.getByRole('button', { name: /unsink/i })
-    expect(sinkButton).toHaveTextContent('▼')
+  it('shows the sink glyph once sunk, with a label describing the next click', () => {
+    render(<GameCard {...props({ priority: 'sunk' })} />)
+    const button = screen.getByRole('button', { name: /sunk.*clear/i })
+    expect(button).toHaveTextContent('▼')
   })
 
   it('makes the whole card a link to the game, and calls onOpen so the dashboard can hide it', async () => {
@@ -278,11 +277,6 @@ describe('progress bar', () => {
   it('does not render anything when there is no progress estimate', () => {
     render(<GameCard {...props()} />)
     expect(screen.queryByText(/%/)).toBeNull()
-  })
-
-  it('stays hidden when the setting is switched off, even with data available', () => {
-    render(<GameCard {...props({ game: withProgress, showProgress: false })} />)
-    expect(screen.queryByText('42%')).toBeNull()
   })
 
   it('reveals the basis actually used on hover, as a single line per choice', async () => {

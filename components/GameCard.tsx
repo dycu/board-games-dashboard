@@ -9,12 +9,14 @@ import HistoryLink from './HistoryLink'
 import ProgressBar from './ProgressBar'
 import ReadNotePopup from './ReadNotePopup'
 
+// Pin (always first in its section) and sink (always last) are opposite
+// ends of one priority scale, not two independent flags — null is neither.
+export type Priority = 'pinned' | 'sunk' | null
+
 export interface GameItemProps {
   game: Game
-  pinned: boolean
-  onTogglePin: (id: string) => void
-  sunk: boolean
-  onToggleSink: (id: string) => void
+  priority: Priority
+  onCyclePriority: (id: string) => void
   onOpen: () => void // the dashboard dims an opened game until the next refresh
   opponentSlowDays: number
   deadlineSoonHours: number
@@ -28,7 +30,6 @@ export interface GameItemProps {
   onSaveTableLabel?: (id: string, text: string) => void
   now: number
   opened?: boolean // opened since the last refresh that saw me back: dimmed until then
-  showProgress: boolean // the "% through the game" bar — a settings toggle, default on
   maxMoveCountToday: number // the busiest game's moveCountToday across the board right now — see heatBg
 }
 
@@ -67,29 +68,25 @@ function CoverLink({ game, onOpen, note }: { game: Game; onOpen: () => void; not
   )
 }
 
-function PinButton({ game, pinned, onTogglePin }: Pick<GameItemProps, 'game' | 'pinned' | 'onTogglePin'>) {
+// Cycles neutral -> pinned -> sunk -> neutral. One control instead of two
+// independent buttons, so a game can't end up both pinned and sunk at
+// once — a real contradiction (always-first and always-last) the old
+// pair of buttons allowed.
+function PriorityButton({ game, priority, onCyclePriority }: Pick<GameItemProps, 'game' | 'priority' | 'onCyclePriority'>) {
+  const label = priority === 'pinned' ? 'Pinned to the top — click to sink to the end instead'
+    : priority === 'sunk' ? 'Sunk to the end — click to clear'
+    : 'Pin to the top'
+  const glyph = priority === 'pinned' ? '★' : priority === 'sunk' ? '▼' : '☆'
+  const color = priority === 'pinned' ? 'text-amber-400'
+    : priority === 'sunk' ? 'text-slate-400'
+    : 'text-[var(--icon-muted)] hover:text-amber-400'
   return (
     <button
-      aria-label={pinned ? 'Unpin game' : 'Pin game'}
-      onClick={() => onTogglePin(game.id)}
-      className={`relative z-10 text-sm transition-colors ${pinned ? 'text-amber-400' : 'text-[var(--icon-muted)] hover:text-amber-400'}`}>
-      {pinned ? '★' : '☆'}
-    </button>
-  )
-}
-
-// The opposite of pinning: always sorts to the end of its section instead
-// of the top (e.g. solo games you don't want competing for the top spot).
-// A different glyph (filled/outline triangle, not a star) so it's never
-// mistaken for the pin.
-function SinkButton({ game, sunk, onToggleSink }: Pick<GameItemProps, 'game' | 'sunk' | 'onToggleSink'>) {
-  return (
-    <button
-      aria-label={sunk ? 'Unsink game (stop sending it to the end)' : 'Sink game to the end'}
-      title={sunk ? 'Stop sending to the end' : 'Send to the end'}
-      onClick={() => onToggleSink(game.id)}
-      className={`relative z-10 text-sm transition-colors ${sunk ? 'text-slate-400' : 'text-[var(--icon-muted)] hover:text-slate-400'}`}>
-      {sunk ? '▼' : '▽'}
+      aria-label={label}
+      title={label}
+      onClick={() => onCyclePriority(game.id)}
+      className={`relative z-10 text-sm transition-colors ${color}`}>
+      {glyph}
     </button>
   )
 }
@@ -277,7 +274,7 @@ function heatBg(count: number | undefined, maxCount: number, fallback: string): 
 }
 
 // A game waiting for my move: a full card
-export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, showProgress, maxMoveCountToday }: GameItemProps) {
+export default function GameCard({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, maxMoveCountToday }: GameItemProps) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
@@ -298,8 +295,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
             </span>
           )}
           <HistoryLink game={game} />
-          <SinkButton game={game} sunk={sunk} onToggleSink={onToggleSink} />
-          <PinButton game={game} pinned={pinned} onTogglePin={onTogglePin} />
+          <PriorityButton game={game} priority={priority} onCyclePriority={onCyclePriority} />
         </div>
       </div>
 
@@ -316,7 +312,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
 
       <NoteEditor game={game} note={note} onSaveNote={onSaveNote} />
 
-      {showProgress && <ProgressBar game={game} />}
+      <ProgressBar game={game} />
 
       <span className={`text-xs ${(game.urgent || slow) && soon === null ? 'text-amber-500 font-medium' : 'text-[var(--text-tertiary)]'}`}>
         {game.lastMoveAgo}
@@ -326,7 +322,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
 }
 
 // A game waiting for someone else: one compact row
-export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, showProgress, maxMoveCountToday }: GameItemProps) {
+export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, maxMoveCountToday }: GameItemProps) {
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   return (
     <div className={`relative flex flex-wrap items-center gap-2 px-3 py-2 rounded-md border hover:border-[var(--accent-border-hover)] transition-colors
@@ -350,11 +346,10 @@ export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, onOpen,
       <span className={`shrink-0 text-xs ${slow ? 'text-amber-600 font-medium' : 'text-[var(--text-tertiary)]'}`}>
         {slow ? '⏱ ' : ''}{game.lastMoveAgo}
       </span>
-      {showProgress && <ProgressBar game={game} compact />}
+      <ProgressBar game={game} compact />
       <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact />
       <HistoryLink game={game} />
-      <SinkButton game={game} sunk={sunk} onToggleSink={onToggleSink} />
-      <PinButton game={game} pinned={pinned} onTogglePin={onTogglePin} />
+      <PriorityButton game={game} priority={priority} onCyclePriority={onCyclePriority} />
     </div>
   )
 }

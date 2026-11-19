@@ -4,7 +4,7 @@ import { Game, Platform, UserPrefs, GamesApiResponse, PLATFORM_LABELS, PLATFORM_
 import { DepartedGame } from '@/hooks/useGamesData'
 import { sortAndFilter } from '@/lib/sort-filter'
 import { BADGE_COLORS } from '@/lib/platform-colors'
-import GameCard, { GameRow, GameItemProps, isOpponentSlow, openTarget } from './GameCard'
+import GameCard, { GameRow, GameItemProps, Priority, isOpponentSlow, openTarget } from './GameCard'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useTableLabels } from '@/hooks/useTableLabels'
 import { BacklogItem, backlogId, listsOf } from '@/lib/backlog/list'
@@ -191,21 +191,20 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     .map(item => ({ item, running: games.filter(g => backlogId(g.platform, g.gameType || g.gameName) === item.id).length }))
     .filter(({ item, running }) => running < item.parallelTarget!)
 
-  const togglePin = async (id: string) => {
-    const pins = prefs.pins.includes(id)
-      ? prefs.pins.filter(p => p !== id)
-      : [...prefs.pins, id]
-    const updated = { ...prefs, pins }
-    onPrefsChange(updated)
-    await fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ pins }), headers: { 'Content-Type': 'application/json' } })
-  }
+  const priorityOf = (id: string): Priority => prefs.pins.includes(id) ? 'pinned' : (prefs.sunk ?? []).includes(id) ? 'sunk' : null
 
-  const toggleSink = async (id: string) => {
-    const prevSunk = prefs.sunk ?? []
-    const sunk = prevSunk.includes(id) ? prevSunk.filter(p => p !== id) : [...prevSunk, id]
-    const updated = { ...prefs, sunk }
-    onPrefsChange(updated)
-    await fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ sunk }), headers: { 'Content-Type': 'application/json' } })
+  // Computes both arrays together from one snapshot of prefs and sends one
+  // update — pinned -> sunk needs to unpin AND sink in the same step, and
+  // two separate onPrefsChange calls (one per array) would race: the
+  // second's spread of the still-stale `prefs` would silently undo the
+  // first's change to the other array.
+  const cyclePriority = async (id: string) => {
+    const current = priorityOf(id)
+    const next: Priority = current === null ? 'pinned' : current === 'pinned' ? 'sunk' : null
+    const pins = next === 'pinned' ? [...prefs.pins, id] : prefs.pins.filter(p => p !== id)
+    const sunk = next === 'sunk' ? [...(prefs.sunk ?? []), id] : (prefs.sunk ?? []).filter(p => p !== id)
+    onPrefsChange({ ...prefs, pins, sunk })
+    await fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ pins, sunk }), headers: { 'Content-Type': 'application/json' } })
   }
 
   const { intervalSeconds, setIntervalSeconds, countdown } = useAutoRefresh(onRefresh, isRefreshing, prefs.refreshIntervalSeconds)
@@ -222,10 +221,8 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   const itemProps = (g: Game): GameItemProps => {
     return {
       game: g,
-      pinned: prefs.pins.includes(g.id),
-      onTogglePin: togglePin,
-      sunk: (prefs.sunk ?? []).includes(g.id),
-      onToggleSink: toggleSink,
+      priority: priorityOf(g.id),
+      onCyclePriority: cyclePriority,
       onOpen: () => openGame(g.id),
       opponentSlowDays,
       deadlineSoonHours,
@@ -235,7 +232,6 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
       onSaveTableLabel: saveTableLabel,
       now,
       opened: isOpened(g),
-      showProgress: prefs.showProgress ?? true,
       maxMoveCountToday,
     }
   }

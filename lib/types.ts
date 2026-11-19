@@ -112,7 +112,7 @@ export interface UserPrefs {
   // browser) is only needed to bootstrap it, or when login is stuck.
   bgaSessionCookie?: string
   bgaPlayerId?: string
-  showProgress?: boolean  // show the "% through the game" bar (beta — undefined/missing defaults to on; off reverts to the old cards)
+  theme?: 'light' | 'dark'  // undefined/missing follows the OS/browser (prefers-color-scheme) — see app/layout.tsx's inline script
   refreshIntervalSeconds?: number // auto-refresh dropdown choice (0/30/60/300 — undefined/missing defaults to off, i.e. 0)
   // Last-selected timeframe in the History page's "Summary" card. A literal
   // copy of lib/summary.ts's PeriodPreset rather than an import of it — that

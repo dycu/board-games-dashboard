@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Platform, PLATFORM_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
+import { Platform, UserPrefs, PLATFORM_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
 import { CheckResult } from '@/lib/newGames/check'
 import TopNav from '@/components/TopNav'
 import PlatformFilterChips from '@/components/PlatformFilterChips'
@@ -34,12 +34,12 @@ export default function SetupPage() {
   const [bgaCookieSaving, setBgaCookieSaving] = useState(false)
   const [bgaCookieSaved, setBgaCookieSaved] = useState(false)
   const [savedBgaPlayerId, setSavedBgaPlayerId] = useState('')
+  const [theme, setTheme] = useState<UserPrefs['theme']>(undefined)
   const [okcGameIds, setOkcGameIds] = useState<string[]>([])
   const [okcInput, setOkcInput] = useState('')
   const [okcSaving, setOkcSaving] = useState(false)
   const [okcStatus, setOkcStatus] = useState<Record<string, OkcConfiguredStatus>>({})
   const [okcStatusLoading, setOkcStatusLoading] = useState(false)
-  const [showProgress, setShowProgress] = useState(true)
   const [newGamesChecking, setNewGamesChecking] = useState(false)
   const [newGamesResult, setNewGamesResult] = useState<CheckResult | null>(null)
   const [newGamesError, setNewGamesError] = useState<string | null>(null)
@@ -66,7 +66,7 @@ export default function SetupPage() {
       setCookieSaved(!!prefs.eighteenxxSessionCookie)
       setBgaCookieSaved(!!prefs.bgaSessionCookie && !!prefs.bgaPlayerId)
       setSavedBgaPlayerId(prefs.bgaPlayerId ?? '')
-      setShowProgress(prefs.showProgress ?? true)
+      setTheme(prefs.theme)
       const ids = prefs.oldkingscrownGameIds ?? []
       setOkcGameIds(ids)
       if (ids.length > 0) loadOkcStatus()
@@ -110,13 +110,26 @@ export default function SetupPage() {
     setBgaCookieSaving(false)
   }
 
-  const toggleShowProgress = async () => {
-    const next = !showProgress
-    setShowProgress(next)
+  // Applied immediately (no reload) via the data-theme attribute the CSS
+  // keys off of, and written straight into the same localStorage cache
+  // usePrefs() reads (see hooks/usePrefs.ts) so the next page load's
+  // anti-flash script (app/layout.tsx) picks it up before the server
+  // round trip even starts, not just after this page's own POST resolves.
+  const saveTheme = async (next: UserPrefs['theme']) => {
+    setTheme(next)
+    if (next) document.documentElement.setAttribute('data-theme', next)
+    else document.documentElement.removeAttribute('data-theme')
+    try {
+      const cached = JSON.parse(localStorage.getItem('user-prefs') ?? '{}')
+      localStorage.setItem('user-prefs', JSON.stringify({ ...cached, theme: next }))
+    } catch { /* storage unavailable */ }
     await fetch('/api/prefs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ showProgress: next }),
+      // null (not undefined) so the field is actually cleared server-side —
+      // omitting it from the JSON body would leave a previously-saved
+      // override in place instead of resetting to "follow the system"
+      body: JSON.stringify({ theme: next ?? null }),
     })
   }
 
@@ -242,22 +255,24 @@ export default function SetupPage() {
         </div>
 
         <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5 mb-5">
-          <div className="flex items-center justify-between gap-3 mb-1">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Progress bars (beta)</h2>
-            <button
-              onClick={toggleShowProgress}
-              title={showProgress ? 'Turn off' : 'Turn on'}
-              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${showProgress ? 'bg-[var(--accent)]' : 'bg-[var(--border-default)]'}`}>
-              <span className={`inline-block h-3 w-3 transform rounded-full bg-[var(--bg-surface)] transition-transform ${showProgress ? 'translate-x-5' : 'translate-x-1'}`} />
-            </button>
-          </div>
-          <p className="text-xs text-[var(--text-tertiary)]">
-            Shows how far each game has gotten, estimated from turns played so far vs. your
-            finished games of that type. New and still experimental — this toggle switches it off
-            again, back to the plain cards, if it doesn&apos;t work well for you. Only appears once
-            you have at least one finished game of that type with turns tracked, and only for BGA,
-            Rally the Troops and 18xx.games for now.
+          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-1">Appearance</h2>
+          <p className="text-xs text-[var(--text-tertiary)] mb-3">
+            System follows your OS/browser&apos;s own light/dark setting; Light and Dark pin it
+            regardless of that.
           </p>
+          <div className="flex gap-[2px] bg-[var(--bg-subtle)] rounded-md p-[3px] w-fit">
+            {([[undefined, 'System'], ['light', 'Light'], ['dark', 'Dark']] as const).map(([value, label]) => (
+              <button
+                key={label}
+                onClick={() => saveTheme(value)}
+                className={`whitespace-nowrap text-xs px-3 py-1 rounded font-medium transition-colors
+                  ${theme === value
+                    ? 'bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
+                    : 'bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5 mb-5">

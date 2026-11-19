@@ -154,30 +154,41 @@ describe('GameGrid refresh interval', () => {
   })
 })
 
-describe('GameGrid sink toggle', () => {
-  it('adds the game to prefs.sunk and saves it when the sink icon is clicked', async () => {
+describe('GameGrid priority cycle', () => {
+  it('pins the game on the first click, saving both arrays together', async () => {
     const onPrefsChange = jest.fn()
     const data: GamesApiResponse = { games: [makeGame('bga', '1')], errors: [], fetchedAt: new Date().toISOString() }
     render(<GameGrid {...defaultGridProps} onPrefsChange={onPrefsChange} data={data} />)
 
-    await userEvent.click(screen.getByRole('button', { name: /sink game/i }))
+    await userEvent.click(screen.getByRole('button', { name: /pin to the top/i }))
 
-    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ sunk: ['bga:1'] }))
+    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ pins: ['bga:1'], sunk: [] }))
     expect(global.fetch).toHaveBeenCalledWith('/api/prefs', expect.objectContaining({
       method: 'POST',
-      body: JSON.stringify({ sunk: ['bga:1'] }),
+      body: JSON.stringify({ pins: ['bga:1'], sunk: [] }),
     }))
   })
 
-  it('removes the game from prefs.sunk when already sunk', async () => {
+  it('moves a pinned game straight to sunk on the next click — unpinning and sinking in one update', async () => {
+    const onPrefsChange = jest.fn()
+    const prefs: UserPrefs = { ...DEFAULT_PREFS, pins: ['bga:1'] }
+    const data: GamesApiResponse = { games: [makeGame('bga', '1')], errors: [], fetchedAt: new Date().toISOString() }
+    render(<GameGrid {...defaultGridProps} prefs={prefs} onPrefsChange={onPrefsChange} data={data} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /pinned.*sink/i }))
+
+    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ pins: [], sunk: ['bga:1'] }))
+  })
+
+  it('clears a sunk game back to neutral on the next click', async () => {
     const onPrefsChange = jest.fn()
     const prefs: UserPrefs = { ...DEFAULT_PREFS, sunk: ['bga:1'] }
     const data: GamesApiResponse = { games: [makeGame('bga', '1')], errors: [], fetchedAt: new Date().toISOString() }
     render(<GameGrid {...defaultGridProps} prefs={prefs} onPrefsChange={onPrefsChange} data={data} />)
 
-    await userEvent.click(screen.getByRole('button', { name: /unsink/i }))
+    await userEvent.click(screen.getByRole('button', { name: /sunk.*clear/i }))
 
-    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ sunk: [] }))
+    expect(onPrefsChange).toHaveBeenCalledWith(expect.objectContaining({ pins: [], sunk: [] }))
   })
 })
 

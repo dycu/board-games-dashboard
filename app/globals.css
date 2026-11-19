@@ -34,8 +34,15 @@
   --accent-tint-alt: #f7f8fd;
 }
 
+/* Dark mode follows the OS/browser by default (prefers-color-scheme), but
+   Settings lets it be pinned either way regardless of the system setting —
+   app/layout.tsx's inline script sets data-theme from that saved choice
+   before first paint, so there's no flash of the wrong theme on load. The
+   values are duplicated between the two blocks below (rather than one
+   feeding the other) since plain CSS variables can't be shared across a
+   media query and an attribute selector any other way. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --background: #1c1d22;
     --foreground: #eceef2;
 
@@ -60,6 +67,32 @@
     --accent-tint: #1e2040;
     --accent-tint-alt: #1a1b2e;
   }
+}
+
+:root[data-theme="dark"] {
+  --background: #1c1d22;
+  --foreground: #eceef2;
+
+  --bg-page: #14151a;
+  --bg-surface: #1c1d22;
+  --bg-muted: #242530;
+  --bg-muted-hover: #2d2e3a;
+  --bg-subtle: #1f2027;
+
+  --border-default: #33343f;
+  --border-subtle: #2b2c36;
+  --border-dashed: #3c3d49;
+
+  --text-primary: #eceef2;
+  --text-secondary: #9b9ca6;
+  --text-tertiary: #74757f;
+  --icon-muted: #4b4c58;
+
+  --accent: #7c87e8;
+  --accent-hover: #6670d4;
+  --accent-border-hover: #454e94;
+  --accent-tint: #1e2040;
+  --accent-tint-alt: #1a1b2e;
 }
 
 @theme inline {
