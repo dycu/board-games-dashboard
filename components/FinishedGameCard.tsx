@@ -7,7 +7,7 @@ import { gameHistoryHref } from '@/lib/gameStats'
 
 const RESULT_STYLE = {
   won: 'bg-green-50 text-green-700',
-  lost: 'bg-[#f3f3f3] text-[#6b6b6b]',
+  lost: 'bg-[var(--bg-muted)] text-[var(--text-secondary)]',
   draw: 'bg-sky-50 text-sky-700',
   coop: 'bg-violet-50 text-violet-700',
 } as const
@@ -35,20 +35,20 @@ interface Props {
 }
 
 export default function FinishedGameCard({ game, action, details }: Props) {
-  const badgeClass = BADGE_COLORS[game.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'
+  const badgeClass = BADGE_COLORS[game.platform] ?? 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 py-2 px-3 rounded-lg border border-[#e5e5e5] bg-white hover:border-[#d5d5d5] transition-colors">
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 py-2 px-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-[var(--border-dashed)] transition-colors">
       <div className="flex items-center gap-3 min-w-[160px] flex-1">
         <span title={PLATFORM_LABELS[game.platform]} className={`shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${badgeClass}`}>
           {PLATFORM_SHORT_LABELS[game.platform]}
         </span>
         <div className="min-w-0">
           <div className="flex items-center gap-2 min-w-0">
-            <Link href={gameHistoryHref(game)} title="All your games of it" className="text-sm font-medium text-[#1a1a1a] truncate hover:text-[#5e6ad2] hover:underline">{game.gameName}</Link>
+            <Link href={gameHistoryHref(game)} title="All your games of it" className="text-sm font-medium text-[var(--text-primary)] truncate hover:text-[var(--accent)] hover:underline">{game.gameName}</Link>
             <Result game={game} />
           </div>
-          <p className="text-xs text-[#9b9b9b]">
+          <p className="text-xs text-[var(--text-tertiary)]">
             Completed {game.completedAgo}{eloText(game) && ` · ${eloText(game)}`}{details && ` · ${details}`}
           </p>
         </div>
@@ -60,7 +60,7 @@ export default function FinishedGameCard({ game, action, details }: Props) {
           target={game.platform === 'bga' ? '_self' : '_blank'}
           rel="noopener noreferrer"
           aria-label={`View ${game.gameName}`}
-          className="text-xs font-medium bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1 rounded-md transition-colors"
+          className="text-xs font-medium bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] px-3 py-1 rounded-md transition-colors"
         >
           View →
         </a>

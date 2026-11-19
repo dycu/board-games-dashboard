@@ -12,7 +12,7 @@ export default function HistoryLink({ game, className = '' }: {
       href={gameHistoryHref(game)}
       aria-label={`Your history of ${game.gameType || game.gameName}`}
       title="Your history of this game"
-      className={`relative z-10 shrink-0 text-xs text-[#c5c5c5] hover:text-[#5e6ad2] ${className}`}>
+      className={`relative z-10 shrink-0 text-xs text-[var(--icon-muted)] hover:text-[var(--accent)] ${className}`}>
       🕘
     </Link>
   )

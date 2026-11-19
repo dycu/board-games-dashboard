@@ -47,13 +47,13 @@ function PopupBody({ events, onDismiss }: { events: NewGameEvent[]; onDismiss: (
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-games-title"
-        className="w-full max-w-lg max-h-[80vh] flex flex-col bg-white rounded-lg shadow-xl border border-[#e5e5e5]"
+        className="w-full max-w-lg max-h-[80vh] flex flex-col bg-[var(--bg-surface)] rounded-lg shadow-xl border border-[var(--border-default)]"
         onClick={e => e.stopPropagation()}
       >
-        <h2 id="new-games-title" className="px-4 pt-4 pb-2 text-sm font-semibold text-[#1a1a1a]">
+        <h2 id="new-games-title" className="px-4 pt-4 pb-2 text-sm font-semibold text-[var(--text-primary)]">
           🆕 Something new ({events.length})
         </h2>
-        <ul className="flex-1 overflow-y-auto px-4 divide-y divide-[#f0f0f0]">
+        <ul className="flex-1 overflow-y-auto px-4 divide-y divide-[var(--border-subtle)]">
           {events.map(e => (
             <NewGameEventRow
               key={e.id}
@@ -64,10 +64,10 @@ function PopupBody({ events, onDismiss }: { events: NewGameEvent[]; onDismiss: (
             />
           ))}
         </ul>
-        <div className="flex justify-end px-4 py-3 border-t border-[#f0f0f0]">
+        <div className="flex justify-end px-4 py-3 border-t border-[var(--border-subtle)]">
           <button
             onClick={onDismiss}
-            className="text-xs font-medium px-3 py-1.5 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5bc4]"
+            className="text-xs font-medium px-3 py-1.5 rounded-md bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]"
           >
             OK
           </button>

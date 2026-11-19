@@ -98,7 +98,7 @@ export default function PeriodSummary({ games, prefs = DEFAULT_PREFS, onPrefsCha
 
   const { results, winRate: periodWinRate, eloChange, byGame, partial } = summary
   const pill = (active: boolean) => `text-xs px-2.5 py-0.5 rounded-full font-medium transition-colors
-    ${active ? 'bg-[#1a1a1a] text-white' : 'bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb]'}`
+    ${active ? 'bg-[var(--text-primary)] text-[var(--bg-surface)]' : 'bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)]'}`
 
   const visibleGames = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -107,25 +107,25 @@ export default function PeriodSummary({ games, prefs = DEFAULT_PREFS, onPrefsCha
   }, [byGame, search, sortKey])
 
   return (
-    <section className="bg-white rounded-xl border border-[#e5e5e5] p-4">
+    <section className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-4">
       <div className="flex flex-wrap items-center gap-1.5 mb-3">
-        <h2 className="text-sm font-semibold text-[#1a1a1a] mr-1">Summary</h2>
+        <h2 className="text-sm font-semibold text-[var(--text-primary)] mr-1">Summary</h2>
         {PRESETS.map(([key, label]) => (
           <button key={key} onClick={() => choosePreset(key)} className={pill(preset === key)}>{label}</button>
         ))}
         {preset === 'custom' && (
-          <span className="flex items-center gap-1 text-xs text-[#6b6b6b]">
+          <span className="flex items-center gap-1 text-xs text-[var(--text-secondary)]">
             <input type="date" aria-label="From" value={customFrom} max={customTo} onChange={e => chooseCustomFrom(e.target.value)}
-              className="bg-white border border-[#e5e5e5] rounded px-1.5 py-0.5" />
+              className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded px-1.5 py-0.5" />
             –
             <input type="date" aria-label="To" value={customTo} min={customFrom} max={dateInput(now)} onChange={e => chooseCustomTo(e.target.value)}
-              className="bg-white border border-[#e5e5e5] rounded px-1.5 py-0.5" />
+              className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded px-1.5 py-0.5" />
           </span>
         )}
       </div>
 
       {summary.games.length === 0 ? (
-        <p className="text-sm text-[#9b9b9b]">No games finished in this period.</p>
+        <p className="text-sm text-[var(--text-tertiary)]">No games finished in this period.</p>
       ) : (
         <>
           <div className="grid grid-cols-4 gap-x-3 gap-y-2 mb-3">
@@ -145,13 +145,13 @@ export default function PeriodSummary({ games, prefs = DEFAULT_PREFS, onPrefsCha
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder={`Filter ${byGame.length} games…`}
-                className="flex-1 min-w-0 text-xs bg-white border border-[#e5e5e5] rounded px-2 py-1 placeholder:text-[#9b9b9b]"
+                className="flex-1 min-w-0 text-xs bg-[var(--bg-surface)] border border-[var(--border-default)] rounded px-2 py-1 placeholder:text-[var(--text-tertiary)]"
               />
               <select
                 value={sortKey}
                 onChange={e => setSortKey(e.target.value as SortKey)}
                 aria-label="Sort by"
-                className="text-xs bg-white border border-[#e5e5e5] rounded px-1.5 py-1 text-[#6b6b6b]"
+                className="text-xs bg-[var(--bg-surface)] border border-[var(--border-default)] rounded px-1.5 py-1 text-[var(--text-secondary)]"
               >
                 {SORTS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
               </select>
@@ -170,8 +170,8 @@ export default function PeriodSummary({ games, prefs = DEFAULT_PREFS, onPrefsCha
                 <col className="w-14" />
                 <col className="w-24 hidden sm:table-column" />
               </colgroup>
-              <thead className="sticky top-0 bg-white">
-                <tr className="text-[11px] uppercase tracking-wide text-[#9b9b9b] text-left">
+              <thead className="sticky top-0 bg-[var(--bg-surface)]">
+                <tr className="text-[11px] uppercase tracking-wide text-[var(--text-tertiary)] text-left">
                   <th className="font-medium py-1">Game</th>
                   <th className="font-medium py-1 text-right">Plays</th>
                   <th className="font-medium py-1 text-right">W–L</th>
@@ -180,22 +180,22 @@ export default function PeriodSummary({ games, prefs = DEFAULT_PREFS, onPrefsCha
               </thead>
               <tbody>
                 {visibleGames.length === 0 && (
-                  <tr><td colSpan={4} className="py-3 text-center text-[#9b9b9b]">No games match &quot;{search}&quot;</td></tr>
+                  <tr><td colSpan={4} className="py-3 text-center text-[var(--text-tertiary)]">No games match &quot;{search}&quot;</td></tr>
                 )}
                 {visibleGames.map(g => (
-                  <tr key={`${g.platform}:${g.gameName}`} className="border-t border-[#f0f0f0]">
+                  <tr key={`${g.platform}:${g.gameName}`} className="border-t border-[var(--border-subtle)]">
                     <td className="py-1.5 pr-2 overflow-hidden" title={g.gameName}>
                       <span className="flex items-start gap-2 min-w-0">
-                        <span title={PLATFORM_LABELS[g.platform]} className={`shrink-0 mt-0.5 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[g.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
+                        <span title={PLATFORM_LABELS[g.platform]} className={`shrink-0 mt-0.5 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[g.platform] ?? 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'}`}>
                           {PLATFORM_SHORT_LABELS[g.platform]}
                         </span>
                         {/* up to two lines: one cuts names like "Next Station: Tokyo" too short */}
-                        <Link href={gameHistoryHref(g)} className="text-[#1a1a1a] leading-snug break-words line-clamp-2 hover:text-[#5e6ad2] hover:underline">{g.gameName}</Link>
+                        <Link href={gameHistoryHref(g)} className="text-[var(--text-primary)] leading-snug break-words line-clamp-2 hover:text-[var(--accent)] hover:underline">{g.gameName}</Link>
                       </span>
                     </td>
                     <td className="py-1.5 text-right tabular-nums align-top">{g.played}</td>
-                    <td className="py-1.5 text-right tabular-nums text-[#6b6b6b] align-top">{g.won + g.lost > 0 ? `${g.won}–${g.lost}` : '—'}</td>
-                    <td className="py-1.5 text-right tabular-nums whitespace-nowrap hidden sm:table-cell text-[#6b6b6b] align-top">
+                    <td className="py-1.5 text-right tabular-nums text-[var(--text-secondary)] align-top">{g.won + g.lost > 0 ? `${g.won}–${g.lost}` : '—'}</td>
+                    <td className="py-1.5 text-right tabular-nums whitespace-nowrap hidden sm:table-cell text-[var(--text-secondary)] align-top">
                       {g.eloNow !== undefined ? <>{g.eloNow}{g.eloChange ? <span className={g.eloChange > 0 ? ' text-green-700' : ' text-red-600'}> ({signed(g.eloChange)})</span> : null}</> : '—'}
                     </td>
                   </tr>
@@ -207,7 +207,7 @@ export default function PeriodSummary({ games, prefs = DEFAULT_PREFS, onPrefsCha
       )}
 
       {pace && pace.turns > 0 && (
-        <p className="text-xs text-[#6b6b6b] mt-3">
+        <p className="text-xs text-[var(--text-secondary)] mt-3">
           BGA pace: {pace.turns} moves{pace.medianHours !== null && `, median ${pace.medianHours}h to answer`}
           {pace.turnsPerDay !== null && `, ${pace.turnsPerDay} moves/day`}
         </p>
@@ -224,8 +224,8 @@ export default function PeriodSummary({ games, prefs = DEFAULT_PREFS, onPrefsCha
 function Stat({ value, label, accent }: { value: number | string; label: string; accent?: string }) {
   return (
     <div>
-      <div className={`text-lg font-semibold tabular-nums ${accent ?? 'text-[#1a1a1a]'}`}>{value}</div>
-      <div className="text-[11px] text-[#9b9b9b]">{label}</div>
+      <div className={`text-lg font-semibold tabular-nums ${accent ?? 'text-[var(--text-primary)]'}`}>{value}</div>
+      <div className="text-[11px] text-[var(--text-tertiary)]">{label}</div>
     </div>
   )
 }

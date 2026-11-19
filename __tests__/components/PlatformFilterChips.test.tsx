@@ -22,7 +22,7 @@ describe('PlatformFilterChips', () => {
 
   it('shows "All" as active once every platform is selected', () => {
     render(<PlatformFilterChips platforms={PLATFORMS} selected={PLATFORMS} onChange={() => {}} />)
-    expect(screen.getByRole('button', { name: /^All/ })).toHaveClass('bg-[#1a1a1a]')
+    expect(screen.getByRole('button', { name: /^All/ })).toHaveClass('bg-[var(--text-primary)]')
   })
 
   it('clicking "All" while already fully selected deselects everything', async () => {

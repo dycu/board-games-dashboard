@@ -1,8 +1,65 @@
 @import "tailwindcss";
 
+/* Semantic tokens for the app's neutral/accent chrome (text, borders,
+   surfaces, the brand indigo) — not Tailwind's named status colors
+   (red/amber/green/orange/sky/slate), which stay as-is in dark mode for
+   now; they're saturated enough to still read, just not perfectly tuned.
+   Every one of these was a raw hex repeated across dozens of components
+   (see the audit before this change) — defining them once here, instead
+   of hand-picking a dark equivalent per occurrence, is what makes the
+   @media override below enough to theme the whole app at once. */
 :root {
   --background: #ffffff;
   --foreground: #1a1a1a;
+
+  --bg-page: #f7f7f7;
+  --bg-surface: #ffffff;
+  --bg-muted: #f3f3f3;
+  --bg-muted-hover: #ebebeb;
+  --bg-subtle: #f0f0f0;
+
+  --border-default: #e5e5e5;
+  --border-subtle: #ececec;
+  --border-dashed: #d5d5d5;
+
+  --text-primary: #1a1a1a;
+  --text-secondary: #6b6b6b;
+  --text-tertiary: #9b9b9b;
+  --icon-muted: #c5c5c5;
+
+  --accent: #5e6ad2;
+  --accent-hover: #4f5ab8;
+  --accent-border-hover: #c5c9f0;
+  --accent-tint: #f0f1fb;
+  --accent-tint-alt: #f7f8fd;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #1c1d22;
+    --foreground: #eceef2;
+
+    --bg-page: #14151a;
+    --bg-surface: #1c1d22;
+    --bg-muted: #242530;
+    --bg-muted-hover: #2d2e3a;
+    --bg-subtle: #1f2027;
+
+    --border-default: #33343f;
+    --border-subtle: #2b2c36;
+    --border-dashed: #3c3d49;
+
+    --text-primary: #eceef2;
+    --text-secondary: #9b9ca6;
+    --text-tertiary: #74757f;
+    --icon-muted: #4b4c58;
+
+    --accent: #7c87e8;
+    --accent-hover: #6670d4;
+    --accent-border-hover: #454e94;
+    --accent-tint: #1e2040;
+    --accent-tint-alt: #1a1b2e;
+  }
 }
 
 @theme inline {
@@ -13,7 +70,7 @@
 }
 
 body {
-  background: #f7f7f7;
-  color: #1a1a1a;
+  background: var(--bg-page);
+  color: var(--text-primary);
   font-family: var(--font-sans), 'Inter', Arial, sans-serif;
 }

@@ -49,11 +49,11 @@ export default function NotePromptPopup({ game, note, onSave, onDelete }: {
         role="dialog"
         aria-modal="true"
         aria-labelledby="note-prompt-title"
-        className="w-full max-w-sm bg-white rounded-lg shadow-xl border border-[#e5e5e5] p-4"
+        className="w-full max-w-sm bg-[var(--bg-surface)] rounded-lg shadow-xl border border-[var(--border-default)] p-4"
         onClick={e => e.stopPropagation()}
       >
-        <h2 id="note-prompt-title" className="text-sm font-semibold text-[#1a1a1a] mb-1">{game.gameName}</h2>
-        <p className="text-xs text-[#9b9b9b] mb-3">Plan for next round?</p>
+        <h2 id="note-prompt-title" className="text-sm font-semibold text-[var(--text-primary)] mb-1">{game.gameName}</h2>
+        <p className="text-xs text-[var(--text-tertiary)] mb-3">Plan for next round?</p>
         <textarea
           ref={inputRef}
           value={draft}
@@ -63,7 +63,7 @@ export default function NotePromptPopup({ game, note, onSave, onDelete }: {
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save() } }}
           placeholder="Note for this game…"
           aria-label={`Note for ${game.gameName}`}
-          className="w-full text-sm bg-white text-[#1a1a1a] px-2.5 py-1.5 rounded border border-[#5e6ad2] mb-3 resize-none"
+          className="w-full text-sm bg-[var(--bg-surface)] text-[var(--text-primary)] px-2.5 py-1.5 rounded border border-[var(--accent)] mb-3 resize-none"
         />
         <div className="flex items-center justify-between gap-2">
           {note ? (
@@ -72,11 +72,11 @@ export default function NotePromptPopup({ game, note, onSave, onDelete }: {
               onMouseDown={e => e.preventDefault()}
               aria-label={`Delete the note on ${game.gameName}`}
               title="Delete note"
-              className="text-xs text-[#c5c5c5] hover:text-red-500">
+              className="text-xs text-[var(--icon-muted)] hover:text-red-500">
               ✕
             </button>
           ) : <span />}
-          <button onClick={save} className="text-xs font-medium px-3 py-1.5 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5bc4]">
+          <button onClick={save} className="text-xs font-medium px-3 py-1.5 rounded-md bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]">
             Save
           </button>
         </div>

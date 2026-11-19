@@ -1,7 +1,7 @@
 import { Platform } from '@/lib/types'
 import { bgaGamePanelUrl } from '@/lib/backlog/bgaSlug'
 
-export const SMALL_BUTTON = 'text-xs font-medium px-2.5 py-1 rounded-md bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] whitespace-nowrap'
+export const SMALL_BUTTON = 'text-xs font-medium px-2.5 py-1 rounded-md bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] whitespace-nowrap'
 
 // The game's own page: BGA's game panel, elsewhere the most recent table
 export function playedGameUrl(g: { platform: Platform; gameUrl: string }): string {

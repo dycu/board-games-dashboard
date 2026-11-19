@@ -32,7 +32,7 @@ export interface GameItemProps {
   maxMoveCountToday: number // the busiest game's moveCountToday across the board right now — see heatBg
 }
 
-const BADGE_FALLBACK = 'bg-[#f3f3f3] text-[#6b6b6b]'
+const BADGE_FALLBACK = 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'
 
 export function openTarget(game: Game): string {
   // BGA opens in this tab (desktop mode on tablets); other sites in a new one
@@ -58,7 +58,7 @@ function CoverLink({ game, onOpen, note }: { game: Game; onOpen: () => void; not
         onClick={onClick}
         onAuxClick={onAuxClick}
         onContextMenu={onOpen}
-        className="absolute inset-0 rounded-[inherit] focus-visible:outline-2 focus-visible:outline-[#5e6ad2]"
+        className="absolute inset-0 rounded-[inherit] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
       />
       {pendingTarget && note && (
         <ReadNotePopup gameName={game.gameName} note={note} onConfirm={confirm} onCancel={cancel} />
@@ -72,7 +72,7 @@ function PinButton({ game, pinned, onTogglePin }: Pick<GameItemProps, 'game' | '
     <button
       aria-label={pinned ? 'Unpin game' : 'Pin game'}
       onClick={() => onTogglePin(game.id)}
-      className={`relative z-10 text-sm transition-colors ${pinned ? 'text-amber-400' : 'text-[#c5c5c5] hover:text-amber-400'}`}>
+      className={`relative z-10 text-sm transition-colors ${pinned ? 'text-amber-400' : 'text-[var(--icon-muted)] hover:text-amber-400'}`}>
       {pinned ? '★' : '☆'}
     </button>
   )
@@ -88,7 +88,7 @@ function SinkButton({ game, sunk, onToggleSink }: Pick<GameItemProps, 'game' | '
       aria-label={sunk ? 'Unsink game (stop sending it to the end)' : 'Sink game to the end'}
       title={sunk ? 'Stop sending to the end' : 'Send to the end'}
       onClick={() => onToggleSink(game.id)}
-      className={`relative z-10 text-sm transition-colors ${sunk ? 'text-slate-400' : 'text-[#c5c5c5] hover:text-slate-400'}`}>
+      className={`relative z-10 text-sm transition-colors ${sunk ? 'text-slate-400' : 'text-[var(--icon-muted)] hover:text-slate-400'}`}>
       {sunk ? '▼' : '▽'}
     </button>
   )
@@ -118,7 +118,7 @@ export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemPro
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
 
-  if (!onSaveNote) return note ? <p className="text-xs text-[#6b6b6b] italic whitespace-normal break-words">{note}</p> : null
+  if (!onSaveNote) return note ? <p className="text-xs text-[var(--text-secondary)] italic whitespace-normal break-words">{note}</p> : null
 
   if (editing) {
     const save = () => { onSaveNote(game.id, draft); setEditing(false) }
@@ -135,7 +135,7 @@ export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemPro
         onBlur={save}
         placeholder="Note for this game…"
         aria-label={`Note for ${game.gameName}`}
-        className={`relative z-10 text-xs bg-white text-[#1a1a1a] px-2 py-1 rounded border border-[#5e6ad2] ${compact ? 'w-40 sm:w-56' : 'w-full'}`}
+        className={`relative z-10 text-xs bg-[var(--bg-surface)] text-[var(--text-primary)] px-2 py-1 rounded border border-[var(--accent)] ${compact ? 'w-40 sm:w-56' : 'w-full'}`}
       />
     )
   }
@@ -154,7 +154,7 @@ export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemPro
           onClick={startEditing}
           aria-label={`Edit the note on ${game.gameName}`}
           title={note}
-          className="relative z-10 text-xs text-[#6b6b6b] hover:text-[#1a1a1a]">
+          className="relative z-10 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
           ✎
         </button>
         <DeleteNote game={game} onSaveNote={onSaveNote} />
@@ -164,7 +164,7 @@ export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemPro
         onClick={startEditing}
         aria-label={`Add a note to ${game.gameName}`}
         title="Add a note"
-        className="relative z-10 text-xs text-[#c5c5c5] hover:text-[#1a1a1a]">
+        className="relative z-10 text-xs text-[var(--icon-muted)] hover:text-[var(--text-primary)]">
         ✎
       </button>
     )
@@ -174,7 +174,7 @@ export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemPro
       <button
         onClick={startEditing}
         title="Edit note"
-        className="min-w-0 text-left text-xs text-[#6b6b6b] italic whitespace-normal break-words hover:text-[#1a1a1a]">
+        className="min-w-0 text-left text-xs text-[var(--text-secondary)] italic whitespace-normal break-words hover:text-[var(--text-primary)]">
         ✎ {note}
       </button>
       <DeleteNote game={game} onSaveNote={onSaveNote} />
@@ -184,7 +184,7 @@ export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemPro
       onClick={startEditing}
       aria-label={`Add a note to ${game.gameName}`}
       title="Add a note"
-      className="relative z-10 self-start text-xs text-[#c5c5c5] hover:text-[#6b6b6b]">
+      className="relative z-10 self-start text-xs text-[var(--icon-muted)] hover:text-[var(--text-secondary)]">
       ✎ note
     </button>
   )
@@ -215,7 +215,7 @@ export function TableLabelEditor({ game, label, onSaveLabel, compact }: Pick<Gam
         onBlur={save}
         placeholder="Table label…"
         aria-label={`Table label for ${game.gameName}`}
-        className={`relative z-10 text-xs bg-white text-[#1a1a1a] px-2 py-0.5 rounded border border-[#5e6ad2] ${compact ? 'w-20' : 'w-24'}`}
+        className={`relative z-10 text-xs bg-[var(--bg-surface)] text-[var(--text-primary)] px-2 py-0.5 rounded border border-[var(--accent)] ${compact ? 'w-20' : 'w-24'}`}
       />
     )
   }
@@ -225,7 +225,7 @@ export function TableLabelEditor({ game, label, onSaveLabel, compact }: Pick<Gam
     <button
       onClick={startEditing}
       title={compact ? label : 'Edit table label'}
-      className={`relative z-10 shrink-0 font-semibold rounded bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] ${compact ? 'text-[10px] px-1 py-px max-w-[64px] truncate' : 'text-[11px] px-1.5 py-0.5'}`}>
+      className={`relative z-10 shrink-0 font-semibold rounded bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] ${compact ? 'text-[10px] px-1 py-px max-w-[64px] truncate' : 'text-[11px] px-1.5 py-0.5'}`}>
       {label}
     </button>
   ) : compact ? (
@@ -233,7 +233,7 @@ export function TableLabelEditor({ game, label, onSaveLabel, compact }: Pick<Gam
       onClick={startEditing}
       aria-label={`Add a table label to ${game.gameName}`}
       title="Add a table label"
-      className="relative z-10 shrink-0 text-xs text-[#c5c5c5] hover:text-[#5e6ad2]">
+      className="relative z-10 shrink-0 text-xs text-[var(--icon-muted)] hover:text-[var(--accent)]">
       🏷
     </button>
   ) : (
@@ -241,7 +241,7 @@ export function TableLabelEditor({ game, label, onSaveLabel, compact }: Pick<Gam
       onClick={startEditing}
       aria-label={`Add a table label to ${game.gameName}`}
       title="Add a table label — distinguishes this from your other parallel games of the title"
-      className="relative z-10 shrink-0 text-[11px] text-[#9b9b9b] hover:text-[#5e6ad2] border border-dashed border-[#d5d5d5] hover:border-[#5e6ad2] px-1.5 py-0.5 rounded">
+      className="relative z-10 shrink-0 text-[11px] text-[var(--text-tertiary)] hover:text-[var(--accent)] border border-dashed border-[var(--border-dashed)] hover:border-[var(--accent)] px-1.5 py-0.5 rounded">
       + label
     </button>
   )
@@ -253,7 +253,7 @@ function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string,
       onClick={() => onSaveNote(game.id, '')}
       aria-label={`Delete the note on ${game.gameName}`}
       title="Delete note"
-      className="relative z-10 shrink-0 text-[11px] leading-none text-[#c5c5c5] hover:text-red-500">
+      className="relative z-10 shrink-0 text-[11px] leading-none text-[var(--icon-muted)] hover:text-red-500">
       ✕
     </button>
   )
@@ -282,8 +282,8 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
   return (
-    <div className={`relative rounded-lg border p-3.5 flex flex-col gap-2 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] ${heatBg(game.moveCountToday, maxMoveCountToday, 'bg-white')} hover:border-[#c5c9f0]
-      ${opened ? 'opacity-55 hover:opacity-100 border-[#e5e5e5]' : soon !== null ? 'border-[#e5e5e5] border-l-[3px] border-l-red-500' : 'border-[#e5e5e5] border-l-[3px] border-l-[#5e6ad2]'}`}>
+    <div className={`relative rounded-lg border p-3.5 flex flex-col gap-2 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] ${heatBg(game.moveCountToday, maxMoveCountToday, 'bg-[var(--bg-surface)]')} hover:border-[var(--accent-border-hover)]
+      ${opened ? 'opacity-55 hover:opacity-100 border-[var(--border-default)]' : soon !== null ? 'border-[var(--border-default)] border-l-[3px] border-l-red-500' : 'border-[var(--border-default)] border-l-[3px] border-l-[var(--accent)]'}`}>
       <CoverLink game={game} onOpen={onOpen} note={note} />
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
@@ -291,7 +291,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
           <MoveCountBadge game={game} />
         </div>
         <div className="flex items-center gap-2">
-          {opened && <span className="text-[11px] text-[#9b9b9b]">opened</span>}
+          {opened && <span className="text-[11px] text-[var(--text-tertiary)]">opened</span>}
           {soon !== null && !opened && (
             <span className="text-[11px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
               ⏱ {formatTimeRemaining(Math.round(soon / 1000))}
@@ -304,12 +304,12 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
       </div>
 
       <div className="flex items-center gap-1.5">
-        <div className="font-semibold text-[14px] text-[#1a1a1a] truncate">{game.gameName}</div>
+        <div className="font-semibold text-[14px] text-[var(--text-primary)] truncate">{game.gameName}</div>
         <TableLabelEditor game={game} label={tableLabel} onSaveLabel={onSaveTableLabel} />
       </div>
 
       {game.players.length > 0 && (
-        <div className="text-xs text-[#9b9b9b] hidden sm:block truncate">
+        <div className="text-xs text-[var(--text-tertiary)] hidden sm:block truncate">
           with {game.players.join(', ')}
         </div>
       )}
@@ -318,7 +318,7 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
 
       {showProgress && <ProgressBar game={game} />}
 
-      <span className={`text-xs ${(game.urgent || slow) && soon === null ? 'text-amber-500 font-medium' : 'text-[#9b9b9b]'}`}>
+      <span className={`text-xs ${(game.urgent || slow) && soon === null ? 'text-amber-500 font-medium' : 'text-[var(--text-tertiary)]'}`}>
         {game.lastMoveAgo}
       </span>
     </div>
@@ -329,8 +329,8 @@ export default function GameCard({ game, pinned, onTogglePin, sunk, onToggleSink
 export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, showProgress, maxMoveCountToday }: GameItemProps) {
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   return (
-    <div className={`relative flex flex-wrap items-center gap-2 px-3 py-2 rounded-md border hover:border-[#c5c9f0] transition-colors
-      ${heatBg(game.moveCountToday, maxMoveCountToday, slow ? 'bg-amber-50/40' : 'bg-white')} ${slow ? 'border-amber-200' : 'border-[#ececec]'} ${opened ? 'opacity-55 hover:opacity-100' : ''}`}>
+    <div className={`relative flex flex-wrap items-center gap-2 px-3 py-2 rounded-md border hover:border-[var(--accent-border-hover)] transition-colors
+      ${heatBg(game.moveCountToday, maxMoveCountToday, slow ? 'bg-amber-50/40' : 'bg-[var(--bg-surface)]')} ${slow ? 'border-amber-200' : 'border-[var(--border-subtle)]'} ${opened ? 'opacity-55 hover:opacity-100' : ''}`}>
       <CoverLink game={game} onOpen={onOpen} note={note} />
       <Badge game={game} small />
       <MoveCountBadge game={game} small />
@@ -340,14 +340,14 @@ export function GameRow({ game, pinned, onTogglePin, sunk, onToggleSink, onOpen,
           this zone shrinking the name down past legibility to keep everyone
           on one line, as it did when it only had overflow-hidden */}
       <div className="min-w-[140px] flex-1 flex items-baseline gap-2 overflow-hidden">
-        <span className="text-sm text-[#1a1a1a] truncate">{game.gameName}</span>
+        <span className="text-sm text-[var(--text-primary)] truncate">{game.gameName}</span>
         <TableLabelEditor game={game} label={tableLabel} onSaveLabel={onSaveTableLabel} compact />
-        {game.currentPlayer && <span className="hidden sm:inline text-xs text-[#9b9b9b] truncate">waiting for {game.currentPlayer}</span>}
+        {game.currentPlayer && <span className="hidden sm:inline text-xs text-[var(--text-tertiary)] truncate">waiting for {game.currentPlayer}</span>}
         {/* Just the text here — its own edit/delete icons are the compact
             NoteEditor below, shown at every width, not only md:inline */}
-        {note && <span className="hidden md:inline text-xs text-[#6b6b6b] italic whitespace-normal break-words">{note}</span>}
+        {note && <span className="hidden md:inline text-xs text-[var(--text-secondary)] italic whitespace-normal break-words">{note}</span>}
       </div>
-      <span className={`shrink-0 text-xs ${slow ? 'text-amber-600 font-medium' : 'text-[#9b9b9b]'}`}>
+      <span className={`shrink-0 text-xs ${slow ? 'text-amber-600 font-medium' : 'text-[var(--text-tertiary)]'}`}>
         {slow ? '⏱ ' : ''}{game.lastMoveAgo}
       </span>
       {showProgress && <ProgressBar game={game} compact />}

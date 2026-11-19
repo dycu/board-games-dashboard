@@ -80,7 +80,7 @@ export default function OverviewPage() {
       <button
         onClick={refresh}
         disabled={isLoading}
-        className="bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] disabled:opacity-50 disabled:cursor-not-allowed px-2.5 py-1 rounded-md flex items-center gap-1">
+        className="bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] disabled:opacity-50 disabled:cursor-not-allowed px-2.5 py-1 rounded-md flex items-center gap-1">
         <span className={isLoading ? 'animate-spin inline-block' : ''}>↻</span>
         <span className="hidden sm:inline">Refresh</span>
       </button>
@@ -96,7 +96,7 @@ export default function OverviewPage() {
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <p className="text-red-500 mb-3">Failed to load finished games</p>
-              <button onClick={refresh} className="text-xs bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1.5 rounded-md">
+              <button onClick={refresh} className="text-xs bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] px-3 py-1.5 rounded-md">
                 ↻ Try again
               </button>
             </div>
@@ -136,7 +136,7 @@ export default function OverviewPage() {
               aria-pressed={backlogFilter}
               title={backlogFilter ? 'Show every finished game' : 'Show only games that are Favorite or GM in the backlog'}
               className={`shrink-0 whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors
-                ${backlogFilter ? 'bg-[#1a1a1a] text-white' : 'bg-[#f3f3f3] text-[#6b6b6b] hover:bg-[#ebebeb]'}`}>
+                ${backlogFilter ? 'bg-[var(--text-primary)] text-[var(--bg-surface)]' : 'bg-[var(--bg-muted)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted-hover)]'}`}>
               ★ Favorite/GM{backlogFilter ? ` (${byPlatform.filter(isFavoriteOrGm).length})` : ''}
             </button>
           )}
@@ -150,7 +150,7 @@ export default function OverviewPage() {
           <PeriodSummary games={filtered} prefs={prefs} onPrefsChange={updatePrefs} />
 
           <section className="min-w-0">
-            <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b] mb-2">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)] mb-2">
               Finished games · {filtered.length}
             </h2>
             {visible.length > 0 ? (
@@ -179,7 +179,7 @@ export default function OverviewPage() {
                 })}
               </div>
             ) : !isLoading && (
-              <div className="text-center py-12 text-[#9b9b9b]">
+              <div className="text-center py-12 text-[var(--text-tertiary)]">
                 No recently finished games found
                 {platformFilter !== null && platformFilter.length === 1 && <span> on {PLATFORM_LABELS[platformFilter[0]]}</span>}
               </div>
@@ -188,7 +188,7 @@ export default function OverviewPage() {
               <div className="mt-4 text-center">
                 <button
                   onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
-                  className="text-xs bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-4 py-2 rounded-md"
+                  className="text-xs bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] px-4 py-2 rounded-md"
                 >
                   Load more ({filtered.length - visibleCount} remaining)
                 </button>

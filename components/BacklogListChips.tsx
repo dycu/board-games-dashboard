@@ -26,7 +26,7 @@ export default function BacklogListChips({ lists, onToggle, disabled, gameName, 
             aria-label={gameName ? `${on ? 'Remove' : 'Add'} ${gameName} ${on ? 'from' : 'to'} ${LIST_LABELS[l]}` : LIST_LABELS[l]}
             title={LIST_LABELS[l]}
             className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border whitespace-nowrap transition-colors disabled:opacity-50
-              ${on ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]' : 'bg-white text-[#9b9b9b] border-[#e5e5e5] hover:bg-[#f3f3f3]'}`}
+              ${on ? 'bg-[var(--text-primary)] text-[var(--bg-surface)] border-[var(--text-primary)]' : 'bg-[var(--bg-surface)] text-[var(--text-tertiary)] border-[var(--border-default)] hover:bg-[var(--bg-muted)]'}`}
           >
             {SHORT_LIST_LABELS[l]}
           </button>

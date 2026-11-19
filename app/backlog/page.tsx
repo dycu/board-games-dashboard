@@ -25,7 +25,7 @@ type Backlog = ReturnType<typeof useBacklog>
 
 const ALL_PLATFORMS = Object.keys(PLATFORM_LABELS) as Platform[]
 
-const BADGE_FALLBACK = 'bg-[#f3f3f3] text-[#6b6b6b]'
+const BADGE_FALLBACK = 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'
 
 // TableTapas is search-only: it has no per-game deep link (every match
 // points at its library, not the specific game) and no live tracker, so
@@ -58,7 +58,7 @@ function ParallelTargetInput({ item, onChange }: { item: BacklogItem; onChange: 
       placeholder="×1"
       title="How many of this title to keep running at once — e.g. GMing several tables"
       aria-label={`Parallel games target for ${item.gameName}`}
-      className="shrink-0 w-11 text-xs text-center px-1 py-1 rounded-md border border-[#e5e5e5] text-[#6b6b6b] focus:border-[#5e6ad2] focus:outline-none"
+      className="shrink-0 w-11 text-xs text-center px-1 py-1 rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] focus:border-[var(--accent)] focus:outline-none"
     />
   )
 }
@@ -77,26 +77,26 @@ function Row({ item, position, onTop, onToggleList, onSetParallelTarget, onRemov
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex flex-wrap items-center gap-2 py-2.5 pl-1.5 pr-3 rounded-lg border bg-white
-        ${isDragging ? 'border-[#5e6ad2] shadow-lg relative z-10' : 'border-[#e5e5e5]'}`}
+      className={`flex flex-wrap items-center gap-2 py-2.5 pl-1.5 pr-3 rounded-lg border bg-[var(--bg-surface)]
+        ${isDragging ? 'border-[var(--accent)] shadow-lg relative z-10' : 'border-[var(--border-default)]'}`}
     >
       <button
         ref={setActivatorNodeRef}
         {...attributes}
         {...listeners}
         aria-label={`Drag ${item.gameName}`}
-        className="shrink-0 touch-none cursor-grab active:cursor-grabbing text-[#b5b5b5] hover:text-[#6b6b6b] px-2 py-1 text-lg leading-none"
+        className="shrink-0 touch-none cursor-grab active:cursor-grabbing text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] px-2 py-1 text-lg leading-none"
       >
         ⠿
       </button>
-      <span className="shrink-0 w-6 text-right text-xs tabular-nums text-[#9b9b9b]">{position}</span>
+      <span className="shrink-0 w-6 text-right text-xs tabular-nums text-[var(--text-tertiary)]">{position}</span>
       {/* Wide enough: everything shares one line. Too narrow for both this
           and the action buttons (phone widths): the min-width floor forces
           the actions below onto their own line instead of squeezing the
           game name down to one letter. */}
       <div className="flex items-center gap-2 min-w-[140px] flex-1">
         <Badge platform={item.platform} />
-        <span className="text-sm font-medium text-[#1a1a1a] truncate">{item.gameName}</span>
+        <span className="text-sm font-medium text-[var(--text-primary)] truncate">{item.gameName}</span>
         <HistoryLink game={item} />
       </div>
       <div className="shrink-0 flex items-center gap-2 ml-auto">
@@ -106,7 +106,7 @@ function Row({ item, position, onTop, onToggleList, onSetParallelTarget, onRemov
           rel="noopener noreferrer"
           aria-label={`Play ${item.gameName}`}
           title="Play"
-          className="shrink-0 text-xs font-medium px-2 sm:px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] whitespace-nowrap"
+          className="shrink-0 text-xs font-medium px-2 sm:px-3 py-1 rounded-md bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] whitespace-nowrap"
         >
           <span className="sm:hidden" aria-hidden="true">↗</span>
           <span className="hidden sm:inline" aria-hidden="true">Play ↗</span>
@@ -146,7 +146,7 @@ function ListSection({ backlog, list }: { backlog: Backlog; list: BacklogList })
 
   if (items.length === 0) {
     return (
-      <p className="text-sm text-[#9b9b9b] text-center py-6 rounded-lg border border-dashed border-[#e5e5e5]">
+      <p className="text-sm text-[var(--text-tertiary)] text-center py-6 rounded-lg border border-dashed border-[var(--border-default)]">
         {list === 'play' && 'Nothing here yet. Add games below, or with the Play/Learn/Solo/Favorite/GM buttons on the History page.'}
         {list === 'learn' && 'No games to learn yet. Choose “Next to learn” in the box below and add some.'}
         {list === 'solo' && 'No solo games queued yet. Choose “Solo” in the box below and add some.'}
@@ -221,17 +221,17 @@ function SearchPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSi
           onChange={e => setQuery(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') runSearch() }}
           placeholder="Game name…"
-          className="flex-1 min-w-0 bg-white text-[#1a1a1a] text-sm px-3 py-1.5 rounded-md border border-[#e5e5e5]"
+          className="flex-1 min-w-0 bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm px-3 py-1.5 rounded-md border border-[var(--border-default)]"
         />
         <button
           onClick={runSearch}
           disabled={!query.trim() || isSearching}
-          className="text-xs bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] px-3 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap"
+          className="text-xs bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] px-3 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap"
         >
           {isSearching ? 'Searching…' : 'Search'}
         </button>
       </div>
-      <p className="text-xs text-[#9b9b9b] mt-2">Searches every site above a filter is checked for, in one go.</p>
+      <p className="text-xs text-[var(--text-tertiary)] mt-2">Searches every site above a filter is checked for, in one go.</p>
 
       {errors.some(e => sites.has(e.platform)) && (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -245,14 +245,14 @@ function SearchPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSi
 
       {results && (
         found.length === 0 ? (
-          <p className="text-xs text-[#9b9b9b] mt-3">No match found</p>
+          <p className="text-xs text-[var(--text-tertiary)] mt-3">No match found</p>
         ) : (
-          <ul className="mt-3 flex flex-col divide-y divide-[#f0f0f0]">
+          <ul className="mt-3 flex flex-col divide-y divide-[var(--border-subtle)]">
             {found.map(m => {
               const prefix = (
                 <>
                   <Badge platform={m.platform} />
-                  <span className="text-sm text-[#1a1a1a] truncate flex-1 min-w-0">{m.name}</span>
+                  <span className="text-sm text-[var(--text-primary)] truncate flex-1 min-w-0">{m.name}</span>
                 </>
               )
               // No history, no backlog chips: there's no Platform value for
@@ -292,8 +292,8 @@ function SearchPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSi
 
       {results && searched && sites.size > 0 && (
         // For games no catalog lists, e.g. BGA alpha games
-        <div className="mt-3 pt-3 border-t border-[#f0f0f0] flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-[#9b9b9b] mr-1">Not there? Add “{searched}” on</span>
+        <div className="mt-3 pt-3 border-t border-[var(--border-subtle)] flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-[var(--text-tertiary)] mr-1">Not there? Add “{searched}” on</span>
           {ALL_PLATFORMS.filter(p => sites.has(p)).map(p => {
             const inBacklog = backlog.listsFor(p, searched).length > 0
             return (
@@ -351,7 +351,7 @@ function PlayedPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSi
         value={filter}
         onChange={e => setFilter(e.target.value)}
         placeholder="Filter your games…"
-        className="w-full bg-white text-[#1a1a1a] text-sm px-3 py-1.5 rounded-md border border-[#e5e5e5]"
+        className="w-full bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm px-3 py-1.5 rounded-md border border-[var(--border-default)]"
       />
       <div className="flex flex-wrap items-center gap-1.5 mt-2">
         {SORTS.map(([key, label]) => (
@@ -359,18 +359,18 @@ function PlayedPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSi
             key={key}
             onClick={() => setSort(key)}
             className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium transition-colors
-              ${sort === key ? 'bg-[#5e6ad2] text-white' : 'bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb]'}`}
+              ${sort === key ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)]'}`}
           >
             {label}
           </button>
         ))}
-        <label className="ml-auto flex items-center gap-1.5 text-xs text-[#6b6b6b] cursor-pointer">
+        <label className="ml-auto flex items-center gap-1.5 text-xs text-[var(--text-secondary)] cursor-pointer">
           <input type="checkbox" checked={finishedOnly} onChange={e => setFinishedOnly(e.target.checked)} />
           Finished only
         </label>
       </div>
       {(finished.isLoading || !bgaTotals) && (
-        <p className="text-xs text-[#9b9b9b] mt-2">Loading finished games…</p>
+        <p className="text-xs text-[var(--text-tertiary)] mt-2">Loading finished games…</p>
       )}
       {bgaTotals && 'error' in bgaTotals && (
         <p className="mt-2 text-xs bg-red-100 text-red-600 px-2 py-1 rounded-md">
@@ -386,13 +386,13 @@ function PlayedPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSi
           ))}
         </div>
       )}
-      <ul className="mt-2 flex flex-col divide-y divide-[#f0f0f0] max-h-96 overflow-y-auto">
+      <ul className="mt-2 flex flex-col divide-y divide-[var(--border-subtle)] max-h-96 overflow-y-auto">
         {shown.map(g => (
           <li key={`${g.platform}:${g.gameName}`} className="flex flex-wrap items-center gap-2 py-2">
             <Badge platform={g.platform} />
             <div className="min-w-[140px] flex-1">
-              <p className="text-sm text-[#1a1a1a] truncate">{g.gameName}</p>
-              <p className="text-xs text-[#9b9b9b]">{playedNote(g)}</p>
+              <p className="text-sm text-[var(--text-primary)] truncate">{g.gameName}</p>
+              <p className="text-xs text-[var(--text-tertiary)]">{playedNote(g)}</p>
             </div>
             <div className="shrink-0 flex items-center gap-2 ml-auto">
               <HistoryLink game={g} />
@@ -407,7 +407,7 @@ function PlayedPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSi
         ))}
       </ul>
       {!finished.isLoading && shown.length === 0 && (
-        <p className="text-xs text-[#9b9b9b] mt-2">No games found</p>
+        <p className="text-xs text-[var(--text-tertiary)] mt-2">No games found</p>
       )}
     </div>
   )
@@ -429,7 +429,7 @@ export default function BacklogPage() {
 
   const navRight = backlog.items ? <span>{backlog.items.length} planned</span> : undefined
   const pill = (active: boolean) => `text-xs px-3 py-1 rounded-full font-medium transition-colors
-    ${active ? 'bg-[#1a1a1a] text-white' : 'bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb]'}`
+    ${active ? 'bg-[var(--text-primary)] text-[var(--bg-surface)]' : 'bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)]'}`
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -440,7 +440,7 @@ export default function BacklogPage() {
         )}
 
         {backlog.items === null
-          ? !backlog.error && <p className="text-sm text-[#9b9b9b] text-center py-8">Loading…</p>
+          ? !backlog.error && <p className="text-sm text-[var(--text-tertiary)] text-center py-8">Loading…</p>
           : (
             <section className="mb-6">
               {/* One list visible at a time instead of all of them stacked —
@@ -465,9 +465,9 @@ export default function BacklogPage() {
             </section>
           )}
 
-        <div className="bg-white rounded-xl border border-[#e5e5e5] p-5">
+        <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5">
           <div className="flex flex-wrap items-center gap-1 mb-4">
-            <h2 className="text-sm font-semibold text-[#1a1a1a] mr-3">Add games</h2>
+            <h2 className="text-sm font-semibold text-[var(--text-primary)] mr-3">Add games</h2>
             {([['played', 'From your games'], ['search', 'Search']] as const).map(([key, label]) => (
               <button
                 key={key}
@@ -482,7 +482,7 @@ export default function BacklogPage() {
               chips, so a game can go straight into any combination of
               lists — no page-wide "add to" choice needed first. */}
           <div className="flex flex-wrap items-center gap-1.5 mb-4">
-            <span className="text-xs text-[#9b9b9b] mr-1">Sites</span>
+            <span className="text-xs text-[var(--text-tertiary)] mr-1">Sites</span>
             <PlatformFilterChips
               platforms={ALL_PLATFORMS}
               selected={Array.from(sites).filter((s): s is Platform => s !== 'tabletapas')}

@@ -189,9 +189,9 @@ export default function SetupPage() {
       <TopNav />
       <div className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
 
-        <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
-          <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">Opponent slow-play threshold</h2>
-          <p className="text-xs text-[#9b9b9b] mb-3">
+        <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5 mb-5">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-1">Opponent slow-play threshold</h2>
+          <p className="text-xs text-[var(--text-tertiary)] mb-3">
             Highlight waiting games with an urgency indicator when the opponent hasn&apos;t moved in this many days.
           </p>
           <div className="flex items-center gap-3">
@@ -209,15 +209,15 @@ export default function SetupPage() {
                   body: JSON.stringify({ opponentSlowDays: val }),
                 })
               }}
-              className="w-20 bg-white text-[#1a1a1a] text-sm px-3 py-1.5 rounded-md border border-[#e5e5e5]"
+              className="w-20 bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm px-3 py-1.5 rounded-md border border-[var(--border-default)]"
             />
-            <span className="text-sm text-[#6b6b6b]">days</span>
+            <span className="text-sm text-[var(--text-secondary)]">days</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
-          <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">Deadline soon threshold</h2>
-          <p className="text-xs text-[#9b9b9b] mb-3">
+        <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5 mb-5">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-1">Deadline soon threshold</h2>
+          <p className="text-xs text-[var(--text-tertiary)] mb-3">
             Flag a my-turn game with the red &quot;time&apos;s running out&quot; indicator once its deadline is under this many hours away.
           </p>
           <div className="flex items-center gap-3">
@@ -235,23 +235,23 @@ export default function SetupPage() {
                   body: JSON.stringify({ deadlineSoonHours: val }),
                 })
               }}
-              className="w-20 bg-white text-[#1a1a1a] text-sm px-3 py-1.5 rounded-md border border-[#e5e5e5]"
+              className="w-20 bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm px-3 py-1.5 rounded-md border border-[var(--border-default)]"
             />
-            <span className="text-sm text-[#6b6b6b]">hours</span>
+            <span className="text-sm text-[var(--text-secondary)]">hours</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
+        <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5 mb-5">
           <div className="flex items-center justify-between gap-3 mb-1">
-            <h2 className="text-sm font-semibold text-[#1a1a1a]">Progress bars (beta)</h2>
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Progress bars (beta)</h2>
             <button
               onClick={toggleShowProgress}
               title={showProgress ? 'Turn off' : 'Turn on'}
-              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${showProgress ? 'bg-[#5e6ad2]' : 'bg-[#e5e5e5]'}`}>
-              <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${showProgress ? 'translate-x-5' : 'translate-x-1'}`} />
+              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${showProgress ? 'bg-[var(--accent)]' : 'bg-[var(--border-default)]'}`}>
+              <span className={`inline-block h-3 w-3 transform rounded-full bg-[var(--bg-surface)] transition-transform ${showProgress ? 'translate-x-5' : 'translate-x-1'}`} />
             </button>
           </div>
-          <p className="text-xs text-[#9b9b9b]">
+          <p className="text-xs text-[var(--text-tertiary)]">
             Shows how far each game has gotten, estimated from turns played so far vs. your
             finished games of that type. New and still experimental — this toggle switches it off
             again, back to the plain cards, if it doesn&apos;t work well for you. Only appears once
@@ -260,9 +260,9 @@ export default function SetupPage() {
           </p>
         </div>
 
-        <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
-          <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">New games check</h2>
-          <p className="text-xs text-[#9b9b9b] mb-3">
+        <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5 mb-5">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-1">New games check</h2>
+          <p className="text-xs text-[var(--text-tertiary)] mb-3">
             Runs automatically twice a day: new games and release-stage changes on BGA (alpha
             included), 18xx.games, Rally the Troops, Yucata, choochoo.games, Boardgamers.space and
             BoardTogether. Emails what it finds — check now instead of waiting for the next
@@ -271,13 +271,13 @@ export default function SetupPage() {
           <button
             onClick={checkNewGamesNow}
             disabled={newGamesChecking}
-            className="text-xs bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] px-3 py-1.5 rounded-md disabled:opacity-50"
+            className="text-xs bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] px-3 py-1.5 rounded-md disabled:opacity-50"
           >
             {newGamesChecking ? 'Checking…' : 'Check now'}
           </button>
           {newGamesError && <p className="text-xs text-red-500 mt-2">⚠ {newGamesError}</p>}
           {newGamesResult && (
-            <div className="text-xs text-[#6b6b6b] mt-2">
+            <div className="text-xs text-[var(--text-secondary)] mt-2">
               {newGamesResult.events.length === 0 ? (
                 'No new games or changes found.'
               ) : (
@@ -299,9 +299,9 @@ export default function SetupPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-[#e5e5e5] p-5 mb-5">
-          <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">Backlog sites</h2>
-          <p className="text-xs text-[#9b9b9b] mb-3">
+        <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5 mb-5">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-1">Backlog sites</h2>
+          <p className="text-xs text-[var(--text-tertiary)] mb-3">
             Sites shown when adding games on the Backlog page. Others can still be switched on there.
           </p>
           <PlatformFilterChips
@@ -316,16 +316,16 @@ export default function SetupPage() {
             const status = statuses[platform]
             const enabled = !disabled.has(platform)
             return (
-              <div key={platform} className={`bg-white rounded-xl border border-[#e5e5e5] p-5 transition-opacity ${enabled ? '' : 'opacity-50'}`}>
+              <div key={platform} className={`bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5 transition-opacity ${enabled ? '' : 'opacity-50'}`}>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0">
                     <button
                       onClick={() => togglePlatform(platform)}
                       title={enabled ? 'Disable platform' : 'Enable platform'}
-                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${enabled ? 'bg-[#5e6ad2]' : 'bg-[#e5e5e5]'}`}>
-                      <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-5' : 'translate-x-1'}`} />
+                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${enabled ? 'bg-[var(--accent)]' : 'bg-[var(--border-default)]'}`}>
+                      <span className={`inline-block h-3 w-3 transform rounded-full bg-[var(--bg-surface)] transition-transform ${enabled ? 'translate-x-5' : 'translate-x-1'}`} />
                     </button>
-                    <h3 className="font-semibold text-[#1a1a1a] truncate">{PLATFORM_LABELS[platform]}</h3>
+                    <h3 className="font-semibold text-[var(--text-primary)] truncate">{PLATFORM_LABELS[platform]}</h3>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {status === 'ok' && <span className="text-xs text-green-600 hidden sm:inline">✓ Connected</span>}
@@ -334,14 +334,14 @@ export default function SetupPage() {
                     <button
                       onClick={() => test(platform)}
                       disabled={status === 'testing' || !enabled}
-                      className="text-xs bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap">
+                      className="text-xs bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] px-3 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap">
                       {status === 'testing' ? 'Testing…' : <><span className="hidden sm:inline">Test connection</span><span className="sm:hidden">Test</span></>}
                     </button>
                   </div>
                 </div>
                 {platform === 'bga' && (
-                  <div className="mt-3 pt-3 border-t border-[#f0f0f0]">
-                    <p className="text-xs text-[#9b9b9b] mb-2">
+                  <div className="mt-3 pt-3 border-t border-[var(--border-subtle)]">
+                    <p className="text-xs text-[var(--text-tertiary)] mb-2">
                       Normally nothing to do here — logging in saves its own session below automatically.
                       Only paste one yourself if automated login is stuck (e.g. BGA blocking it): log in to
                       BGA in your browser, open DevTools → Network, find any request to boardgamearena.com,
@@ -354,7 +354,7 @@ export default function SetupPage() {
                         value={bgaCookieInput}
                         onChange={e => setBgaCookieInput(e.target.value)}
                         placeholder={bgaCookieSaved ? '●●●●● saved' : 'Paste Cookie header value…'}
-                        className="text-xs bg-white text-[#1a1a1a] px-3 py-1.5 rounded-md border border-[#e5e5e5] font-mono"
+                        className="text-xs bg-[var(--bg-surface)] text-[var(--text-primary)] px-3 py-1.5 rounded-md border border-[var(--border-default)] font-mono"
                       />
                       <div className="flex gap-2">
                         <input
@@ -362,12 +362,12 @@ export default function SetupPage() {
                           value={bgaPlayerIdInput}
                           onChange={e => setBgaPlayerIdInput(e.target.value)}
                           placeholder={savedBgaPlayerId ? `saved: ${savedBgaPlayerId}` : 'Numeric player id (visible in your profile’s URL)…'}
-                          className="flex-1 text-xs bg-white text-[#1a1a1a] px-3 py-1.5 rounded-md border border-[#e5e5e5] font-mono"
+                          className="flex-1 text-xs bg-[var(--bg-surface)] text-[var(--text-primary)] px-3 py-1.5 rounded-md border border-[var(--border-default)] font-mono"
                         />
                         <button
                           onClick={() => saveBgaCookie(bgaCookieInput, bgaPlayerIdInput || savedBgaPlayerId)}
                           disabled={!bgaCookieInput || !(bgaPlayerIdInput || savedBgaPlayerId) || bgaCookieSaving}
-                          className="text-xs bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] px-3 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap"
+                          className="text-xs bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] px-3 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap"
                         >
                           {bgaCookieSaving ? 'Saving…' : 'Save'}
                         </button>
@@ -375,7 +375,7 @@ export default function SetupPage() {
                           <button
                             onClick={() => { saveBgaCookie('', ''); setSavedBgaPlayerId('') }}
                             disabled={bgaCookieSaving}
-                            className="text-xs bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1.5 rounded-md disabled:opacity-50"
+                            className="text-xs bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] px-3 py-1.5 rounded-md disabled:opacity-50"
                           >
                             Clear
                           </button>
@@ -385,8 +385,8 @@ export default function SetupPage() {
                   </div>
                 )}
                 {platform === 'eighteenxx' && (
-                  <div className="mt-3 pt-3 border-t border-[#f0f0f0]">
-                    <p className="text-xs text-[#9b9b9b] mb-2">
+                  <div className="mt-3 pt-3 border-t border-[var(--border-subtle)]">
+                    <p className="text-xs text-[var(--text-tertiary)] mb-2">
                       Auth token — log in to 18xx.games in your browser, open DevTools → Application → Cookies → <code>18xx.games</code> → copy the value of the <code>auth_token</code> cookie and paste it here.
                     </p>
                     <div className="flex gap-2">
@@ -395,12 +395,12 @@ export default function SetupPage() {
                         value={cookieInput}
                         onChange={e => setCookieInput(e.target.value)}
                         placeholder={cookieSaved ? '●●●●● saved' : 'Paste cookie value…'}
-                        className="flex-1 text-xs bg-white text-[#1a1a1a] px-3 py-1.5 rounded-md border border-[#e5e5e5] font-mono"
+                        className="flex-1 text-xs bg-[var(--bg-surface)] text-[var(--text-primary)] px-3 py-1.5 rounded-md border border-[var(--border-default)] font-mono"
                       />
                       <button
                         onClick={() => saveCookie(cookieInput)}
                         disabled={!cookieInput || cookieSaving}
-                        className="text-xs bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] px-3 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap"
+                        className="text-xs bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] px-3 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap"
                       >
                         {cookieSaving ? 'Saving…' : 'Save'}
                       </button>
@@ -408,7 +408,7 @@ export default function SetupPage() {
                         <button
                           onClick={() => saveCookie('')}
                           disabled={cookieSaving}
-                          className="text-xs bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1.5 rounded-md disabled:opacity-50"
+                          className="text-xs bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] px-3 py-1.5 rounded-md disabled:opacity-50"
                         >
                           Clear
                         </button>
@@ -417,8 +417,8 @@ export default function SetupPage() {
                   </div>
                 )}
                 {platform === 'oldkingscrown' && (
-                  <div className="mt-3 pt-3 border-t border-[#f0f0f0]">
-                    <p className="text-xs text-[#9b9b9b] mb-2">
+                  <div className="mt-3 pt-3 border-t border-[var(--border-subtle)]">
+                    <p className="text-xs text-[var(--text-tertiary)] mb-2">
                       No accounts on this site, so games you&apos;re playing can&apos;t be discovered
                       automatically — paste each game&apos;s URL (or just its id) here once to track it.
                     </p>
@@ -429,12 +429,12 @@ export default function SetupPage() {
                         onChange={e => setOkcInput(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') addOkcGameId() }}
                         placeholder="https://oldkingscrown.fly.dev/game/…"
-                        className="flex-1 text-xs bg-white text-[#1a1a1a] px-3 py-1.5 rounded-md border border-[#e5e5e5] font-mono"
+                        className="flex-1 text-xs bg-[var(--bg-surface)] text-[var(--text-primary)] px-3 py-1.5 rounded-md border border-[var(--border-default)] font-mono"
                       />
                       <button
                         onClick={addOkcGameId}
                         disabled={!okcInput.trim() || okcSaving}
-                        className="text-xs bg-[#5e6ad2] text-white hover:bg-[#4f5ab8] px-3 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap"
+                        className="text-xs bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] px-3 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap"
                       >
                         Add
                       </button>
@@ -445,7 +445,7 @@ export default function SetupPage() {
                           <button
                             onClick={loadOkcStatus}
                             disabled={okcStatusLoading}
-                            className="text-[11px] text-[#5e6ad2] hover:underline disabled:opacity-50"
+                            className="text-[11px] text-[var(--accent)] hover:underline disabled:opacity-50"
                           >
                             {okcStatusLoading ? 'Checking…' : '↻ Refresh status'}
                           </button>
@@ -455,11 +455,11 @@ export default function SetupPage() {
                             const info = okcStatus[id]
                             const flagged = info?.status === 'finished' || info?.status === 'error' || info?.status === 'not-member'
                             return (
-                              <li key={id} className={`flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded-md ${flagged ? 'bg-amber-50' : 'bg-[#f3f3f3]'}`}>
+                              <li key={id} className={`flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded-md ${flagged ? 'bg-amber-50' : 'bg-[var(--bg-muted)]'}`}>
                                 <div className="min-w-0">
-                                  <div className="font-mono text-[#6b6b6b] truncate">{id}</div>
+                                  <div className="font-mono text-[var(--text-secondary)] truncate">{id}</div>
                                   {info && (
-                                    <div className={`truncate ${info.status === 'error' ? 'text-red-600' : flagged ? 'text-amber-700' : 'text-[#9b9b9b]'}`}>
+                                    <div className={`truncate ${info.status === 'error' ? 'text-red-600' : flagged ? 'text-amber-700' : 'text-[var(--text-tertiary)]'}`}>
                                       {info.status === 'active' && `vs ${info.players.join(', ') || '…'} — ${info.game?.myTurn ? 'your turn' : info.game?.currentPlayer ? `waiting for ${info.game.currentPlayer}` : 'waiting'}`}
                                       {info.status === 'finished' && `Finished — vs ${info.players.join(', ')} · safe to remove`}
                                       {info.status === 'not-member' && `You're not seated here (players: ${info.players.join(', ') || 'unknown'}) · safe to remove`}
@@ -474,14 +474,14 @@ export default function SetupPage() {
                                   href={`https://oldkingscrown.fly.dev/game/${id}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="shrink-0 text-[#5e6ad2] hover:underline whitespace-nowrap"
+                                  className="shrink-0 text-[var(--accent)] hover:underline whitespace-nowrap"
                                 >
                                   Open ↗
                                 </a>
                                 <button
                                   onClick={() => removeOkcGameId(id)}
                                   disabled={okcSaving}
-                                  className="text-[#9b9b9b] hover:text-red-500 shrink-0"
+                                  className="text-[var(--text-tertiary)] hover:text-red-500 shrink-0"
                                   aria-label="Stop tracking"
                                 >
                                   ✕

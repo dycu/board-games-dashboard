@@ -70,7 +70,7 @@ export default function NewGamesPage() {
     <button
       onClick={checkNow}
       disabled={checking}
-      className="bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] disabled:opacity-50 disabled:cursor-not-allowed px-2.5 py-1 rounded-md flex items-center gap-1">
+      className="bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] disabled:opacity-50 disabled:cursor-not-allowed px-2.5 py-1 rounded-md flex items-center gap-1">
       <span className={checking ? 'animate-spin inline-block' : ''}>↻</span>
       <span className="hidden sm:inline">{checking ? 'Checking…' : 'Check now'}</span>
     </button>
@@ -82,7 +82,7 @@ export default function NewGamesPage() {
       <div className="flex-1 overflow-y-auto p-5 max-w-2xl mx-auto w-full">
         {checkError && <p className="text-xs text-red-500 mb-3">⚠ {checkError}</p>}
         {lastCheck && !checkError && (
-          <p className="text-xs text-[#6b6b6b] mb-3">
+          <p className="text-xs text-[var(--text-secondary)] mb-3">
             {lastCheck.events.length === 0
               ? 'Just checked — nothing new.'
               : `Just checked — found ${lastCheck.events.length} new ${lastCheck.events.length === 1 ? 'item' : 'items'}.`}
@@ -92,27 +92,27 @@ export default function NewGamesPage() {
         {loadError ? (
           <div className="text-center py-12 text-red-500">⚠ {loadError}</div>
         ) : events === null ? (
-          <div className="text-center py-12 text-[#9b9b9b]">Loading…</div>
+          <div className="text-center py-12 text-[var(--text-tertiary)]">Loading…</div>
         ) : events.length === 0 ? (
-          <div className="text-center py-12 text-[#9b9b9b]">Nothing found yet.</div>
+          <div className="text-center py-12 text-[var(--text-tertiary)]">Nothing found yet.</div>
         ) : (
           <div className="flex flex-col gap-4">
             {groupEventsByDay(events).map(group => (
               <div key={group.dateKey}>
                 <div className="flex items-center justify-between gap-2 mb-1.5 px-1">
-                  <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b]">
+                  <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)]">
                     {group.label}
                   </h2>
                   {group.label === 'Today' && (
                     <button
                       onClick={() => copyToday(group.events)}
-                      className="text-[11px] font-medium text-[#5e6ad2] hover:underline"
+                      className="text-[11px] font-medium text-[var(--accent)] hover:underline"
                     >
                       {copied ? 'Copied!' : 'Copy list'}
                     </button>
                   )}
                 </div>
-                <ul className="divide-y divide-[#f0f0f0] bg-white rounded-xl border border-[#e5e5e5] px-4">
+                <ul className="divide-y divide-[var(--border-subtle)] bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] px-4">
                   {group.events.map(e => (
                     <NewGameEventRow
                       key={e.id}

@@ -246,7 +246,7 @@ export default function DashboardPage() {
             <p className="text-red-500 mb-3">Failed to load games</p>
             <button
               onClick={refresh}
-              className="text-xs bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-3 py-1.5 rounded-md"
+              className="text-xs bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] px-3 py-1.5 rounded-md"
             >
               ↻ Try again
             </button>

@@ -16,7 +16,7 @@ import BacklogListChips from '@/components/BacklogListChips'
 
 const RESULT_STYLE = {
   won: 'bg-green-50 text-green-700',
-  lost: 'bg-[#f3f3f3] text-[#6b6b6b]',
+  lost: 'bg-[var(--bg-muted)] text-[var(--text-secondary)]',
   draw: 'bg-sky-50 text-sky-700',
   coop: 'bg-violet-50 text-violet-700',
 } as const
@@ -31,9 +31,9 @@ function days(n: number): string {
 
 function Stat({ value, label, accent }: { value: React.ReactNode; label: string; accent?: string }) {
   return (
-    <div className="bg-white rounded-lg border border-[#e5e5e5] px-3 py-2">
-      <div className={`text-lg font-semibold tabular-nums ${accent ?? 'text-[#1a1a1a]'}`}>{value}</div>
-      <div className="text-[11px] text-[#9b9b9b]">{label}</div>
+    <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] px-3 py-2">
+      <div className={`text-lg font-semibold tabular-nums ${accent ?? 'text-[var(--text-primary)]'}`}>{value}</div>
+      <div className="text-[11px] text-[var(--text-tertiary)]">{label}</div>
     </div>
   )
 }
@@ -48,16 +48,16 @@ function EloChart({ series }: { series: { t: number; elo: number }[] }) {
   const y = (e: number) => H - P - ((e - lo) / Math.max(1, hi - lo)) * (H - 2 * P)
   const d = series.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p.elo).toFixed(1)}`).join(' ')
   return (
-    <div className="bg-white rounded-lg border border-[#e5e5e5] p-3">
-      <div className="flex justify-between text-[11px] text-[#9b9b9b] mb-1">
+    <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] p-3">
+      <div className="flex justify-between text-[11px] text-[var(--text-tertiary)] mb-1">
         <span>ELO over time</span>
         <span>{lo}–{hi}</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-28" preserveAspectRatio="none" role="img" aria-label={`ELO from ${series[0].elo} to ${series[series.length - 1].elo}`}>
-        <path d={d} fill="none" stroke="#5e6ad2" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-        {series.map(p => <circle key={p.t} cx={x(p.t)} cy={y(p.elo)} r="2.5" fill="#5e6ad2"><title>{`${fmtDate(new Date(p.t))}: ${p.elo}`}</title></circle>)}
+        <path d={d} fill="none" stroke="var(--accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+        {series.map(p => <circle key={p.t} cx={x(p.t)} cy={y(p.elo)} r="2.5" fill="var(--accent)"><title>{`${fmtDate(new Date(p.t))}: ${p.elo}`}</title></circle>)}
       </svg>
-      <div className="flex justify-between text-[11px] text-[#9b9b9b]">
+      <div className="flex justify-between text-[11px] text-[var(--text-tertiary)]">
         <span>{fmtDate(new Date(t0))}</span>
         <span>{fmtDate(new Date(t1))}</span>
       </div>
@@ -131,13 +131,13 @@ function GameHistory() {
     <div className="flex flex-col h-screen overflow-hidden">
       <TopNav right={loading ? <span className="animate-pulse">Loading…</span> : undefined} />
       <div className="flex-1 overflow-y-auto p-5 max-w-5xl mx-auto w-full">
-        <button onClick={goBack} className="text-xs text-[#6b6b6b] hover:text-[#1a1a1a]">← Back</button>
+        <button onClick={goBack} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">← Back</button>
 
         <div className="flex flex-wrap items-center gap-2 mt-2 mb-1">
-          <span title={PLATFORM_LABELS[platform]} className={`shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
+          <span title={PLATFORM_LABELS[platform]} className={`shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[platform] ?? 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'}`}>
             {PLATFORM_SHORT_LABELS[platform] ?? platform}
           </span>
-          <h1 className="text-xl font-semibold text-[#1a1a1a] mr-2">{name}</h1>
+          <h1 className="text-xl font-semibold text-[var(--text-primary)] mr-2">{name}</h1>
           {latest && <GameLink url={playedGameUrl(latest)} platform={platform} />}
           {backlog.items && (
             <BacklogListChips
@@ -147,10 +147,10 @@ function GameHistory() {
             />
           )}
         </div>
-        {source && <p className="text-xs text-[#9b9b9b] mb-4">{source}{fullError && ` (full history unavailable: ${fullError})`}</p>}
+        {source && <p className="text-xs text-[var(--text-tertiary)] mb-4">{source}{fullError && ` (full history unavailable: ${fullError})`}</p>}
 
         {games.length === 0 ? (
-          !loading && <p className="text-sm text-[#9b9b9b] py-8">No finished games of {name} found.</p>
+          !loading && <p className="text-sm text-[var(--text-tertiary)] py-8">No finished games of {name} found.</p>
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 mb-4">
@@ -168,13 +168,13 @@ function GameHistory() {
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-4 mb-5 items-start">
               <EloChart series={stats.eloSeries} />
               {stats.opponents.length > 0 && (
-                <div className="bg-white rounded-lg border border-[#e5e5e5] p-3 lg:col-start-2">
-                  <div className="text-[11px] text-[#9b9b9b] mb-1">Most played opponents · you–them</div>
+                <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] p-3 lg:col-start-2">
+                  <div className="text-[11px] text-[var(--text-tertiary)] mb-1">Most played opponents · you–them</div>
                   <ul className="text-sm">
                     {stats.opponents.slice(0, 8).map(o => (
                       <li key={o.name} className="flex justify-between gap-2 py-0.5">
-                        <span className="truncate text-[#1a1a1a]">{o.name}</span>
-                        <span className="shrink-0 tabular-nums text-[#6b6b6b]">{o.games}× · {o.iWon}–{o.theyWon}</span>
+                        <span className="truncate text-[var(--text-primary)]">{o.name}</span>
+                        <span className="shrink-0 tabular-nums text-[var(--text-secondary)]">{o.games}× · {o.iWon}–{o.theyWon}</span>
                       </li>
                     ))}
                   </ul>
@@ -186,14 +186,14 @@ function GameHistory() {
 
         {running.length > 0 && (
           <section className="mb-5">
-            <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b] mb-2">Going now · {running.length}</h2>
+            <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)] mb-2">Going now · {running.length}</h2>
             <div className="flex flex-col gap-1.5">
               {running.map(g => (
                 <a key={g.id} href={g.gameUrl} target={platform === 'bga' ? '_self' : '_blank'} rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 rounded-md border border-[#ececec] bg-white hover:border-[#c5c9f0] text-sm">
-                  <span className="truncate text-[#1a1a1a]">{g.gameName}</span>
-                  <span className="text-xs text-[#9b9b9b]">{g.myTurn ? 'your turn' : `waiting for ${g.currentPlayer ?? 'others'}`} · {g.lastMoveAgo}</span>
-                  {notes[g.id] && <span className="text-xs italic text-[#6b6b6b] truncate">✎ {notes[g.id]}</span>}
+                  className="flex items-center gap-2 px-3 py-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-[var(--accent-border-hover)] text-sm">
+                  <span className="truncate text-[var(--text-primary)]">{g.gameName}</span>
+                  <span className="text-xs text-[var(--text-tertiary)]">{g.myTurn ? 'your turn' : `waiting for ${g.currentPlayer ?? 'others'}`} · {g.lastMoveAgo}</span>
+                  {notes[g.id] && <span className="text-xs italic text-[var(--text-secondary)] truncate">✎ {notes[g.id]}</span>}
                 </a>
               ))}
             </div>
@@ -202,11 +202,11 @@ function GameHistory() {
 
         {games.length > 0 && (
           <section>
-            <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b] mb-2">Games · {games.length}</h2>
-            <div className="bg-white rounded-lg border border-[#e5e5e5] overflow-x-auto">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)] mb-2">Games · {games.length}</h2>
+            <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-[11px] uppercase tracking-wide text-[#9b9b9b] text-left">
+                  <tr className="text-[11px] uppercase tracking-wide text-[var(--text-tertiary)] text-left">
                     <th className="font-medium px-3 py-2">Finished</th>
                     <th className="font-medium px-3 py-2">Result</th>
                     <th className="font-medium px-3 py-2 text-right">Score</th>
@@ -222,22 +222,22 @@ function GameHistory() {
                     const place = placeLabel(g)
                     const len = g.startedAt ? (g.completedAt.getTime() - new Date(g.startedAt).getTime()) / 86_400_000 : null
                     return (
-                      <tr key={g.id} className="border-t border-[#f0f0f0]">
-                        <td className="px-3 py-1.5 whitespace-nowrap text-[#6b6b6b]">{g.completedAt.getTime() > 0 ? fmtDate(g.completedAt) : '—'}</td>
+                      <tr key={g.id} className="border-t border-[var(--border-subtle)]">
+                        <td className="px-3 py-1.5 whitespace-nowrap text-[var(--text-secondary)]">{g.completedAt.getTime() > 0 ? fmtDate(g.completedAt) : '—'}</td>
                         <td className="px-3 py-1.5 whitespace-nowrap">
                           {g.result && place ? (
                             <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${RESULT_STYLE[g.result]}`}>{g.result === 'won' ? '🏆 ' : ''}{place}</span>
                           ) : '—'}
                         </td>
-                        <td className="px-3 py-1.5 text-right tabular-nums text-[#6b6b6b]">{g.score ?? '—'}</td>
-                        <td className="px-3 py-1.5 text-[#6b6b6b] min-w-[10rem]">{g.opponents?.map(o => o.name).join(', ') || '—'}</td>
-                        <td className="px-3 py-1.5 text-right tabular-nums whitespace-nowrap text-[#6b6b6b]">
+                        <td className="px-3 py-1.5 text-right tabular-nums text-[var(--text-secondary)]">{g.score ?? '—'}</td>
+                        <td className="px-3 py-1.5 text-[var(--text-secondary)] min-w-[10rem]">{g.opponents?.map(o => o.name).join(', ') || '—'}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums whitespace-nowrap text-[var(--text-secondary)]">
                           {g.elo !== undefined ? <>{g.elo}{g.eloDelta ? <span className={g.eloDelta > 0 ? ' text-green-700' : ' text-red-600'}> ({signed(g.eloDelta)})</span> : null}</> : '—'}
                         </td>
-                        <td className="px-3 py-1.5 text-right whitespace-nowrap text-[#6b6b6b]">{len !== null && len >= 0 ? days(len) : '—'}</td>
-                        <td className="px-3 py-1.5 text-right tabular-nums text-[#6b6b6b]">{g.turns ?? '—'}</td>
+                        <td className="px-3 py-1.5 text-right whitespace-nowrap text-[var(--text-secondary)]">{len !== null && len >= 0 ? days(len) : '—'}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums text-[var(--text-secondary)]">{g.turns ?? '—'}</td>
                         <td className="px-3 py-1.5 text-right">
-                          <a href={g.gameUrl} target={platform === 'bga' ? '_self' : '_blank'} rel="noopener noreferrer" className="text-xs text-[#5e6ad2] hover:underline whitespace-nowrap">View →</a>
+                          <a href={g.gameUrl} target={platform === 'bga' ? '_self' : '_blank'} rel="noopener noreferrer" className="text-xs text-[var(--accent)] hover:underline whitespace-nowrap">View →</a>
                         </td>
                       </tr>
                     )

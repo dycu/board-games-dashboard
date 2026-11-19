@@ -51,10 +51,10 @@ function timeAgo(unix: number): string {
 
 function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-lg border border-[#e5e5e5] bg-white px-4 py-3">
-      <div className="text-xs text-[#6b6b6b]">{label}</div>
-      <div className="text-2xl font-semibold text-[#1a1a1a] mt-0.5">{value}</div>
-      {sub && <div className="text-[11px] text-[#9b9b9b] mt-0.5">{sub}</div>}
+    <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3">
+      <div className="text-xs text-[var(--text-secondary)]">{label}</div>
+      <div className="text-2xl font-semibold text-[var(--text-primary)] mt-0.5">{value}</div>
+      {sub && <div className="text-[11px] text-[var(--text-tertiary)] mt-0.5">{sub}</div>}
     </div>
   )
 }
@@ -76,7 +76,7 @@ function PlatformOverview() {
   if (!cache) {
     return (
       <Section title="Across every platform">
-        <p className="text-xs text-[#9b9b9b]">No cached data yet — open the dashboard once, then come back.</p>
+        <p className="text-xs text-[var(--text-tertiary)]">No cached data yet — open the dashboard once, then come back.</p>
       </Section>
     )
   }
@@ -101,7 +101,7 @@ function PlatformOverview() {
         <ul className="flex flex-wrap gap-2">
           {rows.map(([platform, { total, myTurn }]) => (
             <li key={platform} title={PLATFORM_LABELS[platform]}
-              className={`text-xs px-2.5 py-1 rounded-md ${BADGE_COLORS[platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
+              className={`text-xs px-2.5 py-1 rounded-md ${BADGE_COLORS[platform] ?? 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'}`}>
               <span className="font-bold uppercase tracking-wide">{PLATFORM_SHORT_LABELS[platform]}</span>
               {' '}{total}{myTurn > 0 && <span className="font-semibold"> · {myTurn} on you</span>}
             </li>
@@ -114,9 +114,9 @@ function PlatformOverview() {
 
 function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-[#e5e5e5] bg-white p-4 mb-4">
-      <h2 className="text-sm font-medium text-[#1a1a1a]">{title}</h2>
-      {note && <p className="text-xs text-[#6b6b6b] mt-1 mb-3">{note}</p>}
+    <section className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 mb-4">
+      <h2 className="text-sm font-medium text-[var(--text-primary)]">{title}</h2>
+      {note && <p className="text-xs text-[var(--text-secondary)] mt-1 mb-3">{note}</p>}
       {children}
     </section>
   )
@@ -189,7 +189,7 @@ export default function PacePage() {
       <button
         onClick={sync}
         disabled={syncing}
-        className="text-xs bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] px-2.5 py-1 rounded-md disabled:opacity-50"
+        className="text-xs bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] px-2.5 py-1 rounded-md disabled:opacity-50"
       >
         {syncing ? 'Syncing…' : '↻ Sync'}
       </button>
@@ -202,7 +202,7 @@ export default function PacePage() {
       <div className="flex-1 overflow-y-auto p-5 max-w-4xl mx-auto w-full">
         {error && !data && <p className="text-center py-12 text-red-500">Failed to load pace data: {error}</p>}
         {syncError && <p className="mb-3 text-xs text-red-600">Sync failed: {syncError}</p>}
-        {!data && !error && <p className="text-center py-12 text-[#9b9b9b]">Loading…</p>}
+        {!data && !error && <p className="text-center py-12 text-[var(--text-tertiary)]">Loading…</p>}
 
         {data && (
           <>
@@ -218,22 +218,22 @@ export default function PacePage() {
             )}
 
             {s && backfilling && (
-              <p className="mb-4 text-xs text-[#6b6b6b]">
+              <p className="mb-4 text-xs text-[var(--text-secondary)]">
                 Reading your BGA move history{syncing ? '' : ' (paused — press Sync to continue)'}:{' '}
                 {s.tables} tables found{s.indexComplete ? '' : ' so far'}, {s.pendingHistory} still to read.
               </p>
             )}
 
             {stats && stats.firstTurnAt === null && !backfilling && (
-              <p className="mb-4 text-xs text-[#9b9b9b]">
+              <p className="mb-4 text-xs text-[var(--text-tertiary)]">
                 No BGA turns tracked yet, so the BGA-only pace detail below is empty — Tracker health further down still covers every platform.
               </p>
             )}
 
             {stats && stats.firstTurnAt !== null && (
               <>
-                <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">BGA pace detail</h2>
-                <p className="text-xs text-[#6b6b6b] mb-3">
+                <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-1">BGA pace detail</h2>
+                <p className="text-xs text-[var(--text-secondary)] mb-3">
                   BGA is the only platform with full turn-by-turn move history, so this section down to Tracker health is BGA-specific — other platforms don&apos;t expose enough data for the same depth.
                 </p>
 
@@ -258,14 +258,14 @@ export default function PacePage() {
                     {([['bga', 'BGA games'], ['all', 'All platforms']] as const).map(([v, label]) => (
                       <button key={v} onClick={() => setScope(v)} aria-pressed={scope === v}
                         className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${scope === v
-                          ? 'bg-[#1a1a1a] text-white'
-                          : 'bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb]'}`}>
+                          ? 'bg-[var(--text-primary)] text-[var(--bg-surface)]'
+                          : 'bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)]'}`}>
                         {label}
                       </button>
                     ))}
                   </div>
                   {scope === 'all' && stats.byTotalLoad.length === 0 ? (
-                    <p className="text-xs text-[#9b9b9b] py-8 text-center">
+                    <p className="text-xs text-[var(--text-tertiary)] py-8 text-center">
                       Collecting — game counts from other platforms are recorded as you use the dashboard. Check back in a few days.
                     </p>
                   ) : (
@@ -275,25 +275,25 @@ export default function PacePage() {
                       xLabel={scope === 'bga' ? 'BGA games running when the turn started' : 'Games running on all platforms when the turn started'}
                     />
                   )}
-                  {!(scope === 'all' && stats.byTotalLoad.length === 0) && <p className="text-xs text-[#6b6b6b] mt-2">
+                  {!(scope === 'all' && stats.byTotalLoad.length === 0) && <p className="text-xs text-[var(--text-secondary)] mt-2">
                     {scope === 'all'
                       ? (stats.kneeTotal !== null
-                        ? <>Counting every platform, your BGA pace slips from about <strong className="text-[#1a1a1a]">{stats.kneeTotal} games in total</strong>.</>
+                        ? <>Counting every platform, your BGA pace slips from about <strong className="text-[var(--text-primary)]">{stats.kneeTotal} games in total</strong>.</>
                         : `Not enough turns yet to find a slow-down point across all platforms (${stats.byTotalLoad.reduce((a, b) => a + b.n, 0)} turns so far).`)
                       : stats.knee !== null
-                        ? <>Your median response is clearly slower from about <strong className="text-[#1a1a1a]">{stats.knee} BGA games</strong> (1.5× your light-load pace){stats.otherNow ? <>, alongside your games elsewhere (currently {stats.otherNow})</> : null}.</>
+                        ? <>Your median response is clearly slower from about <strong className="text-[var(--text-primary)]">{stats.knee} BGA games</strong> (1.5× your light-load pace){stats.otherNow ? <>, alongside your games elsewhere (currently {stats.otherNow})</> : null}.</>
                         : 'No clear slow-down point yet — your pace holds across the loads seen so far, or there isn\'t enough data.'}
                     {scope === 'bga' && stats.rule && (
-                      <> Rule of thumb: each game hands you {stats.rule.turnsPerGameDay} turns/day and your best week averaged {stats.rule.bestTurnsPerDay} turns/day, so about <strong className="text-[#1a1a1a]">{stats.rule.suggestedGames} games</strong> keeps you at ~75% capacity.</>
+                      <> Rule of thumb: each game hands you {stats.rule.turnsPerGameDay} turns/day and your best week averaged {stats.rule.bestTurnsPerDay} turns/day, so about <strong className="text-[var(--text-primary)]">{stats.rule.suggestedGames} games</strong> keeps you at ~75% capacity.</>
                     )}
                   </p>}
-                  <button onClick={() => setShowTable(v => !v)} className="mt-2 text-xs text-[#5e6ad2] hover:underline">
+                  <button onClick={() => setShowTable(v => !v)} className="mt-2 text-xs text-[var(--accent)] hover:underline">
                     {showTable ? 'Hide table' : 'Show as table'}
                   </button>
                   {showTable && (
                     <table className="mt-2 w-full text-xs">
                       <thead>
-                        <tr className="text-left text-[#6b6b6b] border-b border-[#e5e5e5]">
+                        <tr className="text-left text-[var(--text-secondary)] border-b border-[var(--border-default)]">
                           <th className="py-1 font-normal">Games running</th>
                           <th className="py-1 font-normal text-right">Turns</th>
                           <th className="py-1 font-normal text-right">Median</th>
@@ -302,7 +302,7 @@ export default function PacePage() {
                       </thead>
                       <tbody>
                         {(scope === 'bga' ? stats.byLoad : stats.byTotalLoad).map(b => (
-                          <tr key={b.load} className={`border-b border-[#f3f3f3] ${b.n < MIN_RELIABLE_N ? 'text-[#9b9b9b]' : 'text-[#1a1a1a]'}`}>
+                          <tr key={b.load} className={`border-b border-[var(--bg-muted)] ${b.n < MIN_RELIABLE_N ? 'text-[var(--text-tertiary)]' : 'text-[var(--text-primary)]'}`}>
                             <td className="py-1">{b.load}</td>
                             <td className="py-1 text-right">{b.n}</td>
                             <td className="py-1 text-right">{formatHours(b.median)}</td>
@@ -324,18 +324,18 @@ export default function PacePage() {
 
                 {stats.waiting.length > 0 && (
                   <Section title="Waiting on you (BGA)" note="As of the last sync.">
-                    <ul className="text-sm divide-y divide-[#f3f3f3]">
+                    <ul className="text-sm divide-y divide-[var(--bg-muted)]">
                       {stats.waiting.map(w => (
                         <li key={w.id} className="flex justify-between py-1.5">
-                          <span className="text-[#1a1a1a]">{data.names[w.game] ?? w.game}</span>
-                          <span className="text-[#6b6b6b]">{timeAgo(w.since)}</span>
+                          <span className="text-[var(--text-primary)]">{data.names[w.game] ?? w.game}</span>
+                          <span className="text-[var(--text-secondary)]">{timeAgo(w.since)}</span>
                         </li>
                       ))}
                     </ul>
                   </Section>
                 )}
 
-                <p className="text-[11px] text-[#9b9b9b] mb-6">
+                <p className="text-[11px] text-[var(--text-tertiary)] mb-6">
                   Based on move timestamps from BGA. Real-time games (finished within 4 hours) are left out.
                   BGA deletes a finished game&apos;s move log within hours, so only games read while still running have turns —
                   older finished games still count toward how many games were running, and turns per day is scaled up to cover them.
@@ -346,7 +346,7 @@ export default function PacePage() {
             <Section title="Tracker health" note="How much history each platform's progress-bar tracker actually has to work with — so a missing bar reads as 'not enough data yet' rather than a mystery.">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-left text-[#6b6b6b] border-b border-[#e5e5e5]">
+                  <tr className="text-left text-[var(--text-secondary)] border-b border-[var(--border-default)]">
                     <th className="py-1 font-normal">Platform</th>
                     <th className="py-1 font-normal text-right">Tracked</th>
                     <th className="py-1 font-normal text-right">Finished w/ a sample</th>
@@ -358,13 +358,13 @@ export default function PacePage() {
                     ['Rally the Troops', data.health.rally],
                     ['18xx.games', data.health.eighteenxx],
                   ] as const).map(([label, h]) => (
-                    <tr key={label} className="border-b border-[#f3f3f3] text-[#1a1a1a]">
+                    <tr key={label} className="border-b border-[var(--bg-muted)] text-[var(--text-primary)]">
                       <td className="py-1">{label}</td>
                       <td className="py-1 text-right">{h.tracked}</td>
                       <td className="py-1 text-right">{h.finishedWithSample}</td>
                     </tr>
                   ))}
-                  <tr className="text-[#9b9b9b]">
+                  <tr className="text-[var(--text-tertiary)]">
                     <td className="py-1">Hansa Teutonica</td>
                     <td className="py-1 text-right" colSpan={2}>no tracker — read live from the public API each time</td>
                   </tr>
@@ -374,17 +374,17 @@ export default function PacePage() {
                     ['Boardgamers.space', data.health.boardgamers],
                     ['choochoo.games', data.health.choochoo],
                   ] as const).map(([label, h]) => (
-                    <tr key={label} className="border-b border-[#f3f3f3] text-amber-700">
+                    <tr key={label} className="border-b border-[var(--bg-muted)] text-amber-700">
                       <td className="py-1">{label} <span className="text-amber-500">⚠ self-timed</span></td>
                       <td className="py-1 text-right">{h.tracked}</td>
                       <td className="py-1 text-right">{h.finishedWithSample}</td>
                     </tr>
                   ))}
-                  <tr className="text-[#9b9b9b]">
+                  <tr className="text-[var(--text-tertiary)]">
                     <td className="py-1">Boardtogether.games</td>
                     <td className="py-1 text-right" colSpan={2}>not tracked yet</td>
                   </tr>
-                  <tr className="text-[#9b9b9b]">
+                  <tr className="text-[var(--text-tertiary)]">
                     <td className="py-1">The Old King&apos;s Crown</td>
                     <td className="py-1 text-right" colSpan={2}>not tracked yet</td>
                   </tr>

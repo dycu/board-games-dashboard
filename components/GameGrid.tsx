@@ -256,7 +256,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     <>
       <span className="hidden sm:inline">
         {games.length}{' '}active &nbsp;·&nbsp;
-        <span className="text-[#5e6ad2] font-medium">{myTurnCount}{' '}your turn</span>
+        <span className="text-[var(--accent)] font-medium">{myTurnCount}{' '}your turn</span>
         {totalMoveCountToday > 0 && (
           <>
             {' '}&nbsp;·&nbsp;
@@ -267,7 +267,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
       <button
         onClick={onRefresh}
         disabled={isRefreshing}
-        className="bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] disabled:opacity-50 disabled:cursor-not-allowed px-2.5 py-1 rounded-md flex items-center gap-1">
+        className="bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] disabled:opacity-50 disabled:cursor-not-allowed px-2.5 py-1 rounded-md flex items-center gap-1">
         <span className={isRefreshing ? 'animate-spin inline-block' : ''}>↻</span>
         <span className="hidden sm:inline">Refresh</span>
       </button>
@@ -278,7 +278,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
         value={intervalSeconds}
         onChange={e => setRefreshInterval(Number(e.target.value))}
         aria-label="Auto-refresh interval"
-        className="bg-[#f3f3f3] text-[#6b6b6b] border border-[#e5e5e5] hover:bg-[#ebebeb] text-xs px-2 py-1 rounded-md cursor-pointer"
+        className="bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] text-xs px-2 py-1 rounded-md cursor-pointer"
       >
         <option value={0}>Off</option>
         <option value={30}>30s</option>
@@ -312,7 +312,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
             which favors the (later) card. On narrow screens, where this bar
             wraps to two lines and so covers more of a scrolled-past card,
             that let a card's icon row poke through the sticky bar on top. */}
-        <div className="sticky top-0 z-30 bg-[#f7f7f7] -mx-5 px-5 pt-5 pb-2 mb-1 flex flex-wrap items-center gap-3 border-b border-[#e5e5e5]">
+        <div className="sticky top-0 z-30 bg-[var(--bg-page)] -mx-5 px-5 pt-5 pb-2 mb-1 flex flex-wrap items-center gap-3 border-b border-[var(--border-default)]">
           {/* Wide enough: the chips scroll sideways rather than push the sort
               controls down. Too narrow for both (phone widths): the min-width
               floor forces the sort controls to wrap to their own line below
@@ -337,14 +337,14 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
         )}
 
         {departedGames.length > 0 && !departedDismissed && (
-          <div className="mb-3 flex items-center gap-1.5 text-xs text-[#6b6b6b]">
+          <div className="mb-3 flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
             <span>↩</span>
             <span>
               {departedGames.length === 1 ? '1 game' : `${departedGames.length} games`} ended since last refresh:{' '}
               {departedGames.map((g, i) => (
                 <span key={g.id}>
                   {i > 0 && ', '}
-                  <a href={g.gameUrl} target={g.platform === 'bga' ? '_self' : '_blank'} rel="noopener noreferrer" className="underline hover:text-[#1a1a1a]">
+                  <a href={g.gameUrl} target={g.platform === 'bga' ? '_self' : '_blank'} rel="noopener noreferrer" className="underline hover:text-[var(--text-primary)]">
                     {g.gameName}
                   </a>
                 </span>
@@ -352,7 +352,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
             </span>
             <button
               onClick={() => setDepartedDismissed(true)}
-              className="ml-1 text-[#9b9b9b] hover:text-[#1a1a1a] leading-none"
+              className="ml-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] leading-none"
               aria-label="Dismiss"
             >
               ×
@@ -382,7 +382,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                   onClick={nextNoteConfirm.onClick}
                   onAuxClick={nextNoteConfirm.onAuxClick}
                   title={`Open ${next.gameName}`}
-                  className="min-w-0 max-w-[70%] flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]">
+                  className="min-w-0 max-w-[70%] flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-md bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]">
                   <span className="truncate">Next: {next.gameName}</span>
                   <span className="shrink-0">▶</span>
                 </a>
@@ -396,7 +396,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                   All caught up ✓
                 </span>
               )}
-              <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b]">
+              <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)]">
                 Your turn · {myTurnGames.length}
               </p>
             </div>
@@ -431,11 +431,11 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
         {showWaiting && waitingGames.length > 0 && (
           <section>
             <div className="flex items-center justify-between gap-3 mb-2">
-              <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#9b9b9b]">
+              <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)]">
                 Waiting for others · {waitingGames.length}
               </p>
               {waitingExpanded && hiddenWhenCollapsed > 0 && (
-                <button onClick={toggleWaiting} className="text-xs text-[#6b6b6b] hover:text-[#1a1a1a]">
+                <button onClick={toggleWaiting} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                   Show fewer
                 </button>
               )}
@@ -444,7 +444,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
               {shownWaiting.map(g => <GameRow key={g.id} {...itemProps(g)} />)}
             </div>
             {!waitingExpanded && hiddenWhenCollapsed > 0 && (
-              <button onClick={toggleWaiting} className="mt-2 w-full text-xs text-[#9b9b9b] hover:text-[#1a1a1a] py-1.5 rounded-md border border-dashed border-[#e5e5e5]">
+              <button onClick={toggleWaiting} className="mt-2 w-full text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] py-1.5 rounded-md border border-dashed border-[var(--border-default)]">
                 Show {hiddenWhenCollapsed} more
               </button>
             )}
@@ -460,10 +460,10 @@ function FavoriteSuggestion({ item, onDismiss }: { item: BacklogItem; onDismiss:
     <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-amber-300 bg-amber-50">
       <span className="shrink-0 text-amber-500" aria-hidden="true">★</span>
       <span className="hidden sm:inline text-xs text-amber-700">No game running in your favorite:</span>
-      <span title={PLATFORM_LABELS[item.platform]} className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[item.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
+      <span title={PLATFORM_LABELS[item.platform]} className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[item.platform] ?? 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'}`}>
         {PLATFORM_SHORT_LABELS[item.platform]}
       </span>
-      <span className="text-sm font-medium text-[#1a1a1a] truncate flex-1 min-w-0">{item.gameName}</span>
+      <span className="text-sm font-medium text-[var(--text-primary)] truncate flex-1 min-w-0">{item.gameName}</span>
       <a
         href={item.playUrl}
         target={item.platform === 'bga' ? '_self' : '_blank'}
@@ -488,19 +488,19 @@ function FavoriteSuggestion({ item, onDismiss }: { item: BacklogItem; onDismiss:
 // prominent, not just another variant of the same nudge.
 function GmSuggestion({ item, running }: { item: BacklogItem; running: number }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#5e6ad2] bg-[#f0f1fb]">
-      <span className="shrink-0 text-[#5e6ad2]" aria-hidden="true">⇶</span>
-      <span className="hidden sm:inline text-xs font-medium text-[#4f5ab8]">GM · running {running} of {item.parallelTarget}:</span>
-      <span className="sm:hidden text-xs font-medium text-[#4f5ab8] tabular-nums">GM {running}/{item.parallelTarget}</span>
-      <span title={PLATFORM_LABELS[item.platform]} className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[item.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--accent)] bg-[var(--accent-tint)]">
+      <span className="shrink-0 text-[var(--accent)]" aria-hidden="true">⇶</span>
+      <span className="hidden sm:inline text-xs font-medium text-[var(--accent-hover)]">GM · running {running} of {item.parallelTarget}:</span>
+      <span className="sm:hidden text-xs font-medium text-[var(--accent-hover)] tabular-nums">GM {running}/{item.parallelTarget}</span>
+      <span title={PLATFORM_LABELS[item.platform]} className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[item.platform] ?? 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'}`}>
         {PLATFORM_SHORT_LABELS[item.platform]}
       </span>
-      <span className="text-sm font-medium text-[#1a1a1a] truncate flex-1 min-w-0">{item.gameName}</span>
+      <span className="text-sm font-medium text-[var(--text-primary)] truncate flex-1 min-w-0">{item.gameName}</span>
       <a
         href={item.playUrl}
         target={item.platform === 'bga' ? '_self' : '_blank'}
         rel="noopener noreferrer"
-        className="shrink-0 text-xs font-medium px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]">
+        className="shrink-0 text-xs font-medium px-3 py-1 rounded-md bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]">
         Start another ↗
       </a>
     </div>
@@ -509,26 +509,26 @@ function GmSuggestion({ item, running }: { item: BacklogItem; running: number })
 
 function BacklogSuggestion({ item, activeCount, className, onRemove }: { item: BacklogItem; activeCount: number; className: string; onRemove: () => void }) {
   return (
-    <div className={`${className} flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-[#c5c9f0] bg-[#f7f8fd]`}>
-      <span className="hidden sm:inline text-xs text-[#6b6b6b]">
+    <div className={`${className} flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-[var(--accent-border-hover)] bg-[var(--accent-tint-alt)]`}>
+      <span className="hidden sm:inline text-xs text-[var(--text-secondary)]">
         {activeCount} active {activeCount === 1 ? 'game' : 'games'}. Next from your backlog:
       </span>
-      <span title={PLATFORM_LABELS[item.platform]} className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[item.platform] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}`}>
+      <span title={PLATFORM_LABELS[item.platform]} className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[item.platform] ?? 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'}`}>
         {PLATFORM_SHORT_LABELS[item.platform]}
       </span>
-      <span className="text-sm font-medium text-[#1a1a1a] truncate flex-1 min-w-0">{item.gameName}</span>
+      <span className="text-sm font-medium text-[var(--text-primary)] truncate flex-1 min-w-0">{item.gameName}</span>
       <a
         href={item.playUrl}
         target={item.platform === 'bga' ? '_self' : '_blank'}
         rel="noopener noreferrer"
-        className="shrink-0 text-xs font-medium px-3 py-1 rounded-md bg-[#5e6ad2] text-white hover:bg-[#4f5ab8]">
+        className="shrink-0 text-xs font-medium px-3 py-1 rounded-md bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]">
         Play ↗
       </a>
       <button
         onClick={onRemove}
         title="Remove from backlog"
         aria-label={`Remove ${item.gameName} from backlog`}
-        className="shrink-0 text-xs text-[#9b9b9b] hover:text-red-500 px-1"
+        className="shrink-0 text-xs text-[var(--text-tertiary)] hover:text-red-500 px-1"
       >
         ✕
       </button>

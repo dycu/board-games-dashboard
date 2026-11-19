@@ -168,7 +168,7 @@ function ProgressErrorHint({ platform, error, compact }: { platform: Platform; e
   const text = `Couldn't read this game's ${unitWord(platform)} count: ${error}`
   return (
     <HoldTooltip ariaLabel={text} tooltip={text}>
-      <span className={`text-[#c5c5c5] ${compact ? 'text-[10px]' : 'text-xs'}`}>
+      <span className={`text-[var(--icon-muted)] ${compact ? 'text-[10px]' : 'text-xs'}`}>
         ⚠
       </span>
     </HoldTooltip>
@@ -201,10 +201,10 @@ export default function ProgressBar({ game, compact }: { game: Game; compact?: b
     return (
       <HoldTooltip ariaLabel={ariaLabel} tooltip={tooltip}>
         <span className={`flex items-center gap-1 shrink-0 ${fade}`}>
-          <span className="w-8 h-1 rounded-full bg-[#ececec] overflow-hidden">
-            <span className="block h-full bg-[#5e6ad2]" style={{ width: `${progress.percent}%` }} />
+          <span className="w-8 h-1 rounded-full bg-[var(--border-subtle)] overflow-hidden">
+            <span className="block h-full bg-[var(--accent)]" style={{ width: `${progress.percent}%` }} />
           </span>
-          <span className="text-[10px] tabular-nums text-[#9b9b9b]">{percentText}</span>
+          <span className="text-[10px] tabular-nums text-[var(--text-tertiary)]">{percentText}</span>
         </span>
       </HoldTooltip>
     )
@@ -213,10 +213,10 @@ export default function ProgressBar({ game, compact }: { game: Game; compact?: b
   return (
     <HoldTooltip ariaLabel={ariaLabel} tooltip={tooltip}>
       <span className={`flex items-center gap-1.5 ${fade}`}>
-        <span className="flex-1 h-1.5 rounded-full bg-[#ececec] overflow-hidden min-w-[60px]">
-          <span className="block h-full bg-[#5e6ad2]" style={{ width: `${progress.percent}%` }} />
+        <span className="flex-1 h-1.5 rounded-full bg-[var(--border-subtle)] overflow-hidden min-w-[60px]">
+          <span className="block h-full bg-[var(--accent)]" style={{ width: `${progress.percent}%` }} />
         </span>
-        <span className="text-[10px] tabular-nums text-[#9b9b9b]">{percentText}</span>
+        <span className="text-[10px] tabular-nums text-[var(--text-tertiary)]">{percentText}</span>
       </span>
     </HoldTooltip>
   )

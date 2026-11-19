@@ -39,13 +39,13 @@ export default function PlatformFilterChips({
         aria-pressed={allOn}
         title={allOn ? `Hide all` : `Show all`}
         className={`shrink-0 whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors
-          ${allOn ? 'bg-[#1a1a1a] text-white' : 'bg-[#f3f3f3] text-[#6b6b6b] hover:bg-[#ebebeb]'}`}>
+          ${allOn ? 'bg-[var(--text-primary)] text-[var(--bg-surface)]' : 'bg-[var(--bg-muted)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted-hover)]'}`}>
         {allLabel}{allCount !== undefined ? ` (${allCount})` : ''}
       </button>
       {platforms.map(p => (
         <span
           key={p}
-          className={`shrink-0 inline-flex items-center whitespace-nowrap text-[11px] font-bold uppercase tracking-wide rounded-full transition-opacity ${BADGE_COLORS[p] ?? 'bg-[#f3f3f3] text-[#6b6b6b]'}
+          className={`shrink-0 inline-flex items-center whitespace-nowrap text-[11px] font-bold uppercase tracking-wide rounded-full transition-opacity ${BADGE_COLORS[p] ?? 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'}
             ${isOn(p) ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}>
           <button
             onClick={() => toggle(p)}
