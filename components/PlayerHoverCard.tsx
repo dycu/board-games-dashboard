@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { Platform } from '@/lib/types'
 import { playerHref, medianResponseSeconds } from '@/lib/opponents/stats'
@@ -22,6 +23,8 @@ function usePointerIsCoarse(): boolean {
   return coarse
 }
 
+const CARD_WIDTH = 224 // px — keep in sync with the w-56 class below
+
 // A player's name, clickable like before, but now also a peek at who they
 // are: on a mouse, hovering opens a small card (tags, typical reply time,
 // a bigger avatar) without disturbing the click-to-open-their-page
@@ -33,28 +36,58 @@ export default function PlayerHoverCard({ platform, name, avatarUrl, highlighted
   platform: Platform; name: string; avatarUrl?: string; highlighted?: boolean; className?: string
 }) {
   const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const coarse = usePointerIsCoarse()
-  const rootRef = useRef<HTMLSpanElement>(null)
+  const triggerRef = useRef<HTMLAnchorElement>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
   const { byPlatform } = useOpponentsContext()
   const entry = byPlatform?.[platform]?.[name]
   const href = playerHref(platform, name)
   const median = entry ? medianResponseSeconds(entry.responseSamples) : null
   const cardAvatar = avatarUrl ?? entry?.avatarUrl
 
+  // The card is portaled to <body> (see below) so an ancestor's `truncate`/
+  // overflow-hidden — the "with {players}" line always has one — can't
+  // clip it the way it would if it were just absolutely positioned inside
+  // that line. Position computed from the trigger's own rect instead of
+  // CSS anchoring, then, since there's no DOM relationship to anchor to
+  // anymore.
+  useLayoutEffect(() => {
+    if (!open) return
+    const rect = triggerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const left = Math.min(rect.left, window.innerWidth - CARD_WIDTH - 8)
+    setPos({ top: rect.bottom + 4, left: Math.max(8, left) })
+  }, [open])
+
+  // Scrolling would leave the card pointing at empty space since its
+  // position isn't continuously tracked — simplest correct behavior is to
+  // just close it, the same as a mouse moving away would.
+  useEffect(() => {
+    if (!open) return
+    const onScroll = () => setOpen(false)
+    window.addEventListener('scroll', onScroll, true)
+    return () => window.removeEventListener('scroll', onScroll, true)
+  }, [open])
+
   // Touch has no "mouse left the area" to close on, so close on the next
-  // tap anywhere outside the card instead.
+  // tap anywhere outside the trigger AND the (portaled, so DOM-separate)
+  // card instead.
   useEffect(() => {
     if (!open || !coarse) return
     const onDocClick = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+      const t = e.target as Node
+      if (triggerRef.current?.contains(t) || cardRef.current?.contains(t)) return
+      setOpen(false)
     }
     document.addEventListener('click', onDocClick)
     return () => document.removeEventListener('click', onDocClick)
   }, [open, coarse])
 
   return (
-    <span ref={rootRef} className="relative inline-block">
+    <>
       <Link
+        ref={triggerRef}
         href={href}
         className={`relative z-10 hover:text-[var(--accent)] hover:underline ${highlighted ? 'font-semibold text-[var(--text-primary)]' : ''} ${className ?? ''}`}
         onMouseEnter={() => !coarse && setOpen(true)}
@@ -64,12 +97,14 @@ export default function PlayerHoverCard({ platform, name, avatarUrl, highlighted
         <PlayerAvatar url={avatarUrl} size={14} />
         {name}
       </Link>
-      {open && (
+      {open && pos && createPortal(
         <div
+          ref={cardRef}
           role="tooltip"
           onMouseEnter={() => !coarse && setOpen(true)}
           onMouseLeave={() => !coarse && setOpen(false)}
-          className="absolute z-20 top-full left-0 mt-1 w-56 p-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-lg text-xs"
+          style={{ top: pos.top, left: pos.left }}
+          className="fixed z-50 w-56 p-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-lg text-xs"
         >
           <div className="flex items-center gap-2 mb-2">
             <PlayerAvatar url={cardAvatar} size={32} />
@@ -88,8 +123,9 @@ export default function PlayerHoverCard({ platform, name, avatarUrl, highlighted
           <Link href={href} className="font-medium text-[var(--accent)] hover:underline">
             View profile →
           </Link>
-        </div>
+        </div>,
+        document.body,
       )}
-    </span>
+    </>
   )
 }
