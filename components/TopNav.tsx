@@ -9,7 +9,6 @@ const TABS = [
   { href: '/backlog', label: 'Backlog', shortLabel: 'Backlog' },
   { href: '/pace', label: 'Pace', shortLabel: 'Pace' },
   { href: '/search', label: 'Find a Game', shortLabel: 'Find' },
-  { href: '/new-games', label: 'New Games', shortLabel: 'New' },
   { href: '/setup', label: 'Settings', shortLabel: 'Settings' },
 ]
 
