@@ -83,7 +83,7 @@ const fmtDate = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', m
 // game against them, and whatever's currently in progress with them.
 // Linked to from the list below, and from anywhere else a player's name is
 // shown (GameCard, FinishedGameCard, ...).
-function PersonDetail({ platform, name, person, activeGames, games, allTags, onSaveTags, onBack }: {
+function PersonDetail({ platform, name, person, activeGames, games, allTags, onSaveTags, onSetHidden, onBack }: {
   platform: Platform
   name: string
   person: GlobalOpponent | undefined
@@ -91,6 +91,7 @@ function PersonDetail({ platform, name, person, activeGames, games, allTags, onS
   games: ReturnType<typeof gamesWith>
   allTags: string[]
   onSaveTags: (tags: string[]) => void
+  onSetHidden: (hidden: boolean) => void
   onBack: () => void
 }) {
   return (
@@ -112,8 +113,15 @@ function PersonDetail({ platform, name, person, activeGames, games, allTags, onS
           </a>
         )}
       </div>
-      <div className="mb-4">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <TagEditor tags={person?.tags ?? []} suggestions={allTags} onSave={onSaveTags} />
+        <button
+          onClick={() => onSetHidden(!person?.hidden)}
+          title={person?.hidden ? 'Show in the roster again' : 'Hide from the roster (still shown at the table)'}
+          className="shrink-0 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+        >
+          {person?.hidden ? '🙈 Unhide' : '🙈 Hide from roster'}
+        </button>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
@@ -187,6 +195,7 @@ function PlayersPageInner() {
   const [platformFilter, setPlatformFilter] = useState<Platform[] | null>(null) // null = every platform present
   const [tagFilter, setTagFilter] = useState<string | null>(null)
   const [onlyPlayed, setOnlyPlayed] = useState(false)
+  const [showHidden, setShowHidden] = useState(false)
 
   const all = useMemo(
     () => finished.data && opponents.byPlatform ? globalOpponents(finished.data.games, opponents.byPlatform) : [],
@@ -213,14 +222,17 @@ function PlayersPageInner() {
   const allTags = useMemo(() => [...new Set(all.flatMap(o => o.tags))].sort(), [all])
   const selectedPlatforms = platformFilter ?? platformsPresent
 
+  const hiddenCount = useMemo(() => all.filter(o => o.hidden).length, [all])
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase()
     let rows = all.filter(o => selectedPlatforms.includes(o.platform))
+    if (!showHidden) rows = rows.filter(o => !o.hidden)
     if (tagFilter) rows = rows.filter(o => o.tags.includes(tagFilter))
     if (onlyPlayed) rows = rows.filter(o => o.games > 0)
     if (q) rows = rows.filter(o => o.name.toLowerCase().includes(q) || o.tags.some(t => t.toLowerCase().includes(q)))
     return [...rows].sort(SORTERS[sortKey])
-  }, [all, search, sortKey, selectedPlatforms, tagFilter, onlyPlayed])
+  }, [all, search, sortKey, selectedPlatforms, tagFilter, onlyPlayed, showHidden])
 
   if (showDetail) {
     return (
@@ -234,6 +246,7 @@ function PlayersPageInner() {
           games={detailGames}
           allTags={allTags}
           onSaveTags={tags => opponents.saveTags(platform!, name!, tags)}
+          onSetHidden={hidden => opponents.setHidden(platform!, name!, hidden)}
           onBack={() => router.back()}
         />
       </div>
@@ -299,6 +312,12 @@ function PlayersPageInner() {
             <input type="checkbox" checked={onlyPlayed} onChange={e => setOnlyPlayed(e.target.checked)} />
             Finished a game together
           </label>
+          {hiddenCount > 0 && (
+            <label className="flex items-center gap-1 text-xs text-[var(--text-secondary)]">
+              <input type="checkbox" checked={showHidden} onChange={e => setShowHidden(e.target.checked)} />
+              Show hidden ({hiddenCount})
+            </label>
+          )}
         </div>
 
         {visible.length === 0 && !loading && (
@@ -309,7 +328,7 @@ function PlayersPageInner() {
 
         <div className="flex flex-col gap-1.5">
           {visible.map(o => (
-            <div key={`${o.platform}:${o.name}`} className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+            <div key={`${o.platform}:${o.name}`} className={`flex flex-wrap items-center gap-2 px-3 py-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] ${o.hidden ? 'opacity-50' : ''}`}>
               <PlayerAvatar url={o.avatarUrl} />
               <Badge platform={o.platform} small />
               <button
@@ -326,8 +345,15 @@ function PlayersPageInner() {
                   ~{formatDuration(o.medianResponseSeconds)}
                 </span>
               )}
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-2">
                 <TagEditor tags={o.tags} suggestions={allTags} onSave={tags => opponents.saveTags(o.platform, o.name, tags)} />
+                <button
+                  onClick={() => opponents.setHidden(o.platform, o.name, !o.hidden)}
+                  title={o.hidden ? 'Show in the roster again' : 'Hide from the roster (still shown at the table)'}
+                  className="shrink-0 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                >
+                  {o.hidden ? '🙈 Unhide' : '🙈 Hide'}
+                </button>
               </div>
             </div>
           ))}

@@ -8,7 +8,7 @@ type OpponentsValue = ReturnType<typeof useOpponents>
 // rendering GameCard/PlayerHoverCard in isolation, mainly) — the same
 // shape as a page that hasn't loaded its data yet, so a PlayerHoverCard
 // just renders without tags/response-time rather than throwing.
-const NOT_LOADED: OpponentsValue = { byPlatform: null, error: null, saveTags: async () => {}, reload: async () => {} }
+const NOT_LOADED: OpponentsValue = { byPlatform: null, error: null, saveTags: async () => {}, setHidden: async () => {}, reload: async () => {} }
 
 const OpponentsContext = createContext<OpponentsValue>(NOT_LOADED)
 

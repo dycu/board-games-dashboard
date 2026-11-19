@@ -41,3 +41,18 @@ it('rejects a missing name', async () => {
 it('rejects non-string tags', async () => {
   expect((await post({ platform: 'obg', name: 'Alice', tags: [1] })).status).toBe(400)
 })
+
+it('saves hidden for a platform + name, leaving tags untouched', async () => {
+  mockGetAll.mockResolvedValue({ Alice: { tags: ['fast'], responseSamples: [3600] } })
+  const res = await post({ platform: 'obg', name: 'Alice', hidden: true })
+  expect(res.status).toBe(200)
+  expect(mockSet).toHaveBeenCalledWith('opponents:v1:obg', { Alice: { tags: ['fast'], responseSamples: [3600], hidden: true } })
+})
+
+it('rejects a non-boolean hidden', async () => {
+  expect((await post({ platform: 'obg', name: 'Alice', hidden: 'yes' })).status).toBe(400)
+})
+
+it('rejects a body with neither tags nor hidden', async () => {
+  expect((await post({ platform: 'obg', name: 'Alice' })).status).toBe(400)
+})

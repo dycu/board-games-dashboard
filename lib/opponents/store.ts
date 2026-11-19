@@ -19,6 +19,11 @@ export interface OpponentEntry {
   // shape as Game.playerProfileUrls. Platforms that link by name alone
   // don't need this; see lib/opponents/stats.ts's externalProfileUrl.
   profileUrl?: string
+  // Opted out of the Players roster/stats browsing (see the Players page) —
+  // still shown wherever they're actually present in a game (an active
+  // GameCard, a finished game's row), since there's no hiding who you're
+  // at the table with, just no need to clutter the roster with them.
+  hidden?: boolean
 }
 
 const MAX_SAMPLES = 20
@@ -40,6 +45,12 @@ export async function setTags(platform: Platform, name: string, tags: string[]):
   const current = await getOpponents(platform)
   const entry = current[name] ?? { tags: [], responseSamples: [] }
   await kv.hset(key(platform), { [name]: { ...entry, tags } })
+}
+
+export async function setHidden(platform: Platform, name: string, hidden: boolean): Promise<void> {
+  const current = await getOpponents(platform)
+  const entry = current[name] ?? { tags: [], responseSamples: [] }
+  await kv.hset(key(platform), { [name]: { ...entry, hidden } })
 }
 
 export async function addResponseSample(platform: Platform, name: string, seconds: number): Promise<void> {

@@ -20,6 +20,7 @@ export interface GlobalOpponent {
   medianResponseSeconds: number | null
   avatarUrl?: string
   profileUrl?: string
+  hidden: boolean
 }
 
 // Exported for the lightweight player hover-card (components/PlayerHoverCard),
@@ -65,6 +66,7 @@ export function globalOpponents(games: FinishedGame[], entriesByPlatform: Partia
           platform: g.platform, name: o.name, games: 0, iWon: 0, theyWon: 0, lastPlayedAt: null,
           tags: entry?.tags ?? [], responseSamples: entry?.responseSamples ?? [], medianResponseSeconds: null,
           avatarUrl: entry?.avatarUrl, profileUrl: externalProfileUrl(g.platform, o.name, entry?.profileUrl),
+          hidden: entry?.hidden ?? false,
         }
         byKey.set(key, r)
       }
@@ -87,11 +89,12 @@ export function globalOpponents(games: FinishedGame[], entriesByPlatform: Partia
     for (const [name, entry] of Object.entries(entries)) {
       const key = `${platform}:${name.toLowerCase()}`
       if (byKey.has(key)) continue
-      if (entry.tags.length === 0 && entry.responseSamples.length === 0 && !entry.avatarUrl && !entry.profileUrl) continue
+      if (entry.tags.length === 0 && entry.responseSamples.length === 0 && !entry.avatarUrl && !entry.profileUrl && !entry.hidden) continue
       byKey.set(key, {
         platform, name, games: 0, iWon: 0, theyWon: 0, lastPlayedAt: null,
         tags: entry.tags, responseSamples: entry.responseSamples, medianResponseSeconds: null,
         avatarUrl: entry.avatarUrl, profileUrl: externalProfileUrl(platform, name, entry.profileUrl),
+        hidden: entry.hidden ?? false,
       })
     }
   }

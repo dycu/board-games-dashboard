@@ -46,7 +46,7 @@ describe('globalOpponents', () => {
     const result = globalOpponents([], entriesByPlatform)
     expect(result).toEqual([{
       platform: 'bga', name: 'Bob', games: 0, iWon: 0, theyWon: 0, lastPlayedAt: null,
-      tags: ['reliable'], responseSamples: [], medianResponseSeconds: null,
+      tags: ['reliable'], responseSamples: [], medianResponseSeconds: null, hidden: false,
     }])
   })
 
@@ -70,7 +70,7 @@ describe('globalOpponents', () => {
     const entriesByPlatform = { bga: { Eve: { tags: [], responseSamples: [], avatarUrl: 'https://example.com/eve.jpg' } as OpponentEntry } }
     expect(globalOpponents([], entriesByPlatform)).toEqual([{
       platform: 'bga', name: 'Eve', games: 0, iWon: 0, theyWon: 0, lastPlayedAt: null,
-      tags: [], responseSamples: [], medianResponseSeconds: null, avatarUrl: 'https://example.com/eve.jpg',
+      tags: [], responseSamples: [], medianResponseSeconds: null, avatarUrl: 'https://example.com/eve.jpg', hidden: false,
     }])
   })
 
@@ -83,6 +83,21 @@ describe('globalOpponents', () => {
     const entriesByPlatform = { bga: { Alice: { tags: [], responseSamples: [], profileUrl: 'https://boardgamearena.com/player?id=123' } as OpponentEntry } }
     const [bgaAlice] = globalOpponents(games, entriesByPlatform).filter(o => o.platform === 'bga')
     expect(bgaAlice.profileUrl).toBe('https://boardgamearena.com/player?id=123')
+  })
+
+  it('carries hidden through for an opponent with finished games', () => {
+    const entriesByPlatform = { bga: { Alice: { tags: [], responseSamples: [], hidden: true } as OpponentEntry } }
+    const [bgaAlice] = globalOpponents(games, entriesByPlatform).filter(o => o.platform === 'bga')
+    expect(bgaAlice.hidden).toBe(true)
+  })
+
+  it('keeps a hidden-only entry (no tags/samples/avatar) instead of dropping it, which would leave no way to unhide them', () => {
+    const entriesByPlatform = { bga: { Bob: { tags: [], responseSamples: [], hidden: true } as OpponentEntry } }
+    const result = globalOpponents([], entriesByPlatform)
+    expect(result).toEqual([{
+      platform: 'bga', name: 'Bob', games: 0, iWon: 0, theyWon: 0, lastPlayedAt: null,
+      tags: [], responseSamples: [], medianResponseSeconds: null, hidden: true,
+    }])
   })
 })
 

@@ -39,5 +39,18 @@ export function useOpponents() {
     })
   }
 
-  return { byPlatform, error, saveTags, reload: load }
+  const setHidden = async (platform: Platform, name: string, hidden: boolean) => {
+    setByPlatform(prev => {
+      const platformEntries = prev?.[platform] ?? {}
+      const existing = platformEntries[name] ?? { tags: [], responseSamples: [] }
+      return { ...prev, [platform]: { ...platformEntries, [name]: { ...existing, hidden } } }
+    })
+    await fetch('/api/opponents', {
+      method: 'POST',
+      body: JSON.stringify({ platform, name, hidden }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  return { byPlatform, error, saveTags, setHidden, reload: load }
 }
