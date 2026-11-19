@@ -205,7 +205,7 @@ function parseGamesActive(html: string, username: string): Game[] {
   return parseSection(relevant, username)
 }
 
-function parseGamesFinished(html: string): FinishedGame[] {
+function parseGamesFinished(html: string, username: string): FinishedGame[] {
   // /games/finished has no <h2> section headers — game_items appear at the top level
   const games: FinishedGame[] = []
   const chunks = html.split(/(?=<div[^>]+class="[^"]*\bgame_item\b)/)
@@ -225,10 +225,15 @@ function parseGamesFinished(html: string): FinishedGame[] {
     const finishedMatch = chunk.match(/Finished:\s*([^<]+)</)
     const completedAt = finishedMatch ? parseHumanDate(finishedMatch[1].trim()) : new Date()
 
-    // Same "Players:" block the active page uses — just the count this time,
-    // for lib/rallyPace's progress estimate to prefer same-size samples with
+    // Same "Players:" block and self-exclusion the active page uses (see
+    // parseSection) — playerCount still counts everyone listed (lib/rallyPace's
+    // progress estimate wants same-size samples), opponents excludes self.
+    // The finished list has no result/winner of its own to read, so there's
+    // nothing to set rank from here.
     const playersSection = chunk.match(/Players:\s*([\s\S]*?)<\/div>/)?.[1] ?? ''
-    const playerCount = [...playersSection.matchAll(/<a[^>]+href="\/user\/[^"]*"[^>]*>([^<]+)<\/a>/g)].length || undefined
+    const allPlayers = [...playersSection.matchAll(/<a[^>]+href="\/user\/[^"]*"[^>]*>([^<]+)<\/a>/g)].map(m => m[1])
+    const playerCount = allPlayers.length || undefined
+    const opponents = allPlayers.filter(n => n !== username).map(name => ({ name }))
 
     games.push({
       id: `rally:${gameId}`,
@@ -238,6 +243,7 @@ function parseGamesFinished(html: string): FinishedGame[] {
       completedAgo: formatTimeAgo(completedAt),
       gameUrl,
       ...(playerCount !== undefined && { playerCount }),
+      ...(opponents.length > 0 && { opponents }),
     })
   }
   return games
@@ -246,7 +252,7 @@ function parseGamesFinished(html: string): FinishedGame[] {
 // Shared by fetchFinishedRally and lib/rallyPace/sync.ts, which already has
 // a cookie from logging in for the active-games list and would otherwise
 // have to solve a second ALTCHA challenge just to re-log in for this.
-export async function fetchFinishedRallyWithCookie(cookie: string): Promise<FinishedGame[]> {
+export async function fetchFinishedRallyWithCookie(cookie: string, username: string): Promise<FinishedGame[]> {
   const gamesRes = await fetch(`${BASE}/games/finished`, {
     headers: { ...HEADERS, Cookie: cookie },
   })
@@ -254,9 +260,9 @@ export async function fetchFinishedRallyWithCookie(cookie: string): Promise<Fini
   assertStillLoggedIn(gamesRes, 'games/finished')
 
   const html = await gamesRes.text()
-  return parseGamesFinished(html)
+  return parseGamesFinished(html, username)
 }
 
 export async function fetchFinishedRally(username: string, password: string): Promise<FinishedGame[]> {
-  return withRallySession(username, password, fetchFinishedRallyWithCookie)
+  return withRallySession(username, password, cookie => fetchFinishedRallyWithCookie(cookie, username))
 }

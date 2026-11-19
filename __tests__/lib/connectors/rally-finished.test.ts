@@ -41,8 +41,10 @@ describe('fetchFinishedRally', () => {
     })
     expect(games[0].completedAt).toBeInstanceOf(Date)
     expect(games[0].playerCount).toBe(2)
+    expect(games[0].opponents).toEqual([{ name: 'carol' }])
     expect(games[1].id).toBe('rally:502')
     expect(games[1].gameName).toBe('Paths of Glory')
+    expect(games[1].opponents).toEqual([{ name: 'dave' }])
   })
 
   it('returns empty array when Finished section missing', async () => {
@@ -60,9 +62,10 @@ describe('fetchFinishedRallyWithCookie', () => {
   it('fetches /games/finished with the given cookie, skipping login entirely', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, text: async () => fixture })
 
-    const games = await fetchFinishedRallyWithCookie('login=sid123')
+    const games = await fetchFinishedRallyWithCookie('login=sid123', 'testuser')
     expect(mockFetch).toHaveBeenCalledTimes(1)
     expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/games/finished'), expect.objectContaining({ headers: expect.objectContaining({ Cookie: 'login=sid123' }) }))
     expect(games).toHaveLength(2)
+    expect(games[0].opponents).toEqual([{ name: 'carol' }])
   })
 })

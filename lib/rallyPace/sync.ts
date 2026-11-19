@@ -115,7 +115,7 @@ export async function syncRally(username: string, password: string, budgetMs: nu
   // still lists is a sample, read the same way, once.
   let backfilled = 0
   try {
-    const finished = await fetchFinishedRallyWithCookie(cookie)
+    const finished = await fetchFinishedRallyWithCookie(cookie, username)
     const jobs = finished.filter(g => {
       const existing = stored[g.id.slice('rally:'.length)]
       return !(existing && existing.end !== null && existing.turn != null)
