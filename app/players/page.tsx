@@ -1,5 +1,5 @@
 'use client'
-import { Suspense, useMemo, useState } from 'react'
+import { Suspense, useId, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
@@ -24,14 +24,18 @@ function Badge({ platform, small }: { platform: Platform; small?: boolean }) {
 
 // Add via Enter or blur, remove with a click on the tag itself — same
 // interaction shape as TableLabelEditor/NoteEditor on the cards, so it
-// doesn't need its own set of conventions.
-function TagEditor({ tags, onSave }: { tags: string[]; onSave: (tags: string[]) => void }) {
+// doesn't need its own set of conventions. `suggestions` (every tag
+// already used on any player) is offered as a datalist, so a tag like
+// "slow" only needs to be typed out once across the whole roster.
+function TagEditor({ tags, suggestions, onSave }: { tags: string[]; suggestions: string[]; onSave: (tags: string[]) => void }) {
+  const listId = useId()
   const [draft, setDraft] = useState('')
   const addTag = () => {
     const t = draft.trim()
     setDraft('')
     if (t && !tags.includes(t)) onSave([...tags, t])
   }
+  const options = suggestions.filter(t => !tags.includes(t))
   return (
     <div className="flex flex-wrap items-center gap-1">
       {tags.map(t => (
@@ -45,6 +49,7 @@ function TagEditor({ tags, onSave }: { tags: string[]; onSave: (tags: string[]) 
         </button>
       ))}
       <input
+        list={listId}
         value={draft}
         onChange={e => setDraft(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') addTag() }}
@@ -53,6 +58,11 @@ function TagEditor({ tags, onSave }: { tags: string[]; onSave: (tags: string[]) 
         aria-label="Add a tag"
         className="w-16 text-[10px] bg-transparent border-b border-dashed border-[var(--border-dashed)] focus:outline-none focus:border-[var(--accent)] text-[var(--text-secondary)] placeholder:text-[var(--text-tertiary)]"
       />
+      {options.length > 0 && (
+        <datalist id={listId}>
+          {options.map(t => <option key={t} value={t} />)}
+        </datalist>
+      )}
     </div>
   )
 }
@@ -71,11 +81,12 @@ const fmtDate = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', m
 // One specific opponent: their record, response time, tags, and every
 // finished game against them. Linked to from the list below, and from
 // anywhere else a player's name is shown (GameCard, FinishedGameCard, ...).
-function PersonDetail({ platform, name, person, games, onSaveTags, onBack }: {
+function PersonDetail({ platform, name, person, games, allTags, onSaveTags, onBack }: {
   platform: Platform
   name: string
   person: GlobalOpponent | undefined
   games: ReturnType<typeof gamesWith>
+  allTags: string[]
   onSaveTags: (tags: string[]) => void
   onBack: () => void
 }) {
@@ -99,7 +110,7 @@ function PersonDetail({ platform, name, person, games, onSaveTags, onBack }: {
         )}
       </div>
       <div className="mb-4">
-        <TagEditor tags={person?.tags ?? []} onSave={onSaveTags} />
+        <TagEditor tags={person?.tags ?? []} suggestions={allTags} onSave={onSaveTags} />
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
@@ -190,6 +201,7 @@ function PlayersPageInner() {
           name={name!}
           person={person}
           games={detailGames}
+          allTags={allTags}
           onSaveTags={tags => opponents.saveTags(platform!, name!, tags)}
           onBack={() => router.back()}
         />
@@ -281,7 +293,7 @@ function PlayersPageInner() {
                 </span>
               )}
               <div className="ml-auto">
-                <TagEditor tags={o.tags} onSave={tags => opponents.saveTags(o.platform, o.name, tags)} />
+                <TagEditor tags={o.tags} suggestions={allTags} onSave={tags => opponents.saveTags(o.platform, o.name, tags)} />
               </div>
             </div>
           ))}
