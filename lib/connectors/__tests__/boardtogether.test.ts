@@ -79,7 +79,18 @@ describe('fetchBoardtogether', () => {
     expect(await fetchBoardtogether('Dycu', 'pw')).toEqual([])
   })
 
-  it('includes a table waiting to start, tagged pending', async () => {
+  it('includes a table still waiting for more players to join, tagged pending', async () => {
+    store.set('boardtogether-session', session)
+    const game = mockActiveGame({ status: 'waitingForPlayers', activePlayerIds: [] })
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ payload: { games: [game] } }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => CATALOG })
+
+    const [result] = await fetchBoardtogether('Dycu', 'pw')
+    expect(result).toMatchObject({ id: 'boardtogether:9p7qhXbCS6dlGOKZ736gp', pending: true, myTurn: false })
+  })
+
+  it('includes a full table waiting on the host to start it, also tagged pending', async () => {
     store.set('boardtogether-session', session)
     const game = mockActiveGame({ status: 'waitingToStart', activePlayerIds: [] })
     mockFetch

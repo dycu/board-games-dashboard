@@ -143,10 +143,14 @@ function toGame(game: BoardtogetherGame, myUserId: string, catalogNames: Map<str
   }
 }
 
-// A table created but not yet started — still waiting for enough players
-// to join. 'waitingToStart' is BoardTogether's own literal status string,
-// confirmed from its client bundle's status enum (GameStatus.WaitingToStart
-// = "waitingToStart", alongside Started/Finished/Deleted/Archived).
+// A table created but not yet started. BoardTogether's own status enum (its
+// client bundle's Tz: WaitingForPlayers/WaitingToStart/Started/Finished/
+// Deleted/Archived) actually splits "not started" into two: still short on
+// seats ('waitingForPlayers') vs. full but the host hasn't hit start yet
+// ('waitingToStart') — both are a lobby to forget about just the same, so
+// both are treated as pending here rather than only the latter (an earlier
+// version of this connector only matched 'waitingToStart', confirmed missing
+// a real waitingForPlayers game).
 function toPendingGame(game: BoardtogetherGame, myUserId: string, catalogNames: Map<string, string>): Game {
   const gameType = gameTypeName(game.typeId, catalogNames)
   const lastMoveAt = new Date(game.updatedAt)
@@ -177,7 +181,7 @@ export async function fetchBoardtogether(username: string, password: string): Pr
     ])
     return [
       ...games.filter(g => g.status === 'started').map(g => toGame(g, session.userId, catalogNames)),
-      ...games.filter(g => g.status === 'waitingToStart').map(g => toPendingGame(g, session.userId, catalogNames)),
+      ...games.filter(g => g.status === 'waitingForPlayers' || g.status === 'waitingToStart').map(g => toPendingGame(g, session.userId, catalogNames)),
     ]
   })
 }
