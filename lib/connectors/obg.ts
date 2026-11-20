@@ -1,7 +1,7 @@
 import { kv } from '@vercel/kv'
 import * as cheerio from 'cheerio/slim'
 import { Game, FinishedGame } from '../types'
-import { formatTimeAgo } from './utils'
+import { formatTimeAgo, pendingLobbyText } from './utils'
 
 const BASE = 'https://www.onlineboardgamers.com'
 
@@ -36,7 +36,7 @@ const SESSION_KV_KEY = 'obg-session'
 // re-logs in, so a longer TTL here costs nothing when it's wrong.
 const SESSION_TTL_SECONDS = 12 * 60 * 60
 
-async function loginOBG(username: string, password: string): Promise<OBGSession> {
+async function loginOBG(username: string, password: string): Promise<OBGSession & { homeHtml: string }> {
   // Step 1: GET /login/ — Django CSRF cookie + form token
   const loginPageRes = await fetch(`${BASE}${LOGIN_PATH}`, { headers: BROWSER, redirect: 'manual' })
   const loginPageHtml = await loginPageRes.text()
@@ -65,12 +65,15 @@ async function loginOBG(username: string, password: string): Promise<OBGSession>
 
   const cookieHeader = [`csrftoken=${newCsrf}`, ...(sessionidMatch ? [`sessionid=${sessionidMatch[1]}`] : [])].join('; ')
 
-  // Step 3: GET / — extract profile name from "My Games" nav link
+  // Step 3: GET / — extract profile name from "My Games" nav link. This same
+  // page also lists pending/"waiting for players" lobbies (see
+  // parsePendingGames) — reuse it there on a fresh login instead of paying
+  // for a second request for HTML that's already in hand.
   const homeRes = await fetch(`${BASE}${HOME_PATH}`, { headers: { ...BROWSER, Cookie: cookieHeader } })
   const homeHtml = await homeRes.text()
   const profileName = homeHtml.match(/href="(?:\/nd)?\/profile\/([^/"]+)\/"[^>]*>\s*My Games/)?.[1] ?? username
 
-  return { cookieHeader, profileName }
+  return { cookieHeader, profileName, homeHtml }
 }
 
 async function getCachedSession(): Promise<OBGSession | null> {
@@ -102,30 +105,51 @@ async function fetchProfilePage(session: OBGSession): Promise<{ html: string; fi
   return { html: await res.text(), finalUrl: res.url ?? '' }
 }
 
+// Open public lobbies you've created (waiting for other players to join)
+// only show on the home page's own "Waiting" tab, not on the profile page —
+// fetched alongside it so a pending game isn't reported as the single
+// extra request fetchFinishedOBG would otherwise also need to pay for.
+async function fetchHomePage(session: OBGSession): Promise<string> {
+  const res = await fetch(`${BASE}${HOME_PATH}`, { headers: { ...BROWSER, Cookie: session.cookieHeader } })
+  return res.text()
+}
+
 // Shared by fetchOBG and fetchFinishedOBG — both just parse different
-// tables out of the same profile page, so there's no reason to log in or
-// fetch it twice.
-async function fetchOBGProfileHtml(username: string, password: string): Promise<{ html: string; profileName: string }> {
+// tables out of the same pages, so there's no reason to log in or fetch
+// them twice. A fresh login already fetches the home page (for the profile
+// name), so that copy is reused for pending-games parsing instead of firing
+// a second request for it — only a cached (no-login) session needs its own
+// dedicated home-page fetch.
+async function fetchOBGPagesHtml(username: string, password: string): Promise<{ profileHtml: string; homeHtml: string; profileName: string }> {
   let session = await getCachedSession()
-  if (!session) {
-    session = await loginOBG(username, password)
-    await cacheSession(session)
-  }
+  let homeHtml: string
+  let html: string
+  let finalUrl: string
 
-  let { html, finalUrl } = await fetchProfilePage(session)
-
-  if (looksLoggedOut(html, finalUrl)) {
-    session = await loginOBG(username, password)
+  if (session) {
+    ;[{ html, finalUrl }, homeHtml] = await Promise.all([fetchProfilePage(session), fetchHomePage(session)])
+  } else {
+    const logged = await loginOBG(username, password)
+    session = { cookieHeader: logged.cookieHeader, profileName: logged.profileName }
+    homeHtml = logged.homeHtml
     await cacheSession(session)
     ;({ html, finalUrl } = await fetchProfilePage(session))
   }
 
-  return { html, profileName: session.profileName }
+  if (looksLoggedOut(html, finalUrl)) {
+    const logged = await loginOBG(username, password)
+    session = { cookieHeader: logged.cookieHeader, profileName: logged.profileName }
+    homeHtml = logged.homeHtml
+    await cacheSession(session)
+    ;({ html, finalUrl } = await fetchProfilePage(session))
+  }
+
+  return { profileHtml: html, homeHtml, profileName: session.profileName }
 }
 
 export async function fetchOBG(username: string, password: string): Promise<Game[]> {
-  const { html, profileName } = await fetchOBGProfileHtml(username, password)
-  return parseGames(html, profileName)
+  const { profileHtml, homeHtml, profileName } = await fetchOBGPagesHtml(username, password)
+  return parseGames(profileHtml, profileName).concat(parsePendingGames(homeHtml))
 }
 
 // Also the catalog "Find a game" searches (see lib/catalogs/obg.ts) — the
@@ -261,6 +285,62 @@ function parseGames(html: string, profileName: string): Game[] {
   return games
 }
 
+// Public lobbies you've created that are still short of players — the home
+// page's "Waiting" tab lists them in their own table, distinct from the
+// "Current"/"Invitations"/"Finished" tabs. Unlike parseGames' current-games
+// table, having zero of these is the common case (most visits won't have an
+// open lobby sitting around), so an empty result here is normal, not an
+// error — only the container's total absence would indicate the markup
+// changed, and even that's tolerated since this table is a late addition
+// compared to the rest of the page.
+function parsePendingGames(html: string): Game[] {
+  const $ = cheerio.load(html)
+  const games: Game[] = []
+
+  $('#waitingGamesListView tr.gameRow').each((_: number, el: any) => {
+    const $tr = $(el)
+    const idMatch = ($tr.attr('id') ?? '').match(/^([A-Z]{2,4})gamesRow(\d+)$/)
+    if (!idMatch) return
+    const [, typeCode, gameId] = idMatch
+
+    // No join/show link exists yet (the table has no anchor until someone's
+    // actually in the game) — the "Copy Link" button's onclick is the only
+    // place the real game URL appears.
+    const copyOnclick = $tr.find('button.copyGameLinkButtonInTable').attr('onclick') ?? ''
+    const gameUrl = copyOnclick.match(/copyToClipboard\('([^']+)'/)?.[1] ?? `${BASE}/join/${typeCode}${gameId}/`
+
+    const rawName = $tr.find('.col-game-name').first().text().trim()
+    const typeName = OBG_GAME_NAMES[typeCode] ?? typeCode
+    const customTitle = rawName.match(/^\[(.+)\]$/)?.[1] ?? (rawName && rawName !== typeName ? rawName : undefined)
+    const gameName = customTitle ? (typeName ? `${typeName} — ${customTitle}` : customTitle) : (typeName || rawName || 'Unknown')
+
+    const [joinedText, neededText] = ($tr.find('td.col-players span').first().text().trim().match(/^(\d+)\/(\d+)$/) ?? []).slice(1)
+    const joined = joinedText ? parseInt(joinedText) : 1
+    const needed = neededText ? parseInt(neededText) : undefined
+
+    const tsText = $tr.find('.timeToConvertSpan').first().text().trim()
+    const lastMoveAt = tsText ? new Date(parseInt(tsText)) : new Date()
+
+    games.push({
+      id: `obg:${gameId}`,
+      platform: 'obg',
+      gameName,
+      gameType: typeName || undefined,
+      myTurn: false,
+      currentPlayer: pendingLobbyText(joined, needed),
+      pending: true,
+      lastMoveAt,
+      lastMoveAgo: formatTimeAgo(lastMoveAt),
+      urgent: false,
+      gameUrl,
+      platformUrl: `${BASE}${HOME_PATH}`,
+      players: [],
+    })
+  })
+
+  return games
+}
+
 function parseFinishedGames(html: string, profileName = ''): FinishedGame[] {
   const $ = cheerio.load(html)
   // The finished table is explicitly tagged with the finished-games-table
@@ -311,6 +391,6 @@ function parseFinishedGames(html: string, profileName = ''): FinishedGame[] {
 }
 
 export async function fetchFinishedOBG(username: string, password: string): Promise<FinishedGame[]> {
-  const { html, profileName } = await fetchOBGProfileHtml(username, password)
-  return parseFinishedGames(html, profileName)
+  const { profileHtml, profileName } = await fetchOBGPagesHtml(username, password)
+  return parseFinishedGames(profileHtml, profileName)
 }

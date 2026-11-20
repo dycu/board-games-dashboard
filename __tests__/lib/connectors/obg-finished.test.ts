@@ -92,11 +92,13 @@ describe('fetchFinishedOBG', () => {
 
   it('reuses a cached session (shared with fetchOBG) instead of logging in again', async () => {
     mockKvGet.mockResolvedValue({ cookieHeader: 'sessionid=cached123', profileName: 'testuser' })
-    mockFetch.mockResolvedValueOnce({ ok: true, url: 'https://www.onlineboardgamers.com/profile/testuser/', text: async () => fixture })
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, url: 'https://www.onlineboardgamers.com/profile/testuser/', text: async () => fixture })
+      .mockResolvedValueOnce({ ok: true, text: async () => HOME_HTML })
 
     const games = await fetchFinishedOBG('testuser', 'pass')
 
     expect(games).toHaveLength(2)
-    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(mockFetch).toHaveBeenCalledTimes(2)
   })
 })

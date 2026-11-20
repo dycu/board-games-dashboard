@@ -223,16 +223,19 @@ describe('fetchOBG', () => {
     expect(mockFetch.mock.calls[3][0]).toBe('https://www.onlineboardgamers.com/profile/testuser/')
   })
 
-  it('reuses a cached session instead of logging in again, cutting the request down to just the profile page', async () => {
+  it('reuses a cached session instead of logging in again, fetching only the profile and home pages', async () => {
     mockKvGet.mockResolvedValue({ cookieHeader: 'sessionid=cached123', profileName: 'testuser' })
-    mockFetch.mockResolvedValueOnce({ ok: true, url: 'https://www.onlineboardgamers.com/profile/testuser/', text: async () => fixture })
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, url: 'https://www.onlineboardgamers.com/profile/testuser/', text: async () => fixture })
+      .mockResolvedValueOnce(makeHomeResponse())
 
     const games = await fetchOBG('testuser', 'pass')
 
     expect(games).toHaveLength(3)
-    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(mockFetch).toHaveBeenCalledTimes(2)
     expect(mockFetch.mock.calls[0][0]).toBe('https://www.onlineboardgamers.com/profile/testuser/')
     expect(mockFetch.mock.calls[0][1]).toMatchObject({ headers: expect.objectContaining({ Cookie: 'sessionid=cached123' }) })
+    expect(mockFetch.mock.calls[1][0]).toBe('https://www.onlineboardgamers.com/')
   })
 
   it('caches the session after a fresh login so the next call can skip straight to the profile page', async () => {
@@ -255,6 +258,7 @@ describe('fetchOBG', () => {
     mockKvGet.mockResolvedValue({ cookieHeader: 'sessionid=stale', profileName: 'testuser' })
     mockFetch
       .mockResolvedValueOnce({ ok: true, url: 'https://www.onlineboardgamers.com/login/', text: async () => '<form>login page</form>' })
+      .mockResolvedValueOnce(makeHomeResponse())
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginSuccessResponse())
       .mockResolvedValueOnce(makeHomeResponse())
@@ -263,9 +267,66 @@ describe('fetchOBG', () => {
     const games = await fetchOBG('testuser', 'pass')
 
     expect(games).toHaveLength(3)
-    expect(mockFetch).toHaveBeenCalledTimes(5)
+    expect(mockFetch).toHaveBeenCalledTimes(6)
     expect(mockFetch.mock.calls[0][0]).toBe('https://www.onlineboardgamers.com/profile/testuser/')
-    expect(mockFetch.mock.calls[1][0]).toBe('https://www.onlineboardgamers.com/login/')
-    expect(mockFetch.mock.calls[4][0]).toBe('https://www.onlineboardgamers.com/profile/testuser/')
+    expect(mockFetch.mock.calls[2][0]).toBe('https://www.onlineboardgamers.com/login/')
+    expect(mockFetch.mock.calls[5][0]).toBe('https://www.onlineboardgamers.com/profile/testuser/')
+  })
+
+  // Markup confirmed against a real account: a public game you created that
+  // nobody else has joined yet only shows on the home page's own "Waiting"
+  // tab, not the profile page — it has no name link at all (just plain text)
+  // until someone's actually in it, so the real game URL only exists in the
+  // "Copy Link" button's onclick handler.
+  const WAITING_HOME_HTML = `<html><body>
+    <a class="topBarLink" href="/profile/testuser/">My Games</a>
+    <div id="waitingGamesListView">
+      <table class="table gamesTable lobby-games-table">
+        <tbody>
+          <tr class="row09 gameRow" id="HLCgamesRow38834">
+            <td class="col-game"><strong class="col-game-name">[Dycu&#x27;s Game]</strong></td>
+            <td class="col-players"><span class="">1/3</span> <a href="/profile/testuser/">testuser</a></td>
+            <td class="col-status"><span class="timeToConvertSpan">1700000000000</span></td>
+            <td class="col-cta">
+              <div class="buttonDiv Leave leaveDeclineLink waiting">Leave</div>
+              <button class="copyGameLinkButtonInTable" onclick="copyToClipboard('https://www.onlineboardgamers.com/join/HLC38834/', event)">Copy Link</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </body></html>`
+
+  it('includes a public lobby still short of players from the home page\'s "Waiting" tab, tagged pending not myTurn', async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginSuccessResponse())
+      .mockResolvedValueOnce({ ok: true, text: async () => WAITING_HOME_HTML })
+      .mockResolvedValueOnce(makeProfileResponse())
+
+    const games = await fetchOBG('testuser', 'pass')
+    expect(games).toHaveLength(4)
+
+    const pending = games.find(g => g.id === 'obg:38834')!
+    expect(pending).toMatchObject({
+      platform: 'obg',
+      gameName: 'Horseless Carriage — Dycu\'s Game',
+      myTurn: false,
+      pending: true,
+      currentPlayer: '1/3 joined — waiting for players',
+      gameUrl: 'https://www.onlineboardgamers.com/join/HLC38834/',
+      players: [],
+    })
+  })
+
+  it('reports no pending games when the "Waiting" tab is empty, without throwing', async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginSuccessResponse())
+      .mockResolvedValueOnce(makeHomeResponse())
+      .mockResolvedValueOnce(makeProfileResponse())
+
+    const games = await fetchOBG('testuser', 'pass')
+    expect(games.some(g => g.pending)).toBe(false)
   })
 })
