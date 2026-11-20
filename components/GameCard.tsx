@@ -1,6 +1,6 @@
 'use client'
 import { useRef, useState } from 'react'
-import { Game, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
+import { Game, Tournament, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BacklogList, SHORT_LIST_LABELS } from '@/lib/backlog/list'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { formatTimeRemaining } from '@/lib/connectors/utils'
@@ -34,6 +34,11 @@ export interface GameItemProps {
   now: number
   opened?: boolean // opened since the last refresh that saw me back: dimmed until then
   backlogLists: BacklogList[] // the backlog list(s) this title is tracked under, if any — see BacklogBadge
+  // Set when this table is the live match for one of the player's tracked
+  // tournaments (cross-referenced client-side in GameGrid by table id — see
+  // TournamentBadge) — not every platform exposes tournaments, so most games
+  // never have one.
+  tournament?: Tournament
 }
 
 const BADGE_FALLBACK = 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'
@@ -204,6 +209,21 @@ export function BacklogBadge({ lists, small }: { lists: BacklogList[]; small?: b
   )
 }
 
+// Only shown on a table that's a live match in one of the player's tracked
+// tournaments — links through to our own Tournaments tab (the specific
+// tournament's card, via its #id anchor) rather than the platform's own
+// tournament page, so a click stays inside the dashboard.
+export function TournamentBadge({ tournament, small }: { tournament: Tournament; small?: boolean }) {
+  return (
+    <a
+      href={`/tournaments#${tournament.id}`}
+      title={`Tournament: ${tournament.name}`}
+      className={`relative z-10 shrink-0 font-medium rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 ${small ? 'text-[10px] px-1.5 py-px' : 'text-[11px] px-2 py-0.5'}`}>
+      🏆 {small ? 'Tourney' : tournament.name}
+    </a>
+  )
+}
+
 export function NoteEditor({ game, note, onSaveNote, compact }: Pick<GameItemProps, 'game' | 'note' | 'onSaveNote'> & { compact?: boolean }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -353,7 +373,7 @@ function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string,
 // gentle accent tint as the priority layout's active compact cards — used
 // only for that layout's top strip; the classic grid never passes it, so
 // its cards look exactly as they did before.
-export default function GameCard({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists, highlight }: GameItemProps & { highlight?: boolean }) {
+export default function GameCard({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists, tournament, highlight }: GameItemProps & { highlight?: boolean }) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
@@ -367,6 +387,7 @@ export default function GameCard({ game, priority, onCyclePriority, onOpen, oppo
           <Badge game={game} />
           <MoveCountBadge game={game} />
           <BacklogBadge lists={backlogLists} />
+          {tournament && <TournamentBadge tournament={tournament} small />}
         </div>
         <div className="flex items-center gap-2">
           {opened && <span className="text-[11px] text-[var(--text-tertiary)]">opened</span>}
@@ -411,7 +432,7 @@ export default function GameCard({ game, priority, onCyclePriority, onOpen, oppo
 // move) gets a gentle accent tint instead — the opposite of making the
 // inactive ones fade out, which competed with the real urgency/slow-
 // opponent indicators for attention.
-export function GameCardCompact({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists, rank, waiting }: GameItemProps & { rank: number; waiting?: boolean }) {
+export function GameCardCompact({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists, tournament, rank, waiting }: GameItemProps & { rank: number; waiting?: boolean }) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   const inactive = waiting || opened
@@ -430,6 +451,7 @@ export function GameCardCompact({ game, priority, onCyclePriority, onOpen, oppon
           <Badge game={game} small />
           <MoveCountBadge game={game} small />
           <BacklogBadge lists={backlogLists} small />
+          {tournament && <TournamentBadge tournament={tournament} small />}
         </div>
         <div className="flex items-center gap-1.5">
           {opened && <span className="text-[10px] text-[var(--text-tertiary)]">opened</span>}
@@ -468,7 +490,7 @@ export function GameCardCompact({ game, priority, onCyclePriority, onOpen, oppon
 }
 
 // A game waiting for someone else: one compact row
-export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists }: GameItemProps) {
+export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists, tournament }: GameItemProps) {
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   return (
     <div className={`relative flex flex-wrap items-center gap-2 px-3 py-2 rounded-md border hover:border-[var(--accent-border-hover)] transition-colors
@@ -477,6 +499,7 @@ export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowD
       <Badge game={game} small />
       <MoveCountBadge game={game} small />
       <BacklogBadge lists={backlogLists} small />
+      {tournament && <TournamentBadge tournament={tournament} small />}
       {/* A floor instead of min-w-0: once every shrink-0 sibling after this
           (timestamp, progress, icon buttons) no longer fits alongside a
           readable name, they wrap to their own line below — rather than

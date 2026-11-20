@@ -186,6 +186,39 @@ export interface FinishedGamesApiResponse {
   fetchedAt: string
 }
 
+// A tournament I'm registered in on some platform (currently BGA only — see
+// lib/connectors/bgaTournaments.ts). Fetched separately from the main game
+// list (its own /api/tournaments + useTournaments), not attached to Game
+// itself — the dashboard cross-references the two client-side by
+// activeTableId, the same way backlog list membership is cross-referenced
+// rather than stored on Game (see GameGrid's backlogListsOf).
+export interface Tournament {
+  id: string                  // e.g. "bga:283997"
+  platform: Platform
+  name: string
+  championshipName?: string   // the overall event this tournament/stage belongs to, if any
+  gameName?: string
+  status: string               // platform-specific: BGA uses 'register' | 'playing' | 'finished' | ...
+  typeLabel: string             // human label, e.g. "Swiss system"
+  stage: number
+  registeredPlayers?: number
+  remainingPlayers?: number
+  progress: number | null       // 0..1, how far along the whole tournament is; null if unknown
+  encountersTotal: number       // my matches across this tournament
+  encountersPlayed: number
+  encountersWon: number
+  myStatus?: string             // e.g. 'eliminated', 'active' — platform-specific
+  tournamentUrl: string          // the platform's own page for this tournament
+  // table id of my current open match in this tournament, if any — matches
+  // the numeric part of a Game.id on the same platform (e.g. "bga:<tableId>")
+  activeTableId?: string
+}
+
+export interface TournamentsApiResponse {
+  tournaments: Tournament[]
+  error: string | null
+}
+
 // For tight spots like the dashboard's filter chips
 export const PLATFORM_SHORT_LABELS: Record<Platform, string> = {
   bga: 'BGA',

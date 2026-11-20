@@ -7,6 +7,7 @@ import { BADGE_COLORS } from '@/lib/platform-colors'
 import GameCard, { GameCardCompact, GameRow, GameItemProps, Priority, isOpponentSlow, openTarget } from './GameCard'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useTableLabels } from '@/hooks/useTableLabels'
+import { useTournaments } from '@/hooks/useTournaments'
 import { BacklogItem, BacklogList, backlogId, listsOf } from '@/lib/backlog/list'
 import FilterToolbar from './FilterToolbar'
 import PlatformFilterChips from './PlatformFilterChips'
@@ -239,6 +240,15 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   const backlogListsById = new Map((backlog.items ?? []).map(item => [item.id, listsOf(item)]))
   const backlogListsOf = (g: Game): BacklogList[] => backlogListsById.get(backlogId(g.platform, g.gameType || g.gameName)) ?? []
 
+  // Which tracked tournament (if any) a running game is the live match for —
+  // keyed the same way Game.id itself is built (`${platform}:${tableId}`),
+  // since Tournament only carries the bare table id of its active match.
+  const { tournaments } = useTournaments()
+  const tournamentByGameId = new Map(
+    tournaments.filter(t => t.activeTableId).map(t => [`${t.platform}:${t.activeTableId}`, t])
+  )
+  const tournamentOf = (g: Game) => tournamentByGameId.get(g.id)
+
   const priorityOf = (id: string): Priority => prefs.pins.includes(id) ? 'pinned' : (prefs.sunk ?? []).includes(id) ? 'sunk' : null
 
   // Computes both arrays together from one snapshot of prefs and sends one
@@ -281,6 +291,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
       now,
       opened: isOpened(g),
       backlogLists: backlogListsOf(g),
+      tournament: tournamentOf(g),
     }
   }
 
