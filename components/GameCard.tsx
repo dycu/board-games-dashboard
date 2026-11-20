@@ -121,14 +121,51 @@ function PlayerNames({ platform, names, avatars, highlight }: {
   )
 }
 
+const DOT_GROUP_SIZE = 5
+
+// Today's moves on this game, one dot each — grouped in fives (a glance
+// reads "two full rows and three" instead of counting dots one by one),
+// and never capped: a very active day just grows another row rather than
+// losing moves to a "+N" overflow. Whichever dots are new since the last
+// render pop in (see .dot-pop in globals.css) — the point is to feel the
+// count move, not just read a bigger number.
 // Only shown once something actually happened today — a game you're not
 // actively grinding on looks exactly like it did before this existed.
 function MoveCountBadge({ game, small }: { game: Game; small?: boolean }) {
-  const count = game.moveCountToday
+  const count = game.moveCountToday ?? 0
+  // The previous render's count, to tell which dots are new — React's own
+  // "adjust state during render" pattern (not a ref: reading one during
+  // render isn't allowed) for deriving a previous value from a prop change.
+  const [trackedCount, setTrackedCount] = useState(count)
+  const [prevCount, setPrevCount] = useState(0)
+  if (count !== trackedCount) {
+    setPrevCount(trackedCount)
+    setTrackedCount(count)
+  }
   if (!count) return null
+
+  const dotSize = small ? 'w-1.5 h-1.5' : 'w-2 h-2'
+  const groups = Math.ceil(count / DOT_GROUP_SIZE)
+
   return (
-    <span className={`shrink-0 font-semibold rounded-full bg-orange-50 text-orange-600 ${small ? 'text-[10px] px-1.5 py-px' : 'text-[11px] px-2 py-0.5'}`}>
-      🔥 {count} today
+    <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1" title={`${count} move${count === 1 ? '' : 's'} today`}>
+      {Array.from({ length: groups }, (_, gi) => {
+        const start = gi * DOT_GROUP_SIZE
+        const inGroup = Math.min(DOT_GROUP_SIZE, count - start)
+        return (
+          <span key={gi} className="inline-flex gap-0.5">
+            {Array.from({ length: inGroup }, (_, i) => {
+              const idx = start + i
+              return (
+                <span
+                  key={idx}
+                  className={`inline-block rounded-full ${dotSize} ${gi % 2 === 0 ? 'bg-orange-500' : 'bg-orange-300'} ${idx >= prevCount ? 'dot-pop' : ''}`}
+                />
+              )
+            })}
+          </span>
+        )
+      })}
     </span>
   )
 }

@@ -39,6 +39,26 @@ describe('GameCard', () => {
     expect(screen.queryByText(/🔖/)).toBeNull()
   })
 
+  it('shows nothing when no moves have landed today', () => {
+    const { container } = render(<GameCard {...props({ game: { ...game, moveCountToday: undefined } })} />)
+    expect(container.querySelector('[title*="moves today"], [title*="move today"]')).toBeNull()
+  })
+
+  it('groups dots in fives and keeps the exact count in the title, with no cap', () => {
+    const { container } = render(<GameCard {...props({ game: { ...game, moveCountToday: 23 } })} />)
+    const badge = container.querySelector('[title="23 moves today"]')
+    expect(badge).not.toBeNull()
+    expect(badge!.querySelectorAll('span[class*="rounded-full"]')).toHaveLength(23)
+  })
+
+  it('pops in only the dots that are new since the last render', () => {
+    const { container, rerender } = render(<GameCard {...props({ game: { ...game, moveCountToday: 3 } })} />)
+    expect(container.querySelector('[title="3 moves today"]')!.querySelectorAll('.dot-pop')).toHaveLength(3)
+
+    rerender(<GameCard {...props({ game: { ...game, moveCountToday: 5 } })} />)
+    expect(container.querySelector('[title="5 moves today"]')!.querySelectorAll('.dot-pop')).toHaveLength(2)
+  })
+
   it('shows the backlog list on its badge when the title is tracked there', () => {
     render(<GameCard {...props({ backlogLists: ['gm'] })} />)
     expect(screen.getByText('🔖 GM')).toBeInTheDocument()
