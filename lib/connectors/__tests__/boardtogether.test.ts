@@ -90,6 +90,27 @@ describe('fetchBoardtogether', () => {
     expect(result).toMatchObject({ id: 'boardtogether:9p7qhXbCS6dlGOKZ736gp', pending: true, myTurn: false })
   })
 
+  it('counts only players who actually joined, not empty/reserved seats also present in the list', async () => {
+    store.set('boardtogether-session', session)
+    const game = mockActiveGame({
+      status: 'waitingForPlayers',
+      activePlayerIds: [],
+      players: [
+        { id: 'XAa6vEcA6eWVjubXxdFdV', userId: MY_ID, isHuman: true, name: 'Dycu', status: 'joined' },
+        { id: 'open-seat-1', isHuman: true, name: '', status: 'open' },
+        { id: 'open-seat-2', isHuman: true, name: '', status: 'open' },
+        { id: 'reserved-seat', isHuman: true, name: 'SavedForAFriend', status: 'reserved' },
+      ],
+    })
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ payload: { games: [game] } }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => CATALOG })
+
+    const [result] = await fetchBoardtogether('Dycu', 'pw')
+    expect(result.currentPlayer).toBe('1 joined — waiting to start')
+    expect(result.players).toEqual([])
+  })
+
   it('includes a full table waiting on the host to start it, also tagged pending', async () => {
     store.set('boardtogether-session', session)
     const game = mockActiveGame({ status: 'waitingToStart', activePlayerIds: [] })

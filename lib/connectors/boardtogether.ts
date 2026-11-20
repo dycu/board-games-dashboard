@@ -10,7 +10,14 @@ interface BoardtogetherPlayer {
   userId?: string // absent for a bot/placeholder seat
   name: string
   isHuman: boolean
-  status: string // e.g. "joined"
+  // Confirmed from the client bundle's own DL status enum: 'open' (an empty,
+  // unfilled seat — present in `players` from the moment the table is
+  // created, well before anyone sits there), 'reserved' (a name set aside
+  // for someone who hasn't joined yet), 'joined' (an actual player), and
+  // 'declined'. So `players.length` on its own counts every seat the table
+  // was created with, not how many people have actually joined — only
+  // 'joined' entries are real.
+  status: string
 }
 
 interface BoardtogetherGame {
@@ -154,7 +161,10 @@ function toGame(game: BoardtogetherGame, myUserId: string, catalogNames: Map<str
 function toPendingGame(game: BoardtogetherGame, myUserId: string, catalogNames: Map<string, string>): Game {
   const gameType = gameTypeName(game.typeId, catalogNames)
   const lastMoveAt = new Date(game.updatedAt)
-  const others = game.players.filter(p => p.userId !== myUserId)
+  // Empty ('open') and reserved-but-unfilled seats are in `players` from the
+  // moment the table is created — only 'joined' ones are real people.
+  const joined = game.players.filter(p => p.status === 'joined')
+  const others = joined.filter(p => p.userId !== myUserId)
 
   return {
     id: `boardtogether:${game.id}`,
@@ -163,7 +173,7 @@ function toPendingGame(game: BoardtogetherGame, myUserId: string, catalogNames: 
     gameType,
     myTurn: false,
     pending: true,
-    currentPlayer: `${game.players.length} joined — waiting to start`,
+    currentPlayer: `${joined.length} joined — waiting to start`,
     lastMoveAt,
     lastMoveAgo: formatTimeAgo(lastMoveAt),
     urgent: false,
