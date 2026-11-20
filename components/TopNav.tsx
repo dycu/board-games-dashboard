@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { version } from '@/package.json'
 
 const TABS = [
   { href: '/', label: 'Active', shortLabel: 'Active' },
@@ -18,7 +19,14 @@ export default function TopNav({ right }: { right?: React.ReactNode }) {
   return (
     <nav className="bg-[var(--bg-surface)] border-b border-[var(--border-default)] px-3 sm:px-5 flex flex-col sm:flex-row sm:items-center sm:justify-between sm:h-11 shrink-0">
       <div className="flex items-center overflow-x-auto h-11 shrink-0">
-        <span className="text-sm font-semibold text-[var(--text-primary)] pr-2 sm:pr-4 mr-2 sm:mr-3 border-r border-[var(--border-default)] shrink-0">🎲</span>
+        {/* A quiet "is this the build I just pushed?" check — small enough
+            to not compete with the tabs for attention or space, but visible
+            without opening devtools. Reads package.json's version, which
+            this repo already bumps on essentially every commit. */}
+        <span className="flex items-baseline gap-1 pr-2 sm:pr-4 mr-2 sm:mr-3 border-r border-[var(--border-default)] shrink-0" title={`Build v${version}`}>
+          <span className="text-sm font-semibold text-[var(--text-primary)]">🎲</span>
+          <span className="text-[9px] text-[var(--text-tertiary)]">v{version}</span>
+        </span>
         {TABS.map(t => (
           <Link
             key={t.href}
