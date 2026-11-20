@@ -1,9 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
+import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import TopNav from '@/components/TopNav'
 import NewGameEventRow from '@/components/NewGameEventRow'
+import InviteAgainPicker from '@/components/InviteAgainPicker'
 import { NewGameEvent, groupEventsByDay, formatEventsForCopy } from '@/lib/newGames/diff'
 import { CheckResult } from '@/lib/newGames/check'
 import { useBacklog } from '@/hooks/useBacklog'
@@ -114,6 +115,7 @@ function FindGamePanel() {
                     ))}
                   </div>
                 )}
+                <InviteAgainPicker platform={r.platform as Platform} />
               </div>
             )
           })}
