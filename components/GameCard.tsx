@@ -159,7 +159,7 @@ function MoveCountBadge({ game, small }: { game: Game; small?: boolean }) {
         onClick={() => setHistoryOpen(true)}
         aria-label={`Move history for ${game.gameName}`}
         title={`${count} move${count === 1 ? '' : 's'} today`}
-        className="relative z-10 inline-flex flex-wrap items-center gap-x-1.5 gap-y-1 -m-1 p-1 rounded hover:bg-[var(--bg-muted)]">
+        className="relative z-10 inline-flex flex-wrap items-center gap-x-1.5 gap-y-1 -m-1.5 p-1.5 rounded hover:bg-[var(--bg-muted)]">
         {Array.from({ length: groups }, (_, gi) => {
           const start = gi * DOT_GROUP_SIZE
           const inGroup = Math.min(DOT_GROUP_SIZE, count - start)
@@ -445,13 +445,13 @@ export function GameCardCompact({ game, priority, onCyclePriority, onOpen, oppon
       </div>
 
       {game.players.length > 0 && (
-        <div className="text-[11px] text-[var(--text-tertiary)] truncate">
+        <div className="text-[11px] text-[var(--text-tertiary)] whitespace-normal break-words">
           {waiting ? 'waiting for ' : 'with '}
           <PlayerNames platform={game.platform} names={game.players} avatars={game.playerAvatars} highlight={waiting ? game.currentPlayer : undefined} />
         </div>
       )}
 
-      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact />
+      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} />
 
       <div className="flex items-center justify-between gap-2">
         <ProgressBar game={game} compact />

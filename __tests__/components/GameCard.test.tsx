@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import GameCard, { GameRow, GameItemProps } from '@/components/GameCard'
+import GameCard, { GameRow, GameCardCompact, GameItemProps } from '@/components/GameCard'
 import { Game } from '@/lib/types'
 
 const NOW = Date.parse('2026-06-26T10:00:00Z')
@@ -558,6 +558,25 @@ describe('progress bar', () => {
     render(<GameCard {...props()} />)
     expect(screen.queryByText('⚠')).toBeNull()
     expect(screen.queryByText(/%/)).toBeNull()
+  })
+})
+
+describe('GameCardCompact', () => {
+  it("shows the note's text, not just an edit icon — there's room for it in a card, unlike GameRow", () => {
+    render(<GameCardCompact {...props({ note: 'remember to bid low' })} rank={2} />)
+    expect(screen.getByText(/remember to bid low/)).toBeInTheDocument()
+  })
+
+  it('lets long player names wrap instead of cutting them off', () => {
+    const long = { ...game, players: ['A Very Long Player Name That Would Otherwise Overflow'] }
+    render(<GameCardCompact {...props({ game: long })} rank={2} />)
+    const line = screen.getByText(/A Very Long Player Name/)
+    expect(line.closest('div')).not.toHaveClass('truncate')
+  })
+
+  it('labels the rank badge for screen readers', () => {
+    render(<GameCardCompact {...props()} rank={5} />)
+    expect(screen.getByLabelText('#5')).toBeInTheDocument()
   })
 })
 
