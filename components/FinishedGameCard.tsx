@@ -4,6 +4,7 @@ import { BADGE_COLORS } from '@/lib/platform-colors'
 import { placeLabel } from '@/lib/results'
 import Link from 'next/link'
 import { gameHistoryHref } from '@/lib/gameStats'
+import PlayerHoverCard from './PlayerHoverCard'
 
 const RESULT_STYLE = {
   won: 'bg-green-50 text-green-700',
@@ -56,6 +57,18 @@ export default function FinishedGameCard({ game, action, details }: Props) {
           <p className="text-xs text-[var(--text-tertiary)]">
             Completed {game.completedAgo}{eloText(game) && ` · ${eloText(game)}`}{details && ` · ${details}`}
           </p>
+          {/* Who you played with — so a game worth replaying has someone to
+              go invite again, not just a result to look back on. */}
+          {game.opponents && game.opponents.length > 0 && (
+            <p className="text-xs text-[var(--text-tertiary)] truncate">
+              with {game.opponents.map((o, i) => (
+                <span key={o.name}>
+                  {i > 0 && ', '}
+                  <PlayerHoverCard platform={game.platform} name={o.name} />
+                </span>
+              ))}
+            </p>
+          )}
         </div>
       </div>
       <div className="w-full sm:w-auto shrink-0 flex flex-wrap items-center gap-x-2 gap-y-1">

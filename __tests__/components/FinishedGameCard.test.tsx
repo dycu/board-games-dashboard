@@ -53,6 +53,18 @@ describe('FinishedGameCard', () => {
     const link = screen.getByRole('link', { name: longName })
     expect(link.className).not.toMatch(/\btruncate\b/)
   })
+
+  it('shows who you played with, linking to each one\'s player page', () => {
+    render(<FinishedGameCard game={{ ...game, opponents: [{ name: 'Alice' }, { name: 'Bob', rank: 1 }] }} />)
+    expect(screen.getByText(/with/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Alice' })).toHaveAttribute('href', '/players?platform=eighteenxx&name=Alice')
+    expect(screen.getByRole('link', { name: 'Bob' })).toHaveAttribute('href', '/players?platform=eighteenxx&name=Bob')
+  })
+
+  it('shows nothing extra when no opponents are recorded for this game', () => {
+    render(<FinishedGameCard game={game} />)
+    expect(screen.queryByText(/with/)).toBeNull()
+  })
 })
 
 describe('FinishedGameCard results', () => {
