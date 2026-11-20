@@ -259,13 +259,13 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
       <span className="hidden sm:inline">
         {games.length}{' '}active &nbsp;·&nbsp;
         <span className="text-[var(--accent)] font-medium">{myTurnCount}{' '}your turn</span>
-        {totalMoveCountToday > 0 && (
-          <>
-            {' '}&nbsp;·&nbsp;
-            <span className="text-orange-600 font-medium">🔥 {totalMoveCountToday}{' '}today</span>
-          </>
-        )}
       </span>
+      {/* Outside the sm-only span above: "active"/"your turn" are already
+          shown elsewhere on a phone (the pill counts, the "YOUR TURN · N"
+          label), but this count isn't surfaced anywhere else at all. */}
+      {totalMoveCountToday > 0 && (
+        <span className="text-orange-600 font-medium">🔥 {totalMoveCountToday}{' '}today</span>
+      )}
       <button
         onClick={onRefresh}
         disabled={isRefreshing}
@@ -276,11 +276,14 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
       {intervalSeconds > 0 && (
         <span className="hidden sm:inline">{countdown}s</span>
       )}
+      {/* The interval itself is a rarely-changed setting, not something
+          that needs to compete for space with the actual games on a
+          phone — still reachable at sm (tablet) width and up. */}
       <select
         value={intervalSeconds}
         onChange={e => setRefreshInterval(Number(e.target.value))}
         aria-label="Auto-refresh interval"
-        className="bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] text-xs px-2 py-1 rounded-md cursor-pointer"
+        className="hidden sm:block bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] text-xs px-2 py-1 rounded-md cursor-pointer"
       >
         <option value={0}>Off</option>
         <option value={30}>30s</option>

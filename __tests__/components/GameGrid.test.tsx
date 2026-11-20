@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import GameGrid from '@/components/GameGrid'
 import { GamesApiResponse, DEFAULT_PREFS, PLATFORM_URLS, Game, UserPrefs } from '@/lib/types'
@@ -49,6 +49,21 @@ describe('GameGrid header navigation', () => {
     renderGrid([makeGame('bga', '1')])
     const historyLink = screen.getByRole('link', { name: /^history$/i })
     expect(historyLink).toHaveAttribute('href', '/overview')
+  })
+})
+
+describe('GameGrid today counter', () => {
+  it("shows the today count outside the sm-only span, so it isn't hidden on a phone", () => {
+    renderGrid([{ ...makeGame('bga', '1'), moveCountToday: 110 }])
+    const nav = within(screen.getByRole('navigation'))
+    const today = nav.getByText(/🔥/)
+    expect(today.closest('.hidden')).toBeNull()
+  })
+
+  it('shows nothing in the header when no moves have landed today', () => {
+    renderGrid([makeGame('bga', '1')])
+    const nav = within(screen.getByRole('navigation'))
+    expect(nav.queryByText(/🔥/)).toBeNull()
   })
 })
 
