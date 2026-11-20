@@ -19,7 +19,7 @@ const game: Game = {
 }
 
 const props = (over: Partial<GameItemProps> = {}): GameItemProps =>
-  ({ game, priority: null, onCyclePriority: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, maxMoveCountToday: 0, backlogLists: [], ...over })
+  ({ game, priority: null, onCyclePriority: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, backlogLists: [], ...over })
 
 describe('GameCard', () => {
   it('shows game name, platform badge and time', () => {

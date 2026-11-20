@@ -77,13 +77,11 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   // after the move; they no longer count as waiting for me
   const visible = games
   const isOpened = (g: Game) => dismissed.has(g.id)
-  // The busiest game's move count today, across every visible game (both
-  // sections) — see GameCard's heatBg. Relative to this instead of a fixed
-  // scale, so a day spent playing a lot doesn't just turn everything the
-  // same dark orange.
-  const maxMoveCountToday = Math.max(0, ...visible.map(g => g.moveCountToday ?? 0))
-  // Sum across every visible game — shown in the top bar (navRight below),
-  // separately from heatBg's per-card relative share
+  // Sum across every visible game — shown in the top bar (navRight below).
+  // Each card's own share is the MoveCountBadge pill, not a background tint
+  // (see GameCard) — a whole-card wash competed with the deadline/slow-
+  // opponent border and background for attention, for a signal that
+  // matters less than either.
   const totalMoveCountToday = visible.reduce((sum, g) => sum + (g.moveCountToday ?? 0), 0)
   const countByPlatform = Object.fromEntries(
     configuredPlatforms.map(p => [p, visible.filter(g => g.platform === p).length])
@@ -237,7 +235,6 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
       onSaveTableLabel: saveTableLabel,
       now,
       opened: isOpened(g),
-      maxMoveCountToday,
       backlogLists: backlogListsOf(g),
     }
   }

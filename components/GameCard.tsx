@@ -32,7 +32,6 @@ export interface GameItemProps {
   onSaveTableLabel?: (id: string, text: string) => void
   now: number
   opened?: boolean // opened since the last refresh that saw me back: dimmed until then
-  maxMoveCountToday: number // the busiest game's moveCountToday across the board right now — see heatBg
   backlogLists: BacklogList[] // the backlog list(s) this title is tracked under, if any — see BacklogBadge
 }
 
@@ -296,30 +295,13 @@ function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string,
   )
 }
 
-// Background warmth scales with today's move count *relative to the busiest
-// game today* (see MoveCountBadge), not a fixed scale — on a day you play a
-// lot, a fixed scale would turn everything the same dark orange and lose
-// exactly the signal this is for (which game got the most attention today).
-// Tiers, not a continuous scale: a small difference in share rarely means
-// anything, but "barely any of today's moves" vs. "most of them" does.
-// Takes priority over whatever background a card would otherwise have (e.g.
-// GameRow's amber tint for a slow opponent) — today's activity is the more
-// specific signal.
-function heatBg(count: number | undefined, maxCount: number, fallback: string): string {
-  if (!count) return fallback
-  const share = maxCount > 0 ? count / maxCount : 0
-  if (share >= 2 / 3) return 'bg-orange-100'
-  if (share >= 1 / 3) return 'bg-orange-50'
-  return fallback
-}
-
 // A game waiting for my move: a full card
-export default function GameCard({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, maxMoveCountToday, backlogLists }: GameItemProps) {
+export default function GameCard({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists }: GameItemProps) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
   return (
-    <div className={`relative rounded-lg border p-3.5 flex flex-col gap-2 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] ${heatBg(game.moveCountToday, maxMoveCountToday, 'bg-[var(--bg-surface)]')} hover:border-[var(--accent-border-hover)]
+    <div className={`relative rounded-lg border p-3.5 flex flex-col gap-2 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] bg-[var(--bg-surface)] hover:border-[var(--accent-border-hover)]
       ${opened ? 'opacity-55 hover:opacity-100 border-[var(--border-default)]' : soon !== null ? 'border-[var(--border-default)] border-l-[3px] border-l-red-500' : 'border-[var(--border-default)] border-l-[3px] border-l-[var(--accent)]'}`}>
       <CoverLink game={game} onOpen={onOpen} note={note} />
       <div className="flex items-center justify-between gap-2">
@@ -363,11 +345,11 @@ export default function GameCard({ game, priority, onCyclePriority, onOpen, oppo
 }
 
 // A game waiting for someone else: one compact row
-export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, maxMoveCountToday, backlogLists }: GameItemProps) {
+export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists }: GameItemProps) {
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   return (
     <div className={`relative flex flex-wrap items-center gap-2 px-3 py-2 rounded-md border hover:border-[var(--accent-border-hover)] transition-colors
-      ${heatBg(game.moveCountToday, maxMoveCountToday, slow ? 'bg-amber-50/40' : 'bg-[var(--bg-surface)]')} ${slow ? 'border-amber-200' : 'border-[var(--border-subtle)]'} ${opened ? 'opacity-55 hover:opacity-100' : ''}`}>
+      ${slow ? 'bg-amber-50/40' : 'bg-[var(--bg-surface)]'} ${slow ? 'border-amber-200' : 'border-[var(--border-subtle)]'} ${opened ? 'opacity-55 hover:opacity-100' : ''}`}>
       <CoverLink game={game} onOpen={onOpen} note={note} />
       <Badge game={game} small />
       <MoveCountBadge game={game} small />
