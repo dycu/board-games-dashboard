@@ -332,13 +332,17 @@ function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string,
   )
 }
 
-// A game waiting for my move: a full card
-export default function GameCard({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists }: GameItemProps) {
+// A game waiting for my move: a full card. `highlight` gives it the same
+// gentle accent tint as the priority layout's active compact cards — used
+// only for that layout's top strip; the classic grid never passes it, so
+// its cards look exactly as they did before.
+export default function GameCard({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists, highlight }: GameItemProps & { highlight?: boolean }) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
   return (
-    <div className={`relative rounded-lg border p-3.5 flex flex-col gap-2 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] bg-[var(--bg-surface)] hover:border-[var(--accent-border-hover)]
+    <div className={`relative rounded-lg border p-3.5 flex flex-col gap-2 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:border-[var(--accent-border-hover)]
+      ${highlight && !opened ? 'bg-[var(--accent-tint)]' : 'bg-[var(--bg-surface)]'}
       ${opened ? 'opacity-55 hover:opacity-100 border-[var(--border-default)]' : soon !== null ? 'border-[var(--border-default)] border-l-[3px] border-l-red-500' : 'border-[var(--border-default)] border-l-[3px] border-l-[var(--accent)]'}`}>
       <CoverLink game={game} onOpen={onOpen} note={note} />
       <div className="flex items-center justify-between gap-2">

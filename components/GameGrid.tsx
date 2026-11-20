@@ -450,7 +450,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
             ) : (
               priorityTop.length > 0 && (
                 <div ref={myTurnGridRef} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
-                  {priorityTop.map(g => <GameCard key={g.id} {...itemProps(g)} />)}
+                  {priorityTop.map(g => <GameCard key={g.id} {...itemProps(g)} highlight />)}
                 </div>
               )
             )}
@@ -472,10 +472,12 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
               </div>
             )}
             {priorityRestWaiting.length > 0 && (
-              <div ref={priorityWaitingRef} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 mt-2">
-                {priorityRestWaiting.map((game, i) => (
-                  <GameCardCompact key={game.id} {...itemProps(game)} rank={priorityTop.length + priorityRestActive.length + i + 1} waiting />
-                ))}
+              <div className="mt-3 pt-3 border-t border-[var(--border-default)]">
+                <div ref={priorityWaitingRef} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
+                  {priorityRestWaiting.map((game, i) => (
+                    <GameCardCompact key={game.id} {...itemProps(game)} rank={priorityTop.length + priorityRestActive.length + i + 1} waiting />
+                  ))}
+                </div>
               </div>
             )}
             {!waitingExpanded && hiddenWhenCollapsed > 0 && (
