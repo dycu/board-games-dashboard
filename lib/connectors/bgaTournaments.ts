@@ -1,5 +1,5 @@
 import { Tournament } from '../types'
-import { withBgaSession, bgaApiHeaders, BgaAuthOptions, BgaSession } from './bga'
+import { withBgaSession, bgaApiHeaders, fetchGameNames, BgaAuthOptions, BgaSession } from './bga'
 
 const BASE = 'https://boardgamearena.com'
 const API_BASE = 'https://en.boardgamearena.com'
@@ -51,24 +51,54 @@ async function listMyTournaments(session: BgaSession): Promise<any[]> {
   return data?.list ?? []
 }
 
-export function toTournament(raw: any): Tournament {
+// `raw.game_name` is a URL slug ("arknova"), not a display name — resolved
+// through `nameMap` (see fetchGameNames) the same way the main BGA games
+// connector resolves table names; falls back to the raw slug when no map is
+// given (e.g. in tests) or the slug wasn't in it.
+//
+// `detail` is getTournament.html's own `tournament` object, which — unlike
+// the list row — carries clean ISO date strings. Omitted (undefined) skips
+// startDate entirely rather than showing a wrong one.
+//
+// raw.remaining (BGA's "remainingPlayers") is left out: its real-world
+// values (seen 0 both on a tournament still open for registration and on a
+// finished one) don't match either plausible reading ("slots left to fill"
+// or "players not yet eliminated") closely enough to trust, and a user
+// report confirmed it reads wrong live. Revisit once BGA's own meaning is
+// confirmed rather than guessed from a couple of samples.
+export function toTournament(raw: any, detail?: any, nameMap?: Map<string, string>): Tournament {
+  const resolvedGameName = raw.game_name ? (nameMap?.get(raw.game_name) ?? raw.game_name) : undefined
   return {
     id: `bga:${raw.id}`,
     platform: 'bga',
     name: raw.name,
     ...(raw.championship_name && { championshipName: raw.championship_name }),
-    ...(raw.game_name && { gameName: raw.game_name }),
+    ...(resolvedGameName && { gameName: resolvedGameName }),
     status: raw.status,
     typeLabel: typeLabel(raw.type),
     stage: raw.stage ?? 0,
     ...(raw.registered != null && { registeredPlayers: raw.registered }),
-    ...(raw.remaining != null && { remainingPlayers: raw.remaining }),
+    ...(detail?.baseDate && { startDate: detail.baseDate }),
     progress: typeof raw.progress === 'number' ? raw.progress : null,
     encountersTotal: raw.encounter_total ?? raw.encounters_total ?? 0,
     encountersPlayed: raw.encounter_played ?? raw.encounters_played ?? 0,
     encountersWon: raw.encounter_won ?? raw.encounters_won ?? 0,
     ...(raw.player_status != null && { myStatus: String(raw.player_status) }),
     tournamentUrl: `${BASE}/tournament?id=${raw.id}`,
+  }
+}
+
+// getTournament.html's metadata object for one tournament id — mainly
+// wanted here for its clean ISO baseDate/registerDate/endDate fields, which
+// the list row doesn't carry in a trustworthy form (see toTournament).
+async function fetchDetail(session: BgaSession, rawId: number): Promise<any | null> {
+  try {
+    const data = await postJson(session, '/tournament/view/getTournament.html', `id=${rawId}`)
+    return data?.tournament ?? null
+  } catch {
+    // A tournament's name/standing from the list row still shows up without
+    // its start date — better than dropping the whole card.
+    return null
   }
 }
 
@@ -125,6 +155,14 @@ async function attachActiveMatch(session: BgaSession, tournament: Tournament, ra
 export async function fetchBgaTournaments(username: string, password: string, auth?: BgaAuthOptions): Promise<Tournament[]> {
   return withBgaSession(username, password, async session => {
     const raw = await listMyTournaments(session)
-    return Promise.all(raw.map(r => attachActiveMatch(session, toTournament(r), Number(r.id))))
+
+    const slugs = [...new Set(raw.map(r => r.game_name as string).filter(Boolean))]
+    const nameMap = slugs.length > 0 ? await fetchGameNames(slugs, session.cookies) : new Map<string, string>()
+
+    return Promise.all(raw.map(async r => {
+      const detail = await fetchDetail(session, Number(r.id))
+      const tournament = toTournament(r, detail, nameMap)
+      return attachActiveMatch(session, tournament, Number(r.id))
+    }))
   }, auth)
 }

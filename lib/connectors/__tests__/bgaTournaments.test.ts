@@ -1,24 +1,24 @@
 import { toTournament, collectMatches, findActiveTableId } from '../bgaTournaments'
 
 describe('toTournament', () => {
-  it('maps a getTournaments.html list row into a Tournament', () => {
-    const raw = {
-      id: 283997,
-      name: 'Saison 2 - Stage 1 - Group 1',
-      championship_name: 'Baj Duel Ark Nova',
-      game_name: 'arknova',
-      status: 'finished',
-      type: 'swissSystemV2',
-      stage: 0,
-      registered: 10,
-      remaining: 0,
-      progress: 1,
-      encounter_total: 6,
-      encounter_played: 6,
-      encounter_won: 4,
-      player_status: 'eliminated',
-    }
+  const raw = {
+    id: 283997,
+    name: 'Saison 2 - Stage 1 - Group 1',
+    championship_name: 'Baj Duel Ark Nova',
+    game_name: 'arknova',
+    status: 'finished',
+    type: 'swissSystemV2',
+    stage: 0,
+    registered: 10,
+    remaining: 0,
+    progress: 1,
+    encounter_total: 6,
+    encounter_played: 6,
+    encounter_won: 4,
+    player_status: 'eliminated',
+  }
 
+  it('maps a getTournaments.html list row into a Tournament', () => {
     expect(toTournament(raw)).toEqual({
       id: 'bga:283997',
       platform: 'bga',
@@ -29,7 +29,6 @@ describe('toTournament', () => {
       typeLabel: 'Swiss system',
       stage: 0,
       registeredPlayers: 10,
-      remainingPlayers: 0,
       progress: 1,
       encountersTotal: 6,
       encountersPlayed: 6,
@@ -37,6 +36,24 @@ describe('toTournament', () => {
       myStatus: 'eliminated',
       tournamentUrl: 'https://boardgamearena.com/tournament?id=283997',
     })
+  })
+
+  it('never surfaces BGA\'s own "remaining" field — its real values don\'t match a trustworthy reading', () => {
+    expect(toTournament(raw)).not.toHaveProperty('remainingPlayers')
+  })
+
+  it('resolves the game slug to a display name via the name map', () => {
+    const nameMap = new Map([['arknova', 'Ark Nova']])
+    expect(toTournament(raw, undefined, nameMap).gameName).toBe('Ark Nova')
+  })
+
+  it('falls back to the raw slug when the name map has nothing for it', () => {
+    expect(toTournament(raw, undefined, new Map()).gameName).toBe('arknova')
+  })
+
+  it('takes startDate from getTournament.html detail, not the list row', () => {
+    expect(toTournament(raw).startDate).toBeUndefined()
+    expect(toTournament(raw, { baseDate: '2024-03-30T22:00:00+02:00' }).startDate).toBe('2024-03-30T22:00:00+02:00')
   })
 
   it('falls back to the raw type id when it has no known label', () => {

@@ -85,7 +85,7 @@ async function readHead(res: Response): Promise<string> {
 }
 
 // `known` (e.g. catalog names) fills uncached slugs without fetching their pages
-async function fetchGameNames(
+export async function fetchGameNames(
   slugs: string[],
   cookies: Record<string, string>,
   known?: Map<string, string>,

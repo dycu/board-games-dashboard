@@ -47,7 +47,13 @@ function TournamentCard({ tournament: t }: { tournament: Tournament }) {
       </div>
 
       <div>
-        <div className="font-semibold text-sm text-[var(--text-primary)]">{t.name}</div>
+        {/* The game itself is what actually identifies a tournament at a
+            glance — t.name is often an internal label like "Saison 2 -
+            Stage 1 - Group 1", not something worth leading with. */}
+        {t.gameName && <div className="font-semibold text-sm text-[var(--text-primary)]">{t.gameName}</div>}
+        <div className={t.gameName ? 'text-xs text-[var(--text-tertiary)]' : 'font-semibold text-sm text-[var(--text-primary)]'}>
+          {t.name}
+        </div>
         {t.championshipName && t.championshipName !== t.name && (
           <div className="text-xs text-[var(--text-tertiary)]">{t.championshipName}</div>
         )}
@@ -55,10 +61,10 @@ function TournamentCard({ tournament: t }: { tournament: Tournament }) {
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--text-secondary)]">
         <span>{t.typeLabel}</span>
-        {t.gameName && <span>{t.gameName}</span>}
-        {t.registeredPlayers != null && (
-          <span>{t.registeredPlayers}{t.remainingPlayers != null ? ` players · ${t.remainingPlayers} remaining` : ' players'}</span>
+        {t.startDate && (
+          <span>{new Date(t.startDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
         )}
+        {t.registeredPlayers != null && <span>{t.registeredPlayers} players</span>}
         {t.encountersPlayed > 0 && <span>{t.encountersWon}/{t.encountersPlayed} matches won</span>}
         {t.myStatus && <span className="capitalize">{t.myStatus}</span>}
       </div>

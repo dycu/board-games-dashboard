@@ -202,7 +202,7 @@ export interface Tournament {
   typeLabel: string             // human label, e.g. "Swiss system"
   stage: number
   registeredPlayers?: number
-  remainingPlayers?: number
+  startDate?: string             // ISO; when the tournament itself starts/started
   progress: number | null       // 0..1, how far along the whole tournament is; null if unknown
   encountersTotal: number       // my matches across this tournament
   encountersPlayed: number
