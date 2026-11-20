@@ -8,6 +8,8 @@ import { readCache } from '@/hooks/useGamesData'
 import { useOpponentsContext } from '@/components/OpponentsProvider'
 import { globalOpponents, gamesWith, playerHref, GlobalOpponent } from '@/lib/opponents/stats'
 import { formatDuration } from '@/lib/connectors/utils'
+import { useBacklog } from '@/hooks/useBacklog'
+import { backlogId, listsOf, BacklogList, SHORT_LIST_LABELS } from '@/lib/backlog/list'
 import TopNav from '@/components/TopNav'
 import GameLink, { playedGameUrl } from '@/components/GameLink'
 import PlatformFilterChips from '@/components/PlatformFilterChips'
@@ -83,7 +85,7 @@ const fmtDate = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', m
 // game against them, and whatever's currently in progress with them.
 // Linked to from the list below, and from anywhere else a player's name is
 // shown (GameCard, FinishedGameCard, ...).
-function PersonDetail({ platform, name, person, activeGames, games, allTags, onSaveTags, onSetHidden, onBack }: {
+export function PersonDetail({ platform, name, person, activeGames, games, allTags, onSaveTags, onSetHidden, onBack }: {
   platform: Platform
   name: string
   person: GlobalOpponent | undefined
@@ -94,6 +96,37 @@ function PersonDetail({ platform, name, person, activeGames, games, allTags, onS
   onSetHidden: (hidden: boolean) => void
   onBack: () => void
 }) {
+  // The title played most often with this person — one more way to answer
+  // "who should I invite for X", alongside the games-together count/record.
+  const mostPlayed = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const g of games) {
+      const title = g.gameType || g.gameName
+      counts.set(title, (counts.get(title) ?? 0) + 1)
+    }
+    let top: { title: string; count: number } | null = null
+    for (const [title, count] of counts) {
+      if (!top || count > top.count) top = { title, count }
+    }
+    return top
+  }, [games])
+
+  // Titles played with this person that are also tracked in your own
+  // backlog (Favorite, GM, next to play, ...) — a good game together is
+  // worth knowing you'd keep coming back to anyway.
+  const backlog = useBacklog()
+  const sharedBacklogTitles = useMemo(() => {
+    if (!backlog.items) return []
+    const seen = new Map<string, BacklogList[]>()
+    for (const g of games) {
+      const title = g.gameType || g.gameName
+      if (seen.has(title)) continue
+      const item = backlog.items.find(i => i.id === backlogId(platform, title))
+      if (item) seen.set(title, listsOf(item))
+    }
+    return [...seen.entries()]
+  }, [backlog.items, games, platform])
+
   return (
     <div className="flex-1 overflow-y-auto p-5 max-w-3xl mx-auto w-full">
       <button onClick={onBack} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">← Back</button>
@@ -130,6 +163,30 @@ function PersonDetail({ platform, name, person, activeGames, games, allTags, onS
         <Stat value={person?.medianResponseSeconds != null ? formatDuration(person.medianResponseSeconds) : '—'} label="typical reply time" />
         <Stat value={person?.lastPlayedAt ? fmtDate(person.lastPlayedAt) : '—'} label="last played" />
       </div>
+
+      {mostPlayed && mostPlayed.count > 1 && (
+        <p className="text-xs text-[var(--text-tertiary)] mb-5 -mt-3">
+          Most played together: <span className="font-medium text-[var(--text-primary)]">{mostPlayed.title}</span> ({mostPlayed.count}×)
+        </p>
+      )}
+
+      {sharedBacklogTitles.length > 0 && (
+        <div className="mb-5">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)] mb-1.5">Also in your backlog</h2>
+          <div className="flex flex-col gap-1.5">
+            {sharedBacklogTitles.map(([title, lists]) => (
+              <div key={title} className="flex items-center gap-2 px-3 py-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+                <span className="flex-1 min-w-0 text-sm text-[var(--text-primary)] truncate">{title}</span>
+                <span className="shrink-0 flex gap-1">
+                  {lists.map(l => (
+                    <span key={l} className="text-[10px] font-medium px-1.5 py-px rounded-full bg-[var(--accent-tint)] text-[var(--accent)]">{SHORT_LIST_LABELS[l]}</span>
+                  ))}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {activeGames.length > 0 && (
         <div className="mb-5">
