@@ -71,7 +71,13 @@ export default function FinishedGameCard({ game, action, details }: Props) {
           )}
         </div>
       </div>
-      <div className="w-full sm:w-auto shrink-0 flex flex-wrap items-center gap-x-2 gap-y-1">
+      {/* Always its own row, never sharing one with the name/opponents info
+          on the left — Game/backlog-list chips plus View can add up to more
+          width than this card ever has to spare (it's one column of a
+          two-column grid, not the full page), and letting them compete for
+          the same row as the left side squeezed it down to a sliver,
+          truncating the opponents list hard. */}
+      <div className="w-full flex flex-wrap items-center gap-x-2 gap-y-1">
         {action}
         <a
           href={game.gameUrl}
