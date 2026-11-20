@@ -154,7 +154,7 @@ describe('GameGrid priority layout', () => {
   })
   const priorityPrefs: UserPrefs = { ...DEFAULT_PREFS, yourTurnLayout: 'priority' }
 
-  it('folds waiting games into the same numbered grid as overflow your-turn games, not a separate section', () => {
+  it('continues the same numbering into waiting games, instead of a separate section', () => {
     renderGrid(
       [makeGame('bga', '1'), makeGame('bga', '2'), { ...waiting('3', 9, 'Stalled'), players: ['Opponent'] }],
       [],
@@ -169,6 +169,18 @@ describe('GameGrid priority layout', () => {
     expect(screen.getByLabelText('#3')).toBeInTheDocument()
     expect(screen.getByText('Stalled')).toBeInTheDocument()
     expect(screen.getByText(/waiting for/)).toBeInTheDocument()
+  })
+
+  it('puts an opened game last of all, after waiting games', () => {
+    const a = { ...makeGame('bga', '1'), gameName: 'Active' }
+    const b = { ...makeGame('bga', '2'), gameName: 'Just Opened' }
+    const c = { ...waiting('3', 9, 'Stalled'), players: ['Opponent'] }
+    render(<GameGrid {...defaultGridProps} prefs={priorityPrefs} dismissed={new Set(['bga:2'])} data={{ games: [a, b, c], errors: [], fetchedAt: '' }} />)
+    // #1 is the top strip (Active); #2 is Stalled (waiting); #3 is Just
+    // Opened, last of all — not grouped with the still-active overflow,
+    // since where it lands next (my turn again, or waiting) isn't known yet.
+    expect(screen.getByLabelText('#2').closest('div')).toHaveTextContent('Stalled')
+    expect(screen.getByLabelText('#3').closest('div')).toHaveTextContent('Just Opened')
   })
 
   it('keeps the classic two-section layout when yourTurnLayout is unset', () => {

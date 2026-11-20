@@ -94,6 +94,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   const [waitingListRef] = useAutoAnimate()
   const [priorityRestRef] = useAutoAnimate()
   const [priorityWaitingRef] = useAutoAnimate()
+  const [priorityOpenedRef] = useAutoAnimate()
   const { games, errors } = data
   const configuredPlatforms = data.platforms ?? Array.from(
     new Set([...games.map(g => g.platform), ...errors.map(e => e.platform)])
@@ -175,17 +176,19 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
 
   // The "priority" layout (see GameGrid's render below): the top strip
   // takes the most urgent your-turn games (as many as the current
-  // breakpoint fits); everything else — remaining your-turn games and
-  // opened ones, then waiting games — falls into the same small-card
-  // style, continuously numbered, but as two grids stacked on their own
-  // lines rather than one shuffled-together grid: still one ordered
-  // sequence, but a waiting game is never visually mixed in next to an
-  // active one.
+  // breakpoint fits); everything else falls into the same small-card
+  // style, continuously numbered, but as three grids stacked on their own
+  // lines rather than one shuffled-together grid — active (remaining
+  // your-turn games), then waiting, then opened last of all. Opened games
+  // go after waiting rather than with the still-active ones: until the
+  // next refresh settles where it lands (my turn again, or waiting), it's
+  // genuinely unclear which of those it belongs with.
   const layout = prefs.yourTurnLayout ?? 'classic'
   const priorityStripCount = usePriorityStripCount()
   const priorityTop = layout === 'priority' ? myTurnGames.slice(0, priorityStripCount) : []
-  const priorityRestActive = layout === 'priority' ? [...myTurnGames.slice(priorityStripCount), ...openedMyTurnGames] : []
+  const priorityRestActive = layout === 'priority' ? myTurnGames.slice(priorityStripCount) : []
   const priorityRestWaiting = layout === 'priority' ? shownWaiting : []
+  const priorityRestOpened = layout === 'priority' ? openedMyTurnGames : []
 
   // "Next" opens the first game of "Your turn" (most urgent, then the chosen sort)
   const next = myTurnGames[0]
@@ -457,7 +460,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
           </section>
         )}
 
-        {layout === 'priority' && (priorityRestActive.length + priorityRestWaiting.length > 0) && (
+        {layout === 'priority' && (priorityRestActive.length + priorityRestWaiting.length + priorityRestOpened.length > 0) && (
           <section className="mb-7">
             {priorityTop.length > 0 && (
               <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)] mb-2">
@@ -476,6 +479,15 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                 <div ref={priorityWaitingRef} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
                   {priorityRestWaiting.map((game, i) => (
                     <GameCardCompact key={game.id} {...itemProps(game)} rank={priorityTop.length + priorityRestActive.length + i + 1} waiting />
+                  ))}
+                </div>
+              </div>
+            )}
+            {priorityRestOpened.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-[var(--border-default)]">
+                <div ref={priorityOpenedRef} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
+                  {priorityRestOpened.map((game, i) => (
+                    <GameCardCompact key={game.id} {...itemProps(game)} rank={priorityTop.length + priorityRestActive.length + priorityRestWaiting.length + i + 1} />
                   ))}
                 </div>
               </div>
