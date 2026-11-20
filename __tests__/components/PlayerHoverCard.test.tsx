@@ -124,4 +124,23 @@ describe('PlayerHoverCard', () => {
     render(<PlayerHoverCard platform="bga" name="alice" highlighted />)
     expect(screen.getByRole('link', { name: 'alice' })).toHaveClass('font-semibold')
   })
+
+  it("shows the tracked opponent's avatar next to the name even when no avatarUrl prop is passed", () => {
+    mockByPlatform = { bga: { alice: { tags: [], responseSamples: [], avatarUrl: 'https://example.com/alice.jpg' } } }
+    render(<PlayerHoverCard platform="bga" name="alice" />)
+    const link = screen.getByRole('link', { name: 'alice' })
+    const img = link.querySelector('img')
+    expect(img).toHaveAttribute('src', 'https://example.com/alice.jpg')
+    // same picture reused for the bigger avatar once the card opens (it's
+    // portaled to document.body, not a descendant of the trigger link)
+    fireEvent.mouseEnter(link)
+    expect(document.body.querySelectorAll('img[src="https://example.com/alice.jpg"]')).toHaveLength(2)
+  })
+
+  it('prefers an explicitly passed avatarUrl over the tracked one', () => {
+    mockByPlatform = { bga: { alice: { tags: [], responseSamples: [], avatarUrl: 'https://example.com/tracked.jpg' } } }
+    render(<PlayerHoverCard platform="bga" name="alice" avatarUrl="https://example.com/explicit.jpg" />)
+    const img = screen.getByRole('link', { name: 'alice' }).querySelector('img')
+    expect(img).toHaveAttribute('src', 'https://example.com/explicit.jpg')
+  })
 })
