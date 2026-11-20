@@ -93,6 +93,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   const [myTurnGridRef] = useAutoAnimate()
   const [waitingListRef] = useAutoAnimate()
   const [priorityRestRef] = useAutoAnimate()
+  const [priorityWaitingRef] = useAutoAnimate()
   const { games, errors } = data
   const configuredPlatforms = data.platforms ?? Array.from(
     new Set([...games.map(g => g.platform), ...errors.map(e => e.platform)])
@@ -174,17 +175,17 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
 
   // The "priority" layout (see GameGrid's render below): the top strip
   // takes the most urgent your-turn games (as many as the current
-  // breakpoint fits), everything else — remaining your-turn games, opened
-  // ones, and waiting games, in that order — falls into one continuously
-  // numbered dense grid instead of a separate "Waiting for others" section.
+  // breakpoint fits); everything else — remaining your-turn games and
+  // opened ones, then waiting games — falls into the same small-card
+  // style, continuously numbered, but as two grids stacked on their own
+  // lines rather than one shuffled-together grid: still one ordered
+  // sequence, but a waiting game is never visually mixed in next to an
+  // active one.
   const layout = prefs.yourTurnLayout ?? 'classic'
   const priorityStripCount = usePriorityStripCount()
   const priorityTop = layout === 'priority' ? myTurnGames.slice(0, priorityStripCount) : []
-  const priorityRest: { game: Game; waiting: boolean }[] = layout === 'priority' ? [
-    ...myTurnGames.slice(priorityStripCount).map(game => ({ game, waiting: false })),
-    ...openedMyTurnGames.map(game => ({ game, waiting: false })),
-    ...shownWaiting.map(game => ({ game, waiting: true })),
-  ] : []
+  const priorityRestActive = layout === 'priority' ? [...myTurnGames.slice(priorityStripCount), ...openedMyTurnGames] : []
+  const priorityRestWaiting = layout === 'priority' ? shownWaiting : []
 
   // "Next" opens the first game of "Your turn" (most urgent, then the chosen sort)
   const next = myTurnGames[0]
@@ -456,18 +457,27 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
           </section>
         )}
 
-        {layout === 'priority' && priorityRest.length > 0 && (
+        {layout === 'priority' && (priorityRestActive.length + priorityRestWaiting.length > 0) && (
           <section className="mb-7">
             {priorityTop.length > 0 && (
               <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)] mb-2">
                 Everything else
               </p>
             )}
-            <div ref={priorityRestRef} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
-              {priorityRest.map(({ game, waiting }, i) => (
-                <GameCardCompact key={game.id} {...itemProps(game)} rank={priorityTop.length + i + 1} waiting={waiting} />
-              ))}
-            </div>
+            {priorityRestActive.length > 0 && (
+              <div ref={priorityRestRef} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
+                {priorityRestActive.map((game, i) => (
+                  <GameCardCompact key={game.id} {...itemProps(game)} rank={priorityTop.length + i + 1} />
+                ))}
+              </div>
+            )}
+            {priorityRestWaiting.length > 0 && (
+              <div ref={priorityWaitingRef} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 mt-2">
+                {priorityRestWaiting.map((game, i) => (
+                  <GameCardCompact key={game.id} {...itemProps(game)} rank={priorityTop.length + priorityRestActive.length + i + 1} waiting />
+                ))}
+              </div>
+            )}
             {!waitingExpanded && hiddenWhenCollapsed > 0 && (
               <button onClick={toggleWaiting} className="mt-2 w-full text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] py-1.5 rounded-md border border-dashed border-[var(--border-default)]">
                 Show {hiddenWhenCollapsed} more

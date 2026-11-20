@@ -385,18 +385,22 @@ export default function GameCard({ game, priority, onCyclePriority, onOpen, oppo
 // GameGrid) — a smaller GameCard with a rank number instead of the usual
 // red/accent left border, covering both overflow your-turn games and
 // waiting games alike so the two read as one continuous, ordered list.
-// `waiting` fades it back (a card there is nothing to do yet) without
-// hiding it outright — same treatment `opened` already gets.
+// `waiting` (and `opened`) mark it as nothing-to-do-here with a plain
+// background and a hollow rank badge instead; an active card (still your
+// move) gets a gentle accent tint instead — the opposite of making the
+// inactive ones fade out, which competed with the real urgency/slow-
+// opponent indicators for attention.
 export function GameCardCompact({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists, rank, waiting }: GameItemProps & { rank: number; waiting?: boolean }) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
-  const faded = waiting || opened
+  const inactive = waiting || opened
 
   return (
-    <div className={`relative rounded-lg border p-2.5 flex flex-col gap-1.5 transition-opacity shadow-[0_1px_3px_rgba(0,0,0,0.05)] bg-[var(--bg-surface)] hover:border-[var(--accent-border-hover)] hover:opacity-100 border-[var(--border-default)]
-      ${faded ? 'opacity-80' : ''} ${!faded && soon !== null ? 'border-l-[3px] border-l-red-500' : ''}`}>
+    <div className={`relative rounded-lg border p-2.5 flex flex-col gap-1.5 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:border-[var(--accent-border-hover)]
+      ${inactive ? 'bg-[var(--bg-surface)] border-[var(--border-default)]' : 'bg-[var(--accent-tint)] border-[var(--accent-border-hover)]'}
+      ${!inactive && soon !== null ? 'border-l-[3px] border-l-red-500' : ''}`}>
       <span aria-label={`#${rank}`} className={`absolute -top-2 -left-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold leading-none
-        ${faded ? 'bg-transparent border border-[var(--border-default)] text-[var(--text-tertiary)]' : 'bg-[var(--text-primary)] text-[var(--bg-surface)]'}`}>
+        ${inactive ? 'bg-transparent border border-[var(--border-default)] text-[var(--text-tertiary)]' : 'bg-[var(--accent)] text-white'}`}>
         {rank}
       </span>
       <CoverLink game={game} onOpen={onOpen} note={note} />
