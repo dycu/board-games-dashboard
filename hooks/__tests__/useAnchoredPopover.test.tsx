@@ -38,10 +38,17 @@ describe('useAnchoredPopover', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('closes on scroll instead of tracking the trigger to a new position', () => {
+  it('closes when the page behind it scrolls, instead of tracking the trigger to a new position', () => {
     const onClose = jest.fn()
     render(<Harness onClose={onClose} />)
-    fireEvent.scroll(window)
+    fireEvent.scroll(document)
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not close when a scrollable panel scrolls internally', () => {
+    const onClose = jest.fn()
+    render(<Harness onClose={onClose} />)
+    fireEvent.scroll(screen.getByTestId('panel'))
+    expect(onClose).not.toHaveBeenCalled()
   })
 })

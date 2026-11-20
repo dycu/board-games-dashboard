@@ -43,13 +43,21 @@ export function useAnchoredPopover(anchorRef: RefObject<HTMLElement | null>, onC
       if (anchorRef.current?.contains(target)) return
       onClose()
     }
+    // A scrollable panel (TodayMovesPopup's own list) fires 'scroll' events
+    // that capture through window just like the page behind it would — only
+    // the latter means the trigger moved out from under the panel, so only
+    // that one should close it.
+    const onScroll = (e: Event) => {
+      if (e.target instanceof Node && panelRef.current?.contains(e.target)) return
+      onClose()
+    }
     window.addEventListener('keydown', onKey)
     document.addEventListener('pointerdown', onPointerDown)
-    window.addEventListener('scroll', onClose, { capture: true, passive: true })
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true })
     return () => {
       window.removeEventListener('keydown', onKey)
       document.removeEventListener('pointerdown', onPointerDown)
-      window.removeEventListener('scroll', onClose, { capture: true })
+      window.removeEventListener('scroll', onScroll, { capture: true })
     }
   }, [onClose, anchorRef])
 
