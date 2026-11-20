@@ -91,7 +91,6 @@ function FindGamePanel() {
                   <span title={platformLabel(r.platform)} className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[r.platform] ?? 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'}`}>
                     {platformShortLabel(r.platform)}
                   </span>
-                  <InviteAgainButton platform={r.platform as Platform} />
                 </div>
                 {err ? (
                   <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-md">
@@ -104,14 +103,17 @@ function FindGamePanel() {
                     {r.matches.map(m => (
                       <div key={m.name} className="flex items-center justify-between gap-2">
                         <span className="text-sm text-[var(--text-primary)]">{m.name}</span>
-                        <a
-                          href={m.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs font-medium px-3 py-1 rounded-md bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] whitespace-nowrap"
-                        >
-                          Open →
-                        </a>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <InviteAgainButton platform={r.platform as Platform} gameName={m.name} />
+                          <a
+                            href={m.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-medium px-3 py-1 rounded-md bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] whitespace-nowrap"
+                          >
+                            Open →
+                          </a>
+                        </div>
                       </div>
                     ))}
                   </div>

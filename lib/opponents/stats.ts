@@ -1,5 +1,6 @@
 import { FinishedGame, Platform } from '../types'
 import { OpponentEntry } from './store'
+import { gamesOf } from '../gameStats'
 
 // Mirrors lib/gameStats.ts's gameHistoryHref — the same "platform + name in
 // the query string" shape, so any page linking to a person can build this
@@ -113,4 +114,70 @@ export function gamesWith(games: FinishedGame[], platform: Platform, name: strin
   return games
     .filter(g => g.platform === platform && (g.opponents ?? []).some(o => o.name.toLowerCase() === n))
     .sort((a, b) => b.completedAt.getTime() - a.completedAt.getTime())
+}
+
+export interface GameOpponent {
+  name: string
+  games: number
+  iWon: number
+  theyWon: number
+  lastPlayedAt: Date | null
+  avgDurationDays: number | null
+  tags: string[]
+  avatarUrl?: string
+  medianResponseSeconds: number | null
+  hidden: boolean
+}
+
+// Answers "who's played THIS game with me, and how did that usually go" —
+// unlike globalOpponents (everyone on a platform, across every title),
+// scoped with gameStats' own gamesOf so it means exactly the same thing as
+// the per-game history page's own numbers. avgDurationDays is null wherever
+// the platform doesn't report startedAt (see gameStats) — most don't, so
+// this is often unavailable and that's fine, same as everywhere else that
+// stat is shown. medianResponseSeconds isn't scoped to this game — response
+// samples are tracked per person per platform, not per title — but it's
+// still useful signal when deciding who to invite.
+export function gameOpponents(
+  games: FinishedGame[],
+  platform: Platform,
+  gameTitle: string,
+  entriesByPlatform: Partial<Record<Platform, Record<string, OpponentEntry>>>,
+): GameOpponent[] {
+  const scoped = gamesOf(games, platform, gameTitle)
+  const byKey = new Map<string, GameOpponent & { durations: number[] }>()
+
+  for (const g of scoped) {
+    const duration = g.startedAt && g.completedAt.getTime() > 0
+      ? (g.completedAt.getTime() - new Date(g.startedAt).getTime()) / 86_400_000
+      : null
+
+    for (const o of g.opponents ?? []) {
+      const key = o.name.toLowerCase()
+      let r = byKey.get(key)
+      if (!r) {
+        const entry = entriesByPlatform[platform]?.[o.name]
+        r = {
+          name: o.name, games: 0, iWon: 0, theyWon: 0, lastPlayedAt: null, avgDurationDays: null, durations: [],
+          tags: entry?.tags ?? [], avatarUrl: entry?.avatarUrl,
+          medianResponseSeconds: medianResponseSeconds(entry?.responseSamples ?? []),
+          hidden: entry?.hidden ?? false,
+        }
+        byKey.set(key, r)
+      }
+      r.games++
+      if (g.completedAt.getTime() > 0 && (!r.lastPlayedAt || g.completedAt > r.lastPlayedAt)) r.lastPlayedAt = g.completedAt
+      if (duration != null && duration >= 0) r.durations.push(duration)
+      if (g.result === 'coop') continue
+      if (g.rank && o.rank) {
+        if (g.rank < o.rank) r.iWon++
+        else if (o.rank < g.rank) r.theyWon++
+      } else if (g.result === 'won') r.iWon++
+      else if (g.result === 'lost' && o.rank === 1) r.theyWon++
+    }
+  }
+
+  return [...byKey.values()]
+    .map(({ durations, ...r }) => ({ ...r, avgDurationDays: durations.length ? durations.reduce((s, d) => s + d, 0) / durations.length : null }))
+    .sort((a, b) => b.games - a.games || a.name.localeCompare(b.name))
 }

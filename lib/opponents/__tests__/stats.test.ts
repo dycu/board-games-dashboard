@@ -1,4 +1,4 @@
-import { globalOpponents, gamesWith, externalProfileUrl } from '../stats'
+import { globalOpponents, gamesWith, externalProfileUrl, gameOpponents } from '../stats'
 import { FinishedGame, Platform } from '../../types'
 import { OpponentEntry } from '../store'
 
@@ -117,6 +117,73 @@ describe('externalProfileUrl', () => {
 
   it('is undefined for a platform investigated and found to have no working profile link', () => {
     expect(externalProfileUrl('rally', 'Alice')).toBeUndefined()
+  })
+})
+
+describe('gameOpponents', () => {
+  it('only counts games of this exact title, not every game on the platform', () => {
+    const games = [
+      fg('1', 'bga', 1, { gameName: 'Indonesia', opponents: [{ name: 'Alice' }] }),
+      fg('2', 'bga', 5, { gameName: 'Food Chain Magnate', opponents: [{ name: 'Alice' }] }),
+    ]
+    const result = gameOpponents(games, 'bga', 'Indonesia', {})
+    expect(result).toEqual([{
+      name: 'Alice', games: 1, iWon: 0, theyWon: 0, lastPlayedAt: day(1), avgDurationDays: null,
+      tags: [], medianResponseSeconds: null, hidden: false,
+    }])
+  })
+
+  it('matches by gameType when the table has a custom title', () => {
+    const games = [fg('1', 'bga', 1, { gameName: "Alice's table", gameType: 'Indonesia', opponents: [{ name: 'Alice' }] })]
+    expect(gameOpponents(games, 'bga', 'Indonesia', {})).toHaveLength(1)
+  })
+
+  it('carries the head-to-head record and last-played date, scoped to this title', () => {
+    const games = [
+      fg('1', 'bga', 1, { gameName: 'Indonesia', result: 'won', rank: 1, opponents: [{ name: 'Alice', rank: 2 }] }),
+      fg('2', 'bga', 5, { gameName: 'Indonesia', result: 'lost', rank: 2, opponents: [{ name: 'Alice', rank: 1 }] }),
+    ]
+    const [alice] = gameOpponents(games, 'bga', 'Indonesia', {})
+    expect(alice).toMatchObject({ games: 2, iWon: 1, theyWon: 1 })
+    expect(alice.lastPlayedAt).toEqual(day(5))
+  })
+
+  it('averages how long games of this title with this person took, from startedAt', () => {
+    const games = [
+      fg('1', 'bga', 4, { gameName: 'Indonesia', opponents: [{ name: 'Alice' }], startedAt: day(1).toISOString() }),
+      fg('2', 'bga', 7, { gameName: 'Indonesia', opponents: [{ name: 'Alice' }], startedAt: day(5).toISOString() }),
+    ]
+    const [alice] = gameOpponents(games, 'bga', 'Indonesia', {})
+    expect(alice.avgDurationDays).toBe(2.5) // (3 days + 2 days) / 2 games
+  })
+
+  it('leaves avgDurationDays null when the platform never reports startedAt', () => {
+    const games = [fg('1', 'bga', 1, { gameName: 'Indonesia', opponents: [{ name: 'Alice' }] })]
+    expect(gameOpponents(games, 'bga', 'Indonesia', {})[0].avgDurationDays).toBeNull()
+  })
+
+  it('merges in tags and the median response time from the stored entry', () => {
+    const games = [fg('1', 'bga', 1, { gameName: 'Indonesia', opponents: [{ name: 'Alice' }] })]
+    const entriesByPlatform = { bga: { Alice: { tags: ['friend'], responseSamples: [3600, 7200, 10800] } as OpponentEntry } }
+    const [alice] = gameOpponents(games, 'bga', 'Indonesia', entriesByPlatform)
+    expect(alice.tags).toEqual(['friend'])
+    expect(alice.medianResponseSeconds).toBe(7200)
+  })
+
+  it('carries hidden through so the caller can exclude them', () => {
+    const games = [fg('1', 'bga', 1, { gameName: 'Indonesia', opponents: [{ name: 'Alice' }] })]
+    const entriesByPlatform = { bga: { Alice: { tags: [], responseSamples: [], hidden: true } as OpponentEntry } }
+    expect(gameOpponents(games, 'bga', 'Indonesia', entriesByPlatform)[0].hidden).toBe(true)
+  })
+
+  it('sorts by games played together, most first', () => {
+    const games = [
+      fg('1', 'bga', 1, { gameName: 'Indonesia', opponents: [{ name: 'Alice' }] }),
+      fg('2', 'bga', 2, { gameName: 'Indonesia', opponents: [{ name: 'Bob' }] }),
+      fg('3', 'bga', 3, { gameName: 'Indonesia', opponents: [{ name: 'Bob' }] }),
+    ]
+    const result = gameOpponents(games, 'bga', 'Indonesia', {})
+    expect(result.map(o => o.name)).toEqual(['Bob', 'Alice'])
   })
 })
 

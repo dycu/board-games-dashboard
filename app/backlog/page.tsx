@@ -112,7 +112,7 @@ function Row({ item, position, onTop, onToggleList, onSetParallelTarget, onRemov
         <HistoryLink game={item} />
       </div>
       <div className="shrink-0 flex items-center gap-2 ml-auto">
-        <InviteAgainButton platform={item.platform} />
+        <InviteAgainButton platform={item.platform} gameName={item.gameName} />
         <a
           href={item.playUrl}
           target={item.platform === 'bga' ? '_self' : '_blank'}
@@ -289,7 +289,7 @@ function SearchPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSi
                   <div className="flex items-center gap-2 min-w-[140px] flex-1">{prefix}</div>
                   <div className="shrink-0 flex items-center gap-2 ml-auto">
                     <HistoryLink game={{ platform, gameName: m.name }} />
-                    <InviteAgainButton platform={platform} />
+                    <InviteAgainButton platform={platform} gameName={m.name} />
                     <GameLink url={m.url} platform={platform} />
                     <BacklogListChips
                       lists={backlog.listsFor(platform, m.name)}
