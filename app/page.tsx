@@ -11,9 +11,9 @@ import FetchProgress from '@/components/FetchProgress'
 import NewGamesPopup from '@/components/NewGamesPopup'
 import NotePromptPopup from '@/components/NotePromptPopup'
 
-// OBG (confirmed) and BoardTogether both don't reflect a just-submitted move
-// in their own data right away — a single delayed recheck wasn't enough for
-// OBG; the lag is apparently variable, not a fixed couple of seconds, and
+// OBG, BoardTogether and Boardgamers.space all don't reflect a just-submitted
+// move in their own data right away — a single delayed recheck wasn't enough
+// for OBG; the lag is apparently variable, not a fixed couple of seconds, and
 // still showed up even at the previous (shorter) retry schedule. So instead
 // of one delayed refresh, this retries the platform-scoped check a few times
 // with backoff, stopping as soon as the game(s) that were open actually show
@@ -21,11 +21,11 @@ import NotePromptPopup from '@/components/NotePromptPopup'
 // effect below. Cumulative: ~3s, 10s, 25s, 55s from the moment you return. If
 // it's still not confirmed by then, the normal periodic refresh or a manual
 // one will eventually catch it, same as before this existed. Every other
-// platform refreshes immediately on return, as before — this delay is
-// OBG/BoardTogether's problem alone, not a reason to slow down sites that
+// platform refreshes immediately on return, as before — this delay is these
+// three platforms' problem alone, not a reason to slow down sites that
 // already report the move right away (the full-refresh path was never
 // touched either way).
-const SETTLE_DELAY_PLATFORMS: Platform[] = ['obg', 'boardtogether']
+const SETTLE_DELAY_PLATFORMS: Platform[] = ['obg', 'boardtogether', 'boardgamers']
 const PLATFORM_REFRESH_RETRY_DELAYS_MS = [3000, 7000, 15000, 30000]
 
 export default function DashboardPage() {
