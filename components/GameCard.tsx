@@ -381,6 +381,67 @@ export default function GameCard({ game, priority, onCyclePriority, onOpen, oppo
   )
 }
 
+// One card in the "priority" layout's dense everything-else grid (see
+// GameGrid) — a smaller GameCard with a rank number instead of the usual
+// red/accent left border, covering both overflow your-turn games and
+// waiting games alike so the two read as one continuous, ordered list.
+// `waiting` fades it back (a card there is nothing to do yet) without
+// hiding it outright — same treatment `opened` already gets.
+export function GameCardCompact({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists, rank, waiting }: GameItemProps & { rank: number; waiting?: boolean }) {
+  const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
+  const slow = isOpponentSlow(game, opponentSlowDays, now)
+  const faded = waiting || opened
+
+  return (
+    <div className={`relative rounded-lg border p-2.5 flex flex-col gap-1.5 transition-opacity shadow-[0_1px_3px_rgba(0,0,0,0.05)] bg-[var(--bg-surface)] hover:border-[var(--accent-border-hover)] hover:opacity-100 border-[var(--border-default)]
+      ${faded ? 'opacity-80' : ''} ${!faded && soon !== null ? 'border-l-[3px] border-l-red-500' : ''}`}>
+      <span aria-label={`#${rank}`} className={`absolute -top-2 -left-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold leading-none
+        ${faded ? 'bg-transparent border border-[var(--border-default)] text-[var(--text-tertiary)]' : 'bg-[var(--text-primary)] text-[var(--bg-surface)]'}`}>
+        {rank}
+      </span>
+      <CoverLink game={game} onOpen={onOpen} note={note} />
+      <div className="flex items-center justify-between gap-1.5">
+        <div className="flex items-center gap-1 min-w-0">
+          <Badge game={game} small />
+          <MoveCountBadge game={game} small />
+          <BacklogBadge lists={backlogLists} small />
+        </div>
+        <div className="flex items-center gap-1.5">
+          {opened && <span className="text-[10px] text-[var(--text-tertiary)]">opened</span>}
+          {soon !== null && !opened && (
+            <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1 py-0.5 rounded">
+              ⏱ {formatTimeRemaining(Math.round(soon / 1000))}
+            </span>
+          )}
+          <HistoryLink game={game} />
+          <PriorityButton game={game} priority={priority} onCyclePriority={onCyclePriority} />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1 min-w-0">
+        <div className="font-medium text-xs text-[var(--text-primary)] truncate">{game.gameName}</div>
+        <TableLabelEditor game={game} label={tableLabel} onSaveLabel={onSaveTableLabel} compact />
+      </div>
+
+      {game.players.length > 0 && (
+        <div className="text-[11px] text-[var(--text-tertiary)] truncate">
+          {waiting ? 'waiting for ' : 'with '}
+          <PlayerNames platform={game.platform} names={game.players} avatars={game.playerAvatars} highlight={waiting ? game.currentPlayer : undefined} />
+        </div>
+      )}
+
+      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact />
+
+      <div className="flex items-center justify-between gap-2">
+        <ProgressBar game={game} compact />
+        <span className={`shrink-0 text-[10px] ${waiting && slow ? 'text-amber-500 font-medium' : 'text-[var(--text-tertiary)]'}`}>
+          {waiting && slow ? '⏱ ' : ''}{game.lastMoveAgo}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 // A game waiting for someone else: one compact row
 export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists }: GameItemProps) {
   const slow = isOpponentSlow(game, opponentSlowDays, now)

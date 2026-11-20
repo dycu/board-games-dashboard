@@ -145,6 +145,39 @@ describe('GameGrid sections', () => {
   })
 })
 
+describe('GameGrid priority layout', () => {
+  const waiting = (id: string, daysAgo: number, name = `Waiting ${id}`): Game => ({
+    ...makeGame('bga', id),
+    gameName: name,
+    myTurn: false,
+    lastMoveAt: new Date(Date.now() - daysAgo * 86_400_000),
+  })
+  const priorityPrefs: UserPrefs = { ...DEFAULT_PREFS, yourTurnLayout: 'priority' }
+
+  it('folds waiting games into the same numbered grid as overflow your-turn games, not a separate section', () => {
+    renderGrid(
+      [makeGame('bga', '1'), makeGame('bga', '2'), { ...waiting('3', 9, 'Stalled'), players: ['Opponent'] }],
+      [],
+      priorityPrefs
+    )
+    expect(screen.queryByText(/Waiting for others ·/)).toBeNull()
+    expect(screen.getByText(/Everything else/)).toBeInTheDocument()
+    // jsdom's matchMedia always reports "no match" (see jest.setup.ts), so
+    // the strip shows exactly one card and everything else — including the
+    // second your-turn game — lands in the dense grid, ranked 2 and 3.
+    expect(screen.getByLabelText('#2')).toBeInTheDocument()
+    expect(screen.getByLabelText('#3')).toBeInTheDocument()
+    expect(screen.getByText('Stalled')).toBeInTheDocument()
+    expect(screen.getByText(/waiting for/)).toBeInTheDocument()
+  })
+
+  it('keeps the classic two-section layout when yourTurnLayout is unset', () => {
+    renderGrid([makeGame('bga', '1'), makeGame('bga', '2'), waiting('3', 9, 'Stalled')])
+    expect(screen.queryByText(/Everything else/)).toBeNull()
+    expect(screen.getByText(/Waiting for others ·/)).toBeInTheDocument()
+  })
+})
+
 describe('GameGrid refresh interval', () => {
   it('saves the chosen interval to prefs and the server, not just the hook state', async () => {
     const onPrefsChange = jest.fn()

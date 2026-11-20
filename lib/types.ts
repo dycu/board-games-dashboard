@@ -132,6 +132,13 @@ export interface UserPrefs {
   summaryCustomTo?: string
   historyPlatformFilter?: Platform[] | null // History page's own platform chips — same convention as filter.platforms: empty/missing = show all, null = none selected (hidden)
   historyBacklogFilter?: boolean // History page: only games whose title is Favorite or GM in the backlog — undefined/false = show all
+  // 'classic' (undefined/missing too) is today's two-section layout (a
+  // multi-column "Your turn" grid, a separate "Waiting for others" row
+  // list). 'priority' is the experimental alternative: a highlighted strip
+  // of the most urgent your-turn games, then everything else — remaining
+  // your-turn games and waiting games alike — as one continuously numbered
+  // grid, so reading order is never ambiguous. See components/GameGrid.tsx.
+  yourTurnLayout?: 'classic' | 'priority'
 }
 
 export const DEFAULT_BACKLOG_PLATFORMS: Platform[] = ['bga', 'yucata']

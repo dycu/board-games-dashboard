@@ -4,7 +4,7 @@ import { Game, Platform, UserPrefs, GamesApiResponse, PLATFORM_LABELS, PLATFORM_
 import { DepartedGame } from '@/hooks/useGamesData'
 import { sortAndFilter } from '@/lib/sort-filter'
 import { BADGE_COLORS } from '@/lib/platform-colors'
-import GameCard, { GameRow, GameItemProps, Priority, isOpponentSlow, openTarget } from './GameCard'
+import GameCard, { GameCardCompact, GameRow, GameItemProps, Priority, isOpponentSlow, openTarget } from './GameCard'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useTableLabels } from '@/hooks/useTableLabels'
 import { BacklogItem, BacklogList, backlogId, listsOf } from '@/lib/backlog/list'
@@ -52,6 +52,29 @@ function markOpenedInStorage(id: string) {
   storeOpenedNow(id)
   storeRecentlyOpened(id)
 }
+// How many cards the "priority" layout's top strip shows before the rest
+// move down into the dense grid — as many as comfortably fit in one row at
+// the current width (matching the classic grid's own breakpoints), down to
+// just one on a phone.
+const STRIP_BREAKPOINTS: [query: string, count: number][] = [
+  ['(min-width: 1280px)', 3],
+  ['(min-width: 640px)', 2],
+]
+function usePriorityStripCount(): number {
+  const [count, setCount] = useState(1)
+  useEffect(() => {
+    const queries = STRIP_BREAKPOINTS.map(([q]) => window.matchMedia(q))
+    const update = () => {
+      const hit = STRIP_BREAKPOINTS.find((_, i) => queries[i].matches)
+      setCount(hit ? hit[1] : 1)
+    }
+    update()
+    queries.forEach(q => q.addEventListener('change', update))
+    return () => queries.forEach(q => q.removeEventListener('change', update))
+  }, [])
+  return count
+}
+
 function timeAgo(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(ms / 60_000)
@@ -69,6 +92,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   // separate DOM containers.
   const [myTurnGridRef] = useAutoAnimate()
   const [waitingListRef] = useAutoAnimate()
+  const [priorityRestRef] = useAutoAnimate()
   const { games, errors } = data
   const configuredPlatforms = data.platforms ?? Array.from(
     new Set([...games.map(g => g.platform), ...errors.map(e => e.platform)])
@@ -147,6 +171,20 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     prefs.pins.includes(g.id) || isOpponentSlow(g, opponentSlowDays, now) || openedRecently(g))
   const shownWaiting = waitingExpanded ? waitingGames : alwaysShownWaiting
   const hiddenWhenCollapsed = waitingGames.length - alwaysShownWaiting.length
+
+  // The "priority" layout (see GameGrid's render below): the top strip
+  // takes the most urgent your-turn games (as many as the current
+  // breakpoint fits), everything else — remaining your-turn games, opened
+  // ones, and waiting games, in that order — falls into one continuously
+  // numbered dense grid instead of a separate "Waiting for others" section.
+  const layout = prefs.yourTurnLayout ?? 'classic'
+  const priorityStripCount = usePriorityStripCount()
+  const priorityTop = layout === 'priority' ? myTurnGames.slice(0, priorityStripCount) : []
+  const priorityRest: { game: Game; waiting: boolean }[] = layout === 'priority' ? [
+    ...myTurnGames.slice(priorityStripCount).map(game => ({ game, waiting: false })),
+    ...openedMyTurnGames.map(game => ({ game, waiting: false })),
+    ...shownWaiting.map(game => ({ game, waiting: true })),
+  ] : []
 
   // "Next" opens the first game of "Your turn" (most urgent, then the chosen sort)
   const next = myTurnGames[0]
@@ -402,9 +440,44 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                 Your turn · {myTurnGames.length}
               </p>
             </div>
-            {myTurnGames.length + openedMyTurnGames.length > 0 && (
-              <div ref={myTurnGridRef} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
-                {[...myTurnGames, ...openedMyTurnGames].map(g => <GameCard key={g.id} {...itemProps(g)} />)}
+            {layout === 'classic' ? (
+              myTurnGames.length + openedMyTurnGames.length > 0 && (
+                <div ref={myTurnGridRef} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
+                  {[...myTurnGames, ...openedMyTurnGames].map(g => <GameCard key={g.id} {...itemProps(g)} />)}
+                </div>
+              )
+            ) : (
+              priorityTop.length > 0 && (
+                <div ref={myTurnGridRef} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                  {priorityTop.map(g => <GameCard key={g.id} {...itemProps(g)} />)}
+                </div>
+              )
+            )}
+          </section>
+        )}
+
+        {layout === 'priority' && priorityRest.length > 0 && (
+          <section className="mb-7">
+            {priorityTop.length > 0 && (
+              <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)] mb-2">
+                Everything else
+              </p>
+            )}
+            <div ref={priorityRestRef} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
+              {priorityRest.map(({ game, waiting }, i) => (
+                <GameCardCompact key={game.id} {...itemProps(game)} rank={priorityTop.length + i + 1} waiting={waiting} />
+              ))}
+            </div>
+            {!waitingExpanded && hiddenWhenCollapsed > 0 && (
+              <button onClick={toggleWaiting} className="mt-2 w-full text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] py-1.5 rounded-md border border-dashed border-[var(--border-default)]">
+                Show {hiddenWhenCollapsed} more
+              </button>
+            )}
+            {waitingExpanded && hiddenWhenCollapsed > 0 && (
+              <div className="flex justify-end mt-2">
+                <button onClick={toggleWaiting} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+                  Show fewer
+                </button>
               </div>
             )}
           </section>
@@ -430,7 +503,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
           <BacklogSuggestion item={suggestion} activeCount={games.length} className="mb-7" onRemove={() => backlog.remove(suggestion.id)} />
         )}
 
-        {showWaiting && waitingGames.length > 0 && (
+        {layout === 'classic' && showWaiting && waitingGames.length > 0 && (
           <section>
             <div className="flex items-center justify-between gap-3 mb-2">
               <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)]">

@@ -35,6 +35,7 @@ export default function SetupPage() {
   const [bgaCookieSaved, setBgaCookieSaved] = useState(false)
   const [savedBgaPlayerId, setSavedBgaPlayerId] = useState('')
   const [theme, setTheme] = useState<UserPrefs['theme']>(undefined)
+  const [yourTurnLayout, setYourTurnLayout] = useState<NonNullable<UserPrefs['yourTurnLayout']>>('classic')
   const [okcGameIds, setOkcGameIds] = useState<string[]>([])
   const [okcInput, setOkcInput] = useState('')
   const [okcSaving, setOkcSaving] = useState(false)
@@ -88,6 +89,7 @@ export default function SetupPage() {
       setBgaCookieSaved(!!prefs.bgaSessionCookie && !!prefs.bgaPlayerId)
       setSavedBgaPlayerId(prefs.bgaPlayerId ?? '')
       setTheme(prefs.theme)
+      setYourTurnLayout(prefs.yourTurnLayout ?? 'classic')
       const ids = prefs.oldkingscrownGameIds ?? []
       setOkcGameIds(ids)
       if (ids.length > 0) loadOkcStatus()
@@ -151,6 +153,15 @@ export default function SetupPage() {
       // omitting it from the JSON body would leave a previously-saved
       // override in place instead of resetting to "follow the system"
       body: JSON.stringify({ theme: next ?? null }),
+    })
+  }
+
+  const saveYourTurnLayout = async (next: NonNullable<UserPrefs['yourTurnLayout']>) => {
+    setYourTurnLayout(next)
+    await fetch('/api/prefs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ yourTurnLayout: next }),
     })
   }
 
@@ -288,6 +299,29 @@ export default function SetupPage() {
                 onClick={() => saveTheme(value)}
                 className={`whitespace-nowrap text-xs px-3 py-1 rounded font-medium transition-colors
                   ${theme === value
+                    ? 'bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
+                    : 'bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5 mb-5">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-1">Your-turn layout <span className="font-normal text-[var(--text-tertiary)]">(trying out)</span></h2>
+          <p className="text-xs text-[var(--text-tertiary)] mb-3">
+            Classic is today&apos;s grid, with a separate list below for games you&apos;re waiting
+            on. Priority highlights your most urgent games in a strip up top, then lists
+            everything else — including waiting games — as one continuously numbered grid, so
+            there&apos;s never any doubt which card comes next.
+          </p>
+          <div className="flex gap-[2px] bg-[var(--bg-subtle)] rounded-md p-[3px] w-fit">
+            {([['classic', 'Classic'], ['priority', 'Priority']] as const).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => saveYourTurnLayout(value)}
+                className={`whitespace-nowrap text-xs px-3 py-1 rounded font-medium transition-colors
+                  ${yourTurnLayout === value
                     ? 'bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
                     : 'bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>
                 {label}
