@@ -14,6 +14,7 @@ import PlatformFilterChips from './PlatformFilterChips'
 import TopNav from './TopNav'
 import ReadNotePopup from './ReadNotePopup'
 import TodayMovesPopup from './TodayMovesPopup'
+import InviteAgainButton from './InviteAgainButton'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { useNoteConfirmedOpen } from '@/hooks/useNoteConfirmedOpen'
 import { storeOpenedNow } from '@/lib/dismissal'
@@ -613,6 +614,7 @@ function FavoriteSuggestion({ item, onDismiss }: { item: BacklogItem; onDismiss:
         {PLATFORM_SHORT_LABELS[item.platform]}
       </span>
       <span className="text-sm font-medium text-[var(--text-primary)] truncate flex-1 min-w-0">{item.gameName}</span>
+      <InviteAgainButton platform={item.platform} />
       <a
         href={item.playUrl}
         target={item.platform === 'bga' ? '_self' : '_blank'}
@@ -645,6 +647,7 @@ function GmSuggestion({ item, running }: { item: BacklogItem; running: number })
         {PLATFORM_SHORT_LABELS[item.platform]}
       </span>
       <span className="text-sm font-medium text-[var(--text-primary)] truncate flex-1 min-w-0">{item.gameName}</span>
+      <InviteAgainButton platform={item.platform} />
       <a
         href={item.playUrl}
         target={item.platform === 'bga' ? '_self' : '_blank'}
@@ -666,6 +669,7 @@ function BacklogSuggestion({ item, activeCount, className, onRemove }: { item: B
         {PLATFORM_SHORT_LABELS[item.platform]}
       </span>
       <span className="text-sm font-medium text-[var(--text-primary)] truncate flex-1 min-w-0">{item.gameName}</span>
+      <InviteAgainButton platform={item.platform} />
       <a
         href={item.playUrl}
         target={item.platform === 'bga' ? '_self' : '_blank'}

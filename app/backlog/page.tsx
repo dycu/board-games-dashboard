@@ -112,6 +112,7 @@ function Row({ item, position, onTop, onToggleList, onSetParallelTarget, onRemov
         <HistoryLink game={item} />
       </div>
       <div className="shrink-0 flex items-center gap-2 ml-auto">
+        <InviteAgainButton platform={item.platform} />
         <a
           href={item.playUrl}
           target={item.platform === 'bga' ? '_self' : '_blank'}
