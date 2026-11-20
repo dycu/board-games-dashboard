@@ -67,15 +67,27 @@ export async function GET() {
 
   // Step 3: active games — userId filters server-side to games I'm a player in. Without it the
   // endpoint returns a global pool capped by pageSize, which can silently omit my active games.
-  const gamesRes = await req('GET', `/api/games?status[]=ACTIVE&userId=${myUserId}`, { ...base, Cookie: authCookie })
+  // status[]=LOBBY is a table I've created/joined that hasn't started yet — still waiting for
+  // enough players (confirmed from the web app's own bundle: its status enum is exactly
+  // LOBBY/ACTIVE/ENDED, and LOBBY rows there read "Waiting for players..." or, once
+  // playerIds.length === config.maxPlayers, "Game full, waiting to start...").
+  const [activeRes, lobbyRes] = await Promise.all([
+    req('GET', `/api/games?status[]=ACTIVE&userId=${myUserId}`, { ...base, Cookie: authCookie }),
+    req('GET', `/api/games?status[]=LOBBY&userId=${myUserId}`, { ...base, Cookie: authCookie }),
+  ])
   let gamesJson: any = {}
-  try { gamesJson = JSON.parse(gamesRes.body) } catch {}
+  try { gamesJson = JSON.parse(activeRes.body) } catch {}
   const allGames: any[] = gamesJson.games ?? (Array.isArray(gamesJson) ? gamesJson : [])
   const myGames = allGames.filter((g: any) => Array.isArray(g.playerIds) && g.playerIds.includes(myUserId))
 
+  let lobbyJson: any = {}
+  try { lobbyJson = JSON.parse(lobbyRes.body) } catch {}
+  const allLobbyGames: any[] = lobbyJson.games ?? (Array.isArray(lobbyJson) ? lobbyJson : [])
+  const myLobbyGames = allLobbyGames.filter((g: any) => Array.isArray(g.playerIds) && g.playerIds.includes(myUserId))
+
   // Games only carry playerIds — resolve opponents' usernames once per unique id (GET /api/users/:id
   // requires auth, returns { user: { id, username } }); fall back to the id on failure
-  const opponentIds = [...new Set<number>(myGames.flatMap((g: any) => g.playerIds ?? []))].filter(id => id !== myUserId)
+  const opponentIds = [...new Set<number>([...myGames, ...myLobbyGames].flatMap((g: any) => g.playerIds ?? []))].filter(id => id !== myUserId)
   const usernames = new Map<number, string>()
   await Promise.all(opponentIds.map(async (id) => {
     const res = await req('GET', `/api/users/${id}`, { ...base, Cookie: authCookie })
@@ -105,5 +117,28 @@ export async function GET() {
     }
   })
 
-  return Response.json({ games, error: null })
+  const pendingGames: Game[] = myLobbyGames.map((g: any): Game => {
+    const gameId = g.id ?? 0
+    const otherPlayerIds: number[] = (g.playerIds ?? []).filter((id: number) => id !== myUserId)
+    const lastMoveAt = g.updatedAt ? new Date(g.updatedAt) : new Date()
+    const joined = (g.playerIds ?? []).length
+    const needed = g.config?.maxPlayers
+    return {
+      id: `choochoo:${gameId}`,
+      platform: 'choochoo',
+      gameName: g.name ?? g.gameKey ?? 'Unknown',
+      gameType: g.gameKey ? choochooGameType(g.gameKey) : undefined,
+      myTurn: false,
+      pending: true,
+      currentPlayer: needed ? `${joined}/${needed} joined — waiting to start` : `${joined} joined — waiting to start`,
+      lastMoveAt,
+      lastMoveAgo: formatTimeAgo(lastMoveAt),
+      urgent: false,
+      gameUrl: `${BASE_URL}/app/games/${gameId}`,
+      platformUrl: `${BASE_URL}/`,
+      players: otherPlayerIds.map(id => usernames.get(id) ?? String(id)),
+    }
+  })
+
+  return Response.json({ games: [...games, ...pendingGames], error: null })
 }
