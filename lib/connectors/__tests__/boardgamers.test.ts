@@ -60,20 +60,24 @@ describe('fetchBoardgamers', () => {
 
   it('reuses a cached session without logging in again', async () => {
     store.set('boardgamers-session', session)
-    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => [mockActiveGame()] })
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => [mockActiveGame()] })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] }) // the parallel status=open (pending lobbies) fetch
 
     await fetchBoardgamers('me@example.com', 'pw')
-    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(mockFetch).toHaveBeenCalledTimes(2)
     expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/api/game/status/active'), expect.objectContaining({ headers: expect.objectContaining({ Cookie: session.cookie }) }))
   })
 
   it('drops a rejected cached session and logs in again', async () => {
     store.set('boardgamers-session', { cookie: 'refreshToken=stale', userId: MY_ID })
     mockFetch
-      .mockRejectedValueOnce(new Error('network down')) // the stale-session games fetch fails
+      .mockRejectedValueOnce(new Error('network down')) // the stale-session status=active games fetch fails
+      .mockRejectedValueOnce(new Error('network down')) // ...and so does its parallel status=open fetch
       .mockResolvedValueOnce({ ok: true, headers: { get: (h: string) => h === 'set-cookie' ? 'refreshToken=fresh; Path=/' : null }, text: async () => '{"location":"/"}' })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ _id: MY_ID }) })
       .mockResolvedValueOnce({ ok: true, json: async () => [mockActiveGame()] })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] }) // the parallel status=open fetch, post-login
 
     const games = await fetchBoardgamers('me@example.com', 'pw')
     expect(games).toHaveLength(1)
@@ -87,6 +91,36 @@ describe('fetchBoardgamers', () => {
       text: async () => '{"type":"redirect","status":303,"location":"/login?error=wrong+password"}',
     })
     await expect(fetchBoardgamers('me@example.com', 'bad')).rejects.toThrow('wrong password')
+  })
+
+  it('includes an open lobby waiting for players, tagged pending', async () => {
+    store.set('boardgamers-session', session)
+    const openGame = {
+      _id: 'Lobby-7777',
+      players: [{ _id: MY_ID, name: 'Dycu', dropped: false, quit: false }],
+      currentPlayers: [],
+      game: { name: 'gaia-project' },
+      status: 'open',
+      lastMove: '2026-10-22T10:51:04.756Z',
+    }
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => [] }) // status=active
+      .mockResolvedValueOnce({ ok: true, json: async () => [openGame] }) // status=open
+
+    const games = await fetchBoardgamers('me@example.com', 'pw')
+    expect(games).toHaveLength(1)
+    expect(games[0]).toMatchObject({ id: 'boardgamers:Lobby-7777', pending: true, myTurn: false })
+  })
+
+  it('does not break the active-games list when the open-lobbies fetch fails', async () => {
+    store.set('boardgamers-session', session)
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => [mockActiveGame()] })
+      .mockRejectedValueOnce(new Error('network down'))
+
+    const games = await fetchBoardgamers('me@example.com', 'pw')
+    expect(games).toHaveLength(1)
+    expect(games[0].pending).toBeUndefined()
   })
 })
 

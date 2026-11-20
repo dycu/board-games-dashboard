@@ -143,13 +143,42 @@ function toGame(game: BoardtogetherGame, myUserId: string, catalogNames: Map<str
   }
 }
 
+// A table created but not yet started — still waiting for enough players
+// to join. 'waitingToStart' is BoardTogether's own literal status string,
+// confirmed from its client bundle's status enum (GameStatus.WaitingToStart
+// = "waitingToStart", alongside Started/Finished/Deleted/Archived).
+function toPendingGame(game: BoardtogetherGame, myUserId: string, catalogNames: Map<string, string>): Game {
+  const gameType = gameTypeName(game.typeId, catalogNames)
+  const lastMoveAt = new Date(game.updatedAt)
+  const others = game.players.filter(p => p.userId !== myUserId)
+
+  return {
+    id: `boardtogether:${game.id}`,
+    platform: 'boardtogether',
+    gameName: buildGameName(game.name, gameType),
+    gameType,
+    myTurn: false,
+    pending: true,
+    currentPlayer: `${game.players.length} joined — waiting to start`,
+    lastMoveAt,
+    lastMoveAgo: formatTimeAgo(lastMoveAt),
+    urgent: false,
+    gameUrl: `${BASE}/game/${game.id}`,
+    platformUrl: `${BASE}/`,
+    players: others.map(p => p.name),
+  }
+}
+
 export async function fetchBoardtogether(username: string, password: string): Promise<Game[]> {
   return withBoardtogetherSession(username, password, async session => {
     const [{ games }, catalogNames] = await Promise.all([
       fetchJson<{ games: BoardtogetherGame[] }>('/games/mine', session),
       fetchCatalogNames(),
     ])
-    return games.filter(g => g.status === 'started').map(g => toGame(g, session.userId, catalogNames))
+    return [
+      ...games.filter(g => g.status === 'started').map(g => toGame(g, session.userId, catalogNames)),
+      ...games.filter(g => g.status === 'waitingToStart').map(g => toPendingGame(g, session.userId, catalogNames)),
+    ]
   })
 }
 

@@ -62,6 +62,49 @@ describe('fetchHansa', () => {
     expect(games.every(g => g.gameName === 'Hansa Teutonica')).toBe(true)
   })
 
+  describe('lobbies waiting for players', () => {
+    const OTHER = 'cccccccc-1111-1111-1111-dddddddddddd'
+    const waitingLobby = () => JSON.stringify({
+      games: [{
+        id: 'lobby00112233',
+        status: 'waiting_for_player',
+        players: [{ name: 'testuser', userId: MY_USER_ID }],
+        currentPlayerId: '',
+        turnStartedAt: null,
+        updatedAt: '2026-06-20T10:00:00Z',
+        turnTimeoutSeconds: null,
+      }],
+      nextCursor: null,
+    })
+    const notMyLobby = () => JSON.stringify({
+      games: [{
+        id: 'lobby99887766',
+        status: 'waiting_for_player',
+        players: [{ name: 'alice', userId: OTHER }],
+        currentPlayerId: '',
+        turnStartedAt: null,
+        updatedAt: '2026-06-20T10:00:00Z',
+        turnTimeoutSeconds: null,
+      }],
+      nextCursor: null,
+    })
+
+    it('includes a lobby I joined that has not started yet, tagged pending', async () => {
+      mockGamesResponse(JSON.stringify({ games: [], nextCursor: null })) // no in-progress games
+      mockGamesResponse(waitingLobby())
+      const games = await fetchHansa(MY_USER_ID)
+      expect(games).toHaveLength(1)
+      expect(games[0]).toMatchObject({ id: 'hansa:lobby00112233', pending: true, myTurn: false })
+    })
+
+    it('excludes a waiting lobby I am not a member of', async () => {
+      mockGamesResponse(JSON.stringify({ games: [], nextCursor: null }))
+      mockGamesResponse(notMyLobby())
+      const games = await fetchHansa(MY_USER_ID)
+      expect(games).toHaveLength(0)
+    })
+  })
+
   describe('pending displacement', () => {
     const OTHER = 'cccccccc-1111-1111-1111-dddddddddddd'
     const game = (currentPlayerId: string, displacedPlayerId: string | null) => ({
@@ -146,6 +189,13 @@ describe('progress estimate', () => {
     nextCursor: null,
   })
 
+  // fetchHansa also fetches status=waiting_for_player lobbies in parallel
+  // with the main status=playing call — every fetchHansa test below needs a
+  // matching response queued for that second call too (empty by default),
+  // right after the activeGame one. listActiveHansaGameEtas doesn't make
+  // that call, so its own tests further down don't need this.
+  const noWaitingGames = () => JSON.stringify({ games: [], nextCursor: null })
+
   const finishedSamples = (samples: { turn: number; mapId: string; playerCount: number }[]) => JSON.stringify({
     games: samples.map((s, i) => ({
       id: `done-${i}`,
@@ -163,6 +213,7 @@ describe('progress estimate', () => {
 
   it('estimates percent from the median of finished games with the same map and player count', async () => {
     mockGamesResponse(activeGame(30, 'three-players', ['o1', 'o2']))
+    mockGamesResponse(noWaitingGames())
     mockGamesResponse(finishedSamples([
       { turn: 80, mapId: 'three-players', playerCount: 3 },
       { turn: 100, mapId: 'three-players', playerCount: 3 },
@@ -174,6 +225,7 @@ describe('progress estimate', () => {
 
   it('falls back to any player count on the same map when none match exactly', async () => {
     mockGamesResponse(activeGame(30, 'eastern', ['o1', 'o2']))
+    mockGamesResponse(noWaitingGames())
     mockGamesResponse(finishedSamples([{ turn: 80, mapId: 'eastern', playerCount: 5 }]))
     const [g] = await fetchHansa(MY_USER_ID)
     expect(g.progress).toMatchObject({ sampleCount: 1, sameSizeOnly: false, estimatedTotalTurns: 80, sameSizeSampleCount: 0, totalSampleCount: 1 })
@@ -181,6 +233,7 @@ describe('progress estimate', () => {
 
   it('omits progress when the active game has no history to compare against', async () => {
     mockGamesResponse(activeGame(30, 'unheard-of-map', ['o1']))
+    mockGamesResponse(noWaitingGames())
     mockGamesResponse(finishedSamples([]))
     const [g] = await fetchHansa(MY_USER_ID)
     expect(g.progress).toBeUndefined()
@@ -188,6 +241,7 @@ describe('progress estimate', () => {
 
   it('still returns the active games, without a progress estimate, when the finished-games fetch fails', async () => {
     mockGamesResponse(activeGame(30, 'three-players', ['o1']))
+    mockGamesResponse(noWaitingGames())
     mockFetch.mockRejectedValueOnce(new Error('network error'))
     const games = await fetchHansa(MY_USER_ID)
     expect(games).toHaveLength(1)
@@ -202,6 +256,7 @@ describe('progress estimate', () => {
     it('projects eta from this game\'s own pace since it started', async () => {
       // 30 turns in exactly 1 day so far (created a day before "now")
       mockGamesResponse(activeGame(30, 'three-players', ['o1', 'o2'], '2026-06-20T10:00:00Z'))
+      mockGamesResponse(noWaitingGames())
       mockGamesResponse(finishedSamples([{ turn: 90, mapId: 'three-players', playerCount: 3 }]))
       const [g] = await fetchHansa(MY_USER_ID)
       // 60 turns remaining at 30/day = 2 days
@@ -210,6 +265,7 @@ describe('progress estimate', () => {
 
     it('omits eta when the game has no createdAt', async () => {
       mockGamesResponse(activeGame(30, 'three-players', ['o1', 'o2']))
+      mockGamesResponse(noWaitingGames())
       mockGamesResponse(finishedSamples([{ turn: 90, mapId: 'three-players', playerCount: 3 }]))
       const [g] = await fetchHansa(MY_USER_ID)
       expect(g.progress?.etaSeconds).toBeUndefined()

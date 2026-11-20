@@ -69,7 +69,7 @@ describe('fetchBoardtogether', () => {
     expect(result.currentPlayer).toBe('Parmezanas, NickCartel')
   })
 
-  it('skips games that have not started yet', async () => {
+  it('skips games with an unrecognized status entirely — neither started nor waiting to start', async () => {
     store.set('boardtogether-session', session)
     const game = mockActiveGame({ status: 'open' })
     mockFetch
@@ -77,6 +77,17 @@ describe('fetchBoardtogether', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => CATALOG })
 
     expect(await fetchBoardtogether('Dycu', 'pw')).toEqual([])
+  })
+
+  it('includes a table waiting to start, tagged pending', async () => {
+    store.set('boardtogether-session', session)
+    const game = mockActiveGame({ status: 'waitingToStart', activePlayerIds: [] })
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ payload: { games: [game] } }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => CATALOG })
+
+    const [result] = await fetchBoardtogether('Dycu', 'pw')
+    expect(result).toMatchObject({ id: 'boardtogether:9p7qhXbCS6dlGOKZ736gp', pending: true, myTurn: false })
   })
 
   it('falls back to a humanized type id when the catalog lookup fails', async () => {

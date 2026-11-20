@@ -261,15 +261,20 @@ export async function loginBGA(username: string, password: string): Promise<BgaS
   return { cookies: allCookies, myId, token: postLoginToken }
 }
 
-// Raw in-progress tables, keyed by table id in BGA's response
-export async function fetchBgaTables(session: BgaSession): Promise<any[]> {
+// Raw tables, keyed by table id in BGA's response. status 'play' (the
+// default) is in-progress games; 'setup' is a table that's been created but
+// hasn't started yet — still waiting for enough players to join (BGA's own
+// error-message text confirms 'setup' as the literal status string: a bug
+// report quotes the server rejecting an action with "Wrong table status
+// (finished): should be ''setup''").
+export async function fetchBgaTables(session: BgaSession, status: 'play' | 'setup' = 'play'): Promise<any[]> {
   const tablesRes = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, {
     method: 'POST',
     headers: {
       ...bgaApiHeaders(session),
       'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
     },
-    body: 'status=play&turninfo=true',
+    body: `status=${status}&turninfo=true`,
   })
 
   const tablesText = await tablesRes.text()
@@ -433,15 +438,44 @@ function bgaAvatarUrl(avatar: unknown, id: unknown): string | undefined {
 }
 
 export async function fetchBGA(username: string, password: string, auth?: BgaAuthOptions): Promise<Game[]> {
-  const { session, tables } = await withBgaSession(username, password, async s => ({ session: s, tables: await fetchBgaTables(s) }), auth)
+  const { session, tables, setupTables } = await withBgaSession(username, password, async s => {
+    const [tables, setupTables] = await Promise.all([
+      fetchBgaTables(s),
+      // A table still being set up is a nice-to-have on top of the real
+      // in-progress list above — a wrong guess at BGA's status string, or
+      // any other failure here, shouldn't take down the whole BGA fetch.
+      fetchBgaTables(s, 'setup').catch(() => []),
+    ])
+    return { session: s, tables, setupTables }
+  }, auth)
   const { myId, cookies: allCookies } = session
 
   // Step 5: resolve display names from gamepanel pages (game_name field is a URL slug)
-  const uniqueSlugs = [...new Set(tables.map((t: any) => t.game_name as string).filter(Boolean))]
+  const uniqueSlugs = [...new Set([...tables, ...setupTables].map((t: any) => t.game_name as string).filter(Boolean))]
   const [nameMap, lastMoves] = await Promise.all([
     uniqueSlugs.length > 0 ? fetchGameNames(uniqueSlugs, allCookies) : new Map<string, string>(),
     fetchLastMoves(session, tables),
   ])
+
+  const pendingGames: Game[] = setupTables.map((t: any): Game => {
+    const players: Record<string, any> = t.players ?? {}
+    const otherPlayers = Object.values(players).filter((p: any) => String(p.id) !== myId && p.fullname)
+    const joined = Object.keys(players).length
+    return {
+      id: `bga:${t.id}`,
+      platform: 'bga',
+      gameName: nameMap.get(t.game_name) ?? t.game_name ?? 'Unknown',
+      myTurn: false,
+      pending: true,
+      currentPlayer: `${joined} joined — waiting to start`,
+      lastMoveAt: new Date(),
+      lastMoveAgo: 'waiting to start',
+      urgent: false,
+      gameUrl: `${BASE}/table?table=${t.id}`,
+      platformUrl: `${BASE}/gameinprogress`,
+      players: otherPlayers.map((p: any) => p.fullname),
+    }
+  })
 
   return tables.map((t: any): Game => {
     const players: Record<string, any> = t.players ?? {}
@@ -508,7 +542,7 @@ export async function fetchBGA(username: string, password: string, auth?: BgaAut
       ...(Object.keys(playerAvatars).length > 0 && { playerAvatars }),
       ...(Object.keys(playerProfileUrls).length > 0 && { playerProfileUrls }),
     }
-  })
+  }).concat(pendingGames)
 }
 
 // gamestats/getGames lists finished tables 10 per page, newest first, without

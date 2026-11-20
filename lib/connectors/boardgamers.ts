@@ -160,10 +160,44 @@ function toGame(game: BoardgamersGame, myId: string): Game {
   }
 }
 
+// A table created but not yet started — still waiting for enough players to
+// join. No per-game seat total is modeled here (not confirmed in the raw
+// payload), so this just reports how many have joined so far rather than
+// claiming how many more are needed.
+function toPendingGame(game: BoardgamersGame, myId: string): Game {
+  const lastMoveAt = new Date(game.lastMove)
+  const gameName = gameTypeName(game.game.name)
+  const others = game.players.filter(p => p._id !== myId)
+
+  return {
+    id: `boardgamers:${game._id}`,
+    platform: 'boardgamers',
+    gameName,
+    gameType: gameName,
+    myTurn: false,
+    pending: true,
+    currentPlayer: `${game.players.length} joined — waiting to start`,
+    lastMoveAt,
+    lastMoveAgo: formatTimeAgo(lastMoveAt),
+    urgent: false,
+    gameUrl: `${BASE}/game/${game._id}`,
+    platformUrl: `${BASE}/?tab=mine`,
+    players: others.map(p => p.name),
+  }
+}
+
 export async function fetchBoardgamers(email: string, password: string): Promise<Game[]> {
   return withBoardgamersSession(email, password, async session => {
-    const games = await fetchGamesByStatus(session, 'active')
-    return games.map(g => toGame(g, session.userId))
+    const [active, open] = await Promise.all([
+      fetchGamesByStatus(session, 'active'),
+      // A nice-to-have on top of the real active-games list — a problem
+      // fetching open lobbies shouldn't take down the whole platform.
+      fetchGamesByStatus(session, 'open').catch(() => []),
+    ])
+    return [
+      ...active.map(g => toGame(g, session.userId)),
+      ...open.filter(g => !g.cancelled).map(g => toPendingGame(g, session.userId)),
+    ]
   })
 }
 

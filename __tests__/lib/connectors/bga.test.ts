@@ -70,6 +70,14 @@ function makeTablesResponse(data: object) {
   }
 }
 
+// fetchBGA also fetches status=setup tables (not-yet-started lobbies) in
+// parallel with the main status=play call — every mocked tables fetch below
+// needs a matching response queued for that second call too, with no
+// pending lobbies by default.
+function makeEmptySetupTablesResponse() {
+  return makeTablesResponse({ status: 1, data: { tables: {} } })
+}
+
 function makeGamepanelResponse(displayName: string) {
   return {
     ok: true,
@@ -91,6 +99,7 @@ function setupHappyPath(playerId = '42', tables: object = fixture, gamepanelResp
     .mockResolvedValueOnce(makeLoginPageResponse())
     .mockResolvedValueOnce(makeLoginResponse(playerId))
     .mockResolvedValueOnce(makeTablesResponse(tables))
+    .mockResolvedValueOnce(makeEmptySetupTablesResponse())
   for (const { name } of gamepanelResponses) {
     mock = mock.mockResolvedValueOnce(makeGamepanelResponse(name))
   }
@@ -101,6 +110,42 @@ describe('fetchBGA', () => {
     mockFetch.mockClear()
     mockKvMget.mockReset().mockResolvedValue([])
     mockKvSet.mockReset().mockResolvedValue('OK')
+  })
+
+  it('includes a status=setup table (not yet started) tagged pending', async () => {
+    const setupTable = {
+      status: 1,
+      data: {
+        tables: {
+          '999': {
+            id: '999',
+            game_name: 'arknova',
+            players: {
+              '42': { id: '42', fullname: 'testuser' },
+              '89': { id: '89', fullname: 'alice' },
+            },
+          },
+        },
+      },
+    }
+    mockFetch
+      .mockResolvedValueOnce(makeInitResponse())
+      .mockResolvedValueOnce(makeRedirectFollowResponse())
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginResponse('42'))
+      .mockResolvedValueOnce(makeTablesResponse({ status: 1, data: { tables: {} } })) // status=play: nothing in progress
+      .mockResolvedValueOnce(makeTablesResponse(setupTable)) // status=setup
+      .mockResolvedValueOnce(makeGamepanelResponse('Ark Nova'))
+
+    const games = await fetchBGA('user@example.com', 'password')
+    expect(games).toHaveLength(1)
+    expect(games[0]).toMatchObject({
+      id: 'bga:999',
+      pending: true,
+      myTurn: false,
+      gameName: 'Ark Nova',
+      players: ['alice'],
+    })
   })
 
   it('returns Game[] from API response', async () => {
@@ -162,12 +207,14 @@ describe('fetchBGA', () => {
 
   it('uses a manual session instead of logging in, when one is given', async () => {
     const singleTable = { status: 1, data: { tables: {} } }
-    mockFetch.mockResolvedValueOnce(makeTablesResponse(singleTable)) // only the tables call — no login steps
+    mockFetch
+      .mockResolvedValueOnce(makeTablesResponse(singleTable)) // the status=play tables call — no login steps
+      .mockResolvedValueOnce(makeEmptySetupTablesResponse()) // the status=setup tables call
     const games = await fetchBGA('user@example.com', 'password', {
       manual: { cookie: 'TournoiEnLigneidt=tok; PHPSESSID=abc', playerId: '42' },
     })
     expect(games).toEqual([])
-    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(mockFetch).toHaveBeenCalledTimes(2)
   })
 
   it('resolves display names from gamepanel og:title', async () => {
@@ -205,6 +252,7 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
       .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockResolvedValueOnce(makeEmptySetupTablesResponse())
       // og:title split across two lines, with HTML entity
       .mockResolvedValueOnce({
         ok: true,
@@ -242,6 +290,7 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
       .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockResolvedValueOnce(makeEmptySetupTablesResponse())
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -278,6 +327,7 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
       .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockResolvedValueOnce(makeEmptySetupTablesResponse())
       .mockRejectedValueOnce(new Error('network error'))   // attempt 0
       .mockRejectedValueOnce(new Error('network error'))   // attempt 1 (retry)
 
@@ -309,6 +359,7 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
       .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockResolvedValueOnce(makeEmptySetupTablesResponse())
       .mockRejectedValueOnce(new Error('network error'))   // attempt 0 fails
       .mockResolvedValueOnce(makeGamepanelResponse('Some Game')) // attempt 1 succeeds
 
@@ -341,6 +392,7 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
       .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockResolvedValueOnce(makeEmptySetupTablesResponse())
       .mockResolvedValueOnce(errorResponse)   // attempt 0: 429
       .mockResolvedValueOnce(errorResponse)   // attempt 1: 429
 
@@ -389,6 +441,7 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
       .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockResolvedValueOnce(makeEmptySetupTablesResponse())
       .mockResolvedValueOnce(makeGamepanelResponse('The Crew'))
 
     const games = await fetchBGA('user@example.com', 'password')

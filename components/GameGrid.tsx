@@ -93,6 +93,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   // or new data reordering things. One ref per section, since they're
   // separate DOM containers.
   const [myTurnGridRef] = useAutoAnimate()
+  const [pendingListRef] = useAutoAnimate()
   const [waitingListRef] = useAutoAnimate()
   const [priorityRestRef] = useAutoAnimate()
   const [priorityWaitingRef] = useAutoAnimate()
@@ -122,8 +123,11 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   const myTurnGames = sortAndFilter(visible.filter(g => g.myTurn && !isOpened(g)), prefs, now)
   // An opened game stays with my games even once it's the opponent's turn, until
   // the dashboard stops treating it as opened (a few minutes after I'm back)
-  const openedMyTurnGames = sortAndFilter(visible.filter(isOpened), prefs, now)
-  const waitingGames = sortAndFilter(visible.filter(g => !g.myTurn && !isOpened(g)), prefs, now, { respectPins: false })
+  const openedMyTurnGames = sortAndFilter(visible.filter(g => isOpened(g) && !g.pending), prefs, now)
+  // A lobby waiting for players has no "turn" to take and nobody to wait on
+  // mid-move — its own section (below), not mixed into either of these.
+  const pendingGames = sortAndFilter(visible.filter(g => g.pending && !isOpened(g)), prefs, now, { respectPins: false })
+  const waitingGames = sortAndFilter(visible.filter(g => !g.myTurn && !g.pending && !isOpened(g)), prefs, now, { respectPins: false })
   const showMine = prefs.filter.turnStatus !== 'waiting'
   const showWaiting = prefs.filter.turnStatus !== 'my-turn'
   const platformFilter = prefs.filter.platforms
@@ -549,6 +553,20 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
 
         {suggestion && (
           <BacklogSuggestion item={suggestion} activeCount={games.length} className="mb-7" onRemove={() => backlog.remove(suggestion.id)} />
+        )}
+
+        {/* Independent of the classic/priority split above — a lobby
+            waiting for players is a different concept from either, not
+            something that should only show up in one layout. */}
+        {showWaiting && pendingGames.length > 0 && (
+          <section className="mb-7">
+            <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)] mb-2">
+              Waiting to start · {pendingGames.length}
+            </p>
+            <div ref={pendingListRef} className="flex flex-col gap-1.5">
+              {pendingGames.map(g => <GameRow key={g.id} {...itemProps(g)} />)}
+            </div>
+          </section>
         )}
 
         {layout === 'classic' && showWaiting && waitingGames.length > 0 && (

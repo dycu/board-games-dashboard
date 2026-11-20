@@ -152,13 +152,42 @@ export async function listActiveHansaGameEtas(userId: string): Promise<HansaActi
     .sort((a, b) => (a.etaSeconds ?? Infinity) - (b.etaSeconds ?? Infinity))
 }
 
+// A table created but not yet started — still waiting for enough players to
+// join (status 'waiting_for_player', confirmed by HtGame's own type above).
+function toPendingGame(g: HtGame, myId: string): Game {
+  const lastMoveAt = g.turnStartedAt ? new Date(g.turnStartedAt) : new Date(g.updatedAt)
+  const others = g.players.filter(p => p.userId.replace(/-/g, '') !== myId)
+
+  return {
+    id: `hansa:${g.id}`,
+    platform: 'hansa',
+    gameName: 'Hansa Teutonica',
+    myTurn: false,
+    pending: true,
+    currentPlayer: `${g.players.length} joined — waiting to start`,
+    lastMoveAt,
+    lastMoveAgo: formatTimeAgo(lastMoveAt),
+    urgent: false,
+    gameUrl: `${UI_BASE}/game/${g.id}`,
+    platformUrl: `${UI_BASE}/games?limit=20&mode=my_games`,
+    players: others.map(p => p.name),
+  }
+}
+
 export async function fetchHansa(userId: string): Promise<Game[]> {
   if (!userId) throw new Error('HANSA_USER_ID is required')
   const myId = userId.replace(/-/g, '')
-  const [games, finishedSamples] = await Promise.all([
+  const [games, waitingGames, finishedSamples] = await Promise.all([
     fetchGames('playing'),
+    // A nice-to-have on top of the real in-progress list — a problem here
+    // shouldn't take down the whole Hansa fetch.
+    fetchGames('waiting_for_player').catch((): HtGame[] => []),
     fetchFinishedSamples().catch((): FinishedSample[] => []),
   ])
+
+  const pending = waitingGames
+    .filter(g => g.players.some(p => p.userId.replace(/-/g, '') === myId))
+    .map(g => toPendingGame(g, myId))
 
   return games
     .filter(g => g.players.some(p => p.userId.replace(/-/g, '') === myId))
@@ -190,6 +219,7 @@ export async function fetchHansa(userId: string): Promise<Game[]> {
         ...(progress && { progress }),
       }
     })
+    .concat(pending)
 }
 
 export async function fetchFinishedHansa(userId: string): Promise<FinishedGame[]> {

@@ -101,6 +101,22 @@ describe('fetchEighteenXX — session cookie path', () => {
     expect(firstUrl).toBe(`${BASE}/api/user/login`)
     expect(games).toHaveLength(1)
   })
+
+  it('includes a table I joined that has not started yet, tagged pending', async () => {
+    const NEW_GAME = {
+      id: 200,
+      title: 'Not Started Yet',
+      status: 'new',
+      updated_at: '2026-01-15T10:00:00Z',
+      players: [{ id: 42, name: 'Dycu' }],
+    }
+    mockFetch({ ok: true, data: { games: [ACTIVE_GAME, NEW_GAME] } })
+
+    const games = await fetchEighteenXX('Dycu', '', 'session_abc')
+    expect(games).toHaveLength(2)
+    const pending = games.find(g => g.id === 'eighteenxx:200')!
+    expect(pending).toMatchObject({ pending: true, myTurn: false })
+  })
 })
 
 // Shape of the real /profile/<id> page (trimmed)

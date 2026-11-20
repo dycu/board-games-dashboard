@@ -52,9 +52,10 @@ export async function fetchEighteenXX(username: string, password: string, sessio
     if (!resolvedId) throw new Error(`18xx.games: player "${username}" not found in any active game — check EIGHTEENXX_USERNAME matches your in-game name`)
     myId = resolvedId
 
-    return games
-      .filter((g: any) => g.status === 'active' && (g.players ?? []).some((p: any) => p.id === myId))
-      .map((g: any): Game => mapGame(g, myId, username))
+    return [
+      ...games.filter((g: any) => g.status === 'active' && (g.players ?? []).some((p: any) => p.id === myId)).map((g: any): Game => mapGame(g, myId, username)),
+      ...games.filter((g: any) => g.status === 'new' && (g.players ?? []).some((p: any) => p.id === myId)).map((g: any): Game => mapPendingGame(g, myId, username)),
+    ]
   } else {
     const loginRes = await fetch(`${BASE}/api/user/login`, {
       method: 'POST',
@@ -74,9 +75,10 @@ export async function fetchEighteenXX(username: string, password: string, sessio
     const data = await gamesRes.json()
     const games: any[] = Array.isArray(data) ? data : data.games ?? []
 
-    return games
-      .filter((g: any) => g.status === 'active' && (g.players ?? []).some((p: any) => p.id === myId))
-      .map((g: any): Game => mapGame(g, myId, username))
+    return [
+      ...games.filter((g: any) => g.status === 'active' && (g.players ?? []).some((p: any) => p.id === myId)).map((g: any): Game => mapGame(g, myId, username)),
+      ...games.filter((g: any) => g.status === 'new' && (g.players ?? []).some((p: any) => p.id === myId)).map((g: any): Game => mapPendingGame(g, myId, username)),
+    ]
   }
 }
 
@@ -208,6 +210,30 @@ function mapGame(g: any, myId: number, username: string): Game {
     players: (g.players ?? [])
       .map((p: any) => p.name)
       .filter((n: string) => n !== username),
+  }
+}
+
+// A table created but not yet started — still waiting for enough players to
+// join (status 'new', per the comment on fetchProfileGames: the profile page
+// embeds "new, active, finished, archived" games).
+function mapPendingGame(g: any, myId: number, username: string): Game {
+  const rawTime = g.updated_at ?? g.created_at
+  const lastMoveAt = typeof rawTime === 'number' ? new Date(rawTime * 1000) : new Date(rawTime)
+  const joinedPlayers: any[] = g.players ?? []
+
+  return {
+    id: `eighteenxx:${g.id}`,
+    platform: 'eighteenxx',
+    gameName: g.title ?? 'Unknown',
+    myTurn: false,
+    pending: true,
+    currentPlayer: `${joinedPlayers.length} joined — waiting to start`,
+    lastMoveAt,
+    lastMoveAgo: formatTimeAgo(lastMoveAt),
+    urgent: false,
+    gameUrl: `${BASE}/game/${g.id}`,
+    platformUrl: BASE,
+    players: joinedPlayers.map((p: any) => p.name).filter((n: string) => n !== username),
   }
 }
 

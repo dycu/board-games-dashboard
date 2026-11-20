@@ -17,6 +17,16 @@ export interface Game {
   gameType?: string       // the game itself, when gameName is a player-set table title
   myTurn: boolean
   currentPlayer?: string  // whose turn when myTurn is false; omit if unavailable
+  // True for a table I've created/joined that hasn't started yet — still
+  // waiting for enough players before play can begin, so there's no "turn"
+  // to take, just a lobby to remember I'm sitting in (easy to forget about
+  // across several platforms — see lib/connectors/oldkingscrown.ts,
+  // boardgamers.ts, hansa.ts, eighteenxx.ts). myTurn is always false here.
+  // Shown in its own "Waiting to start" section rather than mixed into
+  // "Waiting for others" (which means play has started and someone else is
+  // mid-turn) — see GameGrid. currentPlayer, where set, carries a
+  // human-readable lobby status instead ("2 joined — waiting to start").
+  pending?: boolean
   lastMoveAt: Date
   lastMoveAgo: string     // pre-formatted: "3h ago", "2 days ago"
   urgent: boolean         // true when lastMoveAt is > 2 days ago

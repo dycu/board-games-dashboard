@@ -77,6 +77,11 @@ export async function fetchOldKingsCrown(nickname: string): Promise<Game[]> {
       gameName: lobby.name,
       myTurn: isMyTurn,
       currentPlayer,
+      // Still short on seats: nothing to ready up for yet, just a lobby to
+      // remember exists — shown in its own "Waiting to start" section
+      // instead of mixed into Your turn / Waiting for others. Once full,
+      // it's a real ready-check (isMyTurn above), not this.
+      ...(!full && { pending: true }),
       lastMoveAt,
       lastMoveAgo: formatTimeAgo(lastMoveAt),
       urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,

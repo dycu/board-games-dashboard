@@ -99,6 +99,16 @@ describe('fetchOldKingsCrown', () => {
     const g = games.find(g => g.id === 'oldkingscrown:lobby-not-full')!
     expect(g.myTurn).toBe(false)
     expect(g.currentPlayer).toBe('2 more players')
+    // Still short on seats — nothing to ready up for yet, just a lobby to
+    // remember exists (see lib/types.ts's Game.pending).
+    expect(g.pending).toBe(true)
+  })
+
+  it('is not pending once the lobby is full — a ready-check, not a seats-short wait', async () => {
+    setupHappyPath()
+    const games = await fetchOldKingsCrown('Dycu')
+    expect(games.find(g => g.id === 'oldkingscrown:lobby-full-not-ready')!.pending).toBeUndefined()
+    expect(games.find(g => g.id === 'oldkingscrown:lobby-full-others-not-ready')!.pending).toBeUndefined()
   })
 
   it('names the other members still not ready when the lobby is full and I already am', async () => {
