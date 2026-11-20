@@ -59,6 +59,14 @@ describe('GameCard', () => {
     expect(container.querySelector('[title="5 moves today"]')!.querySelectorAll('.dot-pop')).toHaveLength(2)
   })
 
+  it('opens the table\'s move history popup when the dots are clicked', async () => {
+    global.fetch = jest.fn(async () => ({ json: async () => ({ days: { '2026-06-25': { me: 2 } } }) })) as unknown as typeof fetch
+    render(<GameCard {...props({ game: { ...game, moveCountToday: 3 } })} />)
+    await userEvent.click(screen.getByRole('button', { name: /Move history for Wingspan/ }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledWith('/api/table-moves?id=bga%3A1')
+  })
+
   it('shows the backlog list on its badge when the title is tracked there', () => {
     render(<GameCard {...props({ backlogLists: ['gm'] })} />)
     expect(screen.getByText('🔖 GM')).toBeInTheDocument()

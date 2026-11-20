@@ -10,6 +10,7 @@ import HistoryLink from './HistoryLink'
 import PlayerHoverCard from './PlayerHoverCard'
 import ProgressBar from './ProgressBar'
 import ReadNotePopup from './ReadNotePopup'
+import TableMovesPopup from './TableMovesPopup'
 
 // Pin (always first in its section) and sink (always last) are opposite
 // ends of one priority scale, not two independent flags — null is neither.
@@ -142,31 +143,43 @@ function MoveCountBadge({ game, small }: { game: Game; small?: boolean }) {
     setPrevCount(trackedCount)
     setTrackedCount(count)
   }
+  // The popup this opens (TableMovesPopup) is its own trigger — the dots
+  // are the only entry point into it, so there's no separate way to see a
+  // table's move history on a day it hasn't had any moves yet.
+  const [historyOpen, setHistoryOpen] = useState(false)
   if (!count) return null
 
   const dotSize = small ? 'w-1.5 h-1.5' : 'w-2 h-2'
   const groups = Math.ceil(count / DOT_GROUP_SIZE)
 
   return (
-    <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1" title={`${count} move${count === 1 ? '' : 's'} today`}>
-      {Array.from({ length: groups }, (_, gi) => {
-        const start = gi * DOT_GROUP_SIZE
-        const inGroup = Math.min(DOT_GROUP_SIZE, count - start)
-        return (
-          <span key={gi} className="inline-flex gap-0.5">
-            {Array.from({ length: inGroup }, (_, i) => {
-              const idx = start + i
-              return (
-                <span
-                  key={idx}
-                  className={`inline-block rounded-full ${dotSize} ${gi % 2 === 0 ? 'bg-orange-500' : 'bg-orange-300'} ${idx >= prevCount ? 'dot-pop' : ''}`}
-                />
-              )
-            })}
-          </span>
-        )
-      })}
-    </span>
+    <>
+      <button
+        type="button"
+        onClick={() => setHistoryOpen(true)}
+        aria-label={`Move history for ${game.gameName}`}
+        title={`${count} move${count === 1 ? '' : 's'} today`}
+        className="relative z-10 inline-flex flex-wrap items-center gap-x-1.5 gap-y-1 -m-1 p-1 rounded hover:bg-[var(--bg-muted)]">
+        {Array.from({ length: groups }, (_, gi) => {
+          const start = gi * DOT_GROUP_SIZE
+          const inGroup = Math.min(DOT_GROUP_SIZE, count - start)
+          return (
+            <span key={gi} className="inline-flex gap-0.5">
+              {Array.from({ length: inGroup }, (_, i) => {
+                const idx = start + i
+                return (
+                  <span
+                    key={idx}
+                    className={`inline-block rounded-full ${dotSize} ${gi % 2 === 0 ? 'bg-orange-500' : 'bg-orange-300'} ${idx >= prevCount ? 'dot-pop' : ''}`}
+                  />
+                )
+              })}
+            </span>
+          )
+        })}
+      </button>
+      {historyOpen && <TableMovesPopup game={game} onClose={() => setHistoryOpen(false)} />}
+    </>
   )
 }
 
