@@ -139,7 +139,7 @@ describe('fetchYucata', () => {
 
     const games = await fetchYucata('testuser', 'pass')
     const pending = games.find(g => g.id === 'yucata:555')!
-    expect(pending).toMatchObject({ pending: true, myTurn: false, gameName: 'Tiletum', currentPlayer: '1/4 joined — waiting to start' })
+    expect(pending).toMatchObject({ pending: true, myTurn: false, gameName: 'Tiletum', currentPlayer: '1/4 joined — waiting for players' })
     expect(pending.players).toEqual([])
   })
 

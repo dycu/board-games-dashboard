@@ -1,6 +1,6 @@
 import { kv } from '@vercel/kv'
 import { Game, FinishedGame } from '../types'
-import { formatTimeAgo, choochooGameType } from './utils'
+import { formatTimeAgo, choochooGameType, pendingLobbyText } from './utils'
 
 const BASE = 'https://boardgamers.space'
 
@@ -176,7 +176,7 @@ function toPendingGame(game: BoardgamersGame, myId: string): Game {
     gameType: gameName,
     myTurn: false,
     pending: true,
-    currentPlayer: `${game.players.length} joined — waiting to start`,
+    currentPlayer: pendingLobbyText(game.players.length),
     lastMoveAt,
     lastMoveAgo: formatTimeAgo(lastMoveAt),
     urgent: false,

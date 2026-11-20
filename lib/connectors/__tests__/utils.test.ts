@@ -1,4 +1,22 @@
-import { choochooGameType, withTimeout } from '../utils'
+import { choochooGameType, withTimeout, pendingLobbyText } from '../utils'
+
+describe('pendingLobbyText', () => {
+  it('says "waiting for players" when the total seat count is unknown', () => {
+    expect(pendingLobbyText(1)).toBe('1 joined — waiting for players')
+  })
+
+  it('says "waiting for players" (with the count) when short of the known total', () => {
+    expect(pendingLobbyText(1, 4)).toBe('1/4 joined — waiting for players')
+  })
+
+  it('says "waiting to start" only once every known seat is filled', () => {
+    expect(pendingLobbyText(4, 4)).toBe('4/4 joined — waiting to start')
+  })
+
+  it('still says "waiting to start" if somehow over the known total', () => {
+    expect(pendingLobbyText(5, 4)).toBe('5/4 joined — waiting to start')
+  })
+})
 
 describe('choochooGameType', () => {
   it.each([

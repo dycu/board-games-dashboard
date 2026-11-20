@@ -1,6 +1,6 @@
 import { kv } from '@vercel/kv'
 import { Game, FinishedGame } from '../types'
-import { formatTimeRemaining, formatTimeAgo } from './utils'
+import { formatTimeRemaining, formatTimeAgo, pendingLobbyText } from './utils'
 import { getCatalog } from '../catalogs/cache'
 import { resolveLastMoves, Seed } from './bgaLastMove'
 import { getTables } from '../pace/store'
@@ -467,7 +467,7 @@ export async function fetchBGA(username: string, password: string, auth?: BgaAut
       gameName: nameMap.get(t.game_name) ?? t.game_name ?? 'Unknown',
       myTurn: false,
       pending: true,
-      currentPlayer: `${joined} joined — waiting to start`,
+      currentPlayer: pendingLobbyText(joined),
       lastMoveAt: new Date(),
       lastMoveAgo: 'waiting to start',
       urgent: false,

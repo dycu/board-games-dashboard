@@ -1,6 +1,6 @@
 import { kv } from '@vercel/kv'
 import { Game, FinishedGame } from '../types'
-import { formatTimeAgo, withTimeout } from './utils'
+import { formatTimeAgo, withTimeout, pendingLobbyText } from './utils'
 import { resultFromRanks } from '../results'
 
 const BASE = 'https://www.yucata.de'
@@ -131,7 +131,7 @@ async function fetchPendingYucata(jar: YucataJar, username: string): Promise<Gam
       gameName: inv.gameTypeName ?? inv.gameName ?? 'Unknown',
       myTurn: false,
       pending: true,
-      currentPlayer: needed ? `${joined.length}/${needed} joined — waiting to start` : `${joined.length} joined — waiting to start`,
+      currentPlayer: pendingLobbyText(joined.length, needed),
       lastMoveAt: createdAt,
       lastMoveAgo: formatTimeAgo(createdAt),
       urgent: false,

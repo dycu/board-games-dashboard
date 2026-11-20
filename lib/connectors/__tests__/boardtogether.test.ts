@@ -107,7 +107,9 @@ describe('fetchBoardtogether', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => CATALOG })
 
     const [result] = await fetchBoardtogether('Dycu', 'pw')
-    expect(result.currentPlayer).toBe('1 joined — waiting to start')
+    // 1 joined out of 4 total seats (open/reserved placeholders included) —
+    // genuinely still short, not "waiting to start"
+    expect(result.currentPlayer).toBe('1/4 joined — waiting for players')
     expect(result.players).toEqual([])
   })
 

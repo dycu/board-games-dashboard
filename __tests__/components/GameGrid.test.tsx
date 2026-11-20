@@ -503,7 +503,7 @@ describe('GameGrid opened games', () => {
 
 describe('GameGrid pending (waiting to start) games', () => {
   it('shows a pending game in its own section, separate from Your turn/Waiting for others', () => {
-    const lobby = { ...makeGame('hansa', '1'), gameName: 'New Lobby', myTurn: false, pending: true, currentPlayer: '1 joined — waiting to start' }
+    const lobby = { ...makeGame('hansa', '1'), gameName: 'New Lobby', myTurn: false, pending: true, currentPlayer: '1 joined — waiting for players' }
     renderGrid([lobby])
     expect(screen.getByText(/Waiting to start · 1/)).toBeInTheDocument()
     expect(screen.getByText('New Lobby')).toBeInTheDocument()

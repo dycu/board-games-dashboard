@@ -1,5 +1,5 @@
 import { Game, FinishedGame } from '../types'
-import { formatTimeAgo, withTimeout } from './utils'
+import { formatTimeAgo, withTimeout, pendingLobbyText } from './utils'
 import { resultFromRanks } from '../results'
 
 // Migrated off Render (hansa-teutonica-digital.onrender.com, now suspended)
@@ -164,7 +164,7 @@ function toPendingGame(g: HtGame, myId: string): Game {
     gameName: 'Hansa Teutonica',
     myTurn: false,
     pending: true,
-    currentPlayer: `${g.players.length} joined — waiting to start`,
+    currentPlayer: pendingLobbyText(g.players.length),
     lastMoveAt,
     lastMoveAgo: formatTimeAgo(lastMoveAt),
     urgent: false,

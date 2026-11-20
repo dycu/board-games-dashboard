@@ -1,5 +1,5 @@
 import { Game, FinishedGame } from '../types'
-import { formatTimeAgo } from './utils'
+import { formatTimeAgo, pendingLobbyText } from './utils'
 import { resultFromRanks } from '../results'
 
 export const BASE = 'https://18xx.games'
@@ -227,7 +227,7 @@ function mapPendingGame(g: any, myId: number, username: string): Game {
     gameName: g.title ?? 'Unknown',
     myTurn: false,
     pending: true,
-    currentPlayer: `${joinedPlayers.length} joined — waiting to start`,
+    currentPlayer: pendingLobbyText(joinedPlayers.length),
     lastMoveAt,
     lastMoveAgo: formatTimeAgo(lastMoveAt),
     urgent: false,

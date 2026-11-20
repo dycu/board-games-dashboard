@@ -13,6 +13,22 @@ export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): 
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
 }
 
+// Game.currentPlayer text for a lobby that hasn't started yet (see
+// Game.pending). "waiting to start" on its own reads as imminent — fine
+// once every seat is actually filled, but misleading while it's still
+// short (an earlier version of this text said "waiting to start" even at
+// "1 joined", which is pretty clearly not about to start). Collapsing to
+// that one phrase regardless of fullness is what this fixes: with the
+// total seat count known, it distinguishes still-short from full-and-
+// ready; without it (most platforms don't expose a seat total for a
+// lobby), it never claims "ready to start" it can't actually confirm.
+export function pendingLobbyText(joined: number, needed?: number): string {
+  if (needed == null) return `${joined} joined — waiting for players`
+  return joined >= needed
+    ? `${joined}/${needed} joined — waiting to start`
+    : `${joined}/${needed} joined — waiting for players`
+}
+
 export function formatTimeAgo(date: Date): string {
   const ms = Date.now() - date.getTime()
   const mins = Math.floor(ms / 60000)

@@ -1,6 +1,6 @@
 import { kv } from '@vercel/kv'
 import { Game, FinishedGame } from '../types'
-import { formatTimeAgo, choochooGameType } from './utils'
+import { formatTimeAgo, choochooGameType, pendingLobbyText } from './utils'
 
 const BASE = 'https://boardtogether.games'
 const API = `${BASE}/api/v1`
@@ -173,7 +173,10 @@ function toPendingGame(game: BoardtogetherGame, myUserId: string, catalogNames: 
     gameType,
     myTurn: false,
     pending: true,
-    currentPlayer: `${joined.length} joined — waiting to start`,
+    // Unlike most other platforms, the total seat count here is just
+    // game.players.length itself (open/reserved placeholders included) —
+    // no separate "max players" field needed.
+    currentPlayer: pendingLobbyText(joined.length, game.players.length),
     lastMoveAt,
     lastMoveAgo: formatTimeAgo(lastMoveAt),
     urgent: false,
