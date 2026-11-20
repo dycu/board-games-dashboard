@@ -126,7 +126,9 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   const openedMyTurnGames = sortAndFilter(visible.filter(g => isOpened(g) && !g.pending), prefs, now)
   // A lobby waiting for players has no "turn" to take and nobody to wait on
   // mid-move — its own section (below), not mixed into either of these.
-  const pendingGames = sortAndFilter(visible.filter(g => g.pending && !isOpened(g)), prefs, now, { respectPins: false })
+  // Never actually opened/dismissed (see itemProps' onOpen), so no isOpened
+  // filter is needed here the way the other two sections need one.
+  const pendingGames = sortAndFilter(visible.filter(g => g.pending), prefs, now, { respectPins: false })
   const waitingGames = sortAndFilter(visible.filter(g => !g.myTurn && !g.pending && !isOpened(g)), prefs, now, { respectPins: false })
   const showMine = prefs.filter.turnStatus !== 'waiting'
   const showWaiting = prefs.filter.turnStatus !== 'my-turn'
@@ -285,7 +287,13 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
       game: g,
       priority: priorityOf(g.id),
       onCyclePriority: cyclePriority,
-      onOpen: () => openGame(g.id),
+      // A pending lobby has no move to confirm and nothing to note for next
+      // round — the opened/dismissed tracking (and the note-prompt popup it
+      // drives) is built entirely around "I took my turn, did it register
+      // yet", which doesn't apply here. Skipping it means clicking through
+      // to check on a lobby doesn't dim it from this list or pop up asking
+      // for a note, the way opening a real game would.
+      onOpen: g.pending ? () => {} : () => openGame(g.id),
       opponentSlowDays,
       deadlineSoonHours,
       note: notes[g.id],
@@ -293,7 +301,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
       tableLabel: tableLabels[g.id],
       onSaveTableLabel: saveTableLabel,
       now,
-      opened: isOpened(g),
+      opened: g.pending ? false : isOpened(g),
       backlogLists: backlogListsOf(g),
       tournament: tournamentOf(g),
     }

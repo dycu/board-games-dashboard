@@ -501,6 +501,31 @@ describe('GameGrid opened games', () => {
   })
 })
 
+describe('GameGrid pending (waiting to start) games', () => {
+  it('shows a pending game in its own section, separate from Your turn/Waiting for others', () => {
+    const lobby = { ...makeGame('hansa', '1'), gameName: 'New Lobby', myTurn: false, pending: true, currentPlayer: '1 joined — waiting to start' }
+    renderGrid([lobby])
+    expect(screen.getByText(/Waiting to start · 1/)).toBeInTheDocument()
+    expect(screen.getByText('New Lobby')).toBeInTheDocument()
+    expect(screen.queryByText(/Waiting for others/)).toBeNull()
+  })
+
+  it('does not dim or remove a pending game when its link is clicked — nothing to confirm or note', async () => {
+    const lobby = { ...makeGame('hansa', '1'), gameName: 'New Lobby', myTurn: false, pending: true }
+    function Wrapper() {
+      const [dismissed, setDismissed] = React.useState(new Set<string>())
+      return <GameGrid {...defaultGridProps} dismissed={dismissed} onOpen={id => setDismissed(new Set([id]))} data={{ games: [lobby], errors: [], fetchedAt: '' }} />
+    }
+    render(<Wrapper />)
+    const link = screen.getByRole('link', { name: 'Open New Lobby' })
+    link.addEventListener('click', e => e.preventDefault())
+    await userEvent.click(link)
+    expect(screen.getByText(/Waiting to start · 1/)).toBeInTheDocument()
+    expect(screen.getByText('New Lobby')).toBeInTheDocument()
+    expect(screen.queryByText('opened')).toBeNull()
+  })
+})
+
 describe('GameGrid recently opened games', () => {
   it('keeps a game I opened in the collapsed Waiting list after my move', async () => {
     localStorage.clear()
