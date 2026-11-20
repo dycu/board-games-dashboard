@@ -438,17 +438,23 @@ function bgaAvatarUrl(avatar: unknown, id: unknown): string | undefined {
 }
 
 export async function fetchBGA(username: string, password: string, auth?: BgaAuthOptions): Promise<Game[]> {
-  const { session, tables, setupTables } = await withBgaSession(username, password, async s => {
-    const [tables, setupTables] = await Promise.all([
-      fetchBgaTables(s),
-      // A table still being set up is a nice-to-have on top of the real
-      // in-progress list above — a wrong guess at BGA's status string, or
-      // any other failure here, shouldn't take down the whole BGA fetch.
-      fetchBgaTables(s, 'setup').catch(() => []),
-    ])
-    return { session: s, tables, setupTables }
+  const { session, tables: rawTables } = await withBgaSession(username, password, async s => {
+    const tables = await fetchBgaTables(s)
+    return { session: s, tables }
   }, auth)
   const { myId, cookies: allCookies } = session
+
+  // tableinfos.html's own `status` request param only accepts 'play' (its
+  // one non-finished value — passing 'setup' is flatly rejected: "Bad
+  // argument type: status should be a value from the enumeration (setup)",
+  // confirmed live) or 'finished'; 'play' already returns every non-finished
+  // table, lobby included. What distinguishes a lobby still waiting on
+  // players is each *table's own* `status` field, not the request param —
+  // confirmed live as "asyncinit" (vs. "asyncplay" for one actually under
+  // way); matched by suffix in case a live/realtime game ever shows up here
+  // ("realtimeinit"/"realtimeplay").
+  const tables = rawTables.filter((t: any) => !/init$/.test(t.status))
+  const setupTables = rawTables.filter((t: any) => /init$/.test(t.status))
 
   // Step 5: resolve display names from gamepanel pages (game_name field is a URL slug)
   const uniqueSlugs = [...new Set([...tables, ...setupTables].map((t: any) => t.game_name as string).filter(Boolean))]
