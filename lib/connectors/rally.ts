@@ -1,6 +1,6 @@
 import { kv } from '@vercel/kv'
 import { Game, FinishedGame } from '../types'
-import { formatTimeAgo } from './utils'
+import { formatTimeAgo, pendingLobbyText } from './utils'
 
 export const BASE = 'https://rally-the-troops.com'
 
@@ -161,6 +161,12 @@ function parseSection(section: string, username: string): Game[] {
 
     const classMatch = chunk.match(/class="(game_item[^"]*)"/)
     const myTurn = classMatch ? /\byour_turn\b/.test(classMatch[1]) : false
+    // A table I've created and nobody (or not enough opponents) has joined
+    // yet — confirmed live: it carries an "open" class (e.g. "game_item open
+    // replacement") and its Players: line reads literally
+    // `<span class="error">Nobody</span>` instead of any <a href="/user/...">,
+    // which the existing players-extraction below already treats as empty.
+    const pending = classMatch ? /\bopen\b/.test(classMatch[1]) : false
 
     const titleMatch = chunk.match(/href="\/join\/\d+"[^>]*>#\d+\s*(?:&#x2013;|[–—-])\s*([^<(]+)/)
     const gameName = titleMatch ? titleMatch[1].trim() : 'Unknown'
@@ -183,20 +189,24 @@ function parseSection(section: string, username: string): Game[] {
     // "whose turn when myTurn is false" convention every other connector
     // follows).
     const activePlayerMatch = playersSection.match(/<a class="is_active"[^>]*>([^<]+)<\/a>/)
-    const currentPlayer = activePlayerMatch && activePlayerMatch[1] !== username ? activePlayerMatch[1] : undefined
+    const currentPlayer = pending
+      ? pendingLobbyText(players.length)
+      : activePlayerMatch && activePlayerMatch[1] !== username ? activePlayerMatch[1] : undefined
 
-    const lastMoveMatch = chunk.match(/Last move:\s*([^<]+)</)
+    // An open game has no "Last move:" line yet, only "Created:"
+    const lastMoveMatch = chunk.match(/Last move:\s*([^<]+)</) ?? chunk.match(/Created:\s*([^<]+)</)
     const lastMoveAt = lastMoveMatch ? parseHumanDate(lastMoveMatch[1].trim()) : new Date()
 
     out.push({
       id: `rally:${gameId}`,
       platform: 'rally',
       gameName,
-      myTurn,
+      myTurn: pending ? false : myTurn,
       currentPlayer,
+      ...(pending && { pending: true }),
       lastMoveAt,
       lastMoveAgo: formatTimeAgo(lastMoveAt),
-      urgent: Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
+      urgent: pending ? false : Date.now() - lastMoveAt.getTime() > 2 * 24 * 60 * 60 * 1000,
       gameUrl,
       platformUrl: `${BASE}/games/active`,
       players,

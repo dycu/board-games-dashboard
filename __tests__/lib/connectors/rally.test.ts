@@ -120,6 +120,25 @@ describe('fetchRally', () => {
     expect(games).toHaveLength(3)
   })
 
+  // Markup confirmed against a real account: a table created and not yet
+  // joined by anyone carries an "open" class (BGA-independent "replacement"
+  // modifier included, since it was seen live) and a literal "Nobody" where
+  // Players: would otherwise list <a href="/user/...">; "Created:" stands in
+  // for "Last move:" since there's no move yet.
+  const OPEN_GAME_HTML = `<h2>Open</h2><div class="game_list"><div><div class="game_item open replacement"><div class="game_head"><div>🔒 <a href="/join/273384">#273384 &#x2013; Maria</a> </div><a class="command" href="/join/273384">Join</a></div><div class="game_main"><div class="game_info"><i>test probe</i><div>Scenario: Introductory 2P</div><div>Players: <span class="error">Nobody</span></div><div>Created: now</div></div></div></div></div>`
+
+  it('tags an open (not-yet-joined) table as pending, not myTurn', async () => {
+    const ch = makeRealChallenge('testsalt', 42)
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ch })
+      .mockResolvedValueOnce({ ok: false, status: 302, headers: { get: (h: string) => h === 'set-cookie' ? 'login=abc123; Path=/; HttpOnly' : null } })
+      .mockResolvedValueOnce({ ok: true, text: async () => OPEN_GAME_HTML })
+
+    const games = await fetchRally('testuser', 'pass')
+    expect(games).toHaveLength(1)
+    expect(games[0]).toMatchObject({ id: 'rally:273384', gameName: 'Maria', pending: true, myTurn: false, currentPlayer: '0 joined — waiting for players', players: [] })
+  })
+
   it('throws when login returns non-302', async () => {
     const ch = makeRealChallenge('testsalt', 7)
     mockFetch
