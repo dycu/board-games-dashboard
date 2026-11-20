@@ -446,7 +446,15 @@ export function GameCardCompact({ game, priority, onCyclePriority, onOpen, oppon
         {rank}
       </span>
       <CoverLink game={game} onOpen={onOpen} note={note} />
-      <div className="flex items-center justify-between gap-1.5">
+      {/* flex-wrap, not a straight justify-between: every badge here is
+          shrink-0 (a pill's text truncating mid-word reads as broken, worse
+          than a clipped card edge would), so with no wrap the left group's
+          badges — platform, move count, backlog, tournament — simply
+          overflowed into the right group's icons on a narrow phone instead
+          of making room for them. Wrapping drops the right group to its own
+          line below once they don't both fit, the same tradeoff GameRow
+          already makes for its own name/icons row. */}
+      <div className="flex flex-wrap items-center justify-between gap-1.5">
         <div className="flex items-center gap-1 min-w-0">
           <Badge game={game} small />
           <MoveCountBadge game={game} small />
