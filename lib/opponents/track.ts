@@ -8,7 +8,7 @@ import { addMySample } from '../responseTime/store'
 // currentPlayer) is genuinely ambiguous — "not my turn" doesn't say which of
 // several people is holding things up — so it's left unresolved rather than
 // guessed, and that game simply isn't counted toward anyone's response time.
-function resolveOpponent(game: Pick<Game, 'currentPlayer' | 'players'>): string | undefined {
+export function resolveOpponent(game: Pick<Game, 'currentPlayer' | 'players'>): string | undefined {
   return game.currentPlayer ?? (game.players.length === 1 ? game.players[0] : undefined)
 }
 
