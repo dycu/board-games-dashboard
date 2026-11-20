@@ -247,7 +247,14 @@ function PlayersPageInner() {
           allTags={allTags}
           onSaveTags={tags => opponents.saveTags(platform!, name!, tags)}
           onSetHidden={hidden => opponents.setHidden(platform!, name!, hidden)}
-          onBack={() => router.back()}
+          onBack={() => {
+            // router.back() is a silent no-op with nothing in this tab's own
+            // history to go back to — opened in a new tab/window (a
+            // middle-click, "open in new tab", ...), there's no dashboard
+            // page underneath it here, so fall back to the roster instead.
+            if (window.history.length <= 1) router.push('/players')
+            else router.back()
+          }}
         />
       </div>
     )
