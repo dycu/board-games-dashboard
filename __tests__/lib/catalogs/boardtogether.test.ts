@@ -9,10 +9,10 @@ const sample = JSON.stringify({
 })
 
 describe('parseBoardTogetherCatalog', () => {
-  it('maps each catalog entry to its display name, linking to the dashboard (no per-title URL exists)', () => {
+  it('maps each catalog entry to its display name and status, linking to the dashboard (no per-title URL exists)', () => {
     expect(parseBoardTogetherCatalog(sample)).toEqual([
-      { name: 'The Bridges of Shangri-La', url: 'https://boardtogether.games/dashboard' },
-      { name: 'The Estates', url: 'https://boardtogether.games/dashboard' },
+      { name: 'The Bridges of Shangri-La', url: 'https://boardtogether.games/dashboard', status: 'public' },
+      { name: 'The Estates', url: 'https://boardtogether.games/dashboard', status: 'public' },
     ])
   })
 
@@ -20,22 +20,22 @@ describe('parseBoardTogetherCatalog', () => {
     expect(parseBoardTogetherCatalog(JSON.stringify({ status: 'ok' }))).toEqual([])
   })
 
-  // Confirmed against the real catalog: GIPF, YINSH, DVONN, LYNGK, TZAAR and
-  // several 18xx titles are all beta:true and can't actually be started —
-  // listing them as available (in search or as a "new game" find) points at
-  // something there's no real game to join.
-  it('drops a beta entry — it is listed but not actually playable', () => {
+  // Beta access is now something an account can have (confirmed), same as
+  // BGA's own alpha/beta games — tagged with status: 'beta' instead of
+  // dropped, so lib/newGames can still report it as new/promoted.
+  it('tags a beta entry with status "beta" instead of dropping it', () => {
     const withBeta = JSON.stringify({
       status: 'ok',
       payload: [
         { id: 'yinsh', metadata: { name: 'YINSH', beta: true } },
         { id: 'estates', metadata: { name: 'The Estates', beta: false } },
-        { id: 'rides', metadata: { name: 'Ride the Rails' } }, // no beta field at all — treated as released
+        { id: 'rides', metadata: { name: 'Ride the Rails' } }, // no beta field at all — treated as public
       ],
     })
     expect(parseBoardTogetherCatalog(withBeta)).toEqual([
-      { name: 'The Estates', url: 'https://boardtogether.games/dashboard' },
-      { name: 'Ride the Rails', url: 'https://boardtogether.games/dashboard' },
+      { name: 'YINSH', url: 'https://boardtogether.games/dashboard', status: 'beta' },
+      { name: 'The Estates', url: 'https://boardtogether.games/dashboard', status: 'public' },
+      { name: 'Ride the Rails', url: 'https://boardtogether.games/dashboard', status: 'public' },
     ])
   })
 })

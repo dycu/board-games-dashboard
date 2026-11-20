@@ -12,15 +12,18 @@ interface CatalogPayload {
   payload: { id: string; metadata: { name: string; beta?: boolean } }[]
 }
 
-// A beta entry is listed in the catalog but isn't actually playable yet
-// (confirmed: GIPF, YINSH, DVONN, LYNGK, TZAAR and several 18xx titles all
-// carry beta:true and can't really be started) — surfacing it as "new"
-// here or in search just points at something there's no game to join.
+// A beta entry used to be dropped entirely here (confirmed at the time:
+// GIPF, YINSH, DVONN, LYNGK, TZAAR and several 18xx titles were beta:true
+// and couldn't actually be started) — but beta access on BoardTogether is
+// now something an account can have, same as BGA's own alpha/beta games
+// (see lib/catalogs/bga.ts), so it's surfaced the same way: tagged with a
+// status instead of hidden. diffSource (lib/newGames/diff.ts) already knows
+// to report both a first "new (beta)" sighting and a later beta -> public
+// promotion from this.
 export function parseBoardTogetherCatalog(json: string): CatalogEntry[] {
   const parsed: CatalogPayload = JSON.parse(json)
   return (parsed.payload ?? [])
-    .filter(g => !g.metadata.beta)
-    .map(g => ({ name: g.metadata.name, url: PLAY_URL }))
+    .map(g => ({ name: g.metadata.name, url: PLAY_URL, status: g.metadata.beta ? 'beta' : 'public' }))
 }
 
 export async function fetchBoardTogetherCatalog(): Promise<CatalogEntry[]> {
