@@ -32,6 +32,12 @@ const ALL_PLATFORMS = Object.keys(PLATFORM_LABELS) as Platform[]
 
 const BADGE_FALLBACK = 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'
 
+// One "select one of N" tab/pill style, shared by every such control on
+// this page (the list/source tabs below, and PlayedPanel's own sort
+// buttons) — these used to drift into their own near-identical variants.
+const pill = (active: boolean) => `text-xs px-3 py-1 rounded-full font-medium transition-colors
+  ${active ? 'bg-[var(--text-primary)] text-[var(--bg-surface)]' : 'bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)]'}`
+
 // TableTapas is search-only: it has no per-game deep link (every match
 // points at its library, not the specific game) and no live tracker, so
 // it's not part of lib/types.ts's Platform union and can't be added to the
@@ -364,8 +370,7 @@ function PlayedPanel({ backlog, sites, finished, bgaTotals }: { backlog: Backlog
           <button
             key={key}
             onClick={() => setSort(key)}
-            className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium transition-colors
-              ${sort === key ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)]'}`}
+            className={pill(sort === key)}
           >
             {label}
           </button>
@@ -444,8 +449,6 @@ export default function BacklogPage() {
   }, [])
 
   const navRight = backlog.items ? <span>{backlog.items.length} planned</span> : undefined
-  const pill = (active: boolean) => `text-xs px-3 py-1 rounded-full font-medium transition-colors
-    ${active ? 'bg-[var(--text-primary)] text-[var(--bg-surface)]' : 'bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)]'}`
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">

@@ -227,9 +227,10 @@ export default function PacePage() {
       <button
         onClick={sync}
         disabled={syncing}
-        className="text-xs bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] px-2.5 py-1 rounded-md disabled:opacity-50"
+        className="bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] disabled:opacity-50 disabled:cursor-not-allowed px-2.5 py-1 rounded-md flex items-center gap-1"
       >
-        {syncing ? 'Syncing…' : '↻ Sync'}
+        <span className={syncing ? 'animate-spin inline-block' : ''}>↻</span>
+        <span className="hidden sm:inline">Sync</span>
       </button>
     </>
   )

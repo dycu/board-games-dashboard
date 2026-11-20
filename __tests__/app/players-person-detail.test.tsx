@@ -45,7 +45,7 @@ describe('PersonDetail', () => {
     expect(screen.queryByText(/Most played together/)).toBeNull()
   })
 
-  it('lists a shared title that is also in the backlog, with its list badges', async () => {
+  it('lists a shared title that is also in the backlog, with the same badge used on Active', async () => {
     mockBacklog([
       { id: 'bga:brasslancashire', platform: 'bga', gameName: 'Brass: Lancashire', playUrl: 'https://x', addedAt: '2026-01-01', lists: ['favorite', 'gm'] },
     ])
@@ -53,8 +53,8 @@ describe('PersonDetail', () => {
     const heading = await screen.findByText('Also in your backlog')
     const section = heading.closest('div')!
     expect(within(section).getByText('Brass: Lancashire')).toBeInTheDocument()
-    expect(within(section).getByText('Favorite')).toBeInTheDocument()
-    expect(within(section).getByText('GM')).toBeInTheDocument()
+    const badge = within(section).getByTitle('In your backlog: Favorite, GM')
+    expect(badge).toHaveTextContent('Favorite +1')
     expect(within(section).queryByText('Nevsky')).toBeNull()
   })
 

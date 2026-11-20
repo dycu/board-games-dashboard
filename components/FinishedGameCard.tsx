@@ -5,6 +5,7 @@ import { placeLabel } from '@/lib/results'
 import Link from 'next/link'
 import { gameHistoryHref } from '@/lib/gameStats'
 import PlayerHoverCard from './PlayerHoverCard'
+import { SMALL_BUTTON } from './GameLink'
 
 const RESULT_STYLE = {
   won: 'bg-green-50 text-green-700',
@@ -84,7 +85,7 @@ export default function FinishedGameCard({ game, action, details }: Props) {
           target={game.platform === 'bga' ? '_self' : '_blank'}
           rel="noopener noreferrer"
           aria-label={`View ${game.gameName}`}
-          className="text-xs font-medium bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] px-3 py-1 rounded-md transition-colors"
+          className={SMALL_BUTTON}
         >
           View →
         </a>

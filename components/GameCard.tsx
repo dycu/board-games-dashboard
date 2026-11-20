@@ -191,7 +191,7 @@ function MoveCountBadge({ game, small }: { game: Game; small?: boolean }) {
 // — an untracked game's card looks exactly like it did before this
 // existed. Muted on purpose: this is a cross-reference, not a status that
 // needs attention the way the heat or deadline badges do.
-function BacklogBadge({ lists, small }: { lists: BacklogList[]; small?: boolean }) {
+export function BacklogBadge({ lists, small }: { lists: BacklogList[]; small?: boolean }) {
   if (lists.length === 0) return null
   const labels = lists.map(l => SHORT_LIST_LABELS[l])
   const text = labels.length === 1 ? labels[0] : `${labels[0]} +${labels.length - 1}`

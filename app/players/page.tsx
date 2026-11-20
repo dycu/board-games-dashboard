@@ -9,11 +9,12 @@ import { useOpponentsContext } from '@/components/OpponentsProvider'
 import { globalOpponents, gamesWith, playerHref, GlobalOpponent } from '@/lib/opponents/stats'
 import { formatDuration } from '@/lib/connectors/utils'
 import { useBacklog } from '@/hooks/useBacklog'
-import { backlogId, listsOf, BacklogList, SHORT_LIST_LABELS } from '@/lib/backlog/list'
+import { backlogId, listsOf, BacklogList } from '@/lib/backlog/list'
 import TopNav from '@/components/TopNav'
 import GameLink, { playedGameUrl } from '@/components/GameLink'
 import PlatformFilterChips from '@/components/PlatformFilterChips'
 import PlayerAvatar from '@/components/PlayerAvatar'
+import { BacklogBadge } from '@/components/GameCard'
 
 const BADGE_FALLBACK = 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'
 
@@ -177,11 +178,7 @@ export function PersonDetail({ platform, name, person, activeGames, games, allTa
             {sharedBacklogTitles.map(([title, lists]) => (
               <div key={title} className="flex items-center gap-2 px-3 py-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
                 <span className="flex-1 min-w-0 text-sm text-[var(--text-primary)] truncate">{title}</span>
-                <span className="shrink-0 flex gap-1">
-                  {lists.map(l => (
-                    <span key={l} className="text-[10px] font-medium px-1.5 py-px rounded-full bg-[var(--accent-tint)] text-[var(--accent)]">{SHORT_LIST_LABELS[l]}</span>
-                  ))}
-                </span>
+                <BacklogBadge lists={lists} />
               </div>
             ))}
           </div>

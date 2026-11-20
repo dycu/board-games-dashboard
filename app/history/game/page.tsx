@@ -11,7 +11,7 @@ import { gameStats, gamesOf } from '@/lib/gameStats'
 import { placeLabel, withEloDeltas } from '@/lib/results'
 import { formatTimeAgo } from '@/lib/connectors/utils'
 import TopNav from '@/components/TopNav'
-import GameLink, { playedGameUrl } from '@/components/GameLink'
+import GameLink, { playedGameUrl, SMALL_BUTTON } from '@/components/GameLink'
 import BacklogListChips from '@/components/BacklogListChips'
 import PlayerHoverCard from '@/components/PlayerHoverCard'
 
@@ -247,7 +247,7 @@ function GameHistory() {
                         <td className="px-3 py-1.5 text-right whitespace-nowrap text-[var(--text-secondary)]">{len !== null && len >= 0 ? days(len) : '—'}</td>
                         <td className="px-3 py-1.5 text-right tabular-nums text-[var(--text-secondary)]">{g.turns ?? '—'}</td>
                         <td className="px-3 py-1.5 text-right">
-                          <a href={g.gameUrl} target={platform === 'bga' ? '_self' : '_blank'} rel="noopener noreferrer" className="text-xs text-[var(--accent)] hover:underline whitespace-nowrap">View →</a>
+                          <a href={g.gameUrl} target={platform === 'bga' ? '_self' : '_blank'} rel="noopener noreferrer" className={SMALL_BUTTON}>View →</a>
                         </td>
                       </tr>
                     )
