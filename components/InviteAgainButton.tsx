@@ -23,7 +23,7 @@ const fmtDate = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', m
 // Reads whatever finished-games cache the browser already has (from a past
 // Players/History visit) rather than triggering its own live fetch — same
 // "cheap data only" boundary PlayerHoverCard draws.
-export default function InviteAgainButton({ platform, gameName }: { platform: Platform; gameName: string }) {
+export default function InviteAgainButton({ platform, gameName, url }: { platform: Platform; gameName: string; url: string }) {
   const { byPlatform } = useOpponentsContext()
   const [cache] = useState(() => readFinishedGamesCache())
   const opponents = useMemo(
@@ -33,6 +33,14 @@ export default function InviteAgainButton({ platform, gameName }: { platform: Pl
   const [open, setOpen] = useState(false)
 
   if (opponents.length === 0) return null
+
+  // Same self-vs-new-tab split as every other link to a game's own page
+  // (GameLink, the suggestion cards, …) — BGA plays in this tab, everywhere
+  // else gets its own.
+  const openGame = () => {
+    if (platform === 'bga') window.location.href = url
+    else window.open(url, '_blank', 'noopener,noreferrer')
+  }
 
   return (
     <>
@@ -44,14 +52,15 @@ export default function InviteAgainButton({ platform, gameName }: { platform: Pl
       >
         👥 Invite
       </button>
-      {open && <InviteAgainModal gameName={gameName} opponents={opponents} onClose={() => setOpen(false)} />}
+      {open && <InviteAgainModal gameName={gameName} opponents={opponents} onOpenGame={openGame} onClose={() => setOpen(false)} />}
     </>
   )
 }
 
-function InviteAgainModal({ gameName, opponents, onClose }: {
+function InviteAgainModal({ gameName, opponents, onOpenGame, onClose }: {
   gameName: string
   opponents: GameOpponent[]
+  onOpenGame: () => void
   onClose: () => void
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -70,14 +79,21 @@ function InviteAgainModal({ gameName, opponents, onClose }: {
     return next
   })
 
-  const copy = async (text: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(label)
-      setTimeout(() => setCopied(c => (c === label ? null : c)), 1500)
-    } catch {
-      // clipboard access denied/unavailable — nothing more to do here
-    }
+  // Copies, then immediately takes you to the game's page to paste it in —
+  // one click instead of copy-then-separately-remember-to-open. onOpenGame
+  // must run synchronously, in the same click handler, not after awaiting
+  // the clipboard write — a popup blocker only allows window.open while
+  // still inside the original user gesture's call stack.
+  const copyAndOpen = (text: string, label: string) => {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        setCopied(label)
+        setTimeout(() => setCopied(c => (c === label ? null : c)), 1500)
+      })
+      .catch(() => {
+        // clipboard access denied/unavailable — still worth opening the game
+      })
+    onOpenGame()
   }
 
   return (
@@ -95,10 +111,10 @@ function InviteAgainModal({ gameName, opponents, onClose }: {
           </h2>
           {selected.size > 0 && (
             <button
-              onClick={() => copy([...selected].join(', '), '__selected__')}
+              onClick={() => copyAndOpen([...selected].join(', '), '__selected__')}
               className="shrink-0 text-[11px] font-medium text-[var(--accent)] hover:underline"
             >
-              {copied === '__selected__' ? 'Copied!' : `Copy ${selected.size}`}
+              {copied === '__selected__' ? 'Copied!' : `Copy ${selected.size} & open`}
             </button>
           )}
         </div>
@@ -126,8 +142,8 @@ function InviteAgainModal({ gameName, opponents, onClose }: {
                   <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => copy(o.name, o.name)}
-                      title="Copy nickname"
+                      onClick={() => copyAndOpen(o.name, o.name)}
+                      title="Copy nickname and open the game page"
                       className="min-w-0 truncate text-left font-medium text-[var(--text-primary)] hover:text-[var(--accent)]"
                     >
                       {copied === o.name ? 'Copied!' : o.name}

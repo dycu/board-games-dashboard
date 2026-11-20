@@ -614,7 +614,7 @@ function FavoriteSuggestion({ item, onDismiss }: { item: BacklogItem; onDismiss:
         {PLATFORM_SHORT_LABELS[item.platform]}
       </span>
       <span className="text-sm font-medium text-[var(--text-primary)] truncate flex-1 min-w-0">{item.gameName}</span>
-      <InviteAgainButton platform={item.platform} gameName={item.gameName} />
+      <InviteAgainButton platform={item.platform} gameName={item.gameName} url={item.playUrl} />
       <a
         href={item.playUrl}
         target={item.platform === 'bga' ? '_self' : '_blank'}
@@ -647,7 +647,7 @@ function GmSuggestion({ item, running }: { item: BacklogItem; running: number })
         {PLATFORM_SHORT_LABELS[item.platform]}
       </span>
       <span className="text-sm font-medium text-[var(--text-primary)] truncate flex-1 min-w-0">{item.gameName}</span>
-      <InviteAgainButton platform={item.platform} gameName={item.gameName} />
+      <InviteAgainButton platform={item.platform} gameName={item.gameName} url={item.playUrl} />
       <a
         href={item.playUrl}
         target={item.platform === 'bga' ? '_self' : '_blank'}
@@ -669,7 +669,7 @@ function BacklogSuggestion({ item, activeCount, className, onRemove }: { item: B
         {PLATFORM_SHORT_LABELS[item.platform]}
       </span>
       <span className="text-sm font-medium text-[var(--text-primary)] truncate flex-1 min-w-0">{item.gameName}</span>
-      <InviteAgainButton platform={item.platform} gameName={item.gameName} />
+      <InviteAgainButton platform={item.platform} gameName={item.gameName} url={item.playUrl} />
       <a
         href={item.playUrl}
         target={item.platform === 'bga' ? '_self' : '_blank'}

@@ -28,7 +28,7 @@ export default function NewGameEventRow({ event, lists, disabled, onToggle }: Pr
         </a>
         <span className="text-xs text-[var(--text-tertiary)]">{eventLabel(event)}</span>
       </div>
-      <InviteAgainButton platform={event.platform} gameName={event.name} />
+      <InviteAgainButton platform={event.platform} gameName={event.name} url={event.url} />
       <BacklogListChips lists={lists} disabled={disabled} onToggle={onToggle} />
     </li>
   )
