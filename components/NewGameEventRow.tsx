@@ -4,6 +4,7 @@ import { BADGE_COLORS } from '@/lib/platform-colors'
 import { NewGameEvent, eventLabel } from '@/lib/newGames/diff'
 import { BacklogList } from '@/lib/backlog/list'
 import BacklogListChips from './BacklogListChips'
+import InviteAgainButton from './InviteAgainButton'
 
 interface Props {
   event: NewGameEvent
@@ -27,6 +28,7 @@ export default function NewGameEventRow({ event, lists, disabled, onToggle }: Pr
         </a>
         <span className="text-xs text-[var(--text-tertiary)]">{eventLabel(event)}</span>
       </div>
+      <InviteAgainButton platform={event.platform} />
       <BacklogListChips lists={lists} disabled={disabled} onToggle={onToggle} />
     </li>
   )

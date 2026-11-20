@@ -4,7 +4,7 @@ import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import TopNav from '@/components/TopNav'
 import NewGameEventRow from '@/components/NewGameEventRow'
-import InviteAgainPicker from '@/components/InviteAgainPicker'
+import InviteAgainButton from '@/components/InviteAgainButton'
 import { NewGameEvent, groupEventsByDay, formatEventsForCopy } from '@/lib/newGames/diff'
 import { CheckResult } from '@/lib/newGames/check'
 import { useBacklog } from '@/hooks/useBacklog'
@@ -87,10 +87,11 @@ function FindGamePanel() {
             const err = data.errors.find(e => e.platform === r.platform)
             return (
               <div key={r.platform} className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between gap-2 mb-2">
                   <span title={platformLabel(r.platform)} className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${BADGE_COLORS[r.platform] ?? 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'}`}>
                     {platformShortLabel(r.platform)}
                   </span>
+                  <InviteAgainButton platform={r.platform as Platform} />
                 </div>
                 {err ? (
                   <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-md">
@@ -115,7 +116,6 @@ function FindGamePanel() {
                     ))}
                   </div>
                 )}
-                <InviteAgainPicker platform={r.platform as Platform} />
               </div>
             )
           })}

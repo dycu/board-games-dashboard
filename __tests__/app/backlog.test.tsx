@@ -10,6 +10,7 @@ let currentAchievements: Achievement[] = []
 const removeAchievement = jest.fn()
 jest.mock('@/hooks/useFinishedGamesData', () => ({
   useFinishedGamesData: () => ({ data: { games: [], errors: [], fetchedAt: new Date().toISOString() }, isLoading: false, lastError: null, platformStatuses: {}, refresh: jest.fn() }),
+  readFinishedGamesCache: () => null,
 }))
 jest.mock('@/hooks/useBgaPlayTotals', () => ({
   useBgaPlayTotals: () => null,

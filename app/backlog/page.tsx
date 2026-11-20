@@ -21,6 +21,7 @@ import TopNav from '@/components/TopNav'
 import BacklogListChips from '@/components/BacklogListChips'
 import GameLink, { SMALL_BUTTON, playedGameUrl } from '@/components/GameLink'
 import HistoryLink from '@/components/HistoryLink'
+import InviteAgainButton from '@/components/InviteAgainButton'
 import PlatformFilterChips from '@/components/PlatformFilterChips'
 import AchievementUnlockedBanner from '@/components/AchievementUnlockedBanner'
 import GoalsPanel, { GoalsSummary } from '@/components/GoalsPanel'
@@ -287,6 +288,7 @@ function SearchPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSi
                   <div className="flex items-center gap-2 min-w-[140px] flex-1">{prefix}</div>
                   <div className="shrink-0 flex items-center gap-2 ml-auto">
                     <HistoryLink game={{ platform, gameName: m.name }} />
+                    <InviteAgainButton platform={platform} />
                     <GameLink url={m.url} platform={platform} />
                     <BacklogListChips
                       lists={backlog.listsFor(platform, m.name)}
