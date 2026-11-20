@@ -27,6 +27,20 @@ import NotePromptPopup from '@/components/NotePromptPopup'
 // touched either way).
 const SETTLE_DELAY_PLATFORMS: Platform[] = ['obg', 'boardtogether', 'boardgamers']
 const PLATFORM_REFRESH_RETRY_DELAYS_MS = [3000, 7000, 15000, 30000]
+// Once the backoff schedule above runs out still seeing myTurn (the lag
+// outlasted ~55s), retries keep going at the last delay instead of just
+// giving up — because giving up doesn't mean "wait for the normal
+// refresh cycle" the way it sounds: the very next resolveOpened call (with
+// nothing left in verifyingRef to exclude these ids) sees myTurn still true
+// and judge() reads that as "nothing happened, un-dim it" — exactly as it
+// should for a game glanced at and not played, but wrong here, and it
+// un-dims the card back to looking like your move (confusingly, since you
+// already made it) and quietly drops it from the opened/notePrompted
+// pipeline, so the note-prompt popup never gets a chance to fire once the
+// platform does eventually catch up. Bounding this by elapsed wall-clock
+// time instead of attempt count means a slower platform just gets checked
+// less often past the first minute, not abandoned.
+const LAG_GRACE_MS = RETURN_GRACE_MS
 
 export default function DashboardPage() {
   const { prefs, updatePrefs } = usePrefs()
@@ -71,10 +85,12 @@ export default function DashboardPage() {
   const refreshIntervalRef = useRef(prefs.refreshIntervalSeconds)
   useEffect(() => { refreshIntervalRef.current = prefs.refreshIntervalSeconds }, [prefs.refreshIntervalSeconds])
   const pendingPlatformRefreshRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const verifyingRef = useRef<{ platforms: Platform[]; gameIds: string[]; attempt: number } | null>(null)
+  const verifyingRef = useRef<{ platforms: Platform[]; gameIds: string[]; attempt: number; startedAt: number } | null>(null)
 
   const scheduleVerify = useCallback((platforms: Platform[], attempt: number) => {
-    const delay = PLATFORM_REFRESH_RETRY_DELAYS_MS[attempt]
+    // Clamped so an attempt index past the schedule's end (see LAG_GRACE_MS
+    // above) just repeats the last, longest delay instead of reading undefined
+    const delay = PLATFORM_REFRESH_RETRY_DELAYS_MS[Math.min(attempt, PLATFORM_REFRESH_RETRY_DELAYS_MS.length - 1)]
     pendingPlatformRefreshRef.current = setTimeout(() => {
       pendingPlatformRefreshRef.current = null
       triggerRefresh(true, platforms)
@@ -129,7 +145,7 @@ export default function DashboardPage() {
           if (immediate.length > 0) triggerRefresh(true, immediate)
           if (delayed.length > 0) {
             const gameIds = Object.keys(openedRef.current).filter(id => delayed.includes(id.split(':')[0] as Platform))
-            verifyingRef.current = { platforms: delayed, gameIds, attempt: 0 }
+            verifyingRef.current = { platforms: delayed, gameIds, attempt: 0, startedAt: Date.now() }
             scheduleVerify(delayed, 0)
           } else {
             verifyingRef.current = null
@@ -183,8 +199,9 @@ export default function DashboardPage() {
     const stillMyTurn = v.gameIds.some(id => byId.get(id)?.myTurn === true)
 
     if (stillMyTurn) {
+      // Bounded by elapsed time, not attempt count — see LAG_GRACE_MS above
+      if (Date.now() - v.startedAt >= LAG_GRACE_MS) { verifyingRef.current = null; return }
       const nextAttempt = v.attempt + 1
-      if (nextAttempt >= PLATFORM_REFRESH_RETRY_DELAYS_MS.length) { verifyingRef.current = null; return }
       verifyingRef.current = { ...v, attempt: nextAttempt }
       scheduleVerify(v.platforms, nextAttempt)
       return
