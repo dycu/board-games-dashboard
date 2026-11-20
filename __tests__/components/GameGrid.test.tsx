@@ -65,6 +65,17 @@ describe('GameGrid today counter', () => {
     const nav = within(screen.getByRole('navigation'))
     expect(nav.queryByText(/🔥/)).toBeNull()
   })
+
+  it('opens a popup with every game that moved today, busiest first, when clicked', async () => {
+    renderGrid([
+      { ...makeGame('bga', '1'), gameName: 'Quiet Game', moveCountToday: 2 },
+      { ...makeGame('yucata', '2'), gameName: 'Busy Game', moveCountToday: 9 },
+    ])
+    const nav = within(screen.getByRole('navigation'))
+    await userEvent.click(nav.getByText(/🔥/))
+    const names = screen.getAllByText(/Game$/).map(el => el.textContent)
+    expect(names.indexOf('Busy Game')).toBeLessThan(names.indexOf('Quiet Game'))
+  })
 })
 
 describe('GameGrid platform filter', () => {

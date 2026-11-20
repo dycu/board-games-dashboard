@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Game, Platform, UserPrefs, GamesApiResponse, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { DepartedGame } from '@/hooks/useGamesData'
 import { sortAndFilter } from '@/lib/sort-filter'
@@ -12,6 +12,7 @@ import FilterToolbar from './FilterToolbar'
 import PlatformFilterChips from './PlatformFilterChips'
 import TopNav from './TopNav'
 import ReadNotePopup from './ReadNotePopup'
+import TodayMovesPopup from './TodayMovesPopup'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { useNoteConfirmedOpen } from '@/hooks/useNoteConfirmedOpen'
 import { storeOpenedNow } from '@/lib/dismissal'
@@ -109,6 +110,8 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   // opponent border and background for attention, for a signal that
   // matters less than either.
   const totalMoveCountToday = visible.reduce((sum, g) => sum + (g.moveCountToday ?? 0), 0)
+  const [todayMovesOpen, setTodayMovesOpen] = useState(false)
+  const todayMovesBtnRef = useRef<HTMLButtonElement>(null)
   const countByPlatform = Object.fromEntries(
     configuredPlatforms.map(p => [p, visible.filter(g => g.platform === p).length])
   )
@@ -303,7 +306,17 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
           shown elsewhere on a phone (the pill counts, the "YOUR TURN · N"
           label), but this count isn't surfaced anywhere else at all. */}
       {totalMoveCountToday > 0 && (
-        <span className="text-orange-600 font-medium">🔥 {totalMoveCountToday}{' '}today</span>
+        <>
+          <button
+            ref={todayMovesBtnRef}
+            onClick={() => setTodayMovesOpen(true)}
+            className="text-orange-600 font-medium hover:underline">
+            🔥 {totalMoveCountToday}{' '}today
+          </button>
+          {todayMovesOpen && (
+            <TodayMovesPopup games={visible} anchorRef={todayMovesBtnRef} onClose={() => setTodayMovesOpen(false)} />
+          )}
+        </>
       )}
       <button
         onClick={onRefresh}

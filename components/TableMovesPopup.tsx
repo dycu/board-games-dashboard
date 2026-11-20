@@ -1,6 +1,7 @@
 'use client'
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useState, type RefObject } from 'react'
 import { Game } from '@/lib/types'
+import { useAnchoredPopover } from '@/hooks/useAnchoredPopover'
 
 // Mirrors lib/perPlayerMoves/track.ts's ME_KEY/OPPONENTS_KEY — duplicated
 // as plain string literals rather than imported, since that module (via
@@ -134,26 +135,18 @@ function StackedMovesChart({ days }: { days: GameDays }) {
   )
 }
 
-const PANEL_WIDTH = 320
-const PANEL_MARGIN = 8
-// No real height yet to measure against at the point this decides whether
-// to flip above the trigger — a generous estimate (the chart plus its
-// legend/header) errs toward flipping a little too early rather than too
-// late, which would run the panel off the bottom of the screen instead.
-const PANEL_HEIGHT_ESTIMATE = 260
-
 // Opened from a card's move-count dots — same anchored-popover approach as
 // ProgressBar's own tap/hover tooltip (components/ProgressBar.tsx's
 // HoldTooltip), not a centered modal with a dimming backdrop: it belongs
 // right next to the dots that opened it, not taking over the whole screen.
 // Unlike that tooltip this one has to stay interactive (hovering the
 // chart, a close button), so it can't be pointer-events-none — closing
-// instead happens on Escape, a click anywhere outside it, or scrolling.
+// instead happens on Escape, a click anywhere outside it, or scrolling
+// (see useAnchoredPopover).
 export default function TableMovesPopup({ game, anchorRef, onClose }: { game: Game; anchorRef: RefObject<HTMLElement | null>; onClose: () => void }) {
   const [days, setDays] = useState<GameDays | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const { panelRef, pos, width, margin } = useAnchoredPopover(anchorRef, onClose, { heightEstimate: 260 })
 
   useEffect(() => {
     let cancelled = false
@@ -164,36 +157,6 @@ export default function TableMovesPopup({ game, anchorRef, onClose }: { game: Ga
     return () => { cancelled = true }
   }, [game.id])
 
-  useEffect(() => {
-    const anchor = anchorRef.current
-    if (!anchor) return
-    const rect = anchor.getBoundingClientRect()
-    const left = Math.min(Math.max(rect.left, PANEL_MARGIN), window.innerWidth - PANEL_WIDTH - PANEL_MARGIN)
-    const fitsBelow = rect.bottom + 6 + PANEL_HEIGHT_ESTIMATE <= window.innerHeight
-    const top = fitsBelow ? rect.bottom + 6 : Math.max(PANEL_MARGIN, rect.top - PANEL_HEIGHT_ESTIMATE - 6)
-    setPos({ top, left })
-  }, [anchorRef])
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    const onPointerDown = (e: PointerEvent) => {
-      const target = e.target as Node
-      if (panelRef.current?.contains(target)) return
-      if (anchorRef.current?.contains(target)) return
-      onClose()
-    }
-    // Scrolling would leave it anchored to where the trigger used to be —
-    // simpler to just close it than to track position on every scroll tick.
-    window.addEventListener('keydown', onKey)
-    document.addEventListener('pointerdown', onPointerDown)
-    window.addEventListener('scroll', onClose, { capture: true, passive: true })
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      document.removeEventListener('pointerdown', onPointerDown)
-      window.removeEventListener('scroll', onClose, { capture: true })
-    }
-  }, [onClose, anchorRef])
-
   if (!pos) return null
 
   const hasHistory = days !== null && Object.keys(days).length > 0
@@ -202,7 +165,7 @@ export default function TableMovesPopup({ game, anchorRef, onClose }: { game: Ga
     <div
       ref={panelRef}
       className="fixed z-50 bg-[var(--bg-surface)] rounded-lg shadow-xl border border-[var(--border-default)] p-3"
-      style={{ top: pos.top, left: pos.left, width: `min(${PANEL_WIDTH}px, calc(100vw - ${PANEL_MARGIN * 2}px))` }}
+      style={{ top: pos.top, left: pos.left, width: `min(${width}px, calc(100vw - ${margin * 2}px))` }}
     >
       <div className="flex items-center justify-between gap-2 mb-2">
         <h2 className="text-sm font-semibold text-[var(--text-primary)] truncate">{game.gameName}</h2>
