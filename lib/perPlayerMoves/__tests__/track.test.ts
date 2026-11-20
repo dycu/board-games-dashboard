@@ -42,10 +42,15 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers())
 
 describe('attachPerPlayerMoveCounts', () => {
-  it('starts tracking a game the first time it is seen, crediting no one', async () => {
+  it('starts tracking a game the first time it is seen, crediting no one when it has no moves today yet', async () => {
     await attachPerPlayerMoveCounts('obg', [game('obg:1', false, { players: ['Alice'] })])
     expect(watchStore.get('pptrack-watch:v1:obg')).toEqual({ 'obg:1': { myTurn: false, opponentName: 'Alice' } })
     expect(daysStore.size).toBe(0)
+  })
+
+  it('back-credits my own moves already counted today by lib/moveCounts the first time a table is seen', async () => {
+    await attachPerPlayerMoveCounts('obg', [game('obg:1', false, { players: ['Alice'], moveCountToday: 4 })])
+    expect(daysStore.get('pptrack-days:v1:obg')).toEqual({ 'obg:1': { [TODAY]: { [ME_KEY]: 4 } } })
   })
 
   it('credits me when myTurn flips from true to false', async () => {

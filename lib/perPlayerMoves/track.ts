@@ -27,9 +27,9 @@ function reconcile(prevWatch: Record<string, PerPlayerWatchEntry>, games: Game[]
   const changed: Record<string, PerPlayerWatchEntry> = {}
   const increments: Record<string, Record<string, number>> = {}
 
-  const credit = (gameId: string, playerKey: string) => {
+  const credit = (gameId: string, playerKey: string, amount = 1) => {
     const forGame = increments[gameId] ?? (increments[gameId] = {})
-    forGame[playerKey] = (forGame[playerKey] ?? 0) + 1
+    forGame[playerKey] = (forGame[playerKey] ?? 0) + amount
   }
 
   for (const g of games) {
@@ -40,6 +40,14 @@ function reconcile(prevWatch: Record<string, PerPlayerWatchEntry>, games: Game[]
       const fresh: PerPlayerWatchEntry = { myTurn: g.myTurn, opponentName }
       all[g.id] = fresh
       changed[g.id] = fresh
+      // The very first time this tracker sees a table, lib/moveCounts/
+      // track.ts (running far longer already) may already have a count of
+      // *my* moves today on it — back-credit that now rather than quietly
+      // starting from zero, so a table already active today doesn't show
+      // up with no history at all. It only ever counts my own moves (an
+      // opponent's are never visible to it), so there's nothing to
+      // back-credit for opponents.
+      if (g.moveCountToday) credit(g.id, ME_KEY, g.moveCountToday)
       continue
     }
 
