@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Game, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BacklogList, SHORT_LIST_LABELS } from '@/lib/backlog/list'
 import { BADGE_COLORS } from '@/lib/platform-colors'
@@ -145,8 +145,11 @@ function MoveCountBadge({ game, small }: { game: Game; small?: boolean }) {
   }
   // The popup this opens (TableMovesPopup) is its own trigger — the dots
   // are the only entry point into it, so there's no separate way to see a
-  // table's move history on a day it hasn't had any moves yet.
+  // table's move history on a day it hasn't had any moves yet. It anchors
+  // itself to this button (btnRef), the same way ProgressBar's own tooltip
+  // anchors to the progress bar, rather than a page-centered dialog.
   const [historyOpen, setHistoryOpen] = useState(false)
+  const btnRef = useRef<HTMLButtonElement>(null)
   if (!count) return null
 
   const dotSize = small ? 'w-1.5 h-1.5' : 'w-2 h-2'
@@ -155,6 +158,7 @@ function MoveCountBadge({ game, small }: { game: Game; small?: boolean }) {
   return (
     <>
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setHistoryOpen(true)}
         aria-label={`Move history for ${game.gameName}`}
@@ -178,7 +182,7 @@ function MoveCountBadge({ game, small }: { game: Game; small?: boolean }) {
           )
         })}
       </button>
-      {historyOpen && <TableMovesPopup game={game} onClose={() => setHistoryOpen(false)} />}
+      {historyOpen && <TableMovesPopup game={game} anchorRef={btnRef} onClose={() => setHistoryOpen(false)} />}
     </>
   )
 }

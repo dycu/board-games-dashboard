@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { Game } from '@/lib/types'
 
 // Mirrors lib/perPlayerMoves/track.ts's ME_KEY/OPPONENTS_KEY — duplicated
@@ -134,13 +134,26 @@ function StackedMovesChart({ days }: { days: GameDays }) {
   )
 }
 
-// Opened from a card's move-count dots — one table's own move history, who
-// made each move (by name where the site reports whose turn it is, "You"/
-// "Others" where it doesn't), one stacked bar per day. See
-// lib/perPlayerMoves/track.ts for how this is collected.
-export default function TableMovesPopup({ game, onClose }: { game: Game; onClose: () => void }) {
+const PANEL_WIDTH = 320
+const PANEL_MARGIN = 8
+// No real height yet to measure against at the point this decides whether
+// to flip above the trigger — a generous estimate (the chart plus its
+// legend/header) errs toward flipping a little too early rather than too
+// late, which would run the panel off the bottom of the screen instead.
+const PANEL_HEIGHT_ESTIMATE = 260
+
+// Opened from a card's move-count dots — same anchored-popover approach as
+// ProgressBar's own tap/hover tooltip (components/ProgressBar.tsx's
+// HoldTooltip), not a centered modal with a dimming backdrop: it belongs
+// right next to the dots that opened it, not taking over the whole screen.
+// Unlike that tooltip this one has to stay interactive (hovering the
+// chart, a close button), so it can't be pointer-events-none — closing
+// instead happens on Escape, a click anywhere outside it, or scrolling.
+export default function TableMovesPopup({ game, anchorRef, onClose }: { game: Game; anchorRef: RefObject<HTMLElement | null>; onClose: () => void }) {
   const [days, setDays] = useState<GameDays | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -152,33 +165,55 @@ export default function TableMovesPopup({ game, onClose }: { game: Game; onClose
   }, [game.id])
 
   useEffect(() => {
+    const anchor = anchorRef.current
+    if (!anchor) return
+    const rect = anchor.getBoundingClientRect()
+    const left = Math.min(Math.max(rect.left, PANEL_MARGIN), window.innerWidth - PANEL_WIDTH - PANEL_MARGIN)
+    const fitsBelow = rect.bottom + 6 + PANEL_HEIGHT_ESTIMATE <= window.innerHeight
+    const top = fitsBelow ? rect.bottom + 6 : Math.max(PANEL_MARGIN, rect.top - PANEL_HEIGHT_ESTIMATE - 6)
+    setPos({ top, left })
+  }, [anchorRef])
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node
+      if (panelRef.current?.contains(target)) return
+      if (anchorRef.current?.contains(target)) return
+      onClose()
+    }
+    // Scrolling would leave it anchored to where the trigger used to be —
+    // simpler to just close it than to track position on every scroll tick.
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+    document.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('scroll', onClose, { capture: true, passive: true })
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('scroll', onClose, { capture: true })
+    }
+  }, [onClose, anchorRef])
+
+  if (!pos) return null
 
   const hasHistory = days !== null && Object.keys(days).length > 0
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 px-4 pt-16 sm:pt-24" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="table-moves-title"
-        className="w-full max-w-sm bg-[var(--bg-surface)] rounded-lg shadow-xl border border-[var(--border-default)] p-4"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <h2 id="table-moves-title" className="text-sm font-semibold text-[var(--text-primary)] truncate">{game.gameName}</h2>
-          <button onClick={onClose} aria-label="Close" className="shrink-0 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] leading-none">✕</button>
-        </div>
-        {error && <p className="text-xs text-red-500">{error}</p>}
-        {!error && days === null && <p className="text-xs text-[var(--text-tertiary)] py-6 text-center">Loading…</p>}
-        {!error && days !== null && !hasHistory && (
-          <p className="text-xs text-[var(--text-tertiary)] py-6 text-center">No moves recorded yet for this table.</p>
-        )}
-        {!error && hasHistory && <StackedMovesChart days={days} />}
+    <div
+      ref={panelRef}
+      className="fixed z-50 bg-[var(--bg-surface)] rounded-lg shadow-xl border border-[var(--border-default)] p-3"
+      style={{ top: pos.top, left: pos.left, width: `min(${PANEL_WIDTH}px, calc(100vw - ${PANEL_MARGIN * 2}px))` }}
+    >
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <h2 className="text-sm font-semibold text-[var(--text-primary)] truncate">{game.gameName}</h2>
+        <button onClick={onClose} aria-label="Close" className="shrink-0 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] leading-none">✕</button>
       </div>
+      {error && <p className="text-xs text-red-500">{error}</p>}
+      {!error && days === null && <p className="text-xs text-[var(--text-tertiary)] py-6 text-center">Loading…</p>}
+      {!error && days !== null && !hasHistory && (
+        <p className="text-xs text-[var(--text-tertiary)] py-6 text-center">No moves recorded yet for this table.</p>
+      )}
+      {!error && hasHistory && <StackedMovesChart days={days} />}
     </div>
   )
 }

@@ -63,7 +63,7 @@ describe('GameCard', () => {
     global.fetch = jest.fn(async () => ({ json: async () => ({ days: { '2026-06-25': { me: 2 } } }) })) as unknown as typeof fetch
     render(<GameCard {...props({ game: { ...game, moveCountToday: 3 } })} />)
     await userEvent.click(screen.getByRole('button', { name: /Move history for Wingspan/ }))
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /close/i })).toBeInTheDocument()
     expect(fetch).toHaveBeenCalledWith('/api/table-moves?id=bga%3A1')
   })
 
