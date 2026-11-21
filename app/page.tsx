@@ -34,7 +34,15 @@ export default function DashboardPage() {
   const { prefs, updatePrefs } = usePrefs()
   const { notes, saveNote } = useNotes()
   const [opened, setOpened] = useState<Opened>({})
-  const dismissed = useMemo(() => new Set(Object.keys(opened)), [opened])
+  // A dimExpired game with no confirmed move yet is still being watched (see
+  // judge() in lib/dismissal.ts) in case a laggy platform catches up later,
+  // but it should look like a normal card again in the meantime, not stay
+  // stuck dimmed — so it's excluded here, unlike one whose move IS confirmed
+  // (movedSeenAt set), which stays dimmed for the note-prompt regardless.
+  const dismissed = useMemo(
+    () => new Set(Object.entries(opened).filter(([, o]) => o.movedSeenAt !== undefined || !o.dimExpired).map(([id]) => id)),
+    [opened],
+  )
 
   // Which opened game (if any) should get a "plan for next round?" popup —
   // the first one whose move is confirmed and not already prompted for since

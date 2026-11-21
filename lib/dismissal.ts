@@ -12,6 +12,7 @@ export interface OpenedGame {
   openedAt: number       // when it was opened from the dashboard (0 = unknown, saved by an older version)
   movedSeenAt?: number   // start of the first fetch that showed it's no longer my turn
   notePrompted?: boolean // the note-prompt popup has already been shown (saved, deleted or skipped) this cycle
+  dimExpired?: boolean   // its display grace (from openedAt) is over with no move seen yet — stop dimming it, but keep watching (see judge())
 }
 
 export type Opened = Record<string, OpenedGame>
@@ -65,6 +66,22 @@ export function resolveOpened(
 // reloaded a backgrounded tab (which isn't a back/forward navigation —
 // see lib/navigation.ts — so it carries none of the live return-detection
 // state a focus/visibilitychange handler would have set up).
+//
+// Once that window passes with myTurn still true, the record used to be
+// dropped outright — which stopped the card looking fake-dimmed forever,
+// but on a platform laggier than graceMs itself (Boardgamers.space's own
+// original reason for existing in that curated list) it meant the move's
+// confirmation, and the note-prompt popup riding on it, was lost for
+// good the moment the window closed, with no way to ever catch up.
+// dimExpired splits the two concerns apart instead: it stops the card
+// being treated as freshly opened (resolveOpened's caller excludes a
+// dimExpired, not-yet-confirmed game from the dimmed set, so it shows
+// normally again rather than looking stuck) while the record itself stays
+// in `opened` and keeps being judged on every fetch, so a move that
+// genuinely happened still gets its movedSeenAt — and the note-prompt
+// it enables below — whenever the platform eventually catches up, however
+// long that takes. The record is only actually dropped once the game
+// itself is gone, or once a confirmed move's own post-move grace expires.
 export function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetchStartedAt: number, graceMs: number): OpenedGame | null {
   // Opened after this fetch started: it can't show my move yet
   if (fetchStartedAt < o.openedAt) return o
@@ -72,7 +89,7 @@ export function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetc
   if (!game) return null
   if (game.myTurn) {
     if (fetchStartedAt < o.openedAt + graceMs) return o
-    return null
+    return o.dimExpired ? o : { ...o, dimExpired: true }
   }
   const movedSeenAt = o.movedSeenAt ?? fetchStartedAt
   if (fetchStartedAt >= movedSeenAt + graceMs) return null

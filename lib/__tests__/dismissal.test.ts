@@ -32,9 +32,12 @@ describe('resolveOpened', () => {
     expect(resolveOpened(opened, games, T - 1, here)).toBe(opened)
   })
 
-  it('brings back a game still waiting for me once its grace window has passed, keeps a played one dimmed, drops an ended one', () => {
+  it('stops dimming a game still waiting for me once its grace window has passed (but keeps watching it), keeps a played one dimmed, drops an ended one', () => {
     const opened: Opened = { moved: { openedAt: T - 5000 }, notMoved: { openedAt: T - RETURN_GRACE_MS - 1 }, ended: { openedAt: T - 5000 } }
-    expect(resolveOpened(opened, games, T + 1000, here)).toEqual({ moved: { openedAt: T - 5000, movedSeenAt: T + 1000 } })
+    expect(resolveOpened(opened, games, T + 1000, here)).toEqual({
+      moved: { openedAt: T - 5000, movedSeenAt: T + 1000 },
+      notMoved: { openedAt: T - RETURN_GRACE_MS - 1, dimExpired: true },
+    })
   })
 
   it('drops a played game once the grace period since its move was seen is over', () => {
@@ -73,9 +76,22 @@ describe('resolveOpened', () => {
     })
   })
 
-  it('brings a game back once its grace window (from openedAt) has passed and it is still not my turn', () => {
+  it('stops dimming a game once its grace window (from openedAt) has passed and it is still not my turn, without dropping it', () => {
     const opened: Opened = { notMoved: { openedAt: T - RETURN_GRACE_MS } }
-    expect(resolveOpened(opened, games, T + 1, here)).toEqual({})
+    expect(resolveOpened(opened, games, T + 1, here)).toEqual({ notMoved: { openedAt: T - RETURN_GRACE_MS, dimExpired: true } })
+  })
+
+  // A platform laggier than graceMs itself (the original reason Boardgamers.space
+  // was on the old curated list) must not lose the move's confirmation just
+  // because the display grace ran out first — judge() keeps a dimExpired game
+  // in `opened` precisely so this can still happen whenever it does
+  it('still confirms a move on a dimExpired game once the platform finally catches up, however late', () => {
+    const opened: Opened = { notMoved: { openedAt: T - RETURN_GRACE_MS, dimExpired: true } }
+    expect(resolveOpened(opened, games, T + 1, { returnedAt: T, leftAt: null })).toBe(opened) // still myTurn: true, same object, nothing to confirm yet
+    const laterGames = [{ id: 'notMoved', myTurn: false }]
+    expect(resolveOpened(opened, laterGames, T + 2 * RETURN_GRACE_MS, here)).toEqual({
+      notMoved: { openedAt: T - RETURN_GRACE_MS, dimExpired: true, movedSeenAt: T + 2 * RETURN_GRACE_MS },
+    })
   })
 })
 
@@ -87,9 +103,14 @@ describe('judge', () => {
     expect(judge(o, { myTurn: true }, T, RETURN_GRACE_MS)).toBe(o)
   })
 
-  it('resets a game still showing my turn once its grace window from openedAt has passed', () => {
+  it('stops dimming (but does not drop) a game still showing my turn once its grace window from openedAt has passed', () => {
     const o = { openedAt: T - RETURN_GRACE_MS }
-    expect(judge(o, { myTurn: true }, T + 1, RETURN_GRACE_MS)).toBeNull()
+    expect(judge(o, { myTurn: true }, T + 1, RETURN_GRACE_MS)).toEqual({ openedAt: T - RETURN_GRACE_MS, dimExpired: true })
+  })
+
+  it('leaves an already-dimExpired game untouched while still my turn, rather than re-wrapping it every fetch', () => {
+    const o = { openedAt: T - RETURN_GRACE_MS, dimExpired: true }
+    expect(judge(o, { myTurn: true }, T + 1, RETURN_GRACE_MS)).toBe(o)
   })
 
   it('confirms the move the moment myTurn turns false', () => {
