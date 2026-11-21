@@ -32,8 +32,8 @@ describe('resolveOpened', () => {
     expect(resolveOpened(opened, games, T - 1, here)).toBe(opened)
   })
 
-  it('brings back games still waiting for me, keeps played ones dimmed, drops ended ones', () => {
-    const opened: Opened = { moved: { openedAt: T - 5000 }, notMoved: { openedAt: T - 5000 }, ended: { openedAt: T - 5000 } }
+  it('brings back a game still waiting for me once its grace window has passed, keeps a played one dimmed, drops an ended one', () => {
+    const opened: Opened = { moved: { openedAt: T - 5000 }, notMoved: { openedAt: T - RETURN_GRACE_MS - 1 }, ended: { openedAt: T - 5000 } }
     expect(resolveOpened(opened, games, T + 1000, here)).toEqual({ moved: { openedAt: T - 5000, movedSeenAt: T + 1000 } })
   })
 
@@ -58,58 +58,47 @@ describe('resolveOpened', () => {
     expect(resolveOpened(opened, games, T, { returnedAt: 0, leftAt: null })).toEqual({ moved: { openedAt: T - 60_000, movedSeenAt: T } })
   })
 
-  // A lagging platform (OBG, BoardTogether, Boardgamers.space) gets
-  // RETURN_GRACE_MS from when the game was opened before a lingering
-  // myTurn:true is trusted — computed straight from openedAt rather than
-  // a live "you just returned" event, so it holds even when resolveOpened
-  // is first called from a cold reload (e.g. the OS silently reloading a
-  // backgrounded mobile tab) that never ran any return-detection code.
-  it('leaves a lagging-platform game untouched (not yet past its grace window) even though myTurn would otherwise bring it back', () => {
-    const opened: Opened = { moved: { openedAt: T - 5000 }, 'notMoved-lag': { openedAt: T - 5000 } }
-    const gamesWithLag = [...games, { id: 'notMoved-lag', myTurn: true }]
-    expect(resolveOpened(opened, gamesWithLag, T + 1000, here, RETURN_GRACE_MS, new Set(['notMoved-lag']))).toEqual({
+  // Every platform gets RETURN_GRACE_MS from when the game was opened
+  // before a lingering myTurn:true is trusted (not just a curated list of
+  // known-lagging ones — see judge()'s own comment) — computed straight
+  // from openedAt rather than a live "you just returned" event, so it
+  // holds even when resolveOpened is first called from a cold reload
+  // (e.g. the OS silently reloading a backgrounded mobile tab) that never
+  // ran any return-detection code.
+  it('leaves a just-opened game untouched (not yet past its grace window) even though myTurn would otherwise bring it back', () => {
+    const opened: Opened = { moved: { openedAt: T - 5000 }, notMoved: { openedAt: T - 5000 } }
+    expect(resolveOpened(opened, games, T + 1000, here)).toEqual({
       moved: { openedAt: T - 5000, movedSeenAt: T + 1000 },
-      'notMoved-lag': { openedAt: T - 5000 },
+      notMoved: { openedAt: T - 5000 },
     })
   })
 
-  it('brings a lagging-platform game back once its grace window (from openedAt) has passed and it is still not my turn', () => {
-    const opened: Opened = { 'notMoved-lag': { openedAt: T - RETURN_GRACE_MS } }
-    const gamesWithLag = [{ id: 'notMoved-lag', myTurn: true }]
-    expect(resolveOpened(opened, gamesWithLag, T + 1, here, RETURN_GRACE_MS, new Set(['notMoved-lag']))).toEqual({})
-  })
-
-  it('does not protect a platform not in laggingPlatforms', () => {
-    const opened: Opened = { notMoved: { openedAt: T - 5000 } }
-    expect(resolveOpened(opened, games, T + 1000, here, RETURN_GRACE_MS, new Set(['someOtherPlatform']))).toEqual({})
+  it('brings a game back once its grace window (from openedAt) has passed and it is still not my turn', () => {
+    const opened: Opened = { notMoved: { openedAt: T - RETURN_GRACE_MS } }
+    expect(resolveOpened(opened, games, T + 1, here)).toEqual({})
   })
 })
 
 describe('judge', () => {
   const T = 1_000_000
 
-  it('resets a game still showing my turn when not protected', () => {
-    expect(judge({ openedAt: T - 5000 }, { myTurn: true }, T, RETURN_GRACE_MS)).toBeNull()
-    expect(judge({ openedAt: T - 5000 }, { myTurn: true }, T, RETURN_GRACE_MS, false)).toBeNull()
-  })
-
-  it('keeps a protected game still showing my turn within its grace window from openedAt', () => {
+  it('keeps a game still showing my turn within its grace window from openedAt', () => {
     const o = { openedAt: T - 1000 }
-    expect(judge(o, { myTurn: true }, T, RETURN_GRACE_MS, true)).toBe(o)
+    expect(judge(o, { myTurn: true }, T, RETURN_GRACE_MS)).toBe(o)
   })
 
-  it('resets a protected game still showing my turn once its grace window from openedAt has passed', () => {
+  it('resets a game still showing my turn once its grace window from openedAt has passed', () => {
     const o = { openedAt: T - RETURN_GRACE_MS }
-    expect(judge(o, { myTurn: true }, T + 1, RETURN_GRACE_MS, true)).toBeNull()
+    expect(judge(o, { myTurn: true }, T + 1, RETURN_GRACE_MS)).toBeNull()
   })
 
-  it('confirms the move the moment myTurn turns false, protected or not', () => {
+  it('confirms the move the moment myTurn turns false', () => {
     const o = { openedAt: T - 1000 }
-    expect(judge(o, { myTurn: false }, T, RETURN_GRACE_MS, true)).toEqual({ openedAt: T - 1000, movedSeenAt: T })
+    expect(judge(o, { myTurn: false }, T, RETURN_GRACE_MS)).toEqual({ openedAt: T - 1000, movedSeenAt: T })
   })
 
-  it('drops a game that has ended, even while protected', () => {
-    expect(judge({ openedAt: T - 1000 }, undefined, T, RETURN_GRACE_MS, true)).toBeNull()
+  it('drops a game that has ended, even within its grace window', () => {
+    expect(judge({ openedAt: T - 1000 }, undefined, T, RETURN_GRACE_MS)).toBeNull()
   })
 })
 

@@ -24,34 +24,19 @@ export function presentAt(t: number, presence: Presence): boolean {
   return presence.leftAt === null || t < presence.leftAt
 }
 
-// `laggingPlatforms` are platforms known not to reflect a just-submitted
-// move right away (see app/page.tsx's SETTLE_DELAY_PLATFORMS) — judge()
-// gives a game on one of these `graceMs` from when it was *opened* before
-// it will read a lingering myTurn:true as "nothing happened, bring it
-// back" (right for a game only glanced at, wrong for one just played on a
-// platform that's simply slow to report it). Computed straight from
-// openedAt — already on the persisted record — rather than from a live
-// "you just returned" event, so it holds up no matter how resolveOpened
-// gets called: a full refresh, a scoped one, an unrelated periodic tick,
-// or the first fetch after the OS silently reloaded a backgrounded tab
-// (which isn't a back/forward navigation — see lib/navigation.ts — so it
-// carries none of the live return-detection state a focus/visibilitychange
-// handler would have set up).
 export function resolveOpened(
   opened: Opened,
   games: { id: string; myTurn: boolean }[],
   fetchStartedAt: number,
   presence: Presence,
   graceMs = RETURN_GRACE_MS,
-  laggingPlatforms: ReadonlySet<string> = new Set(),
 ): Opened {
   if (!presentAt(fetchStartedAt, presence)) return opened
   const byId = new Map(games.map(g => [g.id, g]))
   const next: Opened = {}
   let changed = false
   for (const [id, o] of Object.entries(opened)) {
-    const protect = laggingPlatforms.has(id.split(':')[0])
-    const kept = judge(o, byId.get(id), fetchStartedAt, graceMs, protect)
+    const kept = judge(o, byId.get(id), fetchStartedAt, graceMs)
     if (kept) next[id] = kept
     if (kept !== o) changed = true
   }
@@ -60,17 +45,33 @@ export function resolveOpened(
 
 // One opened game's own verdict for a given fetch — resolveOpened's inner
 // loop. Exported in its own right for direct unit tests of its branches.
-export function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetchStartedAt: number, graceMs: number, protect = false): OpenedGame | null {
+//
+// A lingering myTurn:true within graceMs of when the game was *opened*
+// isn't trusted as "nothing happened, bring it back" — only once that
+// window has passed. This used to apply only to a curated list of
+// platforms known to lag right after a move (OBG, BoardTogether,
+// Boardgamers.space) — Rally the Troops turning up with the exact same
+// symptom is what gave up on that list: apparently any platform can be
+// slow to reflect a move occasionally, so every one of them gets the same
+// benefit of the doubt now rather than this growing one entry at a time.
+// The cost is a game merely glanced at (opened, not actually played)
+// staying dimmed up to graceMs instead of resetting instantly — a much
+// smaller problem than this one kept being.
+//
+// Computed straight from openedAt — already on the persisted record —
+// rather than from a live "you just returned" event, so it holds up no
+// matter how resolveOpened gets called: a full refresh, a scoped one, an
+// unrelated periodic tick, or the first fetch after the OS silently
+// reloaded a backgrounded tab (which isn't a back/forward navigation —
+// see lib/navigation.ts — so it carries none of the live return-detection
+// state a focus/visibilitychange handler would have set up).
+export function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetchStartedAt: number, graceMs: number): OpenedGame | null {
   // Opened after this fetch started: it can't show my move yet
   if (fetchStartedAt < o.openedAt) return o
   // Gone (ended): no longer opened
   if (!game) return null
   if (game.myTurn) {
-    // Still showing as my turn normally means nothing happened (reset) —
-    // unless this is a lagging platform within its grace window, in which
-    // case this isn't evidence either way: keep waiting instead of
-    // concluding the move was never made.
-    if (protect && fetchStartedAt < o.openedAt + graceMs) return o
+    if (fetchStartedAt < o.openedAt + graceMs) return o
     return null
   }
   const movedSeenAt = o.movedSeenAt ?? fetchStartedAt

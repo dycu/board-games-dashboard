@@ -11,26 +11,23 @@ import FetchProgress from '@/components/FetchProgress'
 import NewGamesPopup from '@/components/NewGamesPopup'
 import NotePromptPopup from '@/components/NotePromptPopup'
 
-// OBG, BoardTogether and Boardgamers.space all don't reflect a just-submitted
-// move in their own data right away — the lag is apparently variable, not a
-// fixed couple of seconds. Correctness-wise, resolveOpened/judge (see
-// lib/dismissal.ts) is what keeps a game on one of these platforms from
-// being wrongly un-dimmed by a lingering myTurn:true: it gives these
-// platforms RETURN_GRACE_MS from when the game was *opened*, computed
-// fresh on every call rather than from a live "you just returned" event —
-// a live event is exactly what a backgrounded mobile tab silently reloaded
-// by the OS doesn't carry (that's a plain reload, not the back/forward
-// navigation lib/navigation.ts can detect), and the first two attempts at
-// this that tracked the return live each broke in a different way for
-// that case. PLATFORM_REFRESH_RETRY_DELAYS_MS below is purely a
-// responsiveness nicety on top of that correctness guarantee: a few extra
-// scoped checks so the card settles sooner than waiting for the next
-// periodic refresh, not something correctness depends on — if every one
-// of these still finds myTurn true, the card simply stays dimmed
-// (protected by its own openedAt) until a later refresh, of any kind,
-// finds otherwise.
-const SETTLE_DELAY_PLATFORMS: Platform[] = ['obg', 'boardtogether', 'boardgamers']
-const LAGGING_PLATFORMS = new Set<string>(SETTLE_DELAY_PLATFORMS)
+// A platform not reflecting a just-submitted move right away used to be
+// handled as a curated list of known offenders (OBG, BoardTogether,
+// Boardgamers.space) — Rally the Troops turning up with the exact same
+// symptom is what gave up on that list. judge() (lib/dismissal.ts) now
+// gives every platform the same RETURN_GRACE_MS benefit of the doubt
+// before reading a lingering myTurn:true as "nothing happened", computed
+// straight from each game's own openedAt rather than a live "you just
+// returned" event — a live event is exactly what a backgrounded mobile
+// tab silently reloaded by the OS doesn't carry (that's a plain reload,
+// not the back/forward navigation lib/navigation.ts can detect), which is
+// why two earlier, narrower attempts at this each broke in a different
+// way. PLATFORM_REFRESH_RETRY_DELAYS_MS below is purely a responsiveness
+// nicety on top of that correctness guarantee: a few extra scoped checks
+// so the card settles sooner than waiting for the next periodic refresh,
+// not something correctness depends on — if every one of these still
+// finds myTurn true, the card simply stays dimmed (protected by its own
+// openedAt) until a later refresh, of any kind, finds otherwise.
 const PLATFORM_REFRESH_RETRY_DELAYS_MS = [3000, 7000, 15000, 30000]
 
 export default function DashboardPage() {
@@ -78,12 +75,12 @@ export default function DashboardPage() {
   const pokeTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
   // Fires a few extra scoped checks of `platforms` at fixed times after
-  // return, purely so a lagging platform's card settles sooner than
-  // waiting for the next periodic refresh — correctness doesn't depend on
-  // this (see the comment above SETTLE_DELAY_PLATFORMS), so none of them
-  // need to inspect what an earlier one found; all are scheduled upfront
-  // rather than chained, so there's nothing to re-check before firing the
-  // next one.
+  // return, purely so the card settles sooner than waiting for the next
+  // periodic refresh if this particular move happens to land slowly —
+  // correctness doesn't depend on this (see the comment above
+  // PLATFORM_REFRESH_RETRY_DELAYS_MS), so none of them need to inspect
+  // what an earlier one found; all are scheduled upfront rather than
+  // chained, so there's nothing to re-check before firing the next one.
   const schedulePoke = useCallback((platforms: Platform[]) => {
     let cumulative = 0
     pokeTimersRef.current = PLATFORM_REFRESH_RETRY_DELAYS_MS.map(delay => {
@@ -129,16 +126,11 @@ export default function DashboardPage() {
         pokeTimersRef.current.forEach(clearTimeout)
         pokeTimersRef.current = []
 
-        // A few extra scoped checks for whichever currently-open games are
-        // on a known-lagging platform, purely so the card settles sooner
-        // than waiting for the next periodic refresh — correctness doesn't
-        // depend on this (see the comment above SETTLE_DELAY_PLATFORMS).
-        const openedLaggedPlatforms = [...new Set(
-          Object.keys(openedRef.current)
-            .map(id => id.split(':')[0] as Platform)
-            .filter(p => SETTLE_DELAY_PLATFORMS.includes(p)),
-        )]
-        if (openedLaggedPlatforms.length > 0) schedulePoke(openedLaggedPlatforms)
+        // A few extra scoped checks for whichever platforms currently have
+        // an open game, purely so the card settles sooner than waiting for
+        // the next periodic refresh.
+        const openedPlatformsNow = [...new Set(Object.keys(openedRef.current).map(id => id.split(':')[0] as Platform))]
+        if (openedPlatformsNow.length > 0) schedulePoke(openedPlatformsNow)
 
         if (decision.kind === 'full') {
           triggerRefresh(true)
@@ -163,14 +155,13 @@ export default function DashboardPage() {
   }, [])
 
   // Fresh server data (not cache loads) decides which opened games stay
-  // dimmed — see resolveOpened/judge, including the lagging-platform grace
-  // period computed there straight from each game's own openedAt. Runs the
-  // same way for every fetch, full or scoped, with nothing extra to
-  // coordinate.
+  // dimmed — see resolveOpened/judge, including the grace period computed
+  // there straight from each game's own openedAt. Runs the same way for
+  // every fetch, full or scoped, with nothing extra to coordinate.
   useEffect(() => {
     if (freshDataVersion === 0 || !displayedData) return
     setOpened(prev => {
-      const next = resolveOpened(prev, displayedData.games, freshDataStartedAt, presenceRef.current, RETURN_GRACE_MS, LAGGING_PLATFORMS)
+      const next = resolveOpened(prev, displayedData.games, freshDataStartedAt, presenceRef.current, RETURN_GRACE_MS)
       if (next !== prev) writeStoredOpened(next)
       return next
     })
