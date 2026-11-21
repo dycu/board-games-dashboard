@@ -136,7 +136,19 @@ export default function DashboardPage() {
           pendingPlatformRefreshRef.current = null
         }
         if (decision.kind === 'full') {
-          verifyingRef.current = null
+          // A full refresh's first pass can land before a lagging platform's
+          // data catches up just as easily as a scoped one can — it was
+          // only the 'platforms' branch below that set up verifyingRef, so
+          // whenever the auto-refresh interval had already lapsed by the
+          // time you got back (any move that takes longer than that
+          // interval), this protection never applied at all: the full
+          // refresh's result landed unprotected, judge() read a lingering
+          // myTurn:true as "nothing happened", and un-dimmed the card.
+          const openedLagged = Object.keys(openedRef.current)
+            .filter(id => SETTLE_DELAY_PLATFORMS.includes(id.split(':')[0] as Platform))
+          verifyingRef.current = openedLagged.length > 0
+            ? { platforms: [...new Set(openedLagged.map(id => id.split(':')[0] as Platform))], gameIds: openedLagged, attempt: 0, startedAt: now }
+            : null
           triggerRefresh(true)
         } else if (decision.kind === 'platforms') {
           const platforms = decision.platforms as Platform[]
