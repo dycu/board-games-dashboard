@@ -465,8 +465,19 @@ export async function fetchBGA(username: string, password: string, auth?: BgaAut
 
   const pendingGames: Game[] = setupTables.map((t: any): Game => {
     const players: Record<string, any> = t.players ?? {}
-    const otherPlayers = Object.values(players).filter((p: any) => String(p.id) !== myId && p.fullname)
-    const joined = Object.keys(players).length
+    // Someone the table creator invites directly shows up in `players`
+    // right away, tagged table_status "expected" until they actually
+    // accept or decline — confirmed live against a real invite (4 people
+    // listed, only 1 — the creator — actually "playasync"). Counting them
+    // as already joined is misleading: they might decline, or just never
+    // respond. current_present_player_nbr is BGA's own count of who's
+    // actually confirmed, so it's used directly rather than re-deriving it
+    // from table_status (which may have other non-confirmed values this
+    // hasn't seen yet) — Object.keys(players).length is only a fallback
+    // for the unexpected case it's missing.
+    const confirmedPlayers = Object.values(players).filter((p: any) => p.table_status === 'playasync')
+    const otherPlayers = confirmedPlayers.filter((p: any) => String(p.id) !== myId && p.fullname)
+    const joined = typeof t.current_present_player_nbr === 'number' ? t.current_present_player_nbr : confirmedPlayers.length
     // max_player is this lobby's own configured seat count (the table
     // creator's choice, confirmed live as "3" for a 1-4 player game) —
     // distinct from game_max_players/game_min_players, which describe the

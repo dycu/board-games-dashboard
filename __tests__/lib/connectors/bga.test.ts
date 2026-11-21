@@ -122,9 +122,10 @@ describe('fetchBGA', () => {
             status: 'asyncinit',
             max_player: '3', // this lobby's own configured seat count, not the game's overall range
             game_max_players: '4',
+            current_present_player_nbr: 2,
             players: {
-              '42': { id: '42', fullname: 'testuser' },
-              '89': { id: '89', fullname: 'alice' },
+              '42': { id: '42', fullname: 'testuser', table_status: 'playasync' },
+              '89': { id: '89', fullname: 'alice', table_status: 'playasync' },
             },
           },
         },
@@ -156,8 +157,8 @@ describe('fetchBGA', () => {
       data: {
         tables: {
           '999': {
-            id: '999', game_name: 'arknova', status: 'asyncinit',
-            players: { '42': { id: '42', fullname: 'testuser' } },
+            id: '999', game_name: 'arknova', status: 'asyncinit', current_present_player_nbr: 1,
+            players: { '42': { id: '42', fullname: 'testuser', table_status: 'playasync' } },
           },
         },
       },
@@ -174,6 +175,43 @@ describe('fetchBGA', () => {
     expect(games[0].currentPlayer).toBe('1 joined — waiting for players')
   })
 
+  // Confirmed live against a real invite: a player the table creator
+  // invites directly shows up in `players` right away, tagged table_status
+  // "expected" until they actually accept or decline — 4 listed, only the
+  // creator actually "playasync" (current_present_player_nbr: 1). Counting
+  // the merely-invited as already joined is misleading, since they can
+  // still decline or just never respond.
+  it('does not count an invited-but-not-yet-confirmed player ("expected") as joined', async () => {
+    const tables = {
+      status: 1,
+      data: {
+        tables: {
+          '999': {
+            id: '999', game_name: 'iberiangauge', status: 'asyncinit', max_player: '4', current_present_player_nbr: 1,
+            players: {
+              '42': { id: '42', fullname: 'testuser', table_status: 'playasync' },
+              '89': { id: '89', fullname: 'alice', table_status: 'expected' },
+              '90': { id: '90', fullname: 'bob', table_status: 'expected' },
+            },
+          },
+        },
+      },
+    }
+    mockFetch
+      .mockResolvedValueOnce(makeInitResponse())
+      .mockResolvedValueOnce(makeRedirectFollowResponse())
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginResponse('42'))
+      .mockResolvedValueOnce(makeTablesResponse(tables))
+      .mockResolvedValueOnce(makeGamepanelResponse('Iberian Gauge'))
+
+    const games = await fetchBGA('user@example.com', 'password')
+    expect(games[0]).toMatchObject({
+      currentPlayer: '1/4 joined — waiting for players',
+      players: [], // alice/bob invited but not confirmed — not listed as "with" either
+    })
+  })
+
   it('keeps an asyncplay table active and an asyncinit table pending from the same response', async () => {
     const tables = {
       status: 1,
@@ -184,8 +222,8 @@ describe('fetchBGA', () => {
             players: { '42': { id: '42', fullname: 'testuser', myturn: '1' }, '89': { id: '89', fullname: 'alice', myturn: '0' } },
           },
           '222': {
-            id: '222', game_name: 'barrage', status: 'asyncinit',
-            players: { '42': { id: '42', fullname: 'testuser' }, '89': { id: '89', fullname: 'alice' } },
+            id: '222', game_name: 'barrage', status: 'asyncinit', current_present_player_nbr: 2,
+            players: { '42': { id: '42', fullname: 'testuser', table_status: 'playasync' }, '89': { id: '89', fullname: 'alice', table_status: 'playasync' } },
           },
         },
       },
