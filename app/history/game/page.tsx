@@ -14,6 +14,7 @@ import TopNav from '@/components/TopNav'
 import GameLink, { playedGameUrl, SMALL_BUTTON } from '@/components/GameLink'
 import BacklogListChips from '@/components/BacklogListChips'
 import PlayerHoverCard from '@/components/PlayerHoverCard'
+import InviteAgainButton from '@/components/InviteAgainButton'
 
 const RESULT_STYLE = {
   won: 'bg-green-50 text-green-700',
@@ -111,6 +112,26 @@ function GameHistory() {
   const running = useMemo(() => (readCache()?.data.games ?? []).filter(g =>
     g.platform === platform && (g.gameType || g.gameName).toLowerCase() === name.toLowerCase()), [platform, name])
 
+  // GameLink above only opens an existing game (BGA's panel, or elsewhere the
+  // most recent table) — some platforms (Rally among them) have no such page
+  // to link to until a game exists, leaving no way to start a new one from
+  // here. The catalog lookup (the same one Find a game and the backlog use)
+  // gives this page's own "New game" link regardless of platform.
+  const [newGameUrl, setNewGameUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (!platform || !name) return
+    let cancelled = false
+    fetch(`/api/game-search?q=${encodeURIComponent(name)}`)
+      .then(r => r.json())
+      .then((json: { results: { platform: string; matches: { name: string; url: string }[] }[] }) => {
+        if (cancelled) return
+        const url = json.results.find(r => r.platform === platform)?.matches[0]?.url
+        setNewGameUrl(url ?? null)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [platform, name])
+
   const latest = games[0]
   const loading = (platform === 'bga' && key && !full && !fullError) || (!finished.data && finished.isLoading)
   const source = full
@@ -140,6 +161,12 @@ function GameHistory() {
           </span>
           <h1 className="text-xl font-semibold text-[var(--text-primary)] mr-2">{name}</h1>
           {latest && <GameLink url={playedGameUrl(latest)} platform={platform} />}
+          {newGameUrl && (
+            <a href={newGameUrl} target={platform === 'bga' ? '_self' : '_blank'} rel="noopener noreferrer" title="Start a new game" className={SMALL_BUTTON}>
+              New game ↗
+            </a>
+          )}
+          {newGameUrl && <InviteAgainButton platform={platform} gameName={name} url={newGameUrl} />}
           {backlog.items && (
             <BacklogListChips
               lists={backlog.listsFor(platform, name)}
