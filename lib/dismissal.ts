@@ -12,16 +12,6 @@ export interface OpenedGame {
   openedAt: number       // when it was opened from the dashboard (0 = unknown, saved by an older version)
   movedSeenAt?: number   // start of the first fetch that showed it's no longer my turn
   notePrompted?: boolean // the note-prompt popup has already been shown (saved, deleted or skipped) this cycle
-  // Set on return from a platform known to not reflect a just-submitted
-  // move right away (see app/page.tsx's SETTLE_DELAY_PLATFORMS) — until
-  // this time, judge() won't read a lingering myTurn:true as "nothing
-  // happened, bring it back": that reading is correct for a game only
-  // glanced at, wrong for one just played on a platform that's simply
-  // slow to reflect it. Lives on the persisted record itself, so every
-  // refresh respects it (a full refresh, a scoped one, the return flow's
-  // own extra checks, or an unrelated periodic tick) without separate
-  // bookkeeping to keep in sync between them, and it survives a reload.
-  protectUntil?: number
 }
 
 export type Opened = Record<string, OpenedGame>
@@ -34,62 +24,58 @@ export function presentAt(t: number, presence: Presence): boolean {
   return presence.leftAt === null || t < presence.leftAt
 }
 
+// `laggingPlatforms` are platforms known not to reflect a just-submitted
+// move right away (see app/page.tsx's SETTLE_DELAY_PLATFORMS) — judge()
+// gives a game on one of these `graceMs` from when it was *opened* before
+// it will read a lingering myTurn:true as "nothing happened, bring it
+// back" (right for a game only glanced at, wrong for one just played on a
+// platform that's simply slow to report it). Computed straight from
+// openedAt — already on the persisted record — rather than from a live
+// "you just returned" event, so it holds up no matter how resolveOpened
+// gets called: a full refresh, a scoped one, an unrelated periodic tick,
+// or the first fetch after the OS silently reloaded a backgrounded tab
+// (which isn't a back/forward navigation — see lib/navigation.ts — so it
+// carries none of the live return-detection state a focus/visibilitychange
+// handler would have set up).
 export function resolveOpened(
   opened: Opened,
   games: { id: string; myTurn: boolean }[],
   fetchStartedAt: number,
   presence: Presence,
   graceMs = RETURN_GRACE_MS,
+  laggingPlatforms: ReadonlySet<string> = new Set(),
 ): Opened {
   if (!presentAt(fetchStartedAt, presence)) return opened
   const byId = new Map(games.map(g => [g.id, g]))
   const next: Opened = {}
   let changed = false
   for (const [id, o] of Object.entries(opened)) {
-    const kept = judge(o, byId.get(id), fetchStartedAt, graceMs)
+    const protect = laggingPlatforms.has(id.split(':')[0])
+    const kept = judge(o, byId.get(id), fetchStartedAt, graceMs, protect)
     if (kept) next[id] = kept
     if (kept !== o) changed = true
   }
   return changed ? next : opened
 }
 
-// Called on return from a lagging platform's game (app/page.tsx) — bumps
-// protectUntil for the given ids so judge() won't prematurely reset them
-// while the platform catches up. Takes the max with any existing
-// protectUntil instead of overwriting it, so a second quick return can't
-// shorten an already-running protection window.
-export function protectLaggingGames(opened: Opened, ids: string[], until: number): Opened {
-  if (ids.length === 0) return opened
-  let next: Opened | null = null
-  for (const id of ids) {
-    const o = opened[id]
-    if (!o) continue
-    const nextUntil = Math.max(o.protectUntil ?? 0, until)
-    if (nextUntil !== o.protectUntil) {
-      next = { ...(next ?? opened), [id]: { ...o, protectUntil: nextUntil } }
-    }
-  }
-  return next ?? opened
-}
-
 // One opened game's own verdict for a given fetch — resolveOpened's inner
 // loop. Exported in its own right for direct unit tests of its branches.
-export function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetchStartedAt: number, graceMs: number): OpenedGame | null {
+export function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetchStartedAt: number, graceMs: number, protect = false): OpenedGame | null {
   // Opened after this fetch started: it can't show my move yet
   if (fetchStartedAt < o.openedAt) return o
   // Gone (ended): no longer opened
   if (!game) return null
   if (game.myTurn) {
     // Still showing as my turn normally means nothing happened (reset) —
-    // unless protectUntil says a lagging platform just hasn't reflected
-    // the move yet, in which case this isn't evidence either way: keep
-    // waiting instead of concluding the move was never made.
-    if (o.protectUntil !== undefined && fetchStartedAt < o.protectUntil) return o
+    // unless this is a lagging platform within its grace window, in which
+    // case this isn't evidence either way: keep waiting instead of
+    // concluding the move was never made.
+    if (protect && fetchStartedAt < o.openedAt + graceMs) return o
     return null
   }
   const movedSeenAt = o.movedSeenAt ?? fetchStartedAt
   if (fetchStartedAt >= movedSeenAt + graceMs) return null
-  return o.movedSeenAt === undefined ? { ...o, movedSeenAt, protectUntil: undefined } : o
+  return o.movedSeenAt === undefined ? { ...o, movedSeenAt } : o
 }
 
 // Which (if any) opened game should prompt for a note right now: the first
