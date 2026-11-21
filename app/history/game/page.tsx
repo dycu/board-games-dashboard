@@ -133,6 +133,15 @@ function GameHistory() {
   }, [platform, name])
 
   const latest = games[0]
+  const latestUrl = latest ? playedGameUrl(latest) : null
+  // On BGA, playedGameUrl(latest) already is the game's gamepanel — the same
+  // place newGameUrl resolves to — so showing both as separate buttons was
+  // just the one "create a game" link twice. Compared by path+query, not the
+  // full URL, since the catalog's en.boardgamearena.com and the table's own
+  // boardgamearena.com host the same gamepanel.
+  const normalizedPath = (url: string) => { try { const u = new URL(url); return u.pathname + u.search } catch { return url } }
+  const newGameIsDuplicate = !!latestUrl && !!newGameUrl && normalizedPath(newGameUrl) === normalizedPath(latestUrl)
+  const inviteUrl = newGameUrl ?? latestUrl
   const loading = (platform === 'bga' && key && !full && !fullError) || (!finished.data && finished.isLoading)
   const source = full
     ? `Every ${PLATFORM_LABELS[platform]} game of it since your account began`
@@ -160,13 +169,13 @@ function GameHistory() {
             {PLATFORM_SHORT_LABELS[platform] ?? platform}
           </span>
           <h1 className="text-xl font-semibold text-[var(--text-primary)] mr-2">{name}</h1>
-          {latest && <GameLink url={playedGameUrl(latest)} platform={platform} />}
-          {newGameUrl && (
+          {latest && latestUrl && <GameLink url={latestUrl} platform={platform} />}
+          {newGameUrl && !newGameIsDuplicate && (
             <a href={newGameUrl} target={platform === 'bga' ? '_self' : '_blank'} rel="noopener noreferrer" title="Start a new game" className={SMALL_BUTTON}>
               New game ↗
             </a>
           )}
-          {newGameUrl && <InviteAgainButton platform={platform} gameName={name} url={newGameUrl} />}
+          {inviteUrl && <InviteAgainButton platform={platform} gameName={name} url={inviteUrl} />}
           {backlog.items && (
             <BacklogListChips
               lists={backlog.listsFor(platform, name)}

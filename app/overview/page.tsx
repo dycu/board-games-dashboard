@@ -13,6 +13,7 @@ import { useBgaPlayTotals, totalsOf } from '@/hooks/useBgaPlayTotals'
 import { aggregatePlayed, playedKey, playedNote } from '@/lib/backlog/played'
 import { readCache } from '@/hooks/useGamesData'
 import GameLink, { playedGameUrl } from '@/components/GameLink'
+import InviteAgainButton from '@/components/InviteAgainButton'
 import PeriodSummary from '@/components/PeriodSummary'
 import { useAchievements } from '@/hooks/useAchievements'
 import { useAchievementUnlocks } from '@/hooks/useAchievementUnlocks'
@@ -205,6 +206,7 @@ export default function OverviewPage() {
                       action={<>
                         {/* elsewhere the game's page is this table, already linked by View */}
                         {gameUrl !== g.gameUrl && <GameLink url={gameUrl} platform={g.platform} />}
+                        <InviteAgainButton platform={g.platform} gameName={g.gameType || g.gameName} url={gameUrl} />
                         {backlog.items && (
                           <BacklogListChips
                             lists={backlog.listsFor(g.platform, g.gameType || g.gameName)}

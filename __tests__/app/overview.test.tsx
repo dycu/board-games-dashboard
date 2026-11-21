@@ -27,6 +27,7 @@ jest.mock('@/hooks/useFinishedGamesData', () => ({
     platformStatuses: {},
     refresh: jest.fn(),
   }),
+  readFinishedGamesCache: () => null,
 }))
 jest.mock('@/hooks/usePrefs', () => ({
   usePrefs: () => {
