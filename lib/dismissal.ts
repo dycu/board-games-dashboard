@@ -12,6 +12,16 @@ export interface OpenedGame {
   openedAt: number       // when it was opened from the dashboard (0 = unknown, saved by an older version)
   movedSeenAt?: number   // start of the first fetch that showed it's no longer my turn
   notePrompted?: boolean // the note-prompt popup has already been shown (saved, deleted or skipped) this cycle
+  // Set on return from a platform known to not reflect a just-submitted
+  // move right away (see app/page.tsx's SETTLE_DELAY_PLATFORMS) — until
+  // this time, judge() won't read a lingering myTurn:true as "nothing
+  // happened, bring it back": that reading is correct for a game only
+  // glanced at, wrong for one just played on a platform that's simply
+  // slow to reflect it. Lives on the persisted record itself, so every
+  // refresh respects it (a full refresh, a scoped one, the return flow's
+  // own extra checks, or an unrelated periodic tick) without separate
+  // bookkeeping to keep in sync between them, and it survives a reload.
+  protectUntil?: number
 }
 
 export type Opened = Record<string, OpenedGame>
@@ -24,30 +34,18 @@ export function presentAt(t: number, presence: Presence): boolean {
   return presence.leftAt === null || t < presence.leftAt
 }
 
-// `exclude` is for a game a dedicated return-refresh verification (see
-// app/page.tsx) is actively retrying with backoff — a platform known to lag
-// (OBG) can still show myTurn true on an early retry, and judge() reads that
-// as "nothing happened, bring it back" exactly as it should for a game the
-// user merely glanced at and didn't play. Letting this blanket judging touch
-// it anyway would un-dim it mid-retry, and then, once the lag finally
-// clears, there'd be no opened entry left to carry movedSeenAt — skipping
-// the few-minutes-dimmed grace period entirely and making the card vanish
-// from "Your turn" instead of settling into it normally. The verify effect
-// is the sole authority over these ids until it resolves them itself.
 export function resolveOpened(
   opened: Opened,
   games: { id: string; myTurn: boolean }[],
   fetchStartedAt: number,
   presence: Presence,
   graceMs = RETURN_GRACE_MS,
-  exclude?: ReadonlySet<string>,
 ): Opened {
   if (!presentAt(fetchStartedAt, presence)) return opened
   const byId = new Map(games.map(g => [g.id, g]))
   const next: Opened = {}
   let changed = false
   for (const [id, o] of Object.entries(opened)) {
-    if (exclude?.has(id)) { next[id] = o; continue }
     const kept = judge(o, byId.get(id), fetchStartedAt, graceMs)
     if (kept) next[id] = kept
     if (kept !== o) changed = true
@@ -55,20 +53,43 @@ export function resolveOpened(
   return changed ? next : opened
 }
 
-// Exported for the return-refresh verification retry (app/page.tsx): that
-// fetch is deliberately triggered to check a specific just-played game, so
-// it should judge it directly rather than through resolveOpened's presentAt
-// gate — which exists to reject a fetch that might predate the user's move
-// (one that started before they got back), not one we already know is a
-// legitimate post-return check, however many retries it took to land.
+// Called on return from a lagging platform's game (app/page.tsx) — bumps
+// protectUntil for the given ids so judge() won't prematurely reset them
+// while the platform catches up. Takes the max with any existing
+// protectUntil instead of overwriting it, so a second quick return can't
+// shorten an already-running protection window.
+export function protectLaggingGames(opened: Opened, ids: string[], until: number): Opened {
+  if (ids.length === 0) return opened
+  let next: Opened | null = null
+  for (const id of ids) {
+    const o = opened[id]
+    if (!o) continue
+    const nextUntil = Math.max(o.protectUntil ?? 0, until)
+    if (nextUntil !== o.protectUntil) {
+      next = { ...(next ?? opened), [id]: { ...o, protectUntil: nextUntil } }
+    }
+  }
+  return next ?? opened
+}
+
+// One opened game's own verdict for a given fetch — resolveOpened's inner
+// loop. Exported in its own right for direct unit tests of its branches.
 export function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetchStartedAt: number, graceMs: number): OpenedGame | null {
   // Opened after this fetch started: it can't show my move yet
   if (fetchStartedAt < o.openedAt) return o
-  // Gone (ended) or still waiting for me: no longer opened
-  if (!game || game.myTurn) return null
+  // Gone (ended): no longer opened
+  if (!game) return null
+  if (game.myTurn) {
+    // Still showing as my turn normally means nothing happened (reset) —
+    // unless protectUntil says a lagging platform just hasn't reflected
+    // the move yet, in which case this isn't evidence either way: keep
+    // waiting instead of concluding the move was never made.
+    if (o.protectUntil !== undefined && fetchStartedAt < o.protectUntil) return o
+    return null
+  }
   const movedSeenAt = o.movedSeenAt ?? fetchStartedAt
   if (fetchStartedAt >= movedSeenAt + graceMs) return null
-  return o.movedSeenAt === undefined ? { ...o, movedSeenAt } : o
+  return o.movedSeenAt === undefined ? { ...o, movedSeenAt, protectUntil: undefined } : o
 }
 
 // Which (if any) opened game should prompt for a note right now: the first
