@@ -111,7 +111,7 @@ describe('fetchBGA', () => {
   // on players vs. "asyncplay" for one under way — so fetchBGA makes a
   // single status=play call and partitions by that field, not a second,
   // always-rejected request.
-  it('tags a table whose own status field ends in "init" as pending (not yet started)', async () => {
+  it('tags a table whose own status field ends in "init" as pending (not yet started), with its own max_player as the seat count', async () => {
     const tables = {
       status: 1,
       data: {
@@ -120,6 +120,8 @@ describe('fetchBGA', () => {
             id: '999',
             game_name: 'arknova',
             status: 'asyncinit',
+            max_player: '3', // this lobby's own configured seat count, not the game's overall range
+            game_max_players: '4',
             players: {
               '42': { id: '42', fullname: 'testuser' },
               '89': { id: '89', fullname: 'alice' },
@@ -143,8 +145,33 @@ describe('fetchBGA', () => {
       pending: true,
       myTurn: false,
       gameName: 'Ark Nova',
+      currentPlayer: '2/3 joined — waiting for players',
       players: ['alice'],
     })
+  })
+
+  it('falls back to an unqualified joined count when a pending table has no max_player', async () => {
+    const tables = {
+      status: 1,
+      data: {
+        tables: {
+          '999': {
+            id: '999', game_name: 'arknova', status: 'asyncinit',
+            players: { '42': { id: '42', fullname: 'testuser' } },
+          },
+        },
+      },
+    }
+    mockFetch
+      .mockResolvedValueOnce(makeInitResponse())
+      .mockResolvedValueOnce(makeRedirectFollowResponse())
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginResponse('42'))
+      .mockResolvedValueOnce(makeTablesResponse(tables))
+      .mockResolvedValueOnce(makeGamepanelResponse('Ark Nova'))
+
+    const games = await fetchBGA('user@example.com', 'password')
+    expect(games[0].currentPlayer).toBe('1 joined — waiting for players')
   })
 
   it('keeps an asyncplay table active and an asyncinit table pending from the same response', async () => {

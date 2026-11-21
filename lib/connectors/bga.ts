@@ -467,13 +467,18 @@ export async function fetchBGA(username: string, password: string, auth?: BgaAut
     const players: Record<string, any> = t.players ?? {}
     const otherPlayers = Object.values(players).filter((p: any) => String(p.id) !== myId && p.fullname)
     const joined = Object.keys(players).length
+    // max_player is this lobby's own configured seat count (the table
+    // creator's choice, confirmed live as "3" for a 1-4 player game) —
+    // distinct from game_max_players/game_min_players, which describe the
+    // game's overall supported range rather than this specific table.
+    const needed = t.max_player != null ? parseInt(t.max_player) : undefined
     return {
       id: `bga:${t.id}`,
       platform: 'bga',
       gameName: nameMap.get(t.game_name) ?? t.game_name ?? 'Unknown',
       myTurn: false,
       pending: true,
-      currentPlayer: pendingLobbyText(joined),
+      currentPlayer: pendingLobbyText(joined, needed),
       lastMoveAt: new Date(),
       lastMoveAgo: 'waiting to start',
       urgent: false,
