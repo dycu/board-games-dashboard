@@ -101,7 +101,7 @@ function FindGamePanel() {
                 ) : (
                   <div className="flex flex-col gap-2">
                     {r.matches.map(m => (
-                      <div key={m.name} className="flex items-center justify-between gap-2">
+                      <div key={m.name} className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-sm text-[var(--text-primary)]">{m.name}</span>
                         <div className="flex items-center gap-2 shrink-0">
                           <InviteAgainButton platform={r.platform as Platform} gameName={m.name} url={m.url} />

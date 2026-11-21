@@ -111,7 +111,7 @@ function Row({ item, position, onTop, onToggleList, onSetParallelTarget, onRemov
         <span className="text-sm font-medium text-[var(--text-primary)] truncate">{item.gameName}</span>
         <HistoryLink game={item} />
       </div>
-      <div className="shrink-0 flex items-center gap-2 ml-auto">
+      <div className="shrink-0 flex flex-wrap items-center gap-2 ml-auto">
         <InviteAgainButton platform={item.platform} gameName={item.gameName} url={item.playUrl} />
         <a
           href={item.playUrl}
@@ -287,7 +287,7 @@ function SearchPanel({ backlog, sites }: { backlog: Backlog; sites: Set<SearchSi
               return (
                 <li key={`${platform}:${m.name}`} className="flex flex-wrap items-center gap-2 py-2">
                   <div className="flex items-center gap-2 min-w-[140px] flex-1">{prefix}</div>
-                  <div className="shrink-0 flex items-center gap-2 ml-auto">
+                  <div className="shrink-0 flex flex-wrap items-center gap-2 ml-auto">
                     <HistoryLink game={{ platform, gameName: m.name }} />
                     <InviteAgainButton platform={platform} gameName={m.name} url={m.url} />
                     <GameLink url={m.url} platform={platform} />

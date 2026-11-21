@@ -607,7 +607,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
 
 function FavoriteSuggestion({ item, onDismiss }: { item: BacklogItem; onDismiss: () => void }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-amber-300 bg-amber-50">
+    <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-amber-300 bg-amber-50">
       <span className="shrink-0 text-amber-500" aria-hidden="true">★</span>
       <span className="hidden sm:inline text-xs text-amber-700">No game running in your favorite:</span>
       <span title={PLATFORM_LABELS[item.platform]} className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${BADGE_COLORS[item.platform] ?? 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'}`}>
@@ -639,7 +639,7 @@ function FavoriteSuggestion({ item, onDismiss }: { item: BacklogItem; onDismiss:
 // prominent, not just another variant of the same nudge.
 function GmSuggestion({ item, running }: { item: BacklogItem; running: number }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--accent)] bg-[var(--accent-tint)]">
+    <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-[var(--accent)] bg-[var(--accent-tint)]">
       <span className="shrink-0 text-[var(--accent)]" aria-hidden="true">⇶</span>
       <span className="hidden sm:inline text-xs font-medium text-[var(--accent-hover)]">GM · running {running} of {item.parallelTarget}:</span>
       <span className="sm:hidden text-xs font-medium text-[var(--accent-hover)] tabular-nums">GM {running}/{item.parallelTarget}</span>
@@ -661,7 +661,7 @@ function GmSuggestion({ item, running }: { item: BacklogItem; running: number })
 
 function BacklogSuggestion({ item, activeCount, className, onRemove }: { item: BacklogItem; activeCount: number; className: string; onRemove: () => void }) {
   return (
-    <div className={`${className} flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-[var(--accent-border-hover)] bg-[var(--accent-tint-alt)]`}>
+    <div className={`${className} flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-[var(--accent-border-hover)] bg-[var(--accent-tint-alt)]`}>
       <span className="hidden sm:inline text-xs text-[var(--text-secondary)]">
         {activeCount} active {activeCount === 1 ? 'game' : 'games'}. Next from your backlog:
       </span>
