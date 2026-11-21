@@ -30,6 +30,18 @@ import NotePromptPopup from '@/components/NotePromptPopup'
 // openedAt) until a later refresh, of any kind, finds otherwise.
 const PLATFORM_REFRESH_RETRY_DELAYS_MS = [3000, 7000, 15000, 30000]
 
+// Once those run out (under a minute after return), nothing else re-checked
+// an unconfirmed platform until either the next periodic auto-refresh (off
+// by default — see useAutoRefresh) or some unrelated game's own return event
+// happened to touch the same platform, which is exactly how a confirmation
+// slower than a minute ended up surfacing its note-prompt "only after a
+// round in another game" instead of on its own. This keeps rechecking any
+// platform with a still-unconfirmed opened game (no movedSeenAt yet, whether
+// or not its display grace has run out — see dimExpired) every
+// UNCONFIRMED_POLL_MS on its own, independent of auto-refresh and of any
+// other game's return, until it's confirmed (or ends).
+const UNCONFIRMED_POLL_MS = 60 * 1000
+
 export default function DashboardPage() {
   const { prefs, updatePrefs } = usePrefs()
   const { notes, saveNote } = useNotes()
@@ -161,6 +173,23 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after hydration
     setOpened(readStoredOpened())
   }, [])
+
+  // Keeps rechecking any platform with a still-unconfirmed opened game (see
+  // UNCONFIRMED_POLL_MS above) for as long as one exists, restarting
+  // whenever `opened` actually changes (a new game opened, one confirmed,
+  // one ended) so it always targets the current set rather than one
+  // snapshotted when the effect first ran.
+  useEffect(() => {
+    const unconfirmedPlatforms = [...new Set(
+      Object.entries(opened).filter(([, o]) => o.movedSeenAt === undefined).map(([id]) => id.split(':')[0] as Platform)
+    )]
+    if (unconfirmedPlatforms.length === 0) return
+    const id = setInterval(() => {
+      if (document.hidden) return
+      triggerRefresh(true, unconfirmedPlatforms)
+    }, UNCONFIRMED_POLL_MS)
+    return () => clearInterval(id)
+  }, [opened, triggerRefresh])
 
   // Fresh server data (not cache loads) decides which opened games stay
   // dimmed — see resolveOpened/judge, including the grace period computed
