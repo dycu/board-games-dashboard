@@ -240,6 +240,19 @@ describe('attachProgress', () => {
     expect(game.progress).toBeUndefined()
     expect(mockHgetall).not.toHaveBeenCalled()
   })
+
+  // A lobby still waiting on players has no turns to estimate progress
+  // from — estimateTimeProgress's elapsed-time fallback would otherwise
+  // still run against whatever start time Pace happened to record, giving
+  // a meaningless (sometimes 100%) estimate for a game that hasn't begun.
+  it('leaves a pending BGA lobby untouched even when an estimate would otherwise exist', async () => {
+    mockHgetall.mockResolvedValue({
+      '1': table('1', 'thecrew', null, 12),
+      f1: table('f1', 'thecrew', 1000, 24),
+    })
+    const [game] = await attachProgress([{ ...bgaGame('bga:1'), pending: true }])
+    expect(game.progress).toBeUndefined()
+  })
 })
 
 describe('attachTurns', () => {

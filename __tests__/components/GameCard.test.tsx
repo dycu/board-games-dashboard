@@ -283,6 +283,16 @@ describe('GameRow', () => {
     const nameZone = screen.getByText(waiting.gameName).parentElement?.parentElement
     expect(nameZone?.className).toMatch(/min-w-\[\d+px\]/)
   })
+
+  // Neither means anything before a lobby has actually started — no turns
+  // taken yet to estimate progress from, and no round played yet to leave
+  // a note about.
+  it('hides the progress bar and the note editor for a pending (not-yet-started) lobby', () => {
+    const pending: Game = { ...waiting, pending: true, progress: { percent: 100, turnsSoFar: 1, estimatedTotalTurns: 1, sampleCount: 1, samples: [1], sameSizeOnly: false, sameSizeSampleCount: 0, totalSampleCount: 1 } }
+    render(<GameRow {...props({ game: pending, onSaveNote: jest.fn() })} />)
+    expect(screen.queryByText('100%')).toBeNull()
+    expect(screen.queryByRole('button', { name: /add a note/i })).toBeNull()
+  })
 })
 
 describe('note deletion', () => {

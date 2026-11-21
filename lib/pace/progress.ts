@@ -137,12 +137,17 @@ export function listActiveGameEtas(tables: Record<string, PaceTable>): ActiveGam
     .sort((a, b) => (a.etaSeconds ?? Infinity) - (b.etaSeconds ?? Infinity))
 }
 
-// Attaches `progress` to every BGA game in a live list (Active tab)
+// Attaches `progress` to every BGA game in a live list (Active tab) — a
+// lobby still waiting on players (pending) has no turns to estimate
+// progress from; estimateTimeProgress's elapsed-time fallback would still
+// run for one otherwise, against whatever start time Pace happened to
+// record for it, giving a meaningless (sometimes 100%) estimate for a
+// game that hasn't actually begun.
 export async function attachProgress(games: Game[]): Promise<Game[]> {
   if (!games.some(g => g.platform === 'bga')) return games
   const tables = await getTables().catch((): Record<string, PaceTable> => ({}))
   return games.map(g => {
-    if (g.platform !== 'bga') return g
+    if (g.platform !== 'bga' || g.pending) return g
     const progress = estimateProgress(tables, g.id.slice('bga:'.length))
     return progress ? { ...g, progress } : g
   })

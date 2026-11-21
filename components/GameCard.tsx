@@ -539,8 +539,11 @@ export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowD
       <span className={`shrink-0 text-xs ${slow ? 'text-amber-600 font-medium' : 'text-[var(--text-tertiary)]'}`}>
         {slow ? '⏱ ' : ''}{game.lastMoveAgo}
       </span>
-      <ProgressBar game={game} compact />
-      <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact />
+      {/* Neither means anything before a lobby has actually started — no
+          turns taken yet to estimate progress from, and no round played
+          yet to leave a note about. */}
+      {!game.pending && <ProgressBar game={game} compact />}
+      {!game.pending && <NoteEditor game={game} note={note} onSaveNote={onSaveNote} compact />}
       <HistoryLink game={game} />
       <PriorityButton game={game} priority={priority} onCyclePriority={onCyclePriority} />
     </div>
