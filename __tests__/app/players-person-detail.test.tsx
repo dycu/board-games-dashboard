@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import { PersonDetail } from '@/app/players/page'
 import { FinishedGame } from '@/lib/types'
 import { BacklogItem } from '@/lib/backlog/list'
@@ -75,5 +75,17 @@ describe('PersonDetail', () => {
     ]} />)
     expect(await screen.findByText(/Most played together/)).toBeInTheDocument()
     expect(screen.getAllByText('Custom Title').length).toBeGreaterThan(0)
+  })
+
+  it('copies the player\'s name to the clipboard so it can be pasted into an invite on the platform', async () => {
+    mockBacklog([])
+    const writeText = jest.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    render(<PersonDetail {...baseProps} games={[]} />)
+    const copyButton = await screen.findByRole('button', { name: /Copy name/ })
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled())
+    fireEvent.click(copyButton)
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('alice'))
+    expect(await screen.findByText('Copied!')).toBeInTheDocument()
   })
 })

@@ -128,6 +128,17 @@ export function PersonDetail({ platform, name, person, activeGames, games, allTa
     return [...seen.entries()]
   }, [backlog.items, games, platform])
 
+  const [copied, setCopied] = useState(false)
+  const copyName = async () => {
+    try {
+      await navigator.clipboard.writeText(name)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // clipboard access denied/unavailable — nothing more to do here
+    }
+  }
+
   return (
     <div className="flex-1 overflow-y-auto p-5 max-w-3xl mx-auto w-full">
       <button onClick={onBack} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">← Back</button>
@@ -135,6 +146,14 @@ export function PersonDetail({ platform, name, person, activeGames, games, allTa
         <PlayerAvatar url={person?.avatarUrl} size={36} />
         <Badge platform={platform} />
         <h1 className="text-xl font-semibold text-[var(--text-primary)]">{name}</h1>
+        <button
+          type="button"
+          onClick={copyName}
+          title={`Copy "${name}" to invite them again on ${PLATFORM_LABELS[platform]}`}
+          className="text-xs font-medium text-[var(--text-tertiary)] hover:text-[var(--accent)]"
+        >
+          {copied ? 'Copied!' : '📋 Copy name'}
+        </button>
         {person?.profileUrl && (
           <a
             href={person.profileUrl}
