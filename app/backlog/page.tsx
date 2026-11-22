@@ -608,9 +608,6 @@ export default function BacklogPage() {
                   Goals <span className="tabular-nums opacity-70">{goalsInProgress.length}</span>
                 </button>
               </div>
-              {activeList !== 'goals' && (
-                <TagFilterChips tags={allTags} selected={tagFilter} onChange={setTagFilter} className="mb-3" />
-              )}
               {activeList === 'goals' ? (
                 <GoalsSummary
                   error={achievementsError}
@@ -619,23 +616,25 @@ export default function BacklogPage() {
                   games={finished.data?.games ?? []}
                   onDelete={removeGoal}
                 />
-              ) : tagFilter ? (
-                // Cross-cutting: every title tagged this way, across every
-                // list and regardless of whether it's in one at all — not
-                // just the current tab's list narrowed by tag, since a
-                // freshly-tagged title (no backlog entry yet) would
-                // otherwise never show up anywhere.
-                <>
-                  <p className="text-xs text-[var(--text-tertiary)] mb-2">
-                    Every game tagged “{tagFilter}”, across every list — not just {LIST_LABELS[activeList]}.
-                  </p>
-                  <TaggedSection backlog={backlog} tag={tagFilter} />
-                </>
               ) : (
                 <ListSection backlog={backlog} list={activeList} />
               )}
             </section>
           )}
+
+        {/* A separate, lower-priority section rather than baked into the
+            list tabs above — cross-cutting by tag is a different way of
+            looking at things (every title tagged this way, regardless of
+            which list it's in or whether it's in one at all — a freshly-
+            tagged title with no backlog entry yet would otherwise never
+            show up anywhere), not another view of "the current list". */}
+        {backlog.items && allTags.length > 0 && (
+          <section className="mb-6">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-2">Browse by tag</h2>
+            <TagFilterChips tags={allTags} selected={tagFilter} onChange={setTagFilter} className="mb-3" />
+            {tagFilter && <TaggedSection backlog={backlog} tag={tagFilter} />}
+          </section>
+        )}
 
         <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5">
           <div className="flex flex-wrap items-center gap-1 mb-4">

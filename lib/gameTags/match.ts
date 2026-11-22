@@ -1,6 +1,10 @@
 import { Platform } from '../types'
 
-export type GameTagsByPlatform = Partial<Record<Platform, Record<string, { tags: string[]; gameName: string }>>>
+// gameName is optional here (even though a fresh write always includes it —
+// see lib/gameTags/store.ts's GameTagEntry) because this describes whatever
+// this account's KV data actually holds, which can include an entry saved
+// before that field existed.
+export type GameTagsByPlatform = Partial<Record<Platform, Record<string, { tags: string[]; gameName?: string }>>>
 
 // The same lowercase-title matching gamesOf() (lib/gameStats.ts) uses to
 // group every instance of one game together — so a tag set here lines up
@@ -29,9 +33,13 @@ export function allGameTags(byPlatform: GameTagsByPlatform | null): string[] {
 export function titlesWithTag(byPlatform: GameTagsByPlatform | null, tag: string): { platform: Platform; gameName: string }[] {
   if (!byPlatform) return []
   const result: { platform: Platform; gameName: string }[] = []
-  for (const [platform, entries] of Object.entries(byPlatform) as [Platform, Record<string, { tags: string[]; gameName: string }>][]) {
-    for (const entry of Object.values(entries ?? {})) {
-      if (entry.tags.includes(tag)) result.push({ platform, gameName: entry.gameName })
+  for (const [platform, entries] of Object.entries(byPlatform) as [Platform, Record<string, { tags: string[]; gameName?: string }>][]) {
+    for (const [key, entry] of Object.entries(entries ?? {})) {
+      // Falls back to the (lowercased) hash key for an entry saved before
+      // gameName existed — imperfect casing, but it still shows up instead
+      // of crashing a page that doesn't know this title's real name yet.
+      // Editing its tags again from the History page corrects it for good.
+      if (entry.tags.includes(tag)) result.push({ platform, gameName: entry.gameName ?? key })
     }
   }
   return result.sort((a, b) => a.gameName.localeCompare(b.gameName))

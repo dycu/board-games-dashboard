@@ -178,7 +178,10 @@ describe('BacklogPage tag filter', () => {
     mockFetchWithTags()
     render(<GameTagsProvider><BacklogPage /></GameTagsProvider>)
     await userEvent.click(await screen.findByRole('button', { name: 'live' }))
-    expect(await screen.findByText('Gaia Project')).toBeInTheDocument()
+    // Gaia Project is also still in the Play list above — unaffected by the
+    // tag filter, which is its own separate section — so it now appears
+    // twice; Nevsky (no backlog entry) only ever shows up here.
+    expect((await screen.findAllByText('Gaia Project')).length).toBeGreaterThanOrEqual(2)
     expect(await screen.findByText('Nevsky')).toBeInTheDocument()
   })
 
@@ -190,9 +193,36 @@ describe('BacklogPage tag filter', () => {
     await waitFor(() => expect(within(row).getByRole('link', { name: 'Play Nevsky' })).toHaveAttribute('href', 'https://rally.example/nevsky'))
   })
 
-  it('clears back to the normal per-list view when the tag is deselected', async () => {
+  it('shows its own "Browse by tag" section, separate from the list tabs above', async () => {
     mockFetchWithTags()
     render(<GameTagsProvider><BacklogPage /></GameTagsProvider>)
+    expect(await screen.findByText('Browse by tag')).toBeInTheDocument()
+  })
+
+  // The real production bug this was all caught by: a tag saved before
+  // GameTagEntry gained its own gameName field has none — titlesWithTag
+  // falls back to the hash key for it (see lib/gameTags/match.ts), but
+  // this is the end-to-end proof the page itself survives selecting it.
+  it('does not crash when a stored tag has no gameName (saved before that field existed)', async () => {
+    global.fetch = jest.fn(async (url: string) => {
+      if (url === '/api/prefs') return { ok: true, json: async () => ({}) }
+      if (url === '/api/backlog') return { ok: true, json: async () => ({ items: [] }) }
+      if (url === '/api/game-tags') {
+        return { ok: true, json: async () => ({ byPlatform: { bga: { 'gaia project': { tags: ['live'] } } } }) }
+      }
+      if (url.startsWith('/api/game-search')) return { ok: true, json: async () => ({ results: [], errors: [] }) }
+      return { ok: true, json: async () => ({}) }
+    }) as unknown as typeof fetch
+    render(<GameTagsProvider><BacklogPage /></GameTagsProvider>)
+    await userEvent.click(await screen.findByRole('button', { name: 'live' }))
+    expect(await screen.findByText('gaia project')).toBeInTheDocument()
+  })
+
+  it('hides the "browse by tag" section again once the tag is deselected, leaving the list above untouched', async () => {
+    mockFetchWithTags()
+    render(<GameTagsProvider><BacklogPage /></GameTagsProvider>)
+    expect(await screen.findByText('Gaia Project')).toBeInTheDocument()
+
     await userEvent.click(await screen.findByRole('button', { name: 'live' }))
     expect(await screen.findByText('Nevsky')).toBeInTheDocument()
 

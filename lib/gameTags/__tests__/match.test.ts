@@ -55,4 +55,13 @@ describe('titlesWithTag', () => {
   it('returns an empty list before anything has loaded', () => {
     expect(titlesWithTag(null, 'live')).toEqual([])
   })
+
+  // A tag saved before GameTagEntry gained its own gameName field (every
+  // tag set before this view existed) has no gameName at all — falling
+  // back to the hash key here is what keeps this from crashing the whole
+  // Backlog page the moment such a tag is selected, as it did in production.
+  it('falls back to the hash key for an entry saved before gameName existed, instead of crashing', () => {
+    const byPlatform = { bga: { 'gaia project': { tags: ['live'] } } }
+    expect(titlesWithTag(byPlatform, 'live')).toEqual([{ platform: 'bga', gameName: 'gaia project' }])
+  })
 })
