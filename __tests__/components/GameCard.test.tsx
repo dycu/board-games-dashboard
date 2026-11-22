@@ -189,6 +189,13 @@ describe('GameCard', () => {
       expect(window.open).toHaveBeenCalledWith(game.gameUrl, '_blank', 'noopener,noreferrer')
     })
   })
+
+  it('lets a long list of player names wrap instead of cutting it off', () => {
+    const long = { ...game, players: ['A Very Long Player Name That Would Otherwise Overflow', 'Another Quite Long One Too'] }
+    render(<GameCard {...props({ game: long })} />)
+    const line = screen.getByText(/A Very Long Player Name/)
+    expect(line.closest('div')).not.toHaveClass('truncate')
+  })
 })
 
 describe('GameRow', () => {
@@ -292,6 +299,20 @@ describe('GameRow', () => {
     render(<GameRow {...props({ game: pending, onSaveNote: jest.fn() })} />)
     expect(screen.queryByText('100%')).toBeNull()
     expect(screen.queryByRole('button', { name: /add a note/i })).toBeNull()
+  })
+
+  it('lets a long list of player names wrap instead of cutting it off, waiting for a turn', () => {
+    const long = { ...waiting, players: ['A Very Long Player Name That Would Otherwise Overflow', 'bob'] }
+    render(<GameRow {...props({ game: long })} />)
+    const line = screen.getByText(/A Very Long Player Name/)
+    expect(line.closest('div')).not.toHaveClass('truncate')
+  })
+
+  it('lets a long list of player names wrap instead of cutting it off, in a pending lobby', () => {
+    const pendingLong: Game = { ...waiting, pending: true, players: ['A Very Long Player Name That Would Otherwise Overflow', 'bob'] }
+    render(<GameRow {...props({ game: pendingLong })} />)
+    const line = screen.getByText(/A Very Long Player Name/)
+    expect(line.closest('div')).not.toHaveClass('truncate')
   })
 })
 

@@ -407,7 +407,7 @@ export default function GameCard({ game, priority, onCyclePriority, onOpen, oppo
       </div>
 
       {game.players.length > 0 && (
-        <div className="text-xs text-[var(--text-tertiary)] truncate">
+        <div className="text-xs text-[var(--text-tertiary)] whitespace-normal break-words">
           with <PlayerNames platform={game.platform} names={game.players} avatars={game.playerAvatars} />
         </div>
       )}
@@ -524,14 +524,14 @@ export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowD
           {note && <span className="hidden md:inline text-xs text-[var(--text-secondary)] italic whitespace-normal break-words">{note}</span>}
         </div>
         {game.pending ? (
-          <div className="text-xs text-[var(--text-tertiary)] truncate">
+          <div className="text-xs text-[var(--text-tertiary)] whitespace-normal break-words">
             {game.currentPlayer ?? 'Waiting to start'}
             {game.players.length > 0 && (
               <> · with <PlayerNames platform={game.platform} names={game.players} avatars={game.playerAvatars} /></>
             )}
           </div>
         ) : game.players.length > 0 && (
-          <div className="text-xs text-[var(--text-tertiary)] truncate">
+          <div className="text-xs text-[var(--text-tertiary)] whitespace-normal break-words">
             waiting for <PlayerNames platform={game.platform} names={game.players} avatars={game.playerAvatars} highlight={game.currentPlayer} />
           </div>
         )}
