@@ -241,6 +241,35 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     .filter(item => listsOf(item).includes('gm') && item.parallelTarget && item.parallelTarget > 1 && !unavailablePlatforms.has(item.platform))
     .map(item => ({ item, running: games.filter(g => backlogId(g.platform, g.gameType || g.gameName) === item.id).length }))
     .filter(({ item, running }) => running < item.parallelTarget!)
+  // Once a "Next to play" item actually has a game running for it (matched
+  // the same way the suggestion above gets hidden), it's done its job as a
+  // to-do entry — drop it from the Play list so it doesn't linger there
+  // once it's no longer something still waiting to be started. Scoped to
+  // "play" only: Favorite explicitly expects its title to already have a
+  // game running most of the time, and GM is explicitly for several
+  // parallel games of the same title, so neither should lose membership
+  // just because a match turned up.
+  //
+  // autoRemovedPlayRef remembers which ids this tab has already toggled off,
+  // so a toggle already in flight (its own server round trip not landed
+  // yet, still reporting the old lists) doesn't look like a fresh match and
+  // get toggled again on the next render — without it, that's a toggle-send-
+  // rerender loop that never settles.
+  const autoRemovedPlayRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    if (!backlog.items) return
+    for (const item of backlog.items) {
+      if (autoRemovedPlayRef.current.has(item.id)) continue
+      if (listsOf(item).includes('play') && games.some(g => backlogId(g.platform, g.gameType || g.gameName) === item.id)) {
+        autoRemovedPlayRef.current.add(item.id)
+        backlog.toggle(item.id, 'play')
+      }
+    }
+    // backlog.toggle is stable (useCallback); re-running on it too would
+    // only matter if its identity changed, which doesn't happen here
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backlog.items, games])
+
   // Which backlog list(s) (if any) a running game's title is tracked
   // under — shown as a small badge on its card. Keyed the same way the
   // suggestions above match a running game back to its backlog entry.

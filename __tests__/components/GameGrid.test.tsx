@@ -477,6 +477,58 @@ describe('GameGrid GM parallel-games target', () => {
 
 })
 
+describe('GameGrid auto-removing a "Play" backlog item once its game is running', () => {
+  it('toggles the Play list off, leaving any other list the item is in untouched', async () => {
+    const items = [{ id: backlogId('bga', 'Test Game'), platform: 'bga', gameName: 'Test Game', playUrl: 'https://x/1', addedAt: '', lists: ['play', 'favorite'] }]
+    const posts: unknown[] = []
+    global.fetch = jest.fn(async (url: string, init?: RequestInit) => {
+      if (url === '/api/backlog' && init?.method === 'POST') {
+        posts.push(JSON.parse(init.body as string))
+        return { ok: true, json: async () => ({ items }) } // unchanged response: the real server would drop "play", but this only has to prove the request was sent
+      }
+      return { ok: true, json: async () => ({ notes: {}, items }) }
+    }) as unknown as typeof fetch
+    renderGrid([makeGame('bga', '1')])
+    await screen.findByText('Test Game')
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    expect(posts).toEqual([{ op: 'toggle', id: backlogId('bga', 'Test Game'), list: 'play' }])
+  })
+
+  it('never toggles the same item off twice, even if the server response still reports it as "play"', async () => {
+    // A real server would drop "play" from the very next response — this
+    // mock deliberately keeps echoing it unchanged, standing in for a toggle
+    // whose own round trip just hasn't landed yet, to prove the effect
+    // doesn't keep re-sending the same toggle every time it sees that
+    const items = [{ id: backlogId('bga', 'Test Game'), platform: 'bga', gameName: 'Test Game', playUrl: 'https://x/1', addedAt: '', list: 'play' }]
+    const posts: unknown[] = []
+    global.fetch = jest.fn(async (url: string, init?: RequestInit) => {
+      if (url === '/api/backlog' && init?.method === 'POST') posts.push(JSON.parse(init.body as string))
+      return { ok: true, json: async () => ({ notes: {}, items }) }
+    }) as unknown as typeof fetch
+    renderGrid([makeGame('bga', '1')])
+    await screen.findByText('Test Game')
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    expect(posts).toEqual([{ op: 'toggle', id: backlogId('bga', 'Test Game'), list: 'play' }])
+  })
+
+  it('does not touch a Favorite-only or GM-only item, which can expect a game already running', async () => {
+    const items = [
+      { id: backlogId('bga', 'Favorite Game'), platform: 'bga', gameName: 'Favorite Game', playUrl: 'https://x/1', addedAt: '', list: 'favorite' },
+      { id: backlogId('bga', 'GM Game'), platform: 'bga', gameName: 'GM Game', playUrl: 'https://x/2', addedAt: '', list: 'gm', parallelTarget: 3 },
+    ]
+    const posts: unknown[] = []
+    global.fetch = jest.fn(async (url: string, init?: RequestInit) => {
+      if (url === '/api/backlog' && init?.method === 'POST') posts.push(JSON.parse(init.body as string))
+      return { ok: true, json: async () => ({ notes: {}, items }) }
+    }) as unknown as typeof fetch
+    renderGrid([{ ...makeGame('bga', '1'), gameName: 'Favorite Game' }, { ...makeGame('bga', '2'), gameName: 'GM Game' }])
+    await screen.findByText('Favorite Game')
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    expect(posts).toEqual([])
+  })
+})
+
 describe('GameGrid table labels', () => {
   it('offers a table-label editor on every game, not just GMed titles', async () => {
     global.fetch = jest.fn(async (url: string) => ({

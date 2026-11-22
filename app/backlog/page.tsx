@@ -89,7 +89,7 @@ function Row({ item, position, onTop, onToggleList, onSetParallelTarget, onRemov
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex flex-wrap items-center gap-2 py-2.5 pl-1.5 pr-3 rounded-lg border bg-[var(--bg-surface)]
+      className={`min-w-0 flex flex-wrap items-center gap-2 py-2.5 pl-1.5 pr-3 rounded-lg border bg-[var(--bg-surface)]
         ${isDragging ? 'border-[var(--accent)] shadow-lg relative z-10' : 'border-[var(--border-default)]'}`}
     >
       <button
