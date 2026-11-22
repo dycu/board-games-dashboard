@@ -622,20 +622,6 @@ export default function BacklogPage() {
             </section>
           )}
 
-        {/* A separate, lower-priority section rather than baked into the
-            list tabs above — cross-cutting by tag is a different way of
-            looking at things (every title tagged this way, regardless of
-            which list it's in or whether it's in one at all — a freshly-
-            tagged title with no backlog entry yet would otherwise never
-            show up anywhere), not another view of "the current list". */}
-        {backlog.items && allTags.length > 0 && (
-          <section className="mb-6">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-2">Browse by tag</h2>
-            <TagFilterChips tags={allTags} selected={tagFilter} onChange={setTagFilter} className="mb-3" />
-            {tagFilter && <TaggedSection backlog={backlog} tag={tagFilter} />}
-          </section>
-        )}
-
         <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5">
           <div className="flex flex-wrap items-center gap-1 mb-4">
             <h2 className="text-sm font-semibold text-[var(--text-primary)] mr-3">Add games</h2>
@@ -676,6 +662,18 @@ export default function BacklogPage() {
               {TABLETAPAS_SHORT_LABEL}
             </button>
           </div>
+          {/* Cross-cutting by tag belongs here, not among the list tabs
+              above: it's a different way of finding a game to add/play
+              (every title tagged this way, regardless of which list it's
+              in or whether it's in one at all — a freshly-tagged title
+              with no backlog entry yet would otherwise never show up
+              anywhere), the same job "Add games" already does. */}
+          {allTags.length > 0 && (
+            <div className="mb-4">
+              <TagFilterChips tags={allTags} selected={tagFilter} onChange={setTagFilter} className="mb-3" />
+              {tagFilter && <TaggedSection backlog={backlog} tag={tagFilter} />}
+            </div>
+          )}
           <div className={source === 'search' ? '' : 'hidden'}><SearchPanel backlog={backlog} sites={sites} /></div>
           <div className={source === 'played' ? '' : 'hidden'}><PlayedPanel backlog={backlog} sites={sites} finished={finished} bgaTotals={bgaTotals} /></div>
           <div className={source === 'goals' ? '' : 'hidden'}><GoalsPanel sites={sites} finished={finished} bgaTotals={bgaTotals} onCreate={createGoal} /></div>

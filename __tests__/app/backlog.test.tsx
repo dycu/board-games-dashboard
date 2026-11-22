@@ -193,10 +193,11 @@ describe('BacklogPage tag filter', () => {
     await waitFor(() => expect(within(row).getByRole('link', { name: 'Play Nevsky' })).toHaveAttribute('href', 'https://rally.example/nevsky'))
   })
 
-  it('shows its own "Browse by tag" section, separate from the list tabs above', async () => {
+  it('shows the tag filter under "Add games", not among the list tabs above', async () => {
     mockFetchWithTags()
     render(<GameTagsProvider><BacklogPage /></GameTagsProvider>)
-    expect(await screen.findByText('Browse by tag')).toBeInTheDocument()
+    const tagButton = await screen.findByRole('button', { name: 'live' })
+    expect(tagButton.closest('[class*="rounded-xl"]')?.textContent).toMatch(/Add games/)
   })
 
   // The real production bug this was all caught by: a tag saved before
