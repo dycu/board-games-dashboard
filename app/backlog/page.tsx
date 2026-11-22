@@ -89,29 +89,33 @@ function Row({ item, position, onTop, onToggleList, onSetParallelTarget, onRemov
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`min-w-0 flex flex-wrap items-center gap-2 py-2.5 pl-1.5 pr-3 rounded-lg border bg-[var(--bg-surface)]
+      className={`min-w-0 flex flex-col gap-1.5 py-2.5 pl-1.5 pr-3 rounded-lg border bg-[var(--bg-surface)]
         ${isDragging ? 'border-[var(--accent)] shadow-lg relative z-10' : 'border-[var(--border-default)]'}`}
     >
-      <button
-        ref={setActivatorNodeRef}
-        {...attributes}
-        {...listeners}
-        aria-label={`Drag ${item.gameName}`}
-        className="shrink-0 touch-none cursor-grab active:cursor-grabbing text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] px-2 py-1 text-lg leading-none"
-      >
-        ⠿
-      </button>
-      <span className="shrink-0 w-6 text-right text-xs tabular-nums text-[var(--text-tertiary)]">{position}</span>
-      {/* Wide enough: everything shares one line. Too narrow for both this
-          and the action buttons (phone widths): the min-width floor forces
-          the actions below onto their own line instead of squeezing the
-          game name down to one letter. */}
-      <div className="flex items-center gap-2 min-w-[140px] flex-1">
-        <Badge platform={item.platform} />
-        <span className="text-sm font-medium text-[var(--text-primary)] truncate">{item.gameName}</span>
-        <HistoryLink game={item} />
+      {/* Its own line, always — nesting this row's own flex-wrap inside the
+          outer one (so the two could share a line when there's room) left
+          the browser free to decide the actions group's width as if it
+          were never going to wrap, overflowing past the card before its
+          own wrap ever kicked in. A fixed two-row layout has no such
+          ambiguity to get wrong. */}
+      <div className="min-w-0 flex items-center gap-2">
+        <button
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          aria-label={`Drag ${item.gameName}`}
+          className="shrink-0 touch-none cursor-grab active:cursor-grabbing text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] px-2 py-1 text-lg leading-none"
+        >
+          ⠿
+        </button>
+        <span className="shrink-0 w-6 text-right text-xs tabular-nums text-[var(--text-tertiary)]">{position}</span>
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <Badge platform={item.platform} />
+          <span className="text-sm font-medium text-[var(--text-primary)] truncate">{item.gameName}</span>
+          <HistoryLink game={item} />
+        </div>
       </div>
-      <div className="shrink-0 flex flex-wrap items-center gap-2 ml-auto">
+      <div className="min-w-0 flex flex-wrap items-center gap-2 pl-9">
         <InviteAgainButton platform={item.platform} gameName={item.gameName} url={item.playUrl} />
         <a
           href={item.playUrl}

@@ -45,4 +45,27 @@ describe('usePrefs', () => {
     expect(result.current.prefs).toEqual(updated)
     expect(JSON.parse(localStorage.getItem(PREFS_KEY)!)).toEqual(updated)
   })
+
+  // Before this, only Settings' own save handler and app/layout.tsx's
+  // inline script (reading localStorage's cached copy once, before
+  // hydration) ever touched data-theme — so a server answer landing with a
+  // theme different from whatever the page already rendered (a stale or
+  // missing local cache) left data-theme stuck for the rest of the visit on
+  // any page that didn't happen to re-apply it itself.
+  it('applies the server-loaded theme to the document, not just local state', async () => {
+    document.documentElement.removeAttribute('data-theme')
+    const fresh: UserPrefs = { ...DEFAULT_PREFS, theme: 'dark' }
+    global.fetch = jest.fn(async () => ({ json: async () => fresh })) as unknown as typeof fetch
+
+    renderHook(() => usePrefs())
+    await waitFor(() => expect(document.documentElement.getAttribute('data-theme')).toBe('dark'))
+  })
+
+  it('clears a stale data-theme once the server reports no override (follow the system)', async () => {
+    document.documentElement.setAttribute('data-theme', 'dark')
+    global.fetch = jest.fn(async () => ({ json: async () => DEFAULT_PREFS })) as unknown as typeof fetch
+
+    renderHook(() => usePrefs())
+    await waitFor(() => expect(document.documentElement.hasAttribute('data-theme')).toBe(false))
+  })
 })

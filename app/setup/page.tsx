@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Platform, UserPrefs, PLATFORM_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
 import { CheckResult } from '@/lib/newGames/check'
+import { applyTheme } from '@/lib/theme'
 import TopNav from '@/components/TopNav'
 import PlatformFilterChips from '@/components/PlatformFilterChips'
 
@@ -89,6 +90,7 @@ export default function SetupPage() {
       setBgaCookieSaved(!!prefs.bgaSessionCookie && !!prefs.bgaPlayerId)
       setSavedBgaPlayerId(prefs.bgaPlayerId ?? '')
       setTheme(prefs.theme)
+      applyTheme(prefs.theme)
       setYourTurnLayout(prefs.yourTurnLayout ?? 'classic')
       const ids = prefs.oldkingscrownGameIds ?? []
       setOkcGameIds(ids)
@@ -140,8 +142,7 @@ export default function SetupPage() {
   // round trip even starts, not just after this page's own POST resolves.
   const saveTheme = async (next: UserPrefs['theme']) => {
     setTheme(next)
-    if (next) document.documentElement.setAttribute('data-theme', next)
-    else document.documentElement.removeAttribute('data-theme')
+    applyTheme(next)
     try {
       const cached = JSON.parse(localStorage.getItem('user-prefs') ?? '{}')
       localStorage.setItem('user-prefs', JSON.stringify({ ...cached, theme: next }))
