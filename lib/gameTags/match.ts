@@ -23,24 +23,3 @@ export function allGameTags(byPlatform: GameTagsByPlatform | null): string[] {
   }
   return [...set].sort()
 }
-
-// Every (platform, title) tagged with the given tag — a title shows up
-// here the moment it's tagged, whether or not it also happens to have an
-// active game, a finished game, or a spot in some backlog list. Backlog's
-// "browse by tag" view is built entirely from this, since none of those
-// other three are reliable: a title you just tagged "live" for the first
-// time has none of them yet.
-export function titlesWithTag(byPlatform: GameTagsByPlatform | null, tag: string): { platform: Platform; gameName: string }[] {
-  if (!byPlatform) return []
-  const result: { platform: Platform; gameName: string }[] = []
-  for (const [platform, entries] of Object.entries(byPlatform) as [Platform, Record<string, { tags: string[]; gameName?: string }>][]) {
-    for (const [key, entry] of Object.entries(entries ?? {})) {
-      // Falls back to the (lowercased) hash key for an entry saved before
-      // gameName existed — imperfect casing, but it still shows up instead
-      // of crashing a page that doesn't know this title's real name yet.
-      // Editing its tags again from the History page corrects it for good.
-      if (entry.tags.includes(tag)) result.push({ platform, gameName: entry.gameName ?? key })
-    }
-  }
-  return result.sort((a, b) => a.gameName.localeCompare(b.gameName))
-}

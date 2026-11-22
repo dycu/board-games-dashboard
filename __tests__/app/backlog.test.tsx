@@ -3,14 +3,16 @@ import userEvent from '@testing-library/user-event'
 import BacklogPage from '@/app/backlog/page'
 import { GameTagsProvider } from '@/components/GameTagsProvider'
 import { Achievement } from '@/lib/achievements/store'
+import { FinishedGame } from '@/lib/types'
 
 // Goals needs its own data (achievements, finished games for progress) the
 // same way overview.test.tsx mocks these — keeps every test in this file
 // off a real, unmocked /api/finished-games stream.
 let currentAchievements: Achievement[] = []
+let currentFinishedGames: FinishedGame[] = []
 const removeAchievement = jest.fn()
 jest.mock('@/hooks/useFinishedGamesData', () => ({
-  useFinishedGamesData: () => ({ data: { games: [], errors: [], fetchedAt: new Date().toISOString() }, isLoading: false, lastError: null, platformStatuses: {}, refresh: jest.fn() }),
+  useFinishedGamesData: () => ({ data: { games: currentFinishedGames, errors: [], fetchedAt: new Date().toISOString() }, isLoading: false, lastError: null, platformStatuses: {}, refresh: jest.fn() }),
   readFinishedGamesCache: () => null,
 }))
 jest.mock('@/hooks/useBgaPlayTotals', () => ({
@@ -43,6 +45,7 @@ function mockFetch() {
 
 beforeEach(() => {
   currentAchievements = []
+  currentFinishedGames = []
   removeAchievement.mockClear()
 })
 
@@ -132,65 +135,35 @@ describe('BacklogPage search — TableTapas', () => {
 })
 
 describe('BacklogPage tag filter', () => {
-  // Gaia Project is both backlog-listed and tagged "live"; Nevsky is tagged
-  // "live" too but has no backlog entry at all — exactly the case that
-  // prompted this view (a freshly-tagged title with no list, active game
-  // or finished game to otherwise show up under).
+  // Gaia Project is tagged "live"; Brass: Birmingham is not — both are
+  // things actually played (shown under "Add games" > "From your games"),
+  // which is exactly where this filter narrows, in place, rather than a
+  // separate list of its own.
   function mockFetchWithTags() {
+    currentFinishedGames = [
+      { id: '1', platform: 'bga', gameName: 'Gaia Project', completedAt: new Date('2026-06-01T00:00:00Z'), completedAgo: '1 day ago', gameUrl: 'https://boardgamearena.com/gaia' },
+      { id: '2', platform: 'bga', gameName: 'Brass: Birmingham', completedAt: new Date('2026-06-02T00:00:00Z'), completedAgo: '1 day ago', gameUrl: 'https://boardgamearena.com/brass' },
+    ]
     global.fetch = jest.fn(async (url: string) => {
       if (url === '/api/prefs') return { ok: true, json: async () => ({}) }
-      if (url === '/api/backlog') {
-        return {
-          ok: true,
-          json: async () => ({
-            items: [{ id: 'bga:gaiaproject', platform: 'bga', gameName: 'Gaia Project', playUrl: 'https://boardgamearena.com/gaia', addedAt: '', list: 'play' }],
-          }),
-        }
-      }
+      if (url === '/api/backlog') return { ok: true, json: async () => ({ items: [] }) }
       if (url === '/api/game-tags') {
-        return {
-          ok: true,
-          json: async () => ({
-            byPlatform: {
-              bga: { 'gaia project': { tags: ['live'], gameName: 'Gaia Project' } },
-              rally: { nevsky: { tags: ['live'], gameName: 'Nevsky' } },
-            },
-          }),
-        }
-      }
-      if (url.startsWith('/api/game-search')) {
-        return {
-          ok: true,
-          json: async () => ({ results: [{ platform: 'rally', matches: [{ name: 'Nevsky', url: 'https://rally.example/nevsky' }] }], errors: [] }),
-        }
+        return { ok: true, json: async () => ({ byPlatform: { bga: { 'gaia project': { tags: ['live'], gameName: 'Gaia Project' } } } }) }
       }
       return { ok: true, json: async () => ({}) }
     }) as unknown as typeof fetch
+  }
+
+  async function openPlayedTab() {
+    // "played" is already the default source tab, but asserting it explicitly
+    // keeps this robust if that default ever changes
+    await userEvent.click(screen.getAllByRole('button', { name: 'From your games' })[0])
   }
 
   it('shows a filter chip for a tag in use', async () => {
     mockFetchWithTags()
     render(<GameTagsProvider><BacklogPage /></GameTagsProvider>)
     expect(await screen.findByRole('button', { name: 'live' })).toBeInTheDocument()
-  })
-
-  it('lists every title with the tag when selected, including one with no backlog entry', async () => {
-    mockFetchWithTags()
-    render(<GameTagsProvider><BacklogPage /></GameTagsProvider>)
-    await userEvent.click(await screen.findByRole('button', { name: 'live' }))
-    // Gaia Project is also still in the Play list above — unaffected by the
-    // tag filter, which is its own separate section — so it now appears
-    // twice; Nevsky (no backlog entry) only ever shows up here.
-    expect((await screen.findAllByText('Gaia Project')).length).toBeGreaterThanOrEqual(2)
-    expect(await screen.findByText('Nevsky')).toBeInTheDocument()
-  })
-
-  it('resolves a Play link for an untracked tagged title via the game catalog', async () => {
-    mockFetchWithTags()
-    render(<GameTagsProvider><BacklogPage /></GameTagsProvider>)
-    await userEvent.click(await screen.findByRole('button', { name: 'live' }))
-    const row = (await screen.findByText('Nevsky')).closest('li')!
-    await waitFor(() => expect(within(row).getByRole('link', { name: 'Play Nevsky' })).toHaveAttribute('href', 'https://rally.example/nevsky'))
   })
 
   it('shows the tag filter under "Add games", not among the list tabs above', async () => {
@@ -200,35 +173,42 @@ describe('BacklogPage tag filter', () => {
     expect(tagButton.closest('[class*="rounded-xl"]')?.textContent).toMatch(/Add games/)
   })
 
-  // The real production bug this was all caught by: a tag saved before
-  // GameTagEntry gained its own gameName field has none — titlesWithTag
-  // falls back to the hash key for it (see lib/gameTags/match.ts), but
-  // this is the end-to-end proof the page itself survives selecting it.
-  it('does not crash when a stored tag has no gameName (saved before that field existed)', async () => {
-    global.fetch = jest.fn(async (url: string) => {
-      if (url === '/api/prefs') return { ok: true, json: async () => ({}) }
-      if (url === '/api/backlog') return { ok: true, json: async () => ({ items: [] }) }
-      if (url === '/api/game-tags') {
-        return { ok: true, json: async () => ({ byPlatform: { bga: { 'gaia project': { tags: ['live'] } } } }) }
-      }
-      if (url.startsWith('/api/game-search')) return { ok: true, json: async () => ({ results: [], errors: [] }) }
-      return { ok: true, json: async () => ({}) }
-    }) as unknown as typeof fetch
-    render(<GameTagsProvider><BacklogPage /></GameTagsProvider>)
-    await userEvent.click(await screen.findByRole('button', { name: 'live' }))
-    expect(await screen.findByText('gaia project')).toBeInTheDocument()
-  })
+  // The same game picker inside Goals (always mounted, just CSS-hidden
+  // behind the other source tabs) can list the same titles — scoped to
+  // PlayedPanel's own list so these don't get tripped up by that.
+  async function playedList() {
+    await openPlayedTab()
+    return within(await screen.findByTestId('played-games'))
+  }
 
-  it('hides the "browse by tag" section again once the tag is deselected, leaving the list above untouched', async () => {
+  it('narrows "From your games" to the selected tag in place, instead of a separate list', async () => {
     mockFetchWithTags()
     render(<GameTagsProvider><BacklogPage /></GameTagsProvider>)
-    expect(await screen.findByText('Gaia Project')).toBeInTheDocument()
+    const list = await playedList()
+    expect(await list.findByText('Gaia Project')).toBeInTheDocument()
+    expect(await list.findByText('Brass: Birmingham')).toBeInTheDocument()
 
     await userEvent.click(await screen.findByRole('button', { name: 'live' }))
-    expect(await screen.findByText('Nevsky')).toBeInTheDocument()
+    expect(await list.findByText('Gaia Project')).toBeInTheDocument()
+    expect(list.queryByText('Brass: Birmingham')).toBeNull()
+  })
+
+  it('shows the tag on the played row itself', async () => {
+    mockFetchWithTags()
+    render(<GameTagsProvider><BacklogPage /></GameTagsProvider>)
+    const list = await playedList()
+    const row = (await list.findByText('Gaia Project')).closest('li')!
+    expect(within(row).getByText(/live/)).toBeInTheDocument()
+  })
+
+  it('clears back to the full list once the tag is deselected', async () => {
+    mockFetchWithTags()
+    render(<GameTagsProvider><BacklogPage /></GameTagsProvider>)
+    const list = await playedList()
+    await userEvent.click(await screen.findByRole('button', { name: 'live' }))
+    expect(list.queryByText('Brass: Birmingham')).toBeNull()
 
     await userEvent.click(screen.getByRole('button', { name: 'live' }))
-    expect(screen.queryByText('Nevsky')).toBeNull()
-    expect(screen.getByText('Gaia Project')).toBeInTheDocument()
+    expect(await list.findByText('Brass: Birmingham')).toBeInTheDocument()
   })
 })

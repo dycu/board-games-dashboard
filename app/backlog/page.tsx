@@ -9,7 +9,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
-import { BacklogItem, BacklogList, BACKLOG_LISTS, LIST_LABELS, SHORT_LIST_LABELS, listsOf, backlogId } from '@/lib/backlog/list'
+import { BacklogItem, BacklogList, BACKLOG_LISTS, LIST_LABELS, SHORT_LIST_LABELS, listsOf } from '@/lib/backlog/list'
 import { PlayedSort, aggregatePlayed, sortPlayed, playedNote } from '@/lib/backlog/played'
 import { useBgaPlayTotals, totalsOf, BgaPlayTotals } from '@/hooks/useBgaPlayTotals'
 import { useBacklog } from '@/hooks/useBacklog'
@@ -26,7 +26,7 @@ import PlatformFilterChips from '@/components/PlatformFilterChips'
 import TagFilterChips from '@/components/TagFilterChips'
 import { GameTagBadge } from '@/components/GameCard'
 import { useGameTagsContext } from '@/components/GameTagsProvider'
-import { gameTagsOf, allGameTags, titlesWithTag } from '@/lib/gameTags/match'
+import { gameTagsOf, allGameTags } from '@/lib/gameTags/match'
 import AchievementUnlockedBanner from '@/components/AchievementUnlockedBanner'
 import GoalsPanel, { GoalsSummary } from '@/components/GoalsPanel'
 
@@ -204,107 +204,6 @@ function ListSection({ backlog, list }: { backlog: Backlog; list: BacklogList })
   )
 }
 
-// One tagged title, launchable whether or not it's in any backlog list yet
-// (see TaggedSection) — unlike Row, there's no fixed order or drag handle
-// here (this is a cross-cutting search, not a to-do list), and a title with
-// no backlog entry of its own has no playUrl to start from until one is
-// resolved from the game catalog, same lookup the History game page uses
-// for its own "New game" link.
-function TaggedGameRow({ platform, gameName, tags, backlogItem, onToggleList, isAdding }: {
-  platform: Platform
-  gameName: string
-  tags: string[]
-  backlogItem?: BacklogItem
-  onToggleList: (list: BacklogList, playUrl: string) => void
-  isAdding: boolean
-}) {
-  const [resolvedUrl, setResolvedUrl] = useState<string | null>(backlogItem?.playUrl ?? null)
-  useEffect(() => {
-    if (resolvedUrl) return
-    let cancelled = false
-    fetch(`/api/game-search?q=${encodeURIComponent(gameName)}`)
-      .then(r => r.json())
-      .then((json: { results: { platform: string; matches: { name: string; url: string }[] }[] }) => {
-        if (cancelled) return
-        const url = json.results.find(r => r.platform === platform)?.matches[0]?.url
-        if (url) setResolvedUrl(url)
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [resolvedUrl, platform, gameName])
-
-  const playUrl = backlogItem?.playUrl ?? resolvedUrl
-
-  return (
-    <li className="min-w-0 flex flex-col gap-1.5 py-2.5 pl-1.5 pr-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)]">
-      <div className="min-w-0 flex items-center gap-2">
-        <Badge platform={platform} />
-        <span className="text-sm font-medium text-[var(--text-primary)] truncate flex-1 min-w-0">{gameName}</span>
-        <GameTagBadge tags={tags} small />
-        <HistoryLink game={{ platform, gameName }} />
-      </div>
-      <div className="min-w-0 flex flex-wrap items-center gap-2">
-        {playUrl && <InviteAgainButton platform={platform} gameName={gameName} url={playUrl} />}
-        {playUrl && (
-          <a
-            href={playUrl}
-            target={platform === 'bga' ? '_self' : '_blank'}
-            rel="noopener noreferrer"
-            aria-label={`Play ${gameName}`}
-            title="Play"
-            className={SMALL_BUTTON}
-          >
-            Play ↗
-          </a>
-        )}
-        <BacklogListChips
-          lists={backlogItem ? listsOf(backlogItem) : []}
-          disabled={isAdding || !playUrl}
-          gameName={gameName}
-          onToggle={list => playUrl && onToggleList(list, playUrl)}
-        />
-      </div>
-    </li>
-  )
-}
-
-// Every title carrying the selected tag, across every backlog list and
-// regardless of whether it's in one at all — what "find my live games"
-// actually needs, since a title shows up the moment it's tagged (see
-// titlesWithTag), long before it necessarily has a backlog entry, an
-// active game or a finished one.
-function TaggedSection({ backlog, tag }: { backlog: Backlog; tag: string }) {
-  const gameTags = useGameTagsContext()
-  const titles = useMemo(() => titlesWithTag(gameTags.byPlatform, tag), [gameTags.byPlatform, tag])
-
-  if (titles.length === 0) {
-    return (
-      <p className="text-sm text-[var(--text-tertiary)] text-center py-6 rounded-lg border border-dashed border-[var(--border-default)]">
-        No games tagged “{tag}” yet — add the tag from a game&apos;s own History page.
-      </p>
-    )
-  }
-
-  return (
-    <ul className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-      {titles.map(({ platform, gameName }) => {
-        const backlogItem = (backlog.items ?? []).find(i => i.id === backlogId(platform, gameName))
-        return (
-          <TaggedGameRow
-            key={`${platform}:${gameName}`}
-            platform={platform}
-            gameName={gameName}
-            tags={gameTagsOf(gameTags.byPlatform, platform, gameName)}
-            backlogItem={backlogItem}
-            isAdding={backlog.isAdding(platform, gameName)}
-            onToggleList={(list, playUrl) => backlog.toggleOrAdd({ platform, gameName, playUrl, list })}
-          />
-        )
-      })}
-    </ul>
-  )
-}
-
 interface SearchResult {
   platform: SearchSite
   matches: { name: string; url: string }[]
@@ -447,10 +346,11 @@ const SORTS: [PlayedSort, string][] = [['recent', 'Recent'], ['most', 'Most play
 // finished/bgaTotals come from the parent (shared with GoalsPanel and the
 // top Goals summary) so visiting this page doesn't pay for three separate
 // finished-games fetches at once.
-function PlayedPanel({ backlog, sites, finished, bgaTotals }: { backlog: Backlog; sites: Set<SearchSite>; finished: FinishedGames; bgaTotals: BgaPlayTotals }) {
+function PlayedPanel({ backlog, sites, finished, bgaTotals, tagFilter }: { backlog: Backlog; sites: Set<SearchSite>; finished: FinishedGames; bgaTotals: BgaPlayTotals; tagFilter: string | null }) {
   const [filter, setFilter] = useState('')
   const [sort, setSort] = useState<PlayedSort>('recent')
   const [finishedOnly, setFinishedOnly] = useState(false)
+  const gameTags = useGameTagsContext()
 
   const played = useMemo(
     () => aggregatePlayed(
@@ -466,7 +366,8 @@ function PlayedPanel({ backlog, sites, finished, bgaTotals }: { backlog: Backlog
     played.filter(g =>
       sites.has(g.platform)
       && (!finishedOnly || g.playingNow === 0)
-      && (!q || g.gameName.toLowerCase().includes(q))),
+      && (!q || g.gameName.toLowerCase().includes(q))
+      && (!tagFilter || gameTagsOf(gameTags.byPlatform, g.platform, g.gameName).includes(tagFilter))),
     sort,
   )
 
@@ -511,12 +412,15 @@ function PlayedPanel({ backlog, sites, finished, bgaTotals }: { backlog: Backlog
           ))}
         </div>
       )}
-      <ul className="mt-2 flex flex-col divide-y divide-[var(--border-subtle)] max-h-96 overflow-y-auto">
+      <ul data-testid="played-games" className="mt-2 flex flex-col divide-y divide-[var(--border-subtle)] max-h-96 overflow-y-auto">
         {shown.map(g => (
           <li key={`${g.platform}:${g.gameName}`} className="flex flex-wrap items-center gap-2 py-2">
             <Badge platform={g.platform} />
             <div className="min-w-[140px] flex-1">
-              <p className="text-sm text-[var(--text-primary)] truncate">{g.gameName}</p>
+              <p className="flex items-center gap-1.5">
+                <span className="text-sm text-[var(--text-primary)] truncate">{g.gameName}</span>
+                <GameTagBadge tags={gameTagsOf(gameTags.byPlatform, g.platform, g.gameName)} small />
+              </p>
               <p className="text-xs text-[var(--text-tertiary)]">{playedNote(g)}</p>
             </div>
             <div className="shrink-0 flex items-center gap-2 ml-auto">
@@ -662,20 +566,14 @@ export default function BacklogPage() {
               {TABLETAPAS_SHORT_LABEL}
             </button>
           </div>
-          {/* Cross-cutting by tag belongs here, not among the list tabs
-              above: it's a different way of finding a game to add/play
-              (every title tagged this way, regardless of which list it's
-              in or whether it's in one at all — a freshly-tagged title
-              with no backlog entry yet would otherwise never show up
-              anywhere), the same job "Add games" already does. */}
+          {/* Narrows "From your games" below — every game you've actually
+              played already lives there, so filtering by tag in place is
+              simpler than a separate cross-cutting list of its own. */}
           {allTags.length > 0 && (
-            <div className="mb-4">
-              <TagFilterChips tags={allTags} selected={tagFilter} onChange={setTagFilter} className="mb-3" />
-              {tagFilter && <TaggedSection backlog={backlog} tag={tagFilter} />}
-            </div>
+            <TagFilterChips tags={allTags} selected={tagFilter} onChange={setTagFilter} className="mb-4" />
           )}
           <div className={source === 'search' ? '' : 'hidden'}><SearchPanel backlog={backlog} sites={sites} /></div>
-          <div className={source === 'played' ? '' : 'hidden'}><PlayedPanel backlog={backlog} sites={sites} finished={finished} bgaTotals={bgaTotals} /></div>
+          <div className={source === 'played' ? '' : 'hidden'}><PlayedPanel backlog={backlog} sites={sites} finished={finished} bgaTotals={bgaTotals} tagFilter={tagFilter} /></div>
           <div className={source === 'goals' ? '' : 'hidden'}><GoalsPanel sites={sites} finished={finished} bgaTotals={bgaTotals} onCreate={createGoal} /></div>
         </div>
       </div>
