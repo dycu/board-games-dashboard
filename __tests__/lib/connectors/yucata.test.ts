@@ -119,7 +119,7 @@ describe('fetchYucata', () => {
     expect(g1.players).not.toContain('testuser')
   })
 
-  it('includes a table waiting for more players, tagged pending', async () => {
+  it('includes a table waiting for more players (joined as someone else\'s invitee), tagged pending', async () => {
     mockFetch
       .mockResolvedValueOnce({ ok: true, headers: { get: () => 'ASP.NET_SessionId=abc; Path=/' } })
       .mockResolvedValueOnce({ ok: true, headers: { get: () => 'YucataAuth=xyz; Path=/' }, json: async () => ({ success: true }) })
@@ -136,11 +136,61 @@ describe('fetchYucata', () => {
           creatorID: 42,
         }],
       })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] }) // .../sent: nothing self-created
 
     const games = await fetchYucata('testuser', 'pass')
     const pending = games.find(g => g.id === 'yucata:555')!
     expect(pending).toMatchObject({ pending: true, myTurn: false, gameName: 'Tiletum', currentPlayer: '1/4 joined — waiting for players' })
     expect(pending.players).toEqual([])
+  })
+
+  // The actual bug report this fixed: a table I created myself never once
+  // showed up under .../waiting, no matter how long it sat short of
+  // players — only .../sent ever lists it.
+  it('includes a table I created myself, found only under .../sent, not .../waiting', async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, headers: { get: () => 'ASP.NET_SessionId=abc; Path=/' } })
+      .mockResolvedValueOnce({ ok: true, headers: { get: () => 'YucataAuth=xyz; Path=/' }, json: async () => ({ success: true }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => FIXTURE })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] }) // .../waiting: empty, as it was for the real reported table
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{
+          id: 17198779,
+          gameTypeName: 'Entropy',
+          gameName: 'Entropy',
+          numPlayers: 2,
+          players: [],
+          invitedPlayers: [],
+          creatorID: 42,
+          creationDate: '2026-11-22T19:57:14.02Z',
+        }],
+      })
+
+    const games = await fetchYucata('testuser', 'pass')
+    const pending = games.find(g => g.id === 'yucata:17198779')!
+    expect(pending).toMatchObject({ pending: true, gameName: 'Entropy', currentPlayer: '0/2 joined — waiting for players' })
+  })
+
+  it('does not duplicate a table that shows up under both .../waiting and .../sent', async () => {
+    const invite = {
+      id: 555,
+      gameTypeName: 'Tiletum',
+      numPlayers: 4,
+      creationDate: '2026-06-20T10:00:00.000Z',
+      players: [{ playerID: 42, login: 'testuser' }],
+      invitedPlayers: [],
+      creatorID: 42,
+    }
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, headers: { get: () => 'ASP.NET_SessionId=abc; Path=/' } })
+      .mockResolvedValueOnce({ ok: true, headers: { get: () => 'YucataAuth=xyz; Path=/' }, json: async () => ({ success: true }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => FIXTURE })
+      .mockResolvedValueOnce({ ok: true, json: async () => [invite] })
+      .mockResolvedValueOnce({ ok: true, json: async () => [invite] })
+
+    const games = await fetchYucata('testuser', 'pass')
+    expect(games.filter(g => g.id === 'yucata:555')).toHaveLength(1)
   })
 
   it('throws when login returns success:false', async () => {
@@ -315,8 +365,9 @@ describe('withYucataSession', () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => FIXTURE })
     const games = await fetchYucata('testuser', 'pass')
     expect(games).toHaveLength(2)
-    // games/current, plus the parallel waiting-invitations fetch (no mock
-    // queued for it here — falls back to its own empty-on-failure path)
-    expect(mockFetch).toHaveBeenCalledTimes(2)
+    // games/current, plus the parallel waiting- and sent-invitations fetches
+    // (no mocks queued for either here — each falls back to its own
+    // empty-on-failure path)
+    expect(mockFetch).toHaveBeenCalledTimes(3)
   })
 })

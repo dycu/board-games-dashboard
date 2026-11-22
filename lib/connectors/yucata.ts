@@ -96,16 +96,18 @@ export async function withYucataSession<T>(
   return fn(jar)
 }
 
-// A game I've created/joined that hasn't started yet — still waiting for
-// enough players. Confirmed from Yucata's own frontend bundle
-// (/bundles/mpscripts4): a separate /api/me/invitations/waiting endpoint
-// (alongside .../received and .../sent) feeds its "waiting invites" lobby
-// panel, normalizing each row to
-// {id, gameTypeName, gameName, players: PlayerInfo[], invitedPlayers: PlayerInfo[],
-//  creatorID, numPlayers, ...} — no live sample seen, so this is read
-// defensively and wrapped so a wrong guess can't break the real games list.
-async function fetchPendingYucata(jar: YucataJar, username: string): Promise<Game[]> {
-  const res = await fetch(`${BASE}/api/me/invitations/waiting`, {
+// A game I've created or joined that hasn't started yet — still waiting
+// for enough players. Confirmed live: .../waiting only ever covers a table
+// I've joined as someone else's invitee that's still short of players —
+// a table I created myself (the far more common case) only ever shows up
+// under .../sent, never .../waiting, however long it sits unfilled.
+// .../received (invitations sent *to* me I haven't acted on yet) is
+// deliberately left out — not joined, so not "my" game yet, same as an
+// invite link no one's clicked. Each row: {id, gameTypeName, gameName,
+// players: PlayerInfo[], invitedPlayers: PlayerInfo[], creatorID,
+// numPlayers, creationDate, ...}.
+async function fetchInvitations(jar: YucataJar, path: string): Promise<any[]> {
+  const res = await fetch(`${BASE}/api/me/invitations/${path}`, {
     headers: {
       Accept: 'application/json',
       Cookie: cookieHeader(jar),
@@ -113,11 +115,20 @@ async function fetchPendingYucata(jar: YucataJar, username: string): Promise<Gam
       Referer: `${BASE}/en/Overview`,
     },
   })
-  if (!res.ok) throw new Error(`Yucata waiting-invitations fetch failed: HTTP ${res.status}`)
+  if (!res.ok) throw new Error(`Yucata ${path}-invitations fetch failed: HTTP ${res.status}`)
   const data = await res.json()
-  const invites: any[] = Array.isArray(data) ? data : (data.items ?? data.invitations ?? data.data ?? [])
+  return Array.isArray(data) ? data : (data.items ?? data.invitations ?? data.data ?? [])
+}
 
-  return invites.map((inv: any): Game => {
+async function fetchPendingYucata(jar: YucataJar, username: string): Promise<Game[]> {
+  const [waiting, sent] = await Promise.all([
+    fetchInvitations(jar, 'waiting'),
+    fetchInvitations(jar, 'sent'),
+  ])
+  const byId = new Map<number, any>()
+  for (const inv of [...waiting, ...sent]) byId.set(inv.id, inv)
+
+  return [...byId.values()].map((inv: any): Game => {
     const joined: any[] = inv.players ?? []
     const needed = inv.numPlayers
     const others = joined
