@@ -21,24 +21,27 @@ export async function GET() {
         'User-Agent': 'Mozilla/5.0',
         Referer: `${BASE}/en/Overview`,
       }
-      const paths = [
-        '/api/me/invitations/waiting',
-        '/api/me/invitations/received',
-        '/api/me/invitations/sent',
-        '/api/me/games/current',
-        '/api/me/games',
-        '/api/me/overview',
-      ]
+      const paths = ['/api/me/invitations/sent']
       const results: Record<string, unknown> = {}
       for (const path of paths) {
         try {
           const res = await fetch(`${BASE}${path}`, { headers })
           const text = await res.text()
-          results[path] = { status: res.status, bodyStart: text.slice(0, 1500) }
+          results[path] = { status: res.status, bodyStart: text.slice(0, 3000) }
         } catch (e) {
           results[path] = { error: e instanceof Error ? e.message : String(e) }
         }
       }
+      // What Yucata's own Overview page displays for this table, to check
+      // the real human-readable "joined" count against — whether the
+      // creator already counts as one of numPlayers or not isn't clear
+      // from the API payload alone (players: [] right after creation).
+      const overviewRes = await fetch(`${BASE}/en/Overview`, { headers: { ...headers, Accept: 'text/html' } })
+      const overviewHtml = await overviewRes.text()
+      const idx = overviewHtml.indexOf('Entropy')
+      results['overview_snippet_near_Entropy'] = idx === -1
+        ? 'not found in Overview HTML'
+        : overviewHtml.slice(Math.max(0, idx - 300), idx + 300)
       return NextResponse.json(results)
     })
   } catch (e) {
