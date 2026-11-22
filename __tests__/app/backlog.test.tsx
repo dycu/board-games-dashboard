@@ -1,6 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BacklogPage from '@/app/backlog/page'
+import { GameTagsProvider } from '@/components/GameTagsProvider'
 import { Achievement } from '@/lib/achievements/store'
 
 // Goals needs its own data (achievements, finished games for progress) the
@@ -127,5 +128,76 @@ describe('BacklogPage search — TableTapas', () => {
     // The real-platform row right next to it still gets the full treatment
     const bgaRow = screen.getByText('Wingspan').closest('li')!
     expect(bgaRow.querySelector('[aria-label*="Favorite"]')).not.toBeNull()
+  })
+})
+
+describe('BacklogPage tag filter', () => {
+  // Gaia Project is both backlog-listed and tagged "live"; Nevsky is tagged
+  // "live" too but has no backlog entry at all — exactly the case that
+  // prompted this view (a freshly-tagged title with no list, active game
+  // or finished game to otherwise show up under).
+  function mockFetchWithTags() {
+    global.fetch = jest.fn(async (url: string) => {
+      if (url === '/api/prefs') return { ok: true, json: async () => ({}) }
+      if (url === '/api/backlog') {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [{ id: 'bga:gaiaproject', platform: 'bga', gameName: 'Gaia Project', playUrl: 'https://boardgamearena.com/gaia', addedAt: '', list: 'play' }],
+          }),
+        }
+      }
+      if (url === '/api/game-tags') {
+        return {
+          ok: true,
+          json: async () => ({
+            byPlatform: {
+              bga: { 'gaia project': { tags: ['live'], gameName: 'Gaia Project' } },
+              rally: { nevsky: { tags: ['live'], gameName: 'Nevsky' } },
+            },
+          }),
+        }
+      }
+      if (url.startsWith('/api/game-search')) {
+        return {
+          ok: true,
+          json: async () => ({ results: [{ platform: 'rally', matches: [{ name: 'Nevsky', url: 'https://rally.example/nevsky' }] }], errors: [] }),
+        }
+      }
+      return { ok: true, json: async () => ({}) }
+    }) as unknown as typeof fetch
+  }
+
+  it('shows a filter chip for a tag in use', async () => {
+    mockFetchWithTags()
+    render(<GameTagsProvider><BacklogPage /></GameTagsProvider>)
+    expect(await screen.findByRole('button', { name: 'live' })).toBeInTheDocument()
+  })
+
+  it('lists every title with the tag when selected, including one with no backlog entry', async () => {
+    mockFetchWithTags()
+    render(<GameTagsProvider><BacklogPage /></GameTagsProvider>)
+    await userEvent.click(await screen.findByRole('button', { name: 'live' }))
+    expect(await screen.findByText('Gaia Project')).toBeInTheDocument()
+    expect(await screen.findByText('Nevsky')).toBeInTheDocument()
+  })
+
+  it('resolves a Play link for an untracked tagged title via the game catalog', async () => {
+    mockFetchWithTags()
+    render(<GameTagsProvider><BacklogPage /></GameTagsProvider>)
+    await userEvent.click(await screen.findByRole('button', { name: 'live' }))
+    const row = (await screen.findByText('Nevsky')).closest('li')!
+    await waitFor(() => expect(within(row).getByRole('link', { name: 'Play Nevsky' })).toHaveAttribute('href', 'https://rally.example/nevsky'))
+  })
+
+  it('clears back to the normal per-list view when the tag is deselected', async () => {
+    mockFetchWithTags()
+    render(<GameTagsProvider><BacklogPage /></GameTagsProvider>)
+    await userEvent.click(await screen.findByRole('button', { name: 'live' }))
+    expect(await screen.findByText('Nevsky')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'live' }))
+    expect(screen.queryByText('Nevsky')).toBeNull()
+    expect(screen.getByText('Gaia Project')).toBeInTheDocument()
   })
 })

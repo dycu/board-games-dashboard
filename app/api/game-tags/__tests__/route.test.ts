@@ -24,10 +24,10 @@ it('lists every platform, empty where nothing is stored for it', async () => {
   expect(json.byPlatform.yucata).toEqual({})
 })
 
-it('saves tags for a platform + game, keyed by the lowercased title', async () => {
+it('saves tags for a platform + game, keyed by the lowercased title but keeping the real casing', async () => {
   const res = await post({ platform: 'bga', gameName: 'Gaia Project', tags: ['live', 'heavy'] })
   expect(res.status).toBe(200)
-  expect(mockSet).toHaveBeenCalledWith('gametags:v1:bga', { 'gaia project': { tags: ['live', 'heavy'] } })
+  expect(mockSet).toHaveBeenCalledWith('gametags:v1:bga', { 'gaia project': { tags: ['live', 'heavy'], gameName: 'Gaia Project' } })
 })
 
 it('deletes the entry instead of storing an empty tag list', async () => {

@@ -9,7 +9,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
-import { BacklogItem, BacklogList, BACKLOG_LISTS, LIST_LABELS, SHORT_LIST_LABELS, listsOf } from '@/lib/backlog/list'
+import { BacklogItem, BacklogList, BACKLOG_LISTS, LIST_LABELS, SHORT_LIST_LABELS, listsOf, backlogId } from '@/lib/backlog/list'
 import { PlayedSort, aggregatePlayed, sortPlayed, playedNote } from '@/lib/backlog/played'
 import { useBgaPlayTotals, totalsOf, BgaPlayTotals } from '@/hooks/useBgaPlayTotals'
 import { useBacklog } from '@/hooks/useBacklog'
@@ -26,7 +26,7 @@ import PlatformFilterChips from '@/components/PlatformFilterChips'
 import TagFilterChips from '@/components/TagFilterChips'
 import { GameTagBadge } from '@/components/GameCard'
 import { useGameTagsContext } from '@/components/GameTagsProvider'
-import { gameTagsOf, allGameTags } from '@/lib/gameTags/match'
+import { gameTagsOf, allGameTags, titlesWithTag } from '@/lib/gameTags/match'
 import AchievementUnlockedBanner from '@/components/AchievementUnlockedBanner'
 import GoalsPanel, { GoalsSummary } from '@/components/GoalsPanel'
 
@@ -153,11 +153,8 @@ function Row({ item, position, onTop, onToggleList, onSetParallelTarget, onRemov
   )
 }
 
-function ListSection({ backlog, list, tagFilter }: { backlog: Backlog; list: BacklogList; tagFilter: string | null }) {
-  const gameTags = useGameTagsContext()
-  const items = (backlog.items ?? [])
-    .filter(i => listsOf(i).includes(list))
-    .filter(i => !tagFilter || gameTagsOf(gameTags.byPlatform, i.platform, i.gameName).includes(tagFilter))
+function ListSection({ backlog, list }: { backlog: Backlog; list: BacklogList }) {
+  const items = (backlog.items ?? []).filter(i => listsOf(i).includes(list))
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -204,6 +201,107 @@ function ListSection({ backlog, list, tagFilter }: { backlog: Backlog; list: Bac
         </ol>
       </SortableContext>
     </DndContext>
+  )
+}
+
+// One tagged title, launchable whether or not it's in any backlog list yet
+// (see TaggedSection) — unlike Row, there's no fixed order or drag handle
+// here (this is a cross-cutting search, not a to-do list), and a title with
+// no backlog entry of its own has no playUrl to start from until one is
+// resolved from the game catalog, same lookup the History game page uses
+// for its own "New game" link.
+function TaggedGameRow({ platform, gameName, tags, backlogItem, onToggleList, isAdding }: {
+  platform: Platform
+  gameName: string
+  tags: string[]
+  backlogItem?: BacklogItem
+  onToggleList: (list: BacklogList, playUrl: string) => void
+  isAdding: boolean
+}) {
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(backlogItem?.playUrl ?? null)
+  useEffect(() => {
+    if (resolvedUrl) return
+    let cancelled = false
+    fetch(`/api/game-search?q=${encodeURIComponent(gameName)}`)
+      .then(r => r.json())
+      .then((json: { results: { platform: string; matches: { name: string; url: string }[] }[] }) => {
+        if (cancelled) return
+        const url = json.results.find(r => r.platform === platform)?.matches[0]?.url
+        if (url) setResolvedUrl(url)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [resolvedUrl, platform, gameName])
+
+  const playUrl = backlogItem?.playUrl ?? resolvedUrl
+
+  return (
+    <li className="min-w-0 flex flex-col gap-1.5 py-2.5 pl-1.5 pr-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)]">
+      <div className="min-w-0 flex items-center gap-2">
+        <Badge platform={platform} />
+        <span className="text-sm font-medium text-[var(--text-primary)] truncate flex-1 min-w-0">{gameName}</span>
+        <GameTagBadge tags={tags} small />
+        <HistoryLink game={{ platform, gameName }} />
+      </div>
+      <div className="min-w-0 flex flex-wrap items-center gap-2">
+        {playUrl && <InviteAgainButton platform={platform} gameName={gameName} url={playUrl} />}
+        {playUrl && (
+          <a
+            href={playUrl}
+            target={platform === 'bga' ? '_self' : '_blank'}
+            rel="noopener noreferrer"
+            aria-label={`Play ${gameName}`}
+            title="Play"
+            className={SMALL_BUTTON}
+          >
+            Play ↗
+          </a>
+        )}
+        <BacklogListChips
+          lists={backlogItem ? listsOf(backlogItem) : []}
+          disabled={isAdding || !playUrl}
+          gameName={gameName}
+          onToggle={list => playUrl && onToggleList(list, playUrl)}
+        />
+      </div>
+    </li>
+  )
+}
+
+// Every title carrying the selected tag, across every backlog list and
+// regardless of whether it's in one at all — what "find my live games"
+// actually needs, since a title shows up the moment it's tagged (see
+// titlesWithTag), long before it necessarily has a backlog entry, an
+// active game or a finished one.
+function TaggedSection({ backlog, tag }: { backlog: Backlog; tag: string }) {
+  const gameTags = useGameTagsContext()
+  const titles = useMemo(() => titlesWithTag(gameTags.byPlatform, tag), [gameTags.byPlatform, tag])
+
+  if (titles.length === 0) {
+    return (
+      <p className="text-sm text-[var(--text-tertiary)] text-center py-6 rounded-lg border border-dashed border-[var(--border-default)]">
+        No games tagged “{tag}” yet — add the tag from a game&apos;s own History page.
+      </p>
+    )
+  }
+
+  return (
+    <ul className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+      {titles.map(({ platform, gameName }) => {
+        const backlogItem = (backlog.items ?? []).find(i => i.id === backlogId(platform, gameName))
+        return (
+          <TaggedGameRow
+            key={`${platform}:${gameName}`}
+            platform={platform}
+            gameName={gameName}
+            tags={gameTagsOf(gameTags.byPlatform, platform, gameName)}
+            backlogItem={backlogItem}
+            isAdding={backlog.isAdding(platform, gameName)}
+            onToggleList={(list, playUrl) => backlog.toggleOrAdd({ platform, gameName, playUrl, list })}
+          />
+        )
+      })}
+    </ul>
   )
 }
 
@@ -521,8 +619,20 @@ export default function BacklogPage() {
                   games={finished.data?.games ?? []}
                   onDelete={removeGoal}
                 />
+              ) : tagFilter ? (
+                // Cross-cutting: every title tagged this way, across every
+                // list and regardless of whether it's in one at all — not
+                // just the current tab's list narrowed by tag, since a
+                // freshly-tagged title (no backlog entry yet) would
+                // otherwise never show up anywhere.
+                <>
+                  <p className="text-xs text-[var(--text-tertiary)] mb-2">
+                    Every game tagged “{tagFilter}”, across every list — not just {LIST_LABELS[activeList]}.
+                  </p>
+                  <TaggedSection backlog={backlog} tag={tagFilter} />
+                </>
               ) : (
-                <ListSection backlog={backlog} list={activeList} tagFilter={tagFilter} />
+                <ListSection backlog={backlog} list={activeList} />
               )}
             </section>
           )}

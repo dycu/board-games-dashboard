@@ -28,7 +28,7 @@ export function useGameTags() {
   const saveTags = async (platform: Platform, gameName: string, tags: string[]) => {
     setByPlatform(prev => {
       const platformEntries = prev?.[platform] ?? {}
-      return { ...prev, [platform]: { ...platformEntries, [gameName.toLowerCase()]: { tags } } }
+      return { ...prev, [platform]: { ...platformEntries, [gameName.toLowerCase()]: { tags, gameName } } }
     })
     await fetch('/api/game-tags', {
       method: 'POST',

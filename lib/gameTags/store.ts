@@ -7,6 +7,12 @@ import { Platform } from '../types'
 // other place that groups games by title the same way.
 export interface GameTagEntry {
   tags: string[]
+  // The title as actually typed on the History game page (the hash field
+  // itself is lowercased for matching, which loses the real casing) — kept
+  // so a tagged title can be listed and launched (Backlog's "browse by
+  // tag" view) even when it has no active game, no finished game and no
+  // backlog entry of its own to read a display name from.
+  gameName: string
 }
 
 function key(platform: Platform): string {
@@ -22,12 +28,10 @@ export async function getGameTags(platform: Platform): Promise<Record<string, Ga
 }
 
 export async function setGameTags(platform: Platform, gameName: string, tags: string[]): Promise<void> {
-  const current = await getGameTags(platform)
   const k = gameTagKey(gameName)
-  const existing = current[k] ?? { tags: [] }
   if (tags.length === 0) {
     await kv.hdel(key(platform), k)
     return
   }
-  await kv.hset(key(platform), { [k]: { ...existing, tags } })
+  await kv.hset(key(platform), { [k]: { tags, gameName } })
 }
