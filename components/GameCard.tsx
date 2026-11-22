@@ -34,6 +34,7 @@ export interface GameItemProps {
   now: number
   opened?: boolean // opened since the last refresh that saw me back: dimmed until then
   backlogLists: BacklogList[] // the backlog list(s) this title is tracked under, if any — see BacklogBadge
+  gameTags: string[] // this title's own tags (e.g. "live"), set from the History game page — see GameTagBadge
   // Set when this table is the live match for one of the player's tracked
   // tournaments (cross-referenced client-side in GameGrid by table id — see
   // TournamentBadge) — not every platform exposes tournaments, so most games
@@ -209,6 +210,21 @@ export function BacklogBadge({ lists, small }: { lists: BacklogList[]; small?: b
   )
 }
 
+// A title's own tags (e.g. "live") — set only from the History game page
+// (see its own TagEditor), shown here and everywhere else the title turns
+// up so they're actually useful to spot at a glance, not just searchable.
+export function GameTagBadge({ tags, small }: { tags: string[]; small?: boolean }) {
+  if (tags.length === 0) return null
+  const text = tags.length === 1 ? tags[0] : `${tags[0]} +${tags.length - 1}`
+  return (
+    <span
+      title={`Tagged: ${tags.join(', ')}`}
+      className={`shrink-0 font-medium rounded-full bg-[var(--accent-tint)] text-[var(--accent)] ${small ? 'text-[10px] px-1.5 py-px' : 'text-[11px] px-2 py-0.5'}`}>
+      🏷 {text}
+    </span>
+  )
+}
+
 // Only shown on a table that's a live match in one of the player's tracked
 // tournaments — links through to our own Tournaments tab (the specific
 // tournament's card, via its #id anchor) rather than the platform's own
@@ -373,7 +389,7 @@ function DeleteNote({ game, onSaveNote }: { game: Game; onSaveNote: (id: string,
 // gentle accent tint as the priority layout's active compact cards — used
 // only for that layout's top strip; the classic grid never passes it, so
 // its cards look exactly as they did before.
-export default function GameCard({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists, tournament, highlight }: GameItemProps & { highlight?: boolean }) {
+export default function GameCard({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists, gameTags, tournament, highlight }: GameItemProps & { highlight?: boolean }) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
 
@@ -387,6 +403,7 @@ export default function GameCard({ game, priority, onCyclePriority, onOpen, oppo
           <Badge game={game} />
           <MoveCountBadge game={game} />
           <BacklogBadge lists={backlogLists} />
+          <GameTagBadge tags={gameTags} />
           {tournament && <TournamentBadge tournament={tournament} small />}
         </div>
         <div className="flex items-center gap-2">
@@ -432,7 +449,7 @@ export default function GameCard({ game, priority, onCyclePriority, onOpen, oppo
 // move) gets a gentle accent tint instead — the opposite of making the
 // inactive ones fade out, which competed with the real urgency/slow-
 // opponent indicators for attention.
-export function GameCardCompact({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists, tournament, rank, waiting }: GameItemProps & { rank: number; waiting?: boolean }) {
+export function GameCardCompact({ game, priority, onCyclePriority, onOpen, opponentSlowDays, deadlineSoonHours, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists, gameTags, tournament, rank, waiting }: GameItemProps & { rank: number; waiting?: boolean }) {
   const soon = deadlineSoon(game, now, deadlineSoonHours * 3600_000)
   const slow = isOpponentSlow(game, opponentSlowDays, now)
   const inactive = waiting || opened
@@ -459,6 +476,7 @@ export function GameCardCompact({ game, priority, onCyclePriority, onOpen, oppon
           <Badge game={game} small />
           <MoveCountBadge game={game} small />
           <BacklogBadge lists={backlogLists} small />
+          <GameTagBadge tags={gameTags} small />
           {tournament && <TournamentBadge tournament={tournament} small />}
         </div>
         <div className="flex items-center gap-1.5">
@@ -498,7 +516,7 @@ export function GameCardCompact({ game, priority, onCyclePriority, onOpen, oppon
 }
 
 // A game waiting for someone else: one compact row
-export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists, tournament }: GameItemProps) {
+export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowDays, note, onSaveNote, tableLabel, onSaveTableLabel, now, opened, backlogLists, gameTags, tournament }: GameItemProps) {
   // "Slow" (an overdue opponent) means nothing for a lobby that hasn't
   // started — there's no opponent mid-turn to be slow.
   const slow = !game.pending && isOpponentSlow(game, opponentSlowDays, now)
@@ -509,6 +527,7 @@ export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowD
       <Badge game={game} small />
       <MoveCountBadge game={game} small />
       <BacklogBadge lists={backlogLists} small />
+      <GameTagBadge tags={gameTags} small />
       {tournament && <TournamentBadge tournament={tournament} small />}
       {/* A floor instead of min-w-0: once every shrink-0 sibling after this
           (timestamp, progress, icon buttons) no longer fits alongside a

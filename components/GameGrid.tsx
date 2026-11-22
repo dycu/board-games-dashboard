@@ -9,8 +9,11 @@ import { useBacklog } from '@/hooks/useBacklog'
 import { useTableLabels } from '@/hooks/useTableLabels'
 import { useTournaments } from '@/hooks/useTournaments'
 import { BacklogItem, BacklogList, backlogId, listsOf } from '@/lib/backlog/list'
+import { useGameTagsContext } from './GameTagsProvider'
+import { gameTagsOf, allGameTags } from '@/lib/gameTags/match'
 import FilterToolbar from './FilterToolbar'
 import PlatformFilterChips from './PlatformFilterChips'
+import TagFilterChips from './TagFilterChips'
 import TopNav from './TopNav'
 import ReadNotePopup from './ReadNotePopup'
 import TodayMovesPopup from './TodayMovesPopup'
@@ -103,9 +106,14 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   const configuredPlatforms = data.platforms ?? Array.from(
     new Set([...games.map(g => g.platform), ...errors.map(e => e.platform)])
   )
+  const gameTags = useGameTagsContext()
+  const gameTagsOfGame = (g: Game): string[] => gameTagsOf(gameTags.byPlatform, g.platform, g.gameType || g.gameName)
+  const allTags = useMemo(() => allGameTags(gameTags.byPlatform), [gameTags.byPlatform])
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
+
   // Opened games stay on the page, dimmed, so a note can still be added
   // after the move; they no longer count as waiting for me
-  const visible = games
+  const visible = tagFilter ? games.filter(g => gameTagsOfGame(g).includes(tagFilter)) : games
   const isOpened = (g: Game) => dismissed.has(g.id)
   // Sum across every visible game — shown in the top bar (navRight below).
   // Each card's own share is the MoveCountBadge pill, not a background tint
@@ -333,6 +341,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
       now,
       opened: g.pending ? false : isOpened(g),
       backlogLists: backlogListsOf(g),
+      gameTags: gameTagsOfGame(g),
       tournament: tournamentOf(g),
     }
   }
@@ -439,6 +448,10 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
           </div>
           <div className="shrink-0"><FilterToolbar prefs={prefs} onChange={onPrefsChange} /></div>
         </div>
+
+        {allTags.length > 0 && (
+          <TagFilterChips tags={allTags} selected={tagFilter} onChange={setTagFilter} className="mb-2" />
+        )}
 
         {lastError && cachedAt && (
           <div className="mb-3 text-xs text-amber-600">

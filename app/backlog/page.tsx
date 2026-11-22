@@ -23,6 +23,10 @@ import GameLink, { SMALL_BUTTON, playedGameUrl } from '@/components/GameLink'
 import HistoryLink from '@/components/HistoryLink'
 import InviteAgainButton from '@/components/InviteAgainButton'
 import PlatformFilterChips from '@/components/PlatformFilterChips'
+import TagFilterChips from '@/components/TagFilterChips'
+import { GameTagBadge } from '@/components/GameCard'
+import { useGameTagsContext } from '@/components/GameTagsProvider'
+import { gameTagsOf, allGameTags } from '@/lib/gameTags/match'
 import AchievementUnlockedBanner from '@/components/AchievementUnlockedBanner'
 import GoalsPanel, { GoalsSummary } from '@/components/GoalsPanel'
 
@@ -84,6 +88,7 @@ function Row({ item, position, onTop, onToggleList, onSetParallelTarget, onRemov
   onRemove: () => void
 }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
+  const gameTags = useGameTagsContext()
 
   return (
     <li
@@ -112,6 +117,7 @@ function Row({ item, position, onTop, onToggleList, onSetParallelTarget, onRemov
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <Badge platform={item.platform} />
           <span className="text-sm font-medium text-[var(--text-primary)] truncate">{item.gameName}</span>
+          <GameTagBadge tags={gameTagsOf(gameTags.byPlatform, item.platform, item.gameName)} small />
           <HistoryLink game={item} />
         </div>
       </div>
@@ -147,8 +153,11 @@ function Row({ item, position, onTop, onToggleList, onSetParallelTarget, onRemov
   )
 }
 
-function ListSection({ backlog, list }: { backlog: Backlog; list: BacklogList }) {
-  const items = (backlog.items ?? []).filter(i => listsOf(i).includes(list))
+function ListSection({ backlog, list, tagFilter }: { backlog: Backlog; list: BacklogList; tagFilter: string | null }) {
+  const gameTags = useGameTagsContext()
+  const items = (backlog.items ?? [])
+    .filter(i => listsOf(i).includes(list))
+    .filter(i => !tagFilter || gameTagsOf(gameTags.byPlatform, i.platform, i.gameName).includes(tagFilter))
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -436,6 +445,9 @@ export default function BacklogPage() {
   const [source, setSource] = useState<'search' | 'played' | 'goals'>('played')
   const [activeList, setActiveList] = useState<BacklogList | 'goals'>('play')
   const [sites, setSites] = useState<Set<SearchSite>>(new Set(DEFAULT_BACKLOG_PLATFORMS))
+  const gameTags = useGameTagsContext()
+  const allTags = useMemo(() => allGameTags(gameTags.byPlatform), [gameTags.byPlatform])
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
 
   // Shared across PlayedPanel, GoalsPanel and the Goals summary below, so
   // visiting this page pays for one finished-games fetch, not three.
@@ -498,6 +510,9 @@ export default function BacklogPage() {
                   Goals <span className="tabular-nums opacity-70">{goalsInProgress.length}</span>
                 </button>
               </div>
+              {activeList !== 'goals' && (
+                <TagFilterChips tags={allTags} selected={tagFilter} onChange={setTagFilter} className="mb-3" />
+              )}
               {activeList === 'goals' ? (
                 <GoalsSummary
                   error={achievementsError}
@@ -507,7 +522,7 @@ export default function BacklogPage() {
                   onDelete={removeGoal}
                 />
               ) : (
-                <ListSection backlog={backlog} list={activeList} />
+                <ListSection backlog={backlog} list={activeList} tagFilter={tagFilter} />
               )}
             </section>
           )}

@@ -1,5 +1,5 @@
 'use client'
-import { Suspense, useId, useMemo, useState } from 'react'
+import { Suspense, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Game, Platform, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
 import { BADGE_COLORS } from '@/lib/platform-colors'
@@ -13,6 +13,8 @@ import { backlogId, listsOf, BacklogList } from '@/lib/backlog/list'
 import TopNav from '@/components/TopNav'
 import GameLink, { playedGameUrl } from '@/components/GameLink'
 import PlatformFilterChips from '@/components/PlatformFilterChips'
+import TagEditor from '@/components/TagEditor'
+import TagFilterChips from '@/components/TagFilterChips'
 import PlayerAvatar from '@/components/PlayerAvatar'
 import { BacklogBadge } from '@/components/GameCard'
 
@@ -23,51 +25,6 @@ function Badge({ platform, small }: { platform: Platform; small?: boolean }) {
     <span title={PLATFORM_LABELS[platform]} className={`shrink-0 font-bold uppercase tracking-wide rounded-full ${small ? 'text-[10px] px-1.5 py-px' : 'text-[11px] px-2 py-0.5'} ${BADGE_COLORS[platform] ?? BADGE_FALLBACK}`}>
       {PLATFORM_SHORT_LABELS[platform]}
     </span>
-  )
-}
-
-// Add via Enter or blur, remove with a click on the tag itself — same
-// interaction shape as TableLabelEditor/NoteEditor on the cards, so it
-// doesn't need its own set of conventions. `suggestions` (every tag
-// already used on any player) is offered as a datalist, so a tag like
-// "slow" only needs to be typed out once across the whole roster.
-function TagEditor({ tags, suggestions, onSave }: { tags: string[]; suggestions: string[]; onSave: (tags: string[]) => void }) {
-  const listId = useId()
-  const [draft, setDraft] = useState('')
-  const addTag = () => {
-    const t = draft.trim()
-    setDraft('')
-    if (t && !tags.includes(t)) onSave([...tags, t])
-  }
-  const options = suggestions.filter(t => !tags.includes(t))
-  return (
-    <div className="flex flex-wrap items-center gap-1">
-      {tags.map(t => (
-        <button
-          key={t}
-          onClick={() => onSave(tags.filter(x => x !== t))}
-          title={`Remove the "${t}" tag`}
-          className="text-[10px] font-medium px-1.5 py-px rounded-full bg-[var(--accent-tint)] text-[var(--accent)] hover:bg-red-50 hover:text-red-600"
-        >
-          {t} ✕
-        </button>
-      ))}
-      <input
-        list={listId}
-        value={draft}
-        onChange={e => setDraft(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter') addTag() }}
-        onBlur={addTag}
-        placeholder="+ tag"
-        aria-label="Add a tag"
-        className="w-16 text-[10px] bg-transparent border-b border-dashed border-[var(--border-dashed)] focus:outline-none focus:border-[var(--accent)] text-[var(--text-secondary)] placeholder:text-[var(--text-tertiary)]"
-      />
-      {options.length > 0 && (
-        <datalist id={listId}>
-          {options.map(t => <option key={t} value={t} />)}
-        </datalist>
-      )}
-    </div>
   )
 }
 
@@ -370,21 +327,7 @@ function PlayersPageInner() {
         />
 
         <div className="flex flex-wrap items-center gap-2 mb-4">
-          {allTags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1">
-              {allTags.map(t => (
-                <button
-                  key={t}
-                  onClick={() => setTagFilter(tagFilter === t ? null : t)}
-                  aria-pressed={tagFilter === t}
-                  className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full transition-colors
-                    ${tagFilter === t ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-muted)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted-hover)]'}`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          )}
+          <TagFilterChips tags={allTags} selected={tagFilter} onChange={setTagFilter} />
           <label
             title="Hide opponents only seen in a currently active game, with no finished game together yet"
             className="flex items-center gap-1 text-xs text-[var(--text-secondary)] ml-auto"

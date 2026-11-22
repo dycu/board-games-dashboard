@@ -8,6 +8,9 @@ import FetchProgress from '@/components/FetchProgress'
 import TopNav from '@/components/TopNav'
 import BacklogListChips from '@/components/BacklogListChips'
 import PlatformFilterChips from '@/components/PlatformFilterChips'
+import TagFilterChips from '@/components/TagFilterChips'
+import { useGameTagsContext } from '@/components/GameTagsProvider'
+import { gameTagsOf, allGameTags } from '@/lib/gameTags/match'
 import { useBacklog } from '@/hooks/useBacklog'
 import { useBgaPlayTotals, totalsOf } from '@/hooks/useBgaPlayTotals'
 import { aggregatePlayed, playedKey, playedNote } from '@/lib/backlog/played'
@@ -65,7 +68,12 @@ export default function OverviewPage() {
   const backlogFilter = prefs.historyBacklogFilter ?? false
   const isFavoriteOrGm = (g: { platform: Platform; gameType?: string; gameName: string }) =>
     backlog.listsFor(g.platform, g.gameType || g.gameName).some(l => l === 'favorite' || l === 'gm')
-  const filtered = backlogFilter ? byPlatform.filter(isFavoriteOrGm) : byPlatform
+  const gameTags = useGameTagsContext()
+  const allTags = useMemo(() => allGameTags(gameTags.byPlatform), [gameTags.byPlatform])
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
+  const hasTag = (g: { platform: Platform; gameType?: string; gameName: string }) =>
+    gameTagsOf(gameTags.byPlatform, g.platform, g.gameType || g.gameName).includes(tagFilter!)
+  const filtered = (backlogFilter ? byPlatform.filter(isFavoriteOrGm) : byPlatform).filter(g => !tagFilter || hasTag(g))
 
   // The list below the summary additionally narrows to the same period
   // the summary card is showing, and to a text search — neither affects
@@ -170,6 +178,11 @@ export default function OverviewPage() {
               ★ Favorite/GM{backlogFilter ? ` (${byPlatform.filter(isFavoriteOrGm).length})` : ''}
             </button>
           )}
+          <TagFilterChips
+            tags={allTags}
+            selected={tagFilter}
+            onChange={t => { setTagFilter(t); setVisibleCount(PAGE_SIZE) }}
+          />
         </div>
 
         {/* Side by side once there's room for both; stacked on narrower
@@ -203,6 +216,7 @@ export default function OverviewPage() {
                       key={g.id}
                       game={g}
                       details={played && playedNote(played)}
+                      tags={gameTagsOf(gameTags.byPlatform, g.platform, g.gameType || g.gameName)}
                       action={<>
                         {/* elsewhere the game's page is this table, already linked by View */}
                         {gameUrl !== g.gameUrl && <GameLink url={gameUrl} platform={g.platform} />}

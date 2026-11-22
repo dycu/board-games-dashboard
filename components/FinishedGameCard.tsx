@@ -5,6 +5,7 @@ import { placeLabel } from '@/lib/results'
 import Link from 'next/link'
 import { gameHistoryHref } from '@/lib/gameStats'
 import PlayerHoverCard from './PlayerHoverCard'
+import { GameTagBadge } from './GameCard'
 import { SMALL_BUTTON } from './GameLink'
 
 const RESULT_STYLE = {
@@ -34,9 +35,10 @@ interface Props {
   game: FinishedGame
   action?: React.ReactNode // shown before the View link
   details?: string         // shown after the completion time
+  tags?: string[]          // this title's own tags (e.g. "live") — see GameTagBadge
 }
 
-export default function FinishedGameCard({ game, action, details }: Props) {
+export default function FinishedGameCard({ game, action, details, tags }: Props) {
   const badgeClass = BADGE_COLORS[game.platform] ?? 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'
 
   return (
@@ -54,6 +56,7 @@ export default function FinishedGameCard({ game, action, details }: Props) {
           <div className="flex flex-wrap items-center gap-2 min-w-0">
             <Link href={gameHistoryHref(game)} title="All your games of it" className="text-sm font-medium text-[var(--text-primary)] hover:text-[var(--accent)] hover:underline">{game.gameName}</Link>
             <Result game={game} />
+            {tags && <GameTagBadge tags={tags} small />}
           </div>
           <p className="text-xs text-[var(--text-tertiary)]">
             Completed {game.completedAgo}{eloText(game) && ` · ${eloText(game)}`}{details && ` · ${details}`}

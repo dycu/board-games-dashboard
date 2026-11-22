@@ -15,6 +15,9 @@ import GameLink, { playedGameUrl, SMALL_BUTTON } from '@/components/GameLink'
 import BacklogListChips from '@/components/BacklogListChips'
 import PlayerHoverCard from '@/components/PlayerHoverCard'
 import InviteAgainButton from '@/components/InviteAgainButton'
+import TagEditor from '@/components/TagEditor'
+import { useGameTagsContext } from '@/components/GameTagsProvider'
+import { gameTagsOf, allGameTags } from '@/lib/gameTags/match'
 
 const RESULT_STYLE = {
   won: 'bg-green-50 text-green-700',
@@ -76,6 +79,7 @@ function GameHistory() {
 
   const finished = useFinishedGamesData()
   const backlog = useBacklog()
+  const gameTags = useGameTagsContext()
   const { notes } = useNotes()
 
   // BGA can list every game of one game since the account began; elsewhere
@@ -183,6 +187,17 @@ function GameHistory() {
               onToggle={list => backlog.toggleOrAdd({ platform, gameName: name, gameUrl: latest?.gameUrl, list })}
             />
           )}
+        </div>
+        {/* The only place a title's own tags (e.g. "live") can be added or
+            removed — everywhere else (dashboard, History list, Backlog)
+            just shows and filters by whatever's set here. */}
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs text-[var(--text-tertiary)]">Tags:</span>
+          <TagEditor
+            tags={gameTagsOf(gameTags.byPlatform, platform, name)}
+            suggestions={allGameTags(gameTags.byPlatform)}
+            onSave={tags => gameTags.saveTags(platform, name, tags)}
+          />
         </div>
         {source && <p className="text-xs text-[var(--text-tertiary)] mb-4">{source}{fullError && ` (full history unavailable: ${fullError})`}</p>}
 

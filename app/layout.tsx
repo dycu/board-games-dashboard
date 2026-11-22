@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { OpponentsProvider } from '@/components/OpponentsProvider'
+import { GameTagsProvider } from '@/components/GameTagsProvider'
 import ThemeSync from '@/components/ThemeSync'
 import './globals.css'
 
@@ -30,7 +31,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <ThemeSync />
-        <OpponentsProvider>{children}</OpponentsProvider>
+        <OpponentsProvider>
+          <GameTagsProvider>{children}</GameTagsProvider>
+        </OpponentsProvider>
       </body>
     </html>
   )

@@ -19,7 +19,7 @@ const game: Game = {
 }
 
 const props = (over: Partial<GameItemProps> = {}): GameItemProps =>
-  ({ game, priority: null, onCyclePriority: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, backlogLists: [], ...over })
+  ({ game, priority: null, onCyclePriority: () => {}, onOpen: () => {}, opponentSlowDays: 5, deadlineSoonHours: 24, now: NOW, backlogLists: [], gameTags: [], ...over })
 
 describe('GameCard', () => {
   it('shows game name, platform badge and time', () => {
@@ -76,6 +76,22 @@ describe('GameCard', () => {
     render(<GameCard {...props({ backlogLists: ['gm', 'favorite'] })} />)
     const badge = screen.getByText('🔖 GM +1')
     expect(badge).toHaveAttribute('title', 'In your backlog: GM, Favorite')
+  })
+
+  it('shows this title\'s own tags on a badge', () => {
+    render(<GameCard {...props({ gameTags: ['live'] })} />)
+    expect(screen.getByText('🏷 live')).toBeInTheDocument()
+  })
+
+  it('collapses more than one tag into a "+N" count on the badge', () => {
+    render(<GameCard {...props({ gameTags: ['live', 'heavy'] })} />)
+    const badge = screen.getByText('🏷 live +1')
+    expect(badge).toHaveAttribute('title', 'Tagged: live, heavy')
+  })
+
+  it('shows no tag badge when the title has no tags', () => {
+    render(<GameCard {...props({ gameTags: [] })} />)
+    expect(screen.queryByText(/🏷/)).toBeNull()
   })
 
   it('shows the time left when the deadline is under a day away', () => {
