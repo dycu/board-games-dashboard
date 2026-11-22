@@ -15,16 +15,31 @@ export async function GET() {
   try {
     return await withYucataSession(username, password, async jar => {
       const cookieHeader = Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ')
-      const res = await fetch(`${BASE}/api/me/invitations/waiting`, {
-        headers: {
-          Accept: 'application/json',
-          Cookie: cookieHeader,
-          'User-Agent': 'Mozilla/5.0',
-          Referer: `${BASE}/en/Overview`,
-        },
-      })
-      const text = await res.text()
-      return NextResponse.json({ status: res.status, ok: res.ok, bodyStart: text.slice(0, 3000) })
+      const headers = {
+        Accept: 'application/json',
+        Cookie: cookieHeader,
+        'User-Agent': 'Mozilla/5.0',
+        Referer: `${BASE}/en/Overview`,
+      }
+      const paths = [
+        '/api/me/invitations/waiting',
+        '/api/me/invitations/received',
+        '/api/me/invitations/sent',
+        '/api/me/games/current',
+        '/api/me/games',
+        '/api/me/overview',
+      ]
+      const results: Record<string, unknown> = {}
+      for (const path of paths) {
+        try {
+          const res = await fetch(`${BASE}${path}`, { headers })
+          const text = await res.text()
+          results[path] = { status: res.status, bodyStart: text.slice(0, 1500) }
+        } catch (e) {
+          results[path] = { error: e instanceof Error ? e.message : String(e) }
+        }
+      }
+      return NextResponse.json(results)
     })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
