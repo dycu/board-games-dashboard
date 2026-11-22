@@ -1,15 +1,16 @@
 'use client'
-import { useId, useState } from 'react'
+import { useState } from 'react'
 
-// Add via Enter or blur, remove with a click on the tag itself. `suggestions`
-// (every tag already in use, from wherever this is mounted — opponents, game
-// titles, ...) is offered as a datalist, so a tag like "slow" or "live" only
-// needs to be typed out once across the whole set it belongs to.
+// Add by clicking an existing tag (shown as its own chip, not hidden behind
+// a <datalist> — mobile browsers' native autocomplete for that is spotty
+// to nonexistent) or by typing a new one and pressing Enter/blurring.
+// `suggestions` is every tag already in use wherever this is mounted
+// (opponents, game titles, ...), so a tag like "slow" or "live" only needs
+// to be typed out once across the whole set it belongs to.
 export default function TagEditor({ tags, suggestions, onSave }: { tags: string[]; suggestions: string[]; onSave: (tags: string[]) => void }) {
-  const listId = useId()
   const [draft, setDraft] = useState('')
-  const addTag = () => {
-    const t = draft.trim()
+  const addTag = (tag: string) => {
+    const t = tag.trim()
     setDraft('')
     if (t && !tags.includes(t)) onSave([...tags, t])
   }
@@ -26,21 +27,25 @@ export default function TagEditor({ tags, suggestions, onSave }: { tags: string[
           {t} ✕
         </button>
       ))}
+      {options.map(t => (
+        <button
+          key={t}
+          onClick={() => addTag(t)}
+          title={`Add the "${t}" tag`}
+          className="text-[10px] font-medium px-1.5 py-px rounded-full border border-dashed border-[var(--border-dashed)] text-[var(--text-tertiary)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+        >
+          + {t}
+        </button>
+      ))}
       <input
-        list={listId}
         value={draft}
         onChange={e => setDraft(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter') addTag() }}
-        onBlur={addTag}
-        placeholder="+ tag"
-        aria-label="Add a tag"
+        onKeyDown={e => { if (e.key === 'Enter') addTag(draft) }}
+        onBlur={() => addTag(draft)}
+        placeholder="+ new"
+        aria-label="Add a new tag"
         className="w-16 text-[10px] bg-transparent border-b border-dashed border-[var(--border-dashed)] focus:outline-none focus:border-[var(--accent)] text-[var(--text-secondary)] placeholder:text-[var(--text-tertiary)]"
       />
-      {options.length > 0 && (
-        <datalist id={listId}>
-          {options.map(t => <option key={t} value={t} />)}
-        </datalist>
-      )}
     </div>
   )
 }
