@@ -8,6 +8,7 @@ const TABS = [
   { href: '/overview', label: 'History', shortLabel: 'History' },
   { href: '/tournaments', label: 'Tournaments', shortLabel: 'Tourney' },
   { href: '/players', label: 'Players', shortLabel: 'Players' },
+  { href: '/games', label: 'Games', shortLabel: 'Games' },
   { href: '/backlog', label: 'Backlog', shortLabel: 'Backlog' },
   { href: '/pace', label: 'Pace', shortLabel: 'Pace' },
   { href: '/search', label: 'Find a Game', shortLabel: 'Find' },
