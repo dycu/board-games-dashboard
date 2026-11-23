@@ -6,7 +6,7 @@ import { useBacklog } from '@/hooks/useBacklog'
 import { useFinishedGamesData } from '@/hooks/useFinishedGamesData'
 import { useBgaPlayTotals, totalsOf } from '@/hooks/useBgaPlayTotals'
 import { readCache } from '@/hooks/useGamesData'
-import { aggregatePlayed, playedKey, playedNote, PlayedGame } from '@/lib/backlog/played'
+import { aggregatePlayed, playedKey, playedNote, sortPlayed, PlayedGame, PlayedSort } from '@/lib/backlog/played'
 import { useGameTagsContext } from '@/components/GameTagsProvider'
 import { gameTagsOf, allGameTags } from '@/lib/gameTags/match'
 import TopNav from '@/components/TopNav'
@@ -16,6 +16,11 @@ import TagEditor from '@/components/TagEditor'
 import HistoryLink from '@/components/HistoryLink'
 
 const BADGE_FALLBACK = 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'
+
+const SORTS: [PlayedSort, string][] = [['recent', 'Recent'], ['most', 'Most played'], ['least', 'Least played'], ['name', 'A–Z']]
+
+const pill = (active: boolean) => `text-xs px-3 py-1 rounded-full font-medium transition-colors
+  ${active ? 'bg-[var(--text-primary)] text-[var(--bg-surface)]' : 'bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)]'}`
 
 function Badge({ platform }: { platform: Platform }) {
   return (
@@ -56,22 +61,22 @@ export default function GamesPage() {
   const [platformFilter, setPlatformFilter] = useState<Platform[] | null>(null)
   const [tagFilter, setTagFilter] = useState<string | null>(null)
   const [untaggedOnly, setUntaggedOnly] = useState(false)
+  const [sort, setSort] = useState<PlayedSort>('name')
 
   const platformsPresent = useMemo(() => [...new Set(games.map(g => g.platform))], [games])
   const selectedPlatforms = platformFilter ?? platformsPresent
   const allTags = useMemo(() => allGameTags(gameTags.byPlatform), [gameTags.byPlatform])
 
   const q = search.trim().toLowerCase()
-  const visible = useMemo(() => games
+  const visible = useMemo(() => sortPlayed(games
     .filter(g => selectedPlatforms.includes(g.platform))
     .filter(g => !q || g.gameName.toLowerCase().includes(q))
     .filter(g => {
       const tags = gameTagsOf(gameTags.byPlatform, g.platform, g.gameName)
       if (untaggedOnly) return tags.length === 0
       return !tagFilter || tags.includes(tagFilter)
-    })
-    .sort((a, b) => a.gameName.localeCompare(b.gameName)),
-  [games, selectedPlatforms, q, untaggedOnly, tagFilter, gameTags.byPlatform])
+    }), sort),
+  [games, selectedPlatforms, q, untaggedOnly, tagFilter, gameTags.byPlatform, sort])
 
   const loading = backlog.items === null && !finished.data && finished.isLoading
 
@@ -91,6 +96,13 @@ export default function GamesPage() {
           className="w-full text-xs bg-[var(--bg-surface)] border border-[var(--border-default)] rounded px-2 py-1.5 mb-2 placeholder:text-[var(--text-tertiary)]"
         />
         <PlatformFilterChips platforms={platformsPresent} selected={selectedPlatforms} onChange={setPlatformFilter} className="mb-2" />
+        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+          {SORTS.map(([key, label]) => (
+            <button key={key} onClick={() => setSort(key)} className={pill(sort === key)}>
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <TagFilterChips tags={allTags} selected={tagFilter} onChange={t => { setTagFilter(t); if (t) setUntaggedOnly(false) }} />
           <label className="ml-auto flex items-center gap-1.5 text-xs text-[var(--text-secondary)] cursor-pointer">

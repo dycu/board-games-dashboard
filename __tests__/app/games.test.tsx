@@ -65,6 +65,27 @@ describe('GamesPage', () => {
     expect(screen.getByText('Navegador')).toBeInTheDocument()
   })
 
+  it('sorts by play count', async () => {
+    currentFinishedGames = [
+      fg('1', 'bga', 'Navegador'),
+      fg('2', 'bga', 'Gaia Project'),
+      fg('3', 'bga', 'Gaia Project'),
+    ]
+    mockFetch()
+    renderPage()
+    await screen.findByText('Gaia Project')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Most played' }))
+    let items = screen.getAllByRole('listitem')
+    expect(items[0]).toHaveTextContent('Gaia Project')
+    expect(items[1]).toHaveTextContent('Navegador')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Least played' }))
+    items = screen.getAllByRole('listitem')
+    expect(items[0]).toHaveTextContent('Navegador')
+    expect(items[1]).toHaveTextContent('Gaia Project')
+  })
+
   it('edits a title\'s tags in place', async () => {
     currentFinishedGames = [fg('1', 'bga', 'Gaia Project')]
     mockFetch()
