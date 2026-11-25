@@ -116,6 +116,25 @@ describe('resolveOpened', () => {
     const opened: Opened = { notMoved: { openedAt: T - 500_000, movedSeenAt: T - RETURN_GRACE_MS - 1 } }
     expect(resolveOpened(opened, games, T, here)).toEqual({})
   })
+
+  // An explicit manual refresh (not an automatic poll) can ask to judge a
+  // still-within-grace game right now instead of waiting out the rest of
+  // RETURN_GRACE_MS — it's only ever asking "does it still look freshly
+  // opened", never confirming a move (that's still movedSeenAt, untouched
+  // by this and still gated on a trusted fetch below), so it's safe even
+  // this early.
+  it('expires the display grace immediately on an explicit manual refresh, well before the window is up', () => {
+    const opened: Opened = { notMoved: { openedAt: T - 5000 } } // nowhere near RETURN_GRACE_MS yet
+    expect(resolveOpened(opened, games, T + 1, here, RETURN_GRACE_MS, true)).toEqual({
+      notMoved: { openedAt: T - 5000, dimExpired: true },
+    })
+  })
+
+  it('does not let an immediate manual refresh falsely confirm a move on an untrusted fetch', () => {
+    const away = { returnedAt: T, leftAt: T - 1 }
+    const opened: Opened = { moved: { openedAt: T - 5000 } }
+    expect(resolveOpened(opened, games, T - 1, away, RETURN_GRACE_MS, true)).toEqual(opened)
+  })
 })
 
 describe('judge', () => {

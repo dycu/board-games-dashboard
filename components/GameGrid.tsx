@@ -29,6 +29,12 @@ interface Props {
   onPrefsChange: (p: UserPrefs) => void
   dismissed: Set<string>
   onRefresh: () => void
+  // The Refresh button specifically (falls back to onRefresh when omitted,
+  // e.g. in tests) — distinct from onRefresh's other caller, the auto-refresh
+  // timer, so an explicit manual refresh can ask to be judged immediately
+  // rather than waiting out an opened game's usual display grace. See
+  // resolveOpened's `immediate` parameter.
+  onManualRefresh?: () => void
   isRefreshing: boolean
   lastError: string | null
   cachedAt: string | null
@@ -91,7 +97,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefresh, isRefreshing, lastError, cachedAt, onOpen, departedGames, notes, onSaveNote: saveNote }: Props) {
+export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefresh, onManualRefresh, isRefreshing, lastError, cachedAt, onOpen, departedGames, notes, onSaveNote: saveNote }: Props) {
   // Animates cards sliding into their new position instead of just jumping
   // there — on a sort change, a click (opening/dimming a card moves it),
   // or new data reordering things. One ref per section, since they're
@@ -381,7 +387,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
         </>
       )}
       <button
-        onClick={onRefresh}
+        onClick={onManualRefresh ?? onRefresh}
         disabled={isRefreshing}
         className="bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] disabled:opacity-50 disabled:cursor-not-allowed px-2.5 py-1 rounded-md flex items-center gap-1">
         <span className={isRefreshing ? 'animate-spin inline-block' : ''}>↻</span>

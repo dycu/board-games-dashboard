@@ -85,6 +85,14 @@ export default function DashboardPage() {
   } = useGamesData()
   const promptGame = notePromptId ? displayedData?.games.find(g => g.id === notePromptId) : undefined
   const refresh = useCallback(() => triggerRefresh(), [triggerRefresh])
+  // Set right before an explicit manual refresh and read (then cleared) by
+  // the resolveOpened effect below, so just that one fetch can ask to judge
+  // an opened game immediately — see resolveOpened's `immediate` parameter.
+  const manualRefreshPendingRef = useRef(false)
+  const manualRefresh = useCallback(() => {
+    manualRefreshPendingRef.current = true
+    triggerRefresh()
+  }, [triggerRefresh])
   const presenceRef = useRef<Presence>({ returnedAt: 0, leftAt: null })
   const openedRef = useRef(opened)
   useEffect(() => { openedRef.current = opened }, [opened])
@@ -204,8 +212,10 @@ export default function DashboardPage() {
   // every fetch, full or scoped, with nothing extra to coordinate.
   useEffect(() => {
     if (freshDataVersion === 0 || !displayedData) return
+    const immediate = manualRefreshPendingRef.current
+    manualRefreshPendingRef.current = false
     setOpened(prev => {
-      const next = resolveOpened(prev, displayedData.games, freshDataStartedAt, presenceRef.current, RETURN_GRACE_MS)
+      const next = resolveOpened(prev, displayedData.games, freshDataStartedAt, presenceRef.current, RETURN_GRACE_MS, immediate)
       if (next !== prev) writeStoredOpened(next)
       return next
     })
@@ -237,6 +247,7 @@ export default function DashboardPage() {
           onPrefsChange={updatePrefs}
           dismissed={dismissed}
           onRefresh={refresh}
+          onManualRefresh={manualRefresh}
           isRefreshing={isRefreshing}
           lastError={lastError}
           cachedAt={cachedAt}

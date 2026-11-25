@@ -31,6 +31,7 @@ export function resolveOpened(
   fetchStartedAt: number,
   presence: Presence,
   graceMs = RETURN_GRACE_MS,
+  immediate = false,
 ): Opened {
   // Trust (for confirming a move actually happened) still needs a fetch made
   // while actually back on the dashboard, so a background/stale fetch can't
@@ -46,7 +47,7 @@ export function resolveOpened(
   const next: Opened = {}
   let changed = false
   for (const [id, o] of Object.entries(opened)) {
-    const kept = judge(o, byId.get(id), fetchStartedAt, graceMs, trusted)
+    const kept = judge(o, byId.get(id), fetchStartedAt, graceMs, trusted, immediate)
     if (kept) next[id] = kept
     if (kept !== o) changed = true
   }
@@ -91,7 +92,7 @@ export function resolveOpened(
 // it enables below — whenever the platform eventually catches up, however
 // long that takes. The record is only actually dropped once the game
 // itself is gone, or once a confirmed move's own post-move grace expires.
-export function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetchStartedAt: number, graceMs: number, trusted = true): OpenedGame | null {
+export function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetchStartedAt: number, graceMs: number, trusted = true, immediate = false): OpenedGame | null {
   // Opened after this fetch started: it can't show my move yet
   if (fetchStartedAt < o.openedAt) return o
   // Gone (ended): no longer opened
@@ -108,7 +109,15 @@ export function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetc
   // game.myTurn === false branch's own expiry check again.
   if (o.movedSeenAt !== undefined && fetchStartedAt >= o.movedSeenAt + graceMs) return null
   if (game.myTurn) {
-    if (fetchStartedAt < o.openedAt + graceMs) return o
+    // `immediate` (an explicit manual refresh, not an automatic poll) skips
+    // waiting out the rest of the grace window: dimExpired is purely a
+    // display concern, never a claim that the move was seen (that's still
+    // movedSeenAt, gated on `trusted` below, untouched by this), so showing
+    // it plainly again sooner carries none of the "might predate the move"
+    // risk the grace window itself guards against — it only changes how
+    // soon a glanced-at, nothing-happened game stops looking dimmed when
+    // asked to check right now, not whether a move gets falsely confirmed.
+    if (!immediate && fetchStartedAt < o.openedAt + graceMs) return o
     return o.dimExpired ? o : { ...o, dimExpired: true }
   }
   // Might predate the move (fetch not made while actually back) — wait for
