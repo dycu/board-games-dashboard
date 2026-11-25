@@ -251,6 +251,19 @@ export function useGamesData(): UseGamesDataResult {
 
     setIsRefreshing(true)
     setLastError(null)
+    // Marks the platforms this fetch is about to touch as loading right
+    // away, rather than leaving their *previous* fetch's statuses (all
+    // 'done') in place until the 'start' SSE event arrives — which briefly
+    // showed the compact progress bar as already full, then reset to
+    // near-empty once that event landed a beat later. A scoped refresh
+    // knows its platforms already; a full one resets every platform
+    // already known from the last fetch (the 'start' event fills in any
+    // the account has but this hook hasn't seen loading before, e.g. one
+    // added since).
+    setPlatformStatuses(prev => {
+      const toMark = platforms ?? (Object.keys(prev) as Platform[])
+      return { ...prev, ...Object.fromEntries(toMark.map(p => [p, { state: 'loading' as const }])) }
+    })
 
     let allGames: Game[] = []
     const allErrors: GamesApiResponse['errors'] = []

@@ -147,4 +147,20 @@ describe('useGamesData concurrency', () => {
     expect(signals[1].aborted).toBe(true) // the first bga fetch was superseded
     expect(signals[2].aborted).toBe(false)
   })
+
+  // A platform left showing its *previous* fetch's 'done' status until the
+  // new fetch's own 'start' event arrives (network round trip away) made
+  // the compact progress bar flash full, then drop back down a beat later
+  // — see FetchProgress's compact view, which reads done-vs-loading counts
+  // straight off platformStatuses.
+  it('marks a platform loading again the instant its refresh is triggered, not only once its "start" event arrives', async () => {
+    const { result } = renderHook(() => useGamesData())
+    await waitFor(() => expect(channels.length).toBe(1))
+    act(() => { channels[0].send({ type: 'start', platforms: ['bga'] }); channels[0].send({ type: 'platform', platform: 'bga', games: [] }); channels[0].send({ type: 'done', fetchedAt: 'a' }); channels[0].end() })
+    await waitFor(() => expect(result.current.platformStatuses.bga).toEqual({ state: 'done', count: 0 }))
+
+    act(() => { result.current.triggerRefresh(true, ['bga']) })
+    // Still loading before the new channel's own 'start' event is sent
+    expect(result.current.platformStatuses.bga).toEqual({ state: 'loading' })
+  })
 })
