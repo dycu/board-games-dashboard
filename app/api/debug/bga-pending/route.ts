@@ -30,6 +30,14 @@ async function tryBody(s: any, body: string) {
 export async function GET() {
   const username = process.env.BGA_USERNAME!
   const password = process.env.BGA_PASSWORD!
-  const result = await withBgaSession(username, password, s => tryBody(s, 'status=play&turninfo=true'))
-  return NextResponse.json(result)
+  const html = await withBgaSession(username, password, async s => {
+    const res = await fetch(`${BASE}/`, { headers: bgaApiHeaders(s, `${BASE}/`) })
+    return res.text()
+  })
+  const idx = html.toLowerCase().indexOf('elpaso')
+  return NextResponse.json({
+    length: html.length,
+    mentionsElPaso: idx !== -1,
+    around: idx !== -1 ? html.slice(Math.max(0, idx - 300), idx + 300) : null,
+  })
 }
