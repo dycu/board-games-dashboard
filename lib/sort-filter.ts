@@ -19,13 +19,17 @@ export function deadlineSoon(g: Game, now: number, within = DEADLINE_SOON_MS): n
 // with a waiting game regardless of how it's sorted). Your-turn sections
 // (where pinning actually means something — it's what "Next" opens) keep
 // the default.
-export function sortAndFilter(games: Game[], prefs: UserPrefs, now = Date.now(), { respectPins = true } = {}): Game[] {
+// respectTurnStatus: false skips the My turn/Waiting filter entirely — for
+// a lobby still waiting on players, which is neither: it isn't my turn (the
+// game hasn't started) and it isn't waiting on an opponent's move either, so
+// judging it against that filter just made it vanish under "My turn".
+export function sortAndFilter(games: Game[], prefs: UserPrefs, now = Date.now(), { respectPins = true, respectTurnStatus = true } = {}): Game[] {
   const { pins, sort, filter } = prefs
   const sunk = prefs.sunk ?? []
 
   const result = games.filter(g => {
-    if (filter.turnStatus === 'my-turn' && !g.myTurn) return false
-    if (filter.turnStatus === 'waiting' && g.myTurn) return false
+    if (respectTurnStatus && filter.turnStatus === 'my-turn' && !g.myTurn) return false
+    if (respectTurnStatus && filter.turnStatus === 'waiting' && g.myTurn) return false
     if (filter.platforms === null) return false
     if (filter.platforms.length > 0 && !filter.platforms.includes(g.platform)) return false
     return true

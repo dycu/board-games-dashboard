@@ -137,7 +137,7 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
   // mid-move — its own section (below), not mixed into either of these.
   // Never actually opened/dismissed (see itemProps' onOpen), so no isOpened
   // filter is needed here the way the other two sections need one.
-  const pendingGames = sortAndFilter(visible.filter(g => g.pending), prefs, now, { respectPins: false })
+  const pendingGames = sortAndFilter(visible.filter(g => g.pending), prefs, now, { respectPins: false, respectTurnStatus: false })
   const waitingGames = sortAndFilter(visible.filter(g => !g.myTurn && !g.pending && !isOpened(g)), prefs, now, { respectPins: false })
   const showMine = prefs.filter.turnStatus !== 'waiting'
   const showWaiting = prefs.filter.turnStatus !== 'my-turn'
@@ -608,8 +608,11 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
 
         {/* Independent of the classic/priority split above — a lobby
             waiting for players is a different concept from either, not
-            something that should only show up in one layout. */}
-        {showWaiting && pendingGames.length > 0 && (
+            something that should only show up in one layout. It's also
+            independent of the My turn/Waiting filter: it isn't anyone's
+            turn yet, so hiding it under "My turn" just made a table you
+            yourself opened, waiting on other people to join, disappear. */}
+        {pendingGames.length > 0 && (
           <section className="mb-7">
             <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-tertiary)] mb-2">
               Waiting to start · {pendingGames.length}

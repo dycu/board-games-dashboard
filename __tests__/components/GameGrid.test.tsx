@@ -562,6 +562,14 @@ describe('GameGrid pending (waiting to start) games', () => {
     expect(screen.queryByText(/Waiting for others/)).toBeNull()
   })
 
+  it('still shows a pending game under the My turn filter — it is nobody\'s turn yet, not something to hide there', () => {
+    const lobby = { ...makeGame('bga', '1'), gameName: 'New Lobby', myTurn: false, pending: true, currentPlayer: '1 joined — waiting for players' }
+    const prefs: UserPrefs = { ...DEFAULT_PREFS, filter: { turnStatus: 'my-turn', platforms: [] } }
+    renderGrid([lobby], [], prefs)
+    expect(screen.getByText(/Waiting to start · 1/)).toBeInTheDocument()
+    expect(screen.getByText('New Lobby')).toBeInTheDocument()
+  })
+
   it('does not dim or remove a pending game when its link is clicked — nothing to confirm or note', async () => {
     const lobby = { ...makeGame('hansa', '1'), gameName: 'New Lobby', myTurn: false, pending: true }
     function Wrapper() {
