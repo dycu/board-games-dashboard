@@ -155,4 +155,15 @@ describe('attachOpponentTracking', () => {
     const games = [game('obg:1', false)]
     expect(await attachOpponentTracking('obg', games)).toEqual(games)
   })
+
+  // A lobby's currentPlayer is pendingLobbyText's own status blurb ("1/2
+  // joined — waiting for players"), not a player name — resolveOpponent
+  // can't tell the two apart, so a pending game is excluded here entirely
+  // rather than ever letting that text be stored as an "opponent".
+  it('does not start tracking a pending lobby at all, even though it reports a currentPlayer', async () => {
+    await attachOpponentTracking('obg', [
+      game('obg:1', false, { pending: true, currentPlayer: '1/2 joined — waiting for players', players: [] }),
+    ])
+    expect(watchStore.size).toBe(0)
+  })
 })

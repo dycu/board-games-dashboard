@@ -80,7 +80,12 @@ function reconcile(prevWatch: Record<string, PerPlayerWatchEntry>, games: Game[]
 // today's moves per player onto each table's own history, read back by
 // app/api/table-moves for the popup chart on its card.
 export async function attachPerPlayerMoveCounts(platform: Platform, games: Game[]): Promise<Game[]> {
-  const relevant = games.filter(g => g.platform === platform)
+  // Same exclusion as lib/opponents/track.ts's attachOpponentTracking, and
+  // for the same reason: a lobby's currentPlayer is pendingLobbyText's own
+  // status blurb, not a player name, and resolveOpponent can't tell the
+  // difference — left in, that text got "credited" with a move once the
+  // table actually started and the real first player took its place.
+  const relevant = games.filter(g => g.platform === platform && !g.pending)
   try {
     const today = todayKey()
     const prevWatch = await getWatch(platform)

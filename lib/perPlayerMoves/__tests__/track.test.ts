@@ -106,4 +106,25 @@ describe('attachPerPlayerMoveCounts', () => {
     const result = await attachPerPlayerMoveCounts('obg', games)
     expect(result).toBe(games)
   })
+
+  // A lobby's currentPlayer is pendingLobbyText's own status blurb ("1/2
+  // joined — waiting for players"), not a player name — resolveOpponent
+  // can't tell the two apart, so a pending game is excluded here entirely
+  // rather than ever letting that text be stored as an "opponent" that
+  // could later get credited with a move once the table actually starts.
+  it('does not start tracking a pending lobby at all, even though it reports a currentPlayer', async () => {
+    await attachPerPlayerMoveCounts('obg', [
+      game('obg:1', false, { pending: true, currentPlayer: '1/2 joined — waiting for players', players: [] }),
+    ])
+    expect(watchStore.get('pptrack-watch:v1:obg')).toBeUndefined()
+    expect(daysStore.size).toBe(0)
+  })
+
+  it('starts tracking fresh once a lobby actually starts, crediting the real first player — not the lobby status text', async () => {
+    // The table was pending last fetch (not tracked at all — see above);
+    // now it's started, with a real player up
+    await attachPerPlayerMoveCounts('obg', [game('obg:1', false, { currentPlayer: 'alice', players: ['alice'] })])
+    expect(watchStore.get('pptrack-watch:v1:obg')).toEqual({ 'obg:1': { myTurn: false, opponentName: 'alice' } })
+    expect(daysStore.size).toBe(0) // first time seen as an active game — nothing credited yet, same as any other
+  })
 })

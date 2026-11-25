@@ -94,7 +94,15 @@ function mirrorPlayerField(
 // all. Must run on every fetch, same contract as
 // attachMoveCounts/attachFirstSeenProgress.
 export async function attachOpponentTracking(platform: Platform, games: Game[]): Promise<Game[]> {
-  const relevant = games.filter(g => g.platform === platform)
+  // A lobby still waiting on players has no real opponent yet — its
+  // currentPlayer is pendingLobbyText's own status blurb ("1/2 joined —
+  // waiting for players"), not a name, and resolveOpponent has no way to
+  // tell the two apart. Left in, that text got treated as an opponent,
+  // stored in the watch entry, then "credited" with a move the moment the
+  // table actually started and the real first player showed up in its
+  // place (reconcile's mid-wait-handoff branch, triggered by the name
+  // merely changing) — confirmed live on the per-player moves chart.
+  const relevant = games.filter(g => g.platform === platform && !g.pending)
   try {
     const now = Math.floor(Date.now() / 1000)
     const [prevWatch, currentOpponents] = await Promise.all([getGameWatch(platform), getOpponents(platform)])
