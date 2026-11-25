@@ -121,7 +121,14 @@ export default function DashboardPage() {
   // everything needs refreshing anyway — do that. Otherwise, if a game is
   // open, refresh just its platform(s), not every configured one.
   useEffect(() => {
-    const isHere = () => document.visibilityState === 'visible' && document.hasFocus()
+    // visibilityState alone, not document.hasFocus() too: many mobile
+    // browsers (especially a PWA/home-screen one) never report focus true
+    // even while the dashboard is the one thing on screen, which pinned
+    // leftAt at mount and kept every later fetch judged "not present" —
+    // resolveOpened then never advances an opened game past its original
+    // state, so it stayed "opened" (dimmed, not purple) forever instead of
+    // reverting once it was actually my turn again.
+    const isHere = () => document.visibilityState === 'visible'
     // returnedAt stays 0 on a normal load, so the first fetch counts fully.
     // Coming Back from a game opened in this tab is a return, from when the
     // navigation started (before the page's first fetch)
