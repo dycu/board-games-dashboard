@@ -5,7 +5,7 @@ import { usePrefs } from '@/hooks/usePrefs'
 import { useNotes } from '@/hooks/useNotes'
 import { isBackForwardNavigation } from '@/lib/navigation'
 import { Platform } from '@/lib/types'
-import { Presence, Opened, resolveOpened, readStoredOpened, writeStoredOpened, storeOpenedNow, nextNotePrompt, decideReturnRefresh, RETURN_GRACE_MS, AWAY_REFRESH_MS } from '@/lib/dismissal'
+import { Presence, Opened, resolveOpened, readStoredOpened, writeStoredOpened, storeOpenedNow, nextNotePrompt, decideReturnRefresh, stillShownAsOpened, RETURN_GRACE_MS, AWAY_REFRESH_MS } from '@/lib/dismissal'
 import GameGrid from '@/components/GameGrid'
 import FetchProgress from '@/components/FetchProgress'
 import NewGamesPopup from '@/components/NewGamesPopup'
@@ -46,15 +46,6 @@ export default function DashboardPage() {
   const { prefs, updatePrefs } = usePrefs()
   const { notes, saveNote } = useNotes()
   const [opened, setOpened] = useState<Opened>({})
-  // A dimExpired game with no confirmed move yet is still being watched (see
-  // judge() in lib/dismissal.ts) in case a laggy platform catches up later,
-  // but it should look like a normal card again in the meantime, not stay
-  // stuck dimmed — so it's excluded here, unlike one whose move IS confirmed
-  // (movedSeenAt set), which stays dimmed for the note-prompt regardless.
-  const dismissed = useMemo(
-    () => new Set(Object.entries(opened).filter(([, o]) => o.movedSeenAt !== undefined || !o.dimExpired).map(([id]) => id)),
-    [opened],
-  )
 
   // Which opened game (if any) should get a "plan for next round?" popup —
   // the first one whose move is confirmed and not already prompted for since
@@ -84,6 +75,13 @@ export default function DashboardPage() {
     departedGames,
   } = useGamesData()
   const promptGame = notePromptId ? displayedData?.games.find(g => g.id === notePromptId) : undefined
+
+  // See stillShownAsOpened's own comment for why this needs the live games
+  // list, not just `opened` on its own.
+  const dismissed = useMemo(() => {
+    const byId = new Map((displayedData?.games ?? []).map(g => [g.id, g]))
+    return new Set(Object.entries(opened).filter(([id, o]) => stillShownAsOpened(o, byId.get(id))).map(([id]) => id))
+  }, [opened, displayedData])
   const refresh = useCallback(() => triggerRefresh(), [triggerRefresh])
   // Set right before an explicit manual refresh and read (then cleared) by
   // the resolveOpened effect below, so just that one fetch can ask to judge

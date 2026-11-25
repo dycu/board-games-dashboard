@@ -1,4 +1,4 @@
-import { presentAt, resolveOpened, judge, parseStoredOpened, nextNotePrompt, openedPlatforms, decideReturnRefresh, Opened, RETURN_GRACE_MS } from '../dismissal'
+import { presentAt, resolveOpened, judge, parseStoredOpened, nextNotePrompt, openedPlatforms, decideReturnRefresh, stillShownAsOpened, Opened, RETURN_GRACE_MS } from '../dismissal'
 
 describe('presentAt', () => {
   it('counts a time after returning', () => {
@@ -162,6 +162,32 @@ describe('judge', () => {
 
   it('drops a game that has ended, even within its grace window', () => {
     expect(judge({ openedAt: T - 1000 }, undefined, T, RETURN_GRACE_MS)).toBeNull()
+  })
+})
+
+describe('stillShownAsOpened', () => {
+  it('stays opened while a not-yet-confirmed move is still within its display grace', () => {
+    expect(stillShownAsOpened({ openedAt: 0 }, { myTurn: true })).toBe(true)
+  })
+
+  it('stops looking opened once dimExpired, with no move confirmed yet', () => {
+    expect(stillShownAsOpened({ openedAt: 0, dimExpired: true }, { myTurn: true })).toBe(false)
+  })
+
+  it('stays opened for the note prompt right after a confirmed move, while still waiting on the opponent', () => {
+    expect(stillShownAsOpened({ openedAt: 0, movedSeenAt: 100 }, { myTurn: false })).toBe(true)
+  })
+
+  // The opponent replied fast enough that myTurn is true again well within
+  // the same grace window a slow platform would still be given the benefit
+  // of the doubt in — this is what was reported live as a real turn stuck
+  // looking "opened" because the opponent moved quickly.
+  it('stops looking opened the moment myTurn is true again after a confirmed move, regardless of how little time has passed', () => {
+    expect(stillShownAsOpened({ openedAt: 0, movedSeenAt: 100 }, { myTurn: true })).toBe(false)
+  })
+
+  it('stays opened for a game no longer in the live list — nothing says it is my turn again', () => {
+    expect(stillShownAsOpened({ openedAt: 0, movedSeenAt: 100 }, undefined)).toBe(true)
   })
 })
 

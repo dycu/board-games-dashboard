@@ -19,6 +19,23 @@ export type Opened = Record<string, OpenedGame>
 
 export const RETURN_GRACE_MS = 5 * 60 * 1000
 
+// Whether an opened game should still display as "opened" (dimmed) right
+// now. A dimExpired game with no confirmed move yet is still being watched
+// by judge() in case a laggy platform catches up later, but it should look
+// like a normal card again in the meantime, not stay stuck dimmed — unlike
+// one whose move IS confirmed (movedSeenAt set), which normally stays
+// dimmed for the note-prompt regardless. Except: once the *current* fetch
+// already shows myTurn true again, that's a brand new turn — the opponent
+// replied, possibly well within the same grace window a slow platform
+// would still be given the benefit of the doubt in — and there's nothing
+// left to wait on. The record itself isn't dropped here (the note prompt
+// for the round that just finished still needs it — see judge()'s own
+// movedSeenAt-expiry check), only the display stops treating it as opened.
+export function stillShownAsOpened(o: OpenedGame, game: { myTurn: boolean } | undefined): boolean {
+  if (o.movedSeenAt === undefined) return !o.dimExpired
+  return !game?.myTurn
+}
+
 // Whether the user was on the dashboard at time t, as far as we know
 export function presentAt(t: number, presence: Presence): boolean {
   if (t < presence.returnedAt) return false
