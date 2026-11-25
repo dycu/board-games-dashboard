@@ -81,6 +81,19 @@ describe('resolveOpened', () => {
     expect(resolveOpened(opened, games, T + 1, here)).toEqual({ notMoved: { openedAt: T - RETURN_GRACE_MS, dimExpired: true } })
   })
 
+  // A tab rarely judged "present" (an infrequently-foregrounded mobile one,
+  // say) must still stop dimming a long-stale game once its grace window
+  // has passed — dimExpired is a pure elapsed-time check, so it shouldn't
+  // need a trusted fetch the way confirming a move does
+  it('still expires the display grace on a fetch made while away, unlike confirming a move', () => {
+    const away = { returnedAt: T, leftAt: T - 1 }
+    const opened: Opened = { moved: { openedAt: T - RETURN_GRACE_MS - 1 }, notMoved: { openedAt: T - RETURN_GRACE_MS - 1 } }
+    expect(resolveOpened(opened, games, T - 1, away)).toEqual({
+      moved: { openedAt: T - RETURN_GRACE_MS - 1 },
+      notMoved: { openedAt: T - RETURN_GRACE_MS - 1, dimExpired: true },
+    })
+  })
+
   // A platform laggier than graceMs itself (the original reason Boardgamers.space
   // was on the old curated list) must not lose the move's confirmation just
   // because the display grace ran out first — judge() keeps a dimExpired game

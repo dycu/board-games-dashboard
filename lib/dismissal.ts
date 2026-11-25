@@ -32,12 +32,21 @@ export function resolveOpened(
   presence: Presence,
   graceMs = RETURN_GRACE_MS,
 ): Opened {
-  if (!presentAt(fetchStartedAt, presence)) return opened
+  // Trust (for confirming a move actually happened) still needs a fetch made
+  // while actually back on the dashboard, so a background/stale fetch can't
+  // predate the move. But the display grace timing out — stop treating a
+  // game as freshly opened once RETURN_GRACE_MS has passed, even with no
+  // move seen yet (dimExpired) — is a pure elapsed-time check that doesn't
+  // need that same trust, and gating it the same way meant a game stayed
+  // stuck looking "opened" forever on a tab rarely judged "present" (an
+  // infrequently-foregrounded mobile tab, say) instead of going back to
+  // looking like a normal card after its grace window passed.
+  const trusted = presentAt(fetchStartedAt, presence)
   const byId = new Map(games.map(g => [g.id, g]))
   const next: Opened = {}
   let changed = false
   for (const [id, o] of Object.entries(opened)) {
-    const kept = judge(o, byId.get(id), fetchStartedAt, graceMs)
+    const kept = judge(o, byId.get(id), fetchStartedAt, graceMs, trusted)
     if (kept) next[id] = kept
     if (kept !== o) changed = true
   }
@@ -82,7 +91,7 @@ export function resolveOpened(
 // it enables below — whenever the platform eventually catches up, however
 // long that takes. The record is only actually dropped once the game
 // itself is gone, or once a confirmed move's own post-move grace expires.
-export function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetchStartedAt: number, graceMs: number): OpenedGame | null {
+export function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetchStartedAt: number, graceMs: number, trusted = true): OpenedGame | null {
   // Opened after this fetch started: it can't show my move yet
   if (fetchStartedAt < o.openedAt) return o
   // Gone (ended): no longer opened
@@ -91,6 +100,9 @@ export function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetc
     if (fetchStartedAt < o.openedAt + graceMs) return o
     return o.dimExpired ? o : { ...o, dimExpired: true }
   }
+  // Might predate the move (fetch not made while actually back) — wait for
+  // one that is, rather than confirm the move on unproven data
+  if (!trusted) return o
   const movedSeenAt = o.movedSeenAt ?? fetchStartedAt
   if (fetchStartedAt >= movedSeenAt + graceMs) return null
   return o.movedSeenAt === undefined ? { ...o, movedSeenAt } : o
