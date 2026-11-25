@@ -372,11 +372,15 @@ export function TableLabelEditor({ game, label, onSaveLabel, compact }: Pick<Gam
       {label}
     </button>
   ) : compact ? (
+    // A bare icon here used to have no border at all — easy to miss next to
+    // a bold title, unlike the full card's clearly-bordered "+ label"
+    // button. Same dashed-border treatment, just icon-only to fit the
+    // tighter row.
     <button
       onClick={startEditing}
       aria-label={`Add a table label to ${game.gameName}`}
       title="Add a table label"
-      className="relative z-10 shrink-0 text-xs text-[var(--icon-muted)] hover:text-[var(--accent)]">
+      className="relative z-10 shrink-0 text-[10px] text-[var(--text-tertiary)] hover:text-[var(--accent)] border border-dashed border-[var(--border-dashed)] hover:border-[var(--accent)] px-1 py-px rounded">
       🏷
     </button>
   ) : (
