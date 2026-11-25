@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { Game } from '@/lib/types'
 import { useAnchoredPopover } from '@/hooks/useAnchoredPopover'
 
@@ -58,71 +58,103 @@ function colorFor(playerKey: string, namedOpponents: string[]): string {
   return OPPONENT_PALETTE[i % OPPONENT_PALETTE.length]
 }
 
+// Each day gets a fixed pixel width, however long the table's history
+// is — cramming every day into one fixed-width chart (the previous
+// approach) made the bars illegible after a couple of weeks, which is
+// exactly when a "how's this table been going" glance matters most. A
+// long history just makes a wider, horizontally-scrollable chart instead,
+// defaulted scrolled to the most recent days.
+const DAY_SLOT = 14
+
 // A stacked bar per day — each segment is one player's share of that day's
 // moves, in the same order/color on every bar, so a glance across days
 // reads as "who's been carrying this table along".
 function StackedMovesChart({ days }: { days: GameDays }) {
-  const [hover, setHover] = useState<number | null>(null)
+  const [hover, setHover] = useState<{ i: number; x: number } | null>(null)
+  const [scrollLeft, setScrollLeft] = useState(0)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const dates = Object.keys(days).sort()
   const keys = orderedKeys(days)
   const namedOpponents = keys.filter(k => k !== ME_KEY && k !== OPPONENTS_KEY)
 
-  const W = 420, H = 180, L = 28, R = 10, T = 10, B = 20
+  const AXIS_W = 28, H = 150, T = 10, B = 20
   const totals = dates.map(d => keys.reduce((sum, k) => sum + (days[d][k] ?? 0), 0))
   const yMax = niceMax(Math.max(1, ...totals))
   const n = dates.length
-  const slot = (W - L - R) / n
-  const barW = Math.max(3, slot * 0.6)
+  const chartW = n * DAY_SLOT
+  const barW = Math.max(3, DAY_SLOT * 0.6)
   const y = (v: number) => T + (1 - v / yMax) * (H - T - B)
-  const labelEvery = Math.max(1, Math.ceil(n / 7))
+  const labelEvery = Math.max(1, Math.ceil(40 / DAY_SLOT))
+
+  // Scrolled to the end (most recent days) by default — and again whenever
+  // the history grows (a later day added while the popup happens to still
+  // be open), rather than leaving the view pinned to wherever it was.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el) {
+      el.scrollLeft = el.scrollWidth
+      setScrollLeft(el.scrollLeft)
+    }
+  }, [n])
 
   return (
-    <div className="relative">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Moves per day, by player">
-        {[0, 0.5, 1].map(f => (
-          <g key={f}>
-            <line x1={L} x2={W - R} y1={y(f * yMax)} y2={y(f * yMax)} stroke={GRID} />
-            <text x={L - 6} y={y(f * yMax)} dy="0.32em" textAnchor="end" fontSize="9" fill={MUTED}>{Math.round(f * yMax)}</text>
-          </g>
-        ))}
-        {dates.map((date, i) => {
-          const barX = L + i * slot + (slot - barW) / 2
-          let cumulative = 0
-          return (
-            <g key={date} opacity={hover === null || hover === i ? 1 : 0.4}>
-              {keys.map(k => {
-                const v = days[date][k] ?? 0
-                if (v === 0) return null
-                const segY = y(cumulative + v)
-                const segH = Math.max(0, y(cumulative) - segY)
-                cumulative += v
-                return <rect key={k} x={barX} y={segY} width={barW} height={segH} fill={colorFor(k, namedOpponents)} />
-              })}
-              <rect x={L + i * slot} y={T} width={slot} height={H - T - B} fill="transparent"
-                tabIndex={0}
-                onPointerEnter={() => setHover(i)} onPointerLeave={() => setHover(null)}
-                onFocus={() => setHover(i)} onBlur={() => setHover(null)} />
+    <div>
+      <div className="relative flex">
+        <svg width={AXIS_W} height={H} className="shrink-0" aria-hidden="true">
+          {[0, 0.5, 1].map(f => (
+            <g key={f}>
+              <line x1={0} x2={AXIS_W} y1={y(f * yMax)} y2={y(f * yMax)} stroke={GRID} />
+              <text x={AXIS_W - 6} y={y(f * yMax)} dy="0.32em" textAnchor="end" fontSize="9" fill={MUTED}>{Math.round(f * yMax)}</text>
             </g>
-          )
-        })}
-        {dates.map((date, i) => i % labelEvery === 0 && (
-          <text key={date} x={L + i * slot + slot / 2} y={H - 4} textAnchor="middle" fontSize="9" fill={MUTED}>{date.slice(5)}</text>
-        ))}
-      </svg>
-      {hover !== null && (
-        <div
-          className="pointer-events-none absolute z-10 rounded-md border border-[#e5e5e5] bg-white px-2.5 py-1.5 text-xs shadow-sm whitespace-nowrap"
-          style={{ left: `${Math.min(Math.max(((L + hover * slot + slot / 2) / W) * 100, 20), 80)}%`, top: 0, transform: 'translate(-50%, -100%)' }}
-        >
-          <div className="font-semibold" style={{ color: INK }}>{dates[hover]}</div>
-          {keys.filter(k => days[dates[hover]][k]).map(k => (
-            <div key={k} className="flex items-center gap-1.5" style={{ color: INK }}>
-              <span className="inline-block w-2 h-2 rounded-full" style={{ background: colorFor(k, namedOpponents) }} />
-              {label(k)} · {days[dates[hover]][k]}
-            </div>
           ))}
+        </svg>
+        <div ref={scrollRef} className="flex-1 min-w-0 overflow-x-auto" onScroll={e => setScrollLeft(e.currentTarget.scrollLeft)}>
+          <svg width={chartW} height={H} role="img" aria-label="Moves per day, by player">
+            {[0, 0.5, 1].map(f => (
+              <line key={f} x1={0} x2={chartW} y1={y(f * yMax)} y2={y(f * yMax)} stroke={GRID} />
+            ))}
+            {dates.map((date, i) => {
+              const barX = i * DAY_SLOT + (DAY_SLOT - barW) / 2
+              let cumulative = 0
+              return (
+                <g key={date} opacity={hover === null || hover.i === i ? 1 : 0.4}>
+                  {keys.map(k => {
+                    const v = days[date][k] ?? 0
+                    if (v === 0) return null
+                    const segY = y(cumulative + v)
+                    const segH = Math.max(0, y(cumulative) - segY)
+                    cumulative += v
+                    return <rect key={k} x={barX} y={segY} width={barW} height={segH} fill={colorFor(k, namedOpponents)} />
+                  })}
+                  <rect x={i * DAY_SLOT} y={T} width={DAY_SLOT} height={H - T - B} fill="transparent"
+                    tabIndex={0}
+                    onPointerEnter={() => setHover({ i, x: i * DAY_SLOT + DAY_SLOT / 2 })}
+                    onPointerLeave={() => setHover(null)}
+                    onFocus={() => setHover({ i, x: i * DAY_SLOT + DAY_SLOT / 2 })}
+                    onBlur={() => setHover(null)} />
+                </g>
+              )
+            })}
+            {dates.map((date, i) => i % labelEvery === 0 && (
+              <text key={date} x={i * DAY_SLOT + DAY_SLOT / 2} y={H - 4} textAnchor="middle" fontSize="9" fill={MUTED}>{date.slice(5)}</text>
+            ))}
+          </svg>
         </div>
-      )}
+        {hover !== null && (
+          <div
+            className="pointer-events-none absolute z-10 rounded-md border border-[#e5e5e5] bg-white px-2.5 py-1.5 text-xs shadow-sm whitespace-nowrap"
+            style={{ left: AXIS_W + hover.x - scrollLeft, top: 0, transform: 'translate(-50%, -100%)' }}
+          >
+            <div className="font-semibold" style={{ color: INK }}>{dates[hover.i]}</div>
+            {keys.filter(k => days[dates[hover.i]][k]).map(k => (
+              <div key={k} className="flex items-center gap-1.5" style={{ color: INK }}>
+                <span className="inline-block w-2 h-2 rounded-full" style={{ background: colorFor(k, namedOpponents) }} />
+                {label(k)} · {days[dates[hover.i]][k]}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[11px]" style={{ color: MUTED }}>
         {keys.map(k => (
           <span key={k} className="flex items-center gap-1">
