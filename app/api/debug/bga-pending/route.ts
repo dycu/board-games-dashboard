@@ -3,19 +3,37 @@ import { withBgaSession, bgaApiHeaders } from '@/lib/connectors/bga'
 
 export const dynamic = 'force-dynamic'
 
-// Temporary: BGA's own homepage lists "tables waiting for players" —
-// grab it with the authenticated session to see what ajax call it makes,
-// since tableinfos.html?status=play isn't returning a brand-new lobby.
+const BASE = 'https://boardgamearena.com'
+
+// Temporary: the earlier status=setup attempt failed with "Bad argument
+// type: status should be a value from the enumeration (setup)" — "setup"
+// is named as a valid member right there, so the single string may be the
+// wrong *shape* (BGA wanting an array), not the wrong value. Trying a few
+// request-body variants to find one that actually works.
+async function tryBody(s: any, body: string) {
+  const res = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, {
+    method: 'POST',
+    headers: { ...bgaApiHeaders(s), 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+    body,
+  })
+  const text = await res.text()
+  try {
+    const data = JSON.parse(text)
+    if (data.status !== 1) return { body, error: data.error ?? data }
+    const tables: any[] = Object.values(data?.data?.tables ?? {})
+    return { body, count: tables.length, statuses: [...new Set(tables.map(t => t.status))] }
+  } catch {
+    return { body, error: `non-JSON (${res.status}): ${text.slice(0, 150)}` }
+  }
+}
+
 export async function GET() {
   const username = process.env.BGA_USERNAME!
   const password = process.env.BGA_PASSWORD!
-  const html = await withBgaSession(username, password, async s => {
-    const res = await fetch('https://boardgamearena.com/account', { headers: bgaApiHeaders(s, 'https://boardgamearena.com/') })
-    return res.text()
-  })
-  // Pull out anything that looks like an ajax URL reference, so we don't
-  // ship the whole page.
-  const urls = [...new Set(html.match(/[a-zA-Z0-9_/]+\.html/g) ?? [])]
-  const mentionsNemesis = /nemesis/i.test(html)
-  return NextResponse.json({ length: html.length, urls, mentionsNemesis })
+  const results = await withBgaSession(username, password, async s => Promise.all([
+    tryBody(s, 'status[]=setup&turninfo=true'),
+    tryBody(s, 'status[]=play&status[]=setup&turninfo=true'),
+    tryBody(s, 'status=setup&turninfo=false'),
+  ]))
+  return NextResponse.json(results)
 }
