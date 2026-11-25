@@ -400,7 +400,10 @@ export default function GameCard({ game, priority, onCyclePriority, onOpen, oppo
       ${opened ? 'opacity-55 hover:opacity-100 border-[var(--border-default)]' : soon !== null ? 'border-[var(--border-default)] border-l-[3px] border-l-red-500' : 'border-[var(--border-default)] border-l-[3px] border-l-[var(--accent)]'}`}>
       <CoverLink game={game} onOpen={onOpen} note={note} />
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 min-w-0">
+        {/* flex-wrap: a long tag name (or several) can outgrow what's left
+            of the row next to the other badges — wrapping onto a second
+            line keeps it inside the card instead of spilling past its edge. */}
+        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
           <Badge game={game} />
           <MoveCountBadge game={game} />
           <BacklogBadge lists={backlogLists} />
@@ -473,7 +476,11 @@ export function GameCardCompact({ game, priority, onCyclePriority, onOpen, oppon
           line below once they don't both fit, the same tradeoff GameRow
           already makes for its own name/icons row. */}
       <div className="flex flex-wrap items-center justify-between gap-1.5">
-        <div className="flex items-center gap-1 min-w-0">
+        {/* flex-wrap here too — this group wrapping to the row below (the
+            outer flex-wrap, see the comment above) only helps once the
+            whole group doesn't fit; without its own wrap, a long tag name
+            inside it still had nowhere to go but past the card's edge. */}
+        <div className="flex flex-wrap items-center gap-1 min-w-0">
           <Badge game={game} small />
           <MoveCountBadge game={game} small />
           <BacklogBadge lists={backlogLists} small />
