@@ -88,10 +88,11 @@ describe('GameCard', () => {
     expect(screen.getByText('🏷 live')).toBeInTheDocument()
   })
 
-  it('collapses more than one tag into a "+N" count on the badge', () => {
+  it('collapses more than one tag into a "+N" count on the badge, revealing the full list on hover', async () => {
     render(<GameCard {...props({ gameTags: ['live', 'heavy'] })} />)
-    const badge = screen.getByText('🏷 live +1')
-    expect(badge).toHaveAttribute('title', 'Tagged: live, heavy')
+    expect(screen.getByText('🏷 live +1')).toBeInTheDocument()
+    await userEvent.hover(screen.getByRole('button', { name: 'Tagged: live, heavy' }))
+    expect(screen.getByRole('tooltip')).toHaveTextContent('live, heavy')
   })
 
   it('shows no tag badge when the title has no tags', () => {

@@ -7,6 +7,7 @@ import { formatTimeRemaining } from '@/lib/connectors/utils'
 import { deadlineSoon } from '@/lib/sort-filter'
 import { useNoteConfirmedOpen } from '@/hooks/useNoteConfirmedOpen'
 import HistoryLink from './HistoryLink'
+import HoldTooltip from './HoldTooltip'
 import PlayerHoverCard from './PlayerHoverCard'
 import ProgressBar from './ProgressBar'
 import ReadNotePopup from './ReadNotePopup'
@@ -214,15 +215,23 @@ export function BacklogBadge({ lists, small }: { lists: BacklogList[]; small?: b
 // A title's own tags (e.g. "live") — set only from the History game page
 // (see its own TagEditor), shown here and everywhere else the title turns
 // up so they're actually useful to spot at a glance, not just searchable.
+// Collapsed to "+N" past the first once there's more than one — a plain
+// `title` attribute doesn't show on touch and (unlike HoldTooltip) can't
+// list the rest in a way a screen reader reads out, so hovering or tapping
+// the badge instead reveals the full list.
 export function GameTagBadge({ tags, small }: { tags: string[]; small?: boolean }) {
   if (tags.length === 0) return null
   const text = tags.length === 1 ? tags[0] : `${tags[0]} +${tags.length - 1}`
-  return (
-    <span
-      title={`Tagged: ${tags.join(', ')}`}
-      className={`shrink-0 font-medium rounded-full bg-[var(--accent-tint)] text-[var(--accent)] ${small ? 'text-[10px] px-1.5 py-px' : 'text-[11px] px-2 py-0.5'}`}>
+  const badge = (
+    <span className={`shrink-0 font-medium rounded-full bg-[var(--accent-tint)] text-[var(--accent)] ${small ? 'text-[10px] px-1.5 py-px' : 'text-[11px] px-2 py-0.5'}`}>
       🏷 {text}
     </span>
+  )
+  if (tags.length === 1) return badge
+  return (
+    <HoldTooltip ariaLabel={`Tagged: ${tags.join(', ')}`} tooltip={tags.join(', ')}>
+      {badge}
+    </HoldTooltip>
   )
 }
 
