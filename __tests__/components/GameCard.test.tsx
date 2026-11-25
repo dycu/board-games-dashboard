@@ -39,9 +39,14 @@ describe('GameCard', () => {
     expect(screen.queryByText(/🔖/)).toBeNull()
   })
 
-  it('shows nothing when no moves have landed today', () => {
+  it('shows a muted entry point (not dots) when no moves have landed today, still able to open the history popup', async () => {
+    global.fetch = jest.fn(async () => ({ json: async () => ({ days: { '2026-06-20': { me: 2 } } }) })) as unknown as typeof fetch
     const { container } = render(<GameCard {...props({ game: { ...game, moveCountToday: undefined } })} />)
     expect(container.querySelector('[title*="moves today"], [title*="move today"]')).toBeNull()
+    const trigger = screen.getByRole('button', { name: /Move history for Wingspan/ })
+    expect(trigger).toHaveAttribute('title', 'Move history')
+    await userEvent.click(trigger)
+    expect(screen.getByRole('button', { name: /close/i })).toBeInTheDocument()
   })
 
   it('groups dots in fives and keeps the exact count in the title, with no cap', () => {

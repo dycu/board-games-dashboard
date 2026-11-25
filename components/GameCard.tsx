@@ -136,8 +136,11 @@ const DOT_GROUP_SIZE = 5
 // losing moves to a "+N" overflow. Whichever dots are new since the last
 // render pop in (see .dot-pop in globals.css) — the point is to feel the
 // count move, not just read a bigger number.
-// Only shown once something actually happened today — a game you're not
-// actively grinding on looks exactly like it did before this existed.
+// This button is the only entry point into TableMovesPopup (a table's full
+// move history, not just today), so it still renders — as a single muted
+// dot, not the orange cluster — on a day with nothing to show yet, rather
+// than leaving no way at all to check past days' history until today has
+// its own move.
 function MoveCountBadge({ game, small }: { game: Game; small?: boolean }) {
   const count = game.moveCountToday ?? 0
   // The previous render's count, to tell which dots are new — React's own
@@ -149,14 +152,10 @@ function MoveCountBadge({ game, small }: { game: Game; small?: boolean }) {
     setPrevCount(trackedCount)
     setTrackedCount(count)
   }
-  // The popup this opens (TableMovesPopup) is its own trigger — the dots
-  // are the only entry point into it, so there's no separate way to see a
-  // table's move history on a day it hasn't had any moves yet. It anchors
-  // itself to this button (btnRef), the same way ProgressBar's own tooltip
-  // anchors to the progress bar, rather than a page-centered dialog.
+  // Anchors itself to this button (btnRef), the same way ProgressBar's own
+  // tooltip anchors to the progress bar, rather than a page-centered dialog.
   const [historyOpen, setHistoryOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
-  if (!count) return null
 
   const dotSize = small ? 'w-1.5 h-1.5' : 'w-2 h-2'
   const groups = Math.ceil(count / DOT_GROUP_SIZE)
@@ -168,9 +167,11 @@ function MoveCountBadge({ game, small }: { game: Game; small?: boolean }) {
         type="button"
         onClick={() => setHistoryOpen(true)}
         aria-label={`Move history for ${game.gameName}`}
-        title={`${count} move${count === 1 ? '' : 's'} today`}
+        title={count ? `${count} move${count === 1 ? '' : 's'} today` : 'Move history'}
         className="relative z-10 inline-flex flex-wrap items-center gap-x-1.5 gap-y-1 -m-1.5 p-1.5 rounded hover:bg-[var(--bg-muted)]">
-        {Array.from({ length: groups }, (_, gi) => {
+        {count === 0 ? (
+          <span className={`inline-block rounded-full ${dotSize} bg-[var(--border-default)]`} />
+        ) : Array.from({ length: groups }, (_, gi) => {
           const start = gi * DOT_GROUP_SIZE
           const inGroup = Math.min(DOT_GROUP_SIZE, count - start)
           return (
