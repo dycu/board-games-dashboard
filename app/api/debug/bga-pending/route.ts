@@ -35,15 +35,12 @@ export async function GET() {
     return res.text()
   })
   const idx = html.toLowerCase().indexOf('elpaso')
-  // Walk backwards from the match to find the start of the enclosing JS
-  // variable assignment / object literal, so we can see the actual key
-  // this table data lives under.
-  const back = html.slice(Math.max(0, idx - 4000), idx)
-  const varMatch = [...back.matchAll(/(?:var|let|const)\s+(\w+)\s*=/g)].pop()
+  const tablesKeyIdx = html.lastIndexOf('"tables":{', idx)
+  const scriptStartIdx = html.lastIndexOf('<script', idx)
   return NextResponse.json({
     length: html.length,
     mentionsElPaso: idx !== -1,
-    lastVarBeforeMatch: varMatch ? { name: varMatch[1], offsetBeforeMatch: back.length - (varMatch.index ?? 0) } : null,
-    around: idx !== -1 ? html.slice(Math.max(0, idx - 800), idx + 400) : null,
+    tablesKeyContext: tablesKeyIdx !== -1 ? html.slice(Math.max(0, tablesKeyIdx - 200), tablesKeyIdx + 60) : null,
+    scriptTagOpening: scriptStartIdx !== -1 ? html.slice(scriptStartIdx, scriptStartIdx + 200) : null,
   })
 }
