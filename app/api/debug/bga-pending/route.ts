@@ -21,7 +21,7 @@ async function tryBody(s: any, body: string) {
     const data = JSON.parse(text)
     if (data.status !== 1) return { body, error: data.error ?? data }
     const tables: any[] = Object.values(data?.data?.tables ?? {})
-    return { body, count: tables.length, statuses: [...new Set(tables.map(t => t.status))] }
+    return { body, count: tables.length, tables: tables.map(t => ({ id: t.id, game_name: t.game_name, status: t.status })) }
   } catch {
     return { body, error: `non-JSON (${res.status}): ${text.slice(0, 150)}` }
   }
@@ -30,10 +30,6 @@ async function tryBody(s: any, body: string) {
 export async function GET() {
   const username = process.env.BGA_USERNAME!
   const password = process.env.BGA_PASSWORD!
-  const results = await withBgaSession(username, password, async s => Promise.all([
-    tryBody(s, 'status[]=setup&turninfo=true'),
-    tryBody(s, 'status[]=play&status[]=setup&turninfo=true'),
-    tryBody(s, 'status=setup&turninfo=false'),
-  ]))
-  return NextResponse.json(results)
+  const result = await withBgaSession(username, password, s => tryBody(s, 'status=play&turninfo=true'))
+  return NextResponse.json(result)
 }
