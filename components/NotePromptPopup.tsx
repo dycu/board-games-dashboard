@@ -101,11 +101,16 @@ export default function NotePromptPopup({ game, note, onSave, onDelete }: {
   }
 
   return (
+    // Top, not bottom, once there's a keyboard to type into: an on-screen
+    // keyboard (phone, and especially a tablet in landscape) eats the
+    // bottom portion of the viewport, which would otherwise sit right
+    // behind the very field it's covering. The collapsed chip above has no
+    // such problem — nothing to type into yet — so it stays bottom-left.
     <div
       ref={panelRef}
       role="dialog"
       aria-labelledby="note-prompt-title"
-      className="fixed bottom-3 left-3 z-50 w-[calc(100vw-1.5rem)] max-w-sm bg-[var(--bg-surface)] rounded-lg shadow-xl border border-[var(--border-default)] p-4"
+      className="fixed top-3 left-3 z-50 w-[calc(100vw-1.5rem)] max-w-sm bg-[var(--bg-surface)] rounded-lg shadow-xl border border-[var(--border-default)] p-4"
     >
       <h2 id="note-prompt-title" className="text-sm font-semibold text-[var(--text-primary)] mb-1">{game.gameName}</h2>
       <p className="text-xs text-[var(--text-tertiary)] mb-3">Plan for next round?</p>
