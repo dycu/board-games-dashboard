@@ -22,9 +22,18 @@ const AUTO_DISMISS_MS = 20_000
 // field as before, now with no auto-dismiss once expanded, so actually
 // writing something never races the clock. Bottom-left, not bottom-right —
 // FetchProgress's own compact indicator already lives in that corner.
-export default function NotePromptPopup({ game, note, onSave, onDelete }: {
+export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete }: {
   game: Game
   note?: string
+  // When this prompt actually became due (Unix ms) — lib/dismissal.ts's
+  // movedSeenAt, already persisted to localStorage for exactly this reason.
+  // The auto-dismiss clock is computed from this, not just "20s after this
+  // component happened to mount": a plain in-component timer either gets
+  // throttled for minutes while the tab sits backgrounded (a game opened in
+  // a new tab), or is wiped out and restarted from zero by a same-tab
+  // navigation and back (BGA) — both left a long-stale chip waiting
+  // indefinitely for a tick that was never coming.
+  shownAt?: number
   onSave: (text: string) => void
   onDelete: () => void
 }) {
@@ -66,13 +75,32 @@ export default function NotePromptPopup({ game, note, onSave, onDelete }: {
     }
   }, [expanded])
 
-  // The collapsed chip fades on its own if ignored — restarts whenever a
-  // new game takes its place, but not merely because the draft changed
+  // The collapsed chip fades on its own if ignored, timed from `shownAt`
+  // rather than "now" — see that prop's own comment. Re-checked (and its
+  // timer re-armed for whatever's actually left) the moment the tab regains
+  // visibility or focus, not just on whatever cadence an unthrottled
+  // setTimeout would otherwise tick at, so a chip left waiting through a
+  // backgrounded tab resolves the instant the user is back rather than
+  // whenever the browser next deigns to run it.
   useEffect(() => {
-    if (expanded) return
-    const id = setTimeout(() => saveRef.current(), AUTO_DISMISS_MS)
-    return () => clearTimeout(id)
-  }, [expanded, game.id])
+    if (expanded || shownAt === undefined) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const check = () => {
+      if (timer) clearTimeout(timer)
+      const remaining = shownAt + AUTO_DISMISS_MS - Date.now()
+      if (remaining <= 0) { saveRef.current(); return }
+      timer = setTimeout(check, remaining)
+    }
+    check()
+    const onVisible = () => { if (!document.hidden) check() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      if (timer) clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+  }, [expanded, shownAt, game.id])
 
   // Just clears the saved note, without also closing the popup the way
   // Save does — deleting an old plan is a reason to write a fresh one, not

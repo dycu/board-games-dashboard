@@ -138,7 +138,7 @@ describe('NotePromptPopup', () => {
   it('fades itself away if left collapsed and ignored for a while', () => {
     jest.useFakeTimers()
     const onSave = jest.fn()
-    render(<NotePromptPopup {...props({ onSave })} />)
+    render(<NotePromptPopup {...props({ onSave, shownAt: Date.now() })} />)
     jest.advanceTimersByTime(20_000)
     expect(onSave).toHaveBeenCalledWith('')
     jest.useRealTimers()
@@ -147,10 +147,47 @@ describe('NotePromptPopup', () => {
   it('does not auto-dismiss once expanded — typing never races the clock', async () => {
     jest.useFakeTimers({ advanceTimers: true })
     const onSave = jest.fn()
-    render(<NotePromptPopup {...props({ onSave })} />)
+    render(<NotePromptPopup {...props({ onSave, shownAt: Date.now() })} />)
     await expand()
     jest.advanceTimersByTime(20_000)
     expect(onSave).not.toHaveBeenCalled()
+    jest.useRealTimers()
+  })
+
+  it('does not auto-dismiss at all when shownAt is unknown', () => {
+    jest.useFakeTimers()
+    const onSave = jest.fn()
+    render(<NotePromptPopup {...props({ onSave })} />)
+    jest.advanceTimersByTime(60_000)
+    expect(onSave).not.toHaveBeenCalled()
+    jest.useRealTimers()
+  })
+
+  // A plain setTimeout from mount would have been throttled for the whole
+  // time the tab sat backgrounded (a game opened in a new tab), or reset to
+  // zero by a same-tab navigation and back (BGA) — shownAt instead comes
+  // from outside the component (lib/dismissal.ts's persisted movedSeenAt),
+  // so the dismiss is already overdue the moment this re-mounts, however
+  // long it's actually been.
+  it('dismisses immediately on mount if shownAt is already well past the window', () => {
+    const onSave = jest.fn()
+    render(<NotePromptPopup {...props({ onSave, shownAt: Date.now() - 5 * 60_000 })} />)
+    expect(onSave).toHaveBeenCalledWith('')
+  })
+
+  it('catches up the moment the tab regains visibility, instead of waiting for an unthrottled timer', () => {
+    jest.useFakeTimers()
+    const onSave = jest.fn()
+    const shownAt = Date.now()
+    render(<NotePromptPopup {...props({ onSave, shownAt })} />)
+
+    // Simulates the tab sitting backgrounded well past the window without
+    // its timer ever actually firing (throttled), then regaining focus
+    Object.defineProperty(document, 'hidden', { value: false, configurable: true })
+    jest.setSystemTime(shownAt + 5 * 60_000)
+    document.dispatchEvent(new Event('visibilitychange'))
+
+    expect(onSave).toHaveBeenCalledWith('')
     jest.useRealTimers()
   })
 })
