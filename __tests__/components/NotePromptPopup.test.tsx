@@ -19,23 +19,35 @@ const game: Game = {
 const props = (over: Partial<Parameters<typeof NotePromptPopup>[0]> = {}) =>
   ({ game, onSave: () => {}, onDelete: () => {}, ...over })
 
+async function expand() {
+  await userEvent.click(screen.getByRole('button', { name: /Note for Navegador/ }))
+}
+
 describe('NotePromptPopup', () => {
-  it('shows the game name and an empty, focused input when there is no existing note', () => {
+  it('starts collapsed, as a chip naming the game', () => {
     render(<NotePromptPopup {...props()} />)
-    expect(screen.getByText('Navegador')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Note for Navegador/ })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('expands to an empty, focused input when there is no existing note', async () => {
+    render(<NotePromptPopup {...props()} />)
+    await expand()
     const input = screen.getByRole('textbox', { name: /note for navegador/i })
     expect(input).toHaveValue('')
     expect(input).toHaveFocus()
   })
 
-  it('pre-fills the existing note', () => {
+  it('pre-fills the existing note once expanded', async () => {
     render(<NotePromptPopup {...props({ note: 'take the north pass' })} />)
+    await expand()
     expect(screen.getByRole('textbox')).toHaveValue('take the north pass')
   })
 
   it('saves what was typed on Enter or the Save button', async () => {
     const onSave = jest.fn()
     render(<NotePromptPopup {...props({ onSave })} />)
+    await expand()
     await userEvent.type(screen.getByRole('textbox'), 'go for trains{Enter}')
     expect(onSave).toHaveBeenCalledWith('go for trains')
   })
@@ -43,6 +55,7 @@ describe('NotePromptPopup', () => {
   it('is a multi-line textarea, with Shift+Enter inserting a newline instead of saving', async () => {
     const onSave = jest.fn()
     render(<NotePromptPopup {...props({ onSave })} />)
+    await expand()
     const textarea = screen.getByRole('textbox')
     expect(textarea.tagName).toBe('TEXTAREA')
     await userEvent.type(textarea, 'go for trains{Shift>}{Enter}{/Shift}then castles')
@@ -53,14 +66,16 @@ describe('NotePromptPopup', () => {
   it('saves via the Save button without requiring Enter', async () => {
     const onSave = jest.fn()
     render(<NotePromptPopup {...props({ onSave })} />)
+    await expand()
     await userEvent.type(screen.getByRole('textbox'), 'go for trains')
     await userEvent.click(screen.getByRole('button', { name: /save/i }))
     expect(onSave).toHaveBeenCalledWith('go for trains')
   })
 
-  it('saves whatever is in the field on Escape and on a backdrop click', async () => {
+  it('saves whatever is in the field on Escape and on an outside click', async () => {
     const onSave = jest.fn()
     const { unmount } = render(<NotePromptPopup {...props({ onSave })} />)
+    await expand()
     await userEvent.type(screen.getByRole('textbox'), 'go for trains')
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(onSave).toHaveBeenCalledWith('go for trains')
@@ -68,21 +83,24 @@ describe('NotePromptPopup', () => {
 
     const onSave2 = jest.fn()
     render(<NotePromptPopup {...props({ onSave: onSave2 })} />)
+    await expand()
     await userEvent.type(screen.getByRole('textbox'), 'go for trains')
-    await userEvent.click(screen.getByRole('dialog').parentElement!)
+    fireEvent.pointerDown(document.body)
     expect(onSave2).toHaveBeenCalledWith('go for trains')
   })
 
-  it('does not save or close when clicking inside the dialog itself', async () => {
+  it('does not save or close when clicking inside the panel itself', async () => {
     const onSave = jest.fn()
     render(<NotePromptPopup {...props({ onSave })} />)
-    await userEvent.click(screen.getByRole('dialog'))
+    await expand()
+    fireEvent.pointerDown(screen.getByRole('dialog'))
     expect(onSave).not.toHaveBeenCalled()
   })
 
   it('deletes the existing note with its own button, without requiring the text to be cleared first', async () => {
     const onDelete = jest.fn()
     render(<NotePromptPopup {...props({ note: 'take the north pass', onDelete })} />)
+    await expand()
     await userEvent.click(screen.getByRole('button', { name: /delete the note/i }))
     expect(onDelete).toHaveBeenCalledTimes(1)
   })
@@ -90,6 +108,7 @@ describe('NotePromptPopup', () => {
   it('clears the input on delete, but does not close the popup — unlike Save', async () => {
     const onSave = jest.fn()
     render(<NotePromptPopup {...props({ note: 'take the north pass', onSave })} />)
+    await expand()
     await userEvent.click(screen.getByRole('button', { name: /delete the note/i }))
     expect(screen.getByRole('textbox')).toHaveValue('')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
@@ -98,12 +117,40 @@ describe('NotePromptPopup', () => {
 
   it('keeps the input focused after deleting, so a replacement can be typed right away', async () => {
     render(<NotePromptPopup {...props({ note: 'take the north pass' })} />)
+    await expand()
     await userEvent.click(screen.getByRole('button', { name: /delete the note/i }))
     expect(screen.getByRole('textbox')).toHaveFocus()
   })
 
-  it('offers no delete button when there is no existing note to delete', () => {
+  it('offers no delete button when there is no existing note to delete', async () => {
     render(<NotePromptPopup {...props()} />)
+    await expand()
     expect(screen.queryByRole('button', { name: /delete the note/i })).toBeNull()
+  })
+
+  it('dismisses the collapsed chip outright with its own close button, saving the draft unchanged', async () => {
+    const onSave = jest.fn()
+    render(<NotePromptPopup {...props({ note: 'take the north pass', onSave })} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Dismiss note prompt' }))
+    expect(onSave).toHaveBeenCalledWith('take the north pass')
+  })
+
+  it('fades itself away if left collapsed and ignored for a while', () => {
+    jest.useFakeTimers()
+    const onSave = jest.fn()
+    render(<NotePromptPopup {...props({ onSave })} />)
+    jest.advanceTimersByTime(20_000)
+    expect(onSave).toHaveBeenCalledWith('')
+    jest.useRealTimers()
+  })
+
+  it('does not auto-dismiss once expanded — typing never races the clock', async () => {
+    jest.useFakeTimers({ advanceTimers: true })
+    const onSave = jest.fn()
+    render(<NotePromptPopup {...props({ onSave })} />)
+    await expand()
+    jest.advanceTimersByTime(20_000)
+    expect(onSave).not.toHaveBeenCalled()
+    jest.useRealTimers()
   })
 })
