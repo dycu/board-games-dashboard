@@ -106,6 +106,16 @@ describe('resolveOpened', () => {
       notMoved: { openedAt: T - RETURN_GRACE_MS, dimExpired: true, movedSeenAt: T + 2 * RETURN_GRACE_MS },
     })
   })
+
+  // A game whose opponent replies fast: myTurn flips back true before this
+  // record's own post-move grace (from movedSeenAt) runs out. Once that
+  // grace does run out, the stale confirmation must stop pinning the game
+  // as "opened" forever across every later round, even though myTurn has
+  // been true again the whole time
+  it('drops a confirmed move once its own grace is over, even though myTurn flipped back true in the meantime', () => {
+    const opened: Opened = { notMoved: { openedAt: T - 500_000, movedSeenAt: T - RETURN_GRACE_MS - 1 } }
+    expect(resolveOpened(opened, games, T, here)).toEqual({})
+  })
 })
 
 describe('judge', () => {

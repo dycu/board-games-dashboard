@@ -96,6 +96,17 @@ export function judge(o: OpenedGame, game: { myTurn: boolean } | undefined, fetc
   if (fetchStartedAt < o.openedAt) return o
   // Gone (ended): no longer opened
   if (!game) return null
+  // A confirmed move's own post-move grace (for the note prompt) is on its
+  // own clock, independent of myTurn's *current* value: if the opponent
+  // replies fast enough that myTurn flips back to true again before that
+  // clock runs out, the game.myTurn branch below never looks at movedSeenAt
+  // at all (it only sets dimExpired), so without this check the record —
+  // and the stuck "opened" label it drives in the caller's dismissed set,
+  // since that still treats any movedSeenAt as reason enough to keep
+  // dimming — would never expire: myTurn flipping true then false then
+  // true again, every round, forever, with no fetch ever reaching the
+  // game.myTurn === false branch's own expiry check again.
+  if (o.movedSeenAt !== undefined && fetchStartedAt >= o.movedSeenAt + graceMs) return null
   if (game.myTurn) {
     if (fetchStartedAt < o.openedAt + graceMs) return o
     return o.dimExpired ? o : { ...o, dimExpired: true }
