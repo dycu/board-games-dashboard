@@ -70,6 +70,19 @@ function makeTablesResponse(data: object) {
   }
 }
 
+// fetchBGA also fetches BGA's own homepage, which embeds a second (smaller,
+// best-effort) source of lobby tables — see fetchBgaHomepageTables. Empty
+// by default; individual tests pass their own extra/pending tables when
+// they need one to show up only there.
+function makeHomepageResponse(extraTables: object = {}) {
+  return {
+    ok: true,
+    status: 200,
+    text: async () => `<script>var x = {"table_infos":{"tables":${JSON.stringify(extraTables)}}};</script>`,
+    headers: makeMockHeaders([]),
+  }
+}
+
 function makeGamepanelResponse(displayName: string) {
   return {
     ok: true,
@@ -91,6 +104,7 @@ function setupHappyPath(playerId = '42', tables: object = fixture, gamepanelResp
     .mockResolvedValueOnce(makeLoginPageResponse())
     .mockResolvedValueOnce(makeLoginResponse(playerId))
     .mockResolvedValueOnce(makeTablesResponse(tables))
+    .mockResolvedValueOnce(makeHomepageResponse())
   for (const { name } of gamepanelResponses) {
     mock = mock.mockResolvedValueOnce(makeGamepanelResponse(name))
   }
@@ -136,7 +150,8 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeRedirectFollowResponse())
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
-      .mockResolvedValueOnce(makeTablesResponse(tables)) // one status=play call only
+      .mockResolvedValueOnce(makeTablesResponse(tables))
+      .mockResolvedValueOnce(makeHomepageResponse())
       .mockResolvedValueOnce(makeGamepanelResponse('Ark Nova'))
 
     const games = await fetchBGA('user@example.com', 'password')
@@ -169,6 +184,7 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
       .mockResolvedValueOnce(makeTablesResponse(tables))
+      .mockResolvedValueOnce(makeHomepageResponse())
       .mockResolvedValueOnce(makeGamepanelResponse('Ark Nova'))
 
     const games = await fetchBGA('user@example.com', 'password')
@@ -203,6 +219,7 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
       .mockResolvedValueOnce(makeTablesResponse(tables))
+      .mockResolvedValueOnce(makeHomepageResponse())
       .mockResolvedValueOnce(makeGamepanelResponse('Iberian Gauge'))
 
     const games = await fetchBGA('user@example.com', 'password')
@@ -234,6 +251,7 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
       .mockResolvedValueOnce(makeTablesResponse(tables))
+      .mockResolvedValueOnce(makeHomepageResponse())
       .mockResolvedValueOnce(makeGamepanelResponse('Ark Nova'))
       .mockResolvedValueOnce(makeGamepanelResponse('Barrage'))
 
@@ -243,6 +261,60 @@ describe('fetchBGA', () => {
     expect(active.pending).toBeUndefined()
     expect(active.myTurn).toBe(true)
     expect(games.find(g => g.id === 'bga:222')).toMatchObject({ pending: true, myTurn: false })
+  })
+
+  // A public table you create yourself sits with status "asyncopen" from the
+  // moment it's made (confirmed live) — and status=play's own response omits
+  // it entirely, not just miscategorizes it, for as long as nobody else has
+  // joined. BGA's homepage embeds a second copy of this data that does
+  // include it, so it's pulled in and merged for ids status=play is missing.
+  it('picks up a table only the homepage lists — a public table of mine nobody has joined yet', async () => {
+    const tables = { status: 1, data: { tables: {} } } // status=play omits it entirely
+    const homepageTable = {
+      '333': {
+        id: '333', game_name: 'elpasogwt', status: 'asyncopen', max_player: '4', current_present_player_nbr: 1,
+        players: { '42': { id: '42', fullname: 'testuser', table_status: 'playasync' } },
+      },
+    }
+    mockFetch
+      .mockResolvedValueOnce(makeInitResponse())
+      .mockResolvedValueOnce(makeRedirectFollowResponse())
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginResponse('42'))
+      .mockResolvedValueOnce(makeTablesResponse(tables))
+      .mockResolvedValueOnce(makeHomepageResponse(homepageTable))
+      .mockResolvedValueOnce(makeGamepanelResponse('El Paso'))
+
+    const games = await fetchBGA('user@example.com', 'password')
+    expect(games).toHaveLength(1)
+    expect(games[0]).toMatchObject({
+      id: 'bga:333',
+      pending: true,
+      myTurn: false,
+      gameName: 'El Paso',
+      currentPlayer: '1/4 joined — waiting for players',
+    })
+  })
+
+  it('does not let a homepage-only table shadow one status=play already has, preferring the fuller data', async () => {
+    const tables = {
+      status: 1,
+      data: { tables: { '333': { id: '333', game_name: 'elpasogwt', status: 'asyncplay', players: { '42': { id: '42', fullname: 'testuser', myturn: '1' } } } } },
+    }
+    const homepageTable = { '333': { id: '333', game_name: 'elpasogwt', status: 'asyncopen', players: {} } }
+    mockFetch
+      .mockResolvedValueOnce(makeInitResponse())
+      .mockResolvedValueOnce(makeRedirectFollowResponse())
+      .mockResolvedValueOnce(makeLoginPageResponse())
+      .mockResolvedValueOnce(makeLoginResponse('42'))
+      .mockResolvedValueOnce(makeTablesResponse(tables))
+      .mockResolvedValueOnce(makeHomepageResponse(homepageTable))
+      .mockResolvedValueOnce(makeGamepanelResponse('El Paso'))
+
+    const games = await fetchBGA('user@example.com', 'password')
+    expect(games).toHaveLength(1)
+    expect(games[0]).toMatchObject({ id: 'bga:333', myTurn: true })
+    expect(games[0].pending).toBeUndefined()
   })
 
   it('returns Game[] from API response', async () => {
@@ -305,12 +377,13 @@ describe('fetchBGA', () => {
   it('uses a manual session instead of logging in, when one is given', async () => {
     const singleTable = { status: 1, data: { tables: {} } }
     mockFetch
-      .mockResolvedValueOnce(makeTablesResponse(singleTable)) // the one status=play tables call — no login steps
+      .mockResolvedValueOnce(makeTablesResponse(singleTable)) // the status=play tables call — no login steps
+      .mockResolvedValueOnce(makeHomepageResponse()) // plus the homepage call, in parallel
     const games = await fetchBGA('user@example.com', 'password', {
       manual: { cookie: 'TournoiEnLigneidt=tok; PHPSESSID=abc', playerId: '42' },
     })
     expect(games).toEqual([])
-    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(mockFetch).toHaveBeenCalledTimes(2)
   })
 
   it('resolves display names from gamepanel og:title', async () => {
@@ -348,6 +421,7 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
       .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockResolvedValueOnce(makeHomepageResponse())
       // og:title split across two lines, with HTML entity
       .mockResolvedValueOnce({
         ok: true,
@@ -385,6 +459,7 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
       .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockResolvedValueOnce(makeHomepageResponse())
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -421,6 +496,7 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
       .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockResolvedValueOnce(makeHomepageResponse())
       .mockRejectedValueOnce(new Error('network error'))   // attempt 0
       .mockRejectedValueOnce(new Error('network error'))   // attempt 1 (retry)
 
@@ -452,6 +528,7 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
       .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockResolvedValueOnce(makeHomepageResponse())
       .mockRejectedValueOnce(new Error('network error'))   // attempt 0 fails
       .mockResolvedValueOnce(makeGamepanelResponse('Some Game')) // attempt 1 succeeds
 
@@ -484,6 +561,7 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
       .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockResolvedValueOnce(makeHomepageResponse())
       .mockResolvedValueOnce(errorResponse)   // attempt 0: 429
       .mockResolvedValueOnce(errorResponse)   // attempt 1: 429
 
@@ -532,6 +610,7 @@ describe('fetchBGA', () => {
       .mockResolvedValueOnce(makeLoginPageResponse())
       .mockResolvedValueOnce(makeLoginResponse('42'))
       .mockResolvedValueOnce(makeTablesResponse(singleTable))
+      .mockResolvedValueOnce(makeHomepageResponse())
       .mockResolvedValueOnce(makeGamepanelResponse('The Crew'))
 
     const games = await fetchBGA('user@example.com', 'password')

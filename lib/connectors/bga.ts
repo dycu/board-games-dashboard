@@ -267,6 +267,50 @@ export async function loginBGA(username: string, password: string): Promise<BgaS
 // error-message text confirms 'setup' as the literal status string: a bug
 // report quotes the server rejecting an action with "Wrong table status
 // (finished): should be ''setup''").
+// tableinfos.html's status=play (its one non-finished option — 'setup' is
+// flatly rejected: "Bad argument type: status should be a value from the
+// enumeration (setup)", confirmed live) turns out not to be "every
+// non-finished table" after all: confirmed live, a public table you create
+// yourself sits with status "asyncopen" from the moment it's made, and
+// status=play's own response simply omits it entirely — not misclassified,
+// absent — for as long as nobody else has joined. BGA's own homepage
+// embeds a `"table_infos":{"tables":{...}}` blob, the same per-table shape
+// as tableinfos.html's data.tables, for its lobby widget — and that one
+// does include it. So this is pulled in as a second source and merged,
+// filling in only the ids status=play is missing.
+function extractHomepageTables(html: string): any[] {
+  const key = '"table_infos":{"tables":'
+  const start = html.indexOf(key)
+  if (start === -1) return []
+  const braceStart = start + key.length
+  let depth = 0
+  let inString = false
+  let escaped = false
+  for (let i = braceStart; i < html.length; i++) {
+    const c = html[i]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (c === '\\') escaped = true
+      else if (c === '"') inString = false
+      continue
+    }
+    if (c === '"') inString = true
+    else if (c === '{') depth++
+    else if (c === '}') {
+      depth--
+      if (depth === 0) {
+        try { return Object.values(JSON.parse(html.slice(braceStart, i + 1))) } catch { return [] }
+      }
+    }
+  }
+  return []
+}
+
+async function fetchBgaHomepageTables(session: BgaSession): Promise<any[]> {
+  const res = await fetch(`${BASE}/`, { headers: bgaApiHeaders(session, `${BASE}/`) })
+  return extractHomepageTables(await res.text())
+}
+
 export async function fetchBgaTables(session: BgaSession, status: 'play' | 'setup' = 'play'): Promise<any[]> {
   const tablesRes = await fetch(`${BASE}/tablemanager/tablemanager/tableinfos.html`, {
     method: 'POST',
@@ -439,22 +483,25 @@ function bgaAvatarUrl(avatar: unknown, id: unknown): string | undefined {
 
 export async function fetchBGA(username: string, password: string, auth?: BgaAuthOptions): Promise<Game[]> {
   const { session, tables: rawTables } = await withBgaSession(username, password, async s => {
-    const tables = await fetchBgaTables(s)
-    return { session: s, tables }
+    const [tables, homepageTables] = await Promise.all([
+      fetchBgaTables(s),
+      fetchBgaHomepageTables(s).catch(() => []), // best-effort — status=play's own tables still work without it
+    ])
+    const byId = new Map(tables.map((t: any) => [t.id, t]))
+    for (const t of homepageTables) if (!byId.has(t.id)) byId.set(t.id, t)
+    return { session: s, tables: [...byId.values()] }
   }, auth)
   const { myId, cookies: allCookies } = session
 
-  // tableinfos.html's own `status` request param only accepts 'play' (its
-  // one non-finished value — passing 'setup' is flatly rejected: "Bad
-  // argument type: status should be a value from the enumeration (setup)",
-  // confirmed live) or 'finished'; 'play' already returns every non-finished
-  // table, lobby included. What distinguishes a lobby still waiting on
-  // players is each *table's own* `status` field, not the request param —
-  // confirmed live as "asyncinit" (vs. "asyncplay" for one actually under
-  // way); matched by suffix in case a live/realtime game ever shows up here
-  // ("realtimeinit"/"realtimeplay").
-  const tables = rawTables.filter((t: any) => !/init$/.test(t.status))
-  const setupTables = rawTables.filter((t: any) => /init$/.test(t.status))
+  // A lobby still waiting on players is told apart by each *table's own*
+  // `status` field: "asyncinit" for one you've been invited to directly
+  // (confirmed live) and "asyncopen" for one you created yourself and
+  // opened to the public (also confirmed live — see fetchBgaHomepageTables
+  // above for why that one needs a second source at all); matched by
+  // suffix in case a live/realtime game ever shows up here too
+  // ("realtimeinit"/"realtimeopen").
+  const tables = rawTables.filter((t: any) => !/(?:init|open)$/.test(t.status))
+  const setupTables = rawTables.filter((t: any) => /(?:init|open)$/.test(t.status))
 
   // Step 5: resolve display names from gamepanel pages (game_name field is a URL slug)
   const uniqueSlugs = [...new Set([...tables, ...setupTables].map((t: any) => t.game_name as string).filter(Boolean))]
