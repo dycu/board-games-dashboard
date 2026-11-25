@@ -6,8 +6,11 @@ jest.mock('../../connectors/bga', () => ({
 }))
 
 import { kv } from '@vercel/kv'
+import { fetchBgaTables } from '../../connectors/bga'
 import { syncBga } from '../sync'
 import { PaceTable, PaceMeta } from '../store'
+
+const mockFetchBgaTables = fetchBgaTables as jest.Mock
 
 const mockFetch = jest.fn()
 global.fetch = mockFetch
@@ -148,5 +151,60 @@ describe('syncBga: finished-table discovery', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2) // didn't stop at the "known" page 1
     expect(historyRowWrites()['100']).toBeDefined()
     expect(progress.indexComplete).toBe(true) // and ends up genuinely complete
+  })
+})
+
+describe('syncBga: running tables', () => {
+  beforeEach(() => {
+    mockFetch.mockReset()
+    mockGet.mockReset()
+    mockSet.mockReset()
+    mockHgetall.mockReset()
+    mockHset.mockReset()
+  })
+
+  function tablesWrites(): Record<string, PaceTable> {
+    const call = mockHset.mock.calls.find(([key]) => key === 'pace:v1:bga:tables')
+    return call ? call[1] : {}
+  }
+
+  // raw.gamestart is null for a table BGA hasn't timestamped yet — caught
+  // live on one that was already well into play, not a fresh lobby.
+  // Number(null) is 0, not NaN, so without a fallback this was silently
+  // recorded as started at the Unix epoch, making every later pace estimate
+  // count decades of elapsed time against a handful of turns.
+  it('records a newly-seen table with no gamestart as started now, not at the Unix epoch', async () => {
+    const meta: PaceMeta = { trackingStartedAt: 0, lastSyncAt: 1000, indexComplete: true, nextIndexPage: 1, fullHistoryMigrated: true }
+    mockGet.mockResolvedValue(meta)
+    mockHgetall.mockResolvedValue({})
+    mockFetchBgaTables.mockResolvedValueOnce([
+      { id: '999', game_name: 'popcorn', gameserver: '5', gamestart: null, players: { a: {}, b: {} } },
+    ])
+    mockGamesPage([]) // genuinely empty page for the finished-table backfill
+
+    const before = Date.now() / 1000
+    await syncBga('me', 'pass', 15000)
+    const after = Date.now() / 1000
+
+    const written = tablesWrites()['999']
+    expect(written.start).toBeGreaterThanOrEqual(before)
+    expect(written.start).toBeLessThanOrEqual(after)
+  })
+
+  it('self-heals a table already recorded at the Unix epoch, once BGA reports a real start time', async () => {
+    const meta: PaceMeta = { trackingStartedAt: 0, lastSyncAt: 1000, indexComplete: true, nextIndexPage: 1, fullHistoryMigrated: true }
+    mockGet.mockResolvedValue(meta)
+    mockHgetall.mockResolvedValue({
+      '999': { id: '999', game: 'popcorn', server: '5', start: 0, end: null, history: 'synced', state: { lastPacketId: 0, active: [], openStart: null, lastTime: 0 } },
+    })
+    const realStart = Math.floor(Date.now() / 1000) - 5 * 86400
+    mockFetchBgaTables.mockResolvedValueOnce([
+      { id: '999', game_name: 'popcorn', gameserver: '5', gamestart: realStart, players: { a: {}, b: {} } },
+    ])
+    mockGamesPage([])
+
+    await syncBga('me', 'pass', 15000)
+
+    expect(tablesWrites()['999'].start).toBe(realStart)
   })
 })

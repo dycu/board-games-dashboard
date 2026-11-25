@@ -84,13 +84,27 @@ export async function syncBga(username: string, password: string, budgetMs: numb
     const id = String(raw.id)
     const existing = tables[id]
     if (!existing) {
+      // raw.gamestart is null for a table BGA hasn't timestamped yet (seen
+      // live on one that was already well into play, not just a fresh
+      // lobby) — Number(null) is 0, not NaN, so without this check it was
+      // silently recorded as started at the Unix epoch, making every pace
+      // estimate for it count decades of elapsed time against a handful of
+      // turns. Falling back to now: the same self-timed approach already
+      // used for platforms that never report a start time at all.
+      const start = raw.gamestart != null ? Number(raw.gamestart) : Date.now() / 1000
       upsert({
-        id, game: raw.game_name, server: String(raw.gameserver), start: Number(raw.gamestart), end: null,
+        id, game: raw.game_name, server: String(raw.gameserver), start, end: null,
         history: 'pending', state: INITIAL_TURN_STATE,
         playerCount: Object.keys(raw.players ?? {}).length || undefined,
       })
-    } else if (existing.server !== String(raw.gameserver)) {
-      upsert({ ...existing, server: String(raw.gameserver) }) // tables move between game servers
+    } else {
+      const patch: Partial<PaceTable> = {}
+      if (existing.server !== String(raw.gameserver)) patch.server = String(raw.gameserver) // tables move between game servers
+      // Self-heals a table recorded before the fallback above existed, or
+      // one first seen while gamestart genuinely was still null — once BGA
+      // does report a real start time, prefer it over the guessed one.
+      if (existing.start === 0 && raw.gamestart != null) patch.start = Number(raw.gamestart)
+      if (Object.keys(patch).length > 0) upsert({ ...existing, ...patch })
     }
   }
 
