@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Platform, UserPrefs, PLATFORM_LABELS, DEFAULT_BACKLOG_PLATFORMS } from '@/lib/types'
 import { CheckResult } from '@/lib/newGames/check'
 import { applyTheme } from '@/lib/theme'
+import { writeStoredOpened } from '@/lib/dismissal'
 import TopNav from '@/components/TopNav'
 import PlatformFilterChips from '@/components/PlatformFilterChips'
 
@@ -46,6 +47,18 @@ export default function SetupPage() {
   const [newGamesResult, setNewGamesResult] = useState<CheckResult | null>(null)
   const [newGamesError, setNewGamesError] = useState<string | null>(null)
   const [exportStatus, setExportStatus] = useState<'idle' | 'exporting' | 'error'>('idle')
+  const [openedReset, setOpenedReset] = useState(false)
+
+  // A manual escape hatch for whatever edge case in the dimming/note-prompt
+  // tracking (see lib/dismissal.ts) hasn't been found yet — every opened
+  // game just goes back to showing its real, current state on the next
+  // load, same as if none had ever been clicked. Nothing beyond that is
+  // touched: no game data, no saved notes, no tags.
+  const resetOpened = () => {
+    writeStoredOpened({})
+    setOpenedReset(true)
+    setTimeout(() => setOpenedReset(false), 1500)
+  }
 
   const exportData = async () => {
     setExportStatus('exporting')
@@ -385,6 +398,21 @@ export default function SetupPage() {
             {exportStatus === 'exporting' ? 'Exporting…' : '⬇ Export data'}
           </button>
           {exportStatus === 'error' && <p className="text-xs text-red-500 mt-2">Export failed — try again.</p>}
+        </div>
+
+        <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5 mb-5">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-1">Opened games</h2>
+          <p className="text-xs text-[var(--text-tertiary)] mb-3">
+            Clears which games are currently dimmed as &quot;opened&quot; on the dashboard, and any
+            pending note-prompt chip. Doesn&apos;t touch game data, notes or tags — if something
+            looks stuck, this is a safe way to start over.
+          </p>
+          <button
+            onClick={resetOpened}
+            className="text-xs bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-muted-hover)] px-3 py-1.5 rounded-md"
+          >
+            {openedReset ? 'Reset!' : 'Reset opened games'}
+          </button>
         </div>
 
         <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5 mb-5">
