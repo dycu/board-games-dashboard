@@ -111,7 +111,7 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
 
   if (!expanded) {
     return (
-      <div className="fixed bottom-3 left-3 z-50 flex items-center gap-1.5">
+      <div className="fixed bottom-3 left-3 z-50 flex items-start gap-1.5">
         <button
           onClick={() => setExpanded(true)}
           // Explicit aria-label: the visible content below is the note
@@ -120,16 +120,16 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
           // than usual, since this chip's whole point is to be found again
           // by its game, with or without an existing note.
           aria-label={`Note for ${game.gameName}`}
-          title={note ? `${game.gameName}: ${note}` : `Note for ${game.gameName}`}
-          className="max-w-[min(calc(100vw-4.5rem),20rem)] text-xs bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-default)] rounded-full pl-3 pr-2.5 py-1.5 shadow-sm hover:border-[var(--accent)]">
-          {/* An existing note shown in full here, not just "Note for X?" —
-              the point is to let the current plan be judged still fine at a
-              glance, without having to expand just to check. */}
+          className="max-w-[min(calc(100vw-4.5rem),20rem)] text-left text-xs bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-default)] rounded-xl px-3 py-1.5 shadow-sm hover:border-[var(--accent)]">
+          {/* An existing note shown in full here (wrapping, not truncated —
+              a long one should still be fully readable), not just "Note for
+              X?" — the point is to let the current plan be judged still
+              fine at a glance, without having to expand just to check. */}
           {note ? (
-            <span className="flex items-center gap-1 min-w-0">
-              <span className="shrink-0">📝</span>
-              <span className="truncate italic">{note}</span>
-            </span>
+            <>
+              <div className="font-medium">📝 {game.gameName}</div>
+              <div className="italic text-[var(--text-secondary)] whitespace-normal break-words">{note}</div>
+            </>
           ) : (
             <>📝 Note for {game.gameName}?</>
           )}
@@ -138,7 +138,7 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
           onClick={save}
           aria-label="Dismiss note prompt"
           title="Dismiss"
-          className="text-[var(--icon-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-full w-6 h-6 flex items-center justify-center shadow-sm text-xs leading-none">
+          className="shrink-0 text-[var(--icon-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-full w-6 h-6 flex items-center justify-center shadow-sm text-xs leading-none">
           ✕
         </button>
       </div>

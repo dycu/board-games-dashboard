@@ -30,9 +30,10 @@ describe('NotePromptPopup', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('shows an existing note on the collapsed chip itself, so it can be judged still fine without expanding', () => {
+  it('shows the game name and the existing note on the collapsed chip itself, so it can be judged still fine without expanding', () => {
     render(<NotePromptPopup {...props({ note: 'take the north pass' })} />)
     const chip = screen.getByRole('button', { name: /Note for Navegador/ })
+    expect(chip).toHaveTextContent('Navegador')
     expect(chip).toHaveTextContent('take the north pass')
     expect(chip).not.toHaveTextContent('Note for Navegador?')
   })
