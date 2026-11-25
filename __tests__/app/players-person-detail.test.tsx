@@ -53,8 +53,8 @@ describe('PersonDetail', () => {
     const heading = await screen.findByText('Also in your backlog')
     const section = heading.closest('div')!
     expect(within(section).getByText('Brass: Lancashire')).toBeInTheDocument()
-    const badge = within(section).getByTitle('In your backlog: Favorite, GM')
-    expect(badge).toHaveTextContent('Favorite +1')
+    expect(within(section).getByText(/Favorite \+1/)).toBeInTheDocument()
+    expect(within(section).getByRole('button', { name: 'In your backlog: Favorite, GM' })).toBeInTheDocument()
     expect(within(section).queryByText('Nevsky')).toBeNull()
   })
 

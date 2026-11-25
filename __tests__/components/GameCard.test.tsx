@@ -77,10 +77,11 @@ describe('GameCard', () => {
     expect(screen.getByText('🔖 GM')).toBeInTheDocument()
   })
 
-  it('collapses more than one backlog list into a "+N" count on the badge', () => {
+  it('collapses more than one backlog list into a "+N" count on the badge, revealing the full list on hover', async () => {
     render(<GameCard {...props({ backlogLists: ['gm', 'favorite'] })} />)
-    const badge = screen.getByText('🔖 GM +1')
-    expect(badge).toHaveAttribute('title', 'In your backlog: GM, Favorite')
+    expect(screen.getByText('🔖 GM +1')).toBeInTheDocument()
+    await userEvent.hover(screen.getByRole('button', { name: 'In your backlog: GM, Favorite' }))
+    expect(screen.getByRole('tooltip')).toHaveTextContent('GM, Favorite')
   })
 
   it('shows this title\'s own tags on a badge', () => {

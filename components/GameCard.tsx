@@ -199,16 +199,23 @@ function MoveCountBadge({ game, small }: { game: Game; small?: boolean }) {
 // — an untracked game's card looks exactly like it did before this
 // existed. Muted on purpose: this is a cross-reference, not a status that
 // needs attention the way the heat or deadline badges do.
+// Collapsed to "+N" past the first once a title is on more than one backlog
+// list — see GameTagBadge's own comment on why the rest is revealed via
+// HoldTooltip (hover/tap) rather than a plain title attribute.
 export function BacklogBadge({ lists, small }: { lists: BacklogList[]; small?: boolean }) {
   if (lists.length === 0) return null
   const labels = lists.map(l => SHORT_LIST_LABELS[l])
   const text = labels.length === 1 ? labels[0] : `${labels[0]} +${labels.length - 1}`
-  return (
-    <span
-      title={`In your backlog: ${labels.join(', ')}`}
-      className={`shrink-0 font-medium rounded-full bg-[var(--bg-muted)] text-[var(--text-secondary)] ${small ? 'text-[10px] px-1.5 py-px' : 'text-[11px] px-2 py-0.5'}`}>
+  const badge = (
+    <span className={`shrink-0 font-medium rounded-full bg-[var(--bg-muted)] text-[var(--text-secondary)] ${small ? 'text-[10px] px-1.5 py-px' : 'text-[11px] px-2 py-0.5'}`}>
       🔖 {text}
     </span>
+  )
+  if (labels.length === 1) return badge
+  return (
+    <HoldTooltip ariaLabel={`In your backlog: ${labels.join(', ')}`} tooltip={labels.join(', ')}>
+      {badge}
+    </HoldTooltip>
   )
 }
 
