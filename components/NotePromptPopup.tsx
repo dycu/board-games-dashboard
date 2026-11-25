@@ -114,8 +114,25 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
       <div className="fixed bottom-3 left-3 z-50 flex items-center gap-1.5">
         <button
           onClick={() => setExpanded(true)}
-          className="text-xs bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-default)] rounded-full pl-3 pr-2.5 py-1.5 shadow-sm hover:border-[var(--accent)]">
-          📝 Note for {game.gameName}?
+          // Explicit aria-label: the visible content below is the note
+          // itself once there is one, which would otherwise become the
+          // accessible name in its place — a stable one matters more here
+          // than usual, since this chip's whole point is to be found again
+          // by its game, with or without an existing note.
+          aria-label={`Note for ${game.gameName}`}
+          title={note ? `${game.gameName}: ${note}` : `Note for ${game.gameName}`}
+          className="max-w-[min(calc(100vw-4.5rem),20rem)] text-xs bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-default)] rounded-full pl-3 pr-2.5 py-1.5 shadow-sm hover:border-[var(--accent)]">
+          {/* An existing note shown in full here, not just "Note for X?" —
+              the point is to let the current plan be judged still fine at a
+              glance, without having to expand just to check. */}
+          {note ? (
+            <span className="flex items-center gap-1 min-w-0">
+              <span className="shrink-0">📝</span>
+              <span className="truncate italic">{note}</span>
+            </span>
+          ) : (
+            <>📝 Note for {game.gameName}?</>
+          )}
         </button>
         <button
           onClick={save}
