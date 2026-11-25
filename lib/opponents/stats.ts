@@ -179,5 +179,5 @@ export function gameOpponents(
 
   return [...byKey.values()]
     .map(({ durations, ...r }) => ({ ...r, avgDurationDays: durations.length ? durations.reduce((s, d) => s + d, 0) / durations.length : null }))
-    .sort((a, b) => b.games - a.games || a.name.localeCompare(b.name))
+    .sort((a, b) => b.games - a.games || (b.lastPlayedAt?.getTime() ?? 0) - (a.lastPlayedAt?.getTime() ?? 0) || a.name.localeCompare(b.name))
 }

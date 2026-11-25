@@ -185,6 +185,18 @@ describe('gameOpponents', () => {
     const result = gameOpponents(games, 'bga', 'Indonesia', {})
     expect(result.map(o => o.name)).toEqual(['Bob', 'Alice'])
   })
+
+  it('breaks a tie in games played by who was played most recently, not by name', () => {
+    const games = [
+      // Zack: 2 games, most recent on day 9 — Alice: 2 games, most recent on day 4
+      fg('1', 'bga', 1, { gameName: 'Indonesia', opponents: [{ name: 'Alice' }] }),
+      fg('2', 'bga', 4, { gameName: 'Indonesia', opponents: [{ name: 'Alice' }] }),
+      fg('3', 'bga', 2, { gameName: 'Indonesia', opponents: [{ name: 'Zack' }] }),
+      fg('4', 'bga', 9, { gameName: 'Indonesia', opponents: [{ name: 'Zack' }] }),
+    ]
+    const result = gameOpponents(games, 'bga', 'Indonesia', {})
+    expect(result.map(o => o.name)).toEqual(['Zack', 'Alice'])
+  })
 })
 
 describe('gamesWith', () => {
