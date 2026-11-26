@@ -1,4 +1,4 @@
-import { presentAt, resolveOpened, judge, parseStoredOpened, nextNotePrompt, openedPlatforms, decideReturnRefresh, stillShownAsOpened, justRegainedTurn, Opened, RETURN_GRACE_MS } from '../dismissal'
+import { presentAt, resolveOpened, judge, parseStoredOpened, nextNotePrompt, openedPlatforms, decideReturnRefresh, stillShownAsOpened, justGainedTurn, Opened, RETURN_GRACE_MS } from '../dismissal'
 
 describe('presentAt', () => {
   it('counts a time after returning', () => {
@@ -191,36 +191,34 @@ describe('stillShownAsOpened', () => {
   })
 })
 
-describe('justRegainedTurn', () => {
-  it('names a game that left the dismissed set with its turn back on', () => {
-    const prev = new Set(['bga:1'])
-    const next = new Set<string>()
+describe('justGainedTurn', () => {
+  it('names a game whose turn just came around', () => {
+    const prev = new Map([['bga:1', false]])
     const games = [{ id: 'bga:1', myTurn: true }]
-    expect(justRegainedTurn(prev, next, games)).toEqual(['bga:1'])
+    expect(justGainedTurn(prev, games)).toEqual(['bga:1'])
   })
 
-  it('ignores a game that left the dismissed set but is still not my turn', () => {
-    const prev = new Set(['bga:1'])
-    const next = new Set<string>()
+  it('ignores a game that is still not my turn', () => {
+    const prev = new Map([['bga:1', false]])
     const games = [{ id: 'bga:1', myTurn: false }]
-    expect(justRegainedTurn(prev, next, games)).toEqual([])
+    expect(justGainedTurn(prev, games)).toEqual([])
   })
 
-  it('ignores a game that is still dismissed', () => {
-    const prev = new Set(['bga:1'])
-    const next = new Set(['bga:1'])
+  it('ignores a game whose turn was already mine last time — not a new transition', () => {
+    const prev = new Map([['bga:1', true]])
     const games = [{ id: 'bga:1', myTurn: true }]
-    expect(justRegainedTurn(prev, next, games)).toEqual([])
+    expect(justGainedTurn(prev, games)).toEqual([])
   })
 
-  it('ignores a game missing from the live list entirely', () => {
-    const prev = new Set(['bga:1'])
-    const next = new Set<string>()
-    expect(justRegainedTurn(prev, next, [])).toEqual([])
+  it('ignores a game missing from the previous snapshot entirely (first fetch, or just appeared)', () => {
+    const games = [{ id: 'bga:1', myTurn: true }]
+    expect(justGainedTurn(new Map(), games)).toEqual([])
   })
 
-  it('reports nothing when nothing was previously dismissed', () => {
-    expect(justRegainedTurn(new Set(), new Set(), [{ id: 'bga:1', myTurn: true }])).toEqual([])
+  it('names every game that came around at once', () => {
+    const prev = new Map([['bga:1', false], ['bga:2', false], ['bga:3', true]])
+    const games = [{ id: 'bga:1', myTurn: true }, { id: 'bga:2', myTurn: true }, { id: 'bga:3', myTurn: true }]
+    expect(justGainedTurn(prev, games)).toEqual(['bga:1', 'bga:2'])
   })
 })
 

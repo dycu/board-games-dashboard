@@ -222,17 +222,16 @@ export function parseStoredOpened(raw: string | null): Opened {
 // A short glance away (alt-tab and back) isn't worth a refresh
 export const AWAY_REFRESH_MS = 3000
 
-// Which games just came off the dismissed set with their turn back on —
-// the one case worth an ambient "your turn again" notice, since the grid
-// itself gives no separate signal when an opponent replies fast enough
-// that a dimmed game flips straight back to active instead of staying
-// dimmed until its note-prompt grace runs out.
-export function justRegainedTurn(prevDismissed: Set<string>, dismissed: Set<string>, games: { id: string; myTurn: boolean }[]): string[] {
-  const byId = new Map(games.map(g => [g.id, g]))
-  const ids: string[] = []
-  for (const id of prevDismissed) {
-    if (dismissed.has(id)) continue
-    if (byId.get(id)?.myTurn) ids.push(id)
-  }
-  return ids
+// Which games just flipped from not-my-turn to my-turn — the one signal
+// the grid itself never raises on its own: an opponent's move landing,
+// whether or not the game was ever opened/dismissed in this session.
+// Diffed from each game's own previous myTurn value, not from `dismissed`:
+// a dismissed game regaining its turn is just a special case of this same
+// transition (judge() stops treating it as opened the moment myTurn is
+// true again — see stillShownAsOpened), not a separate thing to detect.
+// A game missing from `prevMyTurn` entirely (just appeared, or this is the
+// very first fetch) never counts — there's no actual transition to report,
+// just a game the caller hasn't seen before.
+export function justGainedTurn(prevMyTurn: Map<string, boolean>, games: { id: string; myTurn: boolean }[]): string[] {
+  return games.filter(g => g.myTurn && prevMyTurn.get(g.id) === false).map(g => g.id)
 }

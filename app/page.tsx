@@ -5,7 +5,7 @@ import { usePrefs } from '@/hooks/usePrefs'
 import { useNotes } from '@/hooks/useNotes'
 import { isBackForwardNavigation } from '@/lib/navigation'
 import { Platform } from '@/lib/types'
-import { Presence, Opened, resolveOpened, readStoredOpened, writeStoredOpened, storeOpenedNow, nextNotePrompt, decideReturnRefresh, stillShownAsOpened, justRegainedTurn, RETURN_GRACE_MS, AWAY_REFRESH_MS } from '@/lib/dismissal'
+import { Presence, Opened, resolveOpened, readStoredOpened, writeStoredOpened, storeOpenedNow, nextNotePrompt, decideReturnRefresh, stillShownAsOpened, justGainedTurn, RETURN_GRACE_MS, AWAY_REFRESH_MS } from '@/lib/dismissal'
 import { reportNotice } from '@/lib/notify'
 import GameGrid from '@/components/GameGrid'
 import FetchProgress from '@/components/FetchProgress'
@@ -85,25 +85,23 @@ export default function DashboardPage() {
     const byId = new Map((displayedData?.games ?? []).map(g => [g.id, g]))
     return new Set(Object.entries(opened).filter(([id, o]) => stillShownAsOpened(o, byId.get(id))).map(([id]) => id))
   }, [opened, displayedData])
-  // A small "🎲 Your turn: X" toast whenever a game drops out of the
-  // dismissed set with its turn back on — the one case the grid itself
-  // gives no separate signal for (an opponent replying fast enough that a
-  // dimmed game flips straight back to active). Diffed by content, not by
-  // the `dismissed` Set's own identity, so a recompute with the same
-  // members (e.g. from an unrelated fetch) never fires a false positive.
-  const prevDismissedRef = useRef<Set<string>>(new Set())
+  // A small "🎲 Your turn: X" toast whenever any active game's turn comes
+  // back around — an opponent's move landing, whether or not the game was
+  // ever opened in this session (not just the games that were dismissed —
+  // see justGainedTurn's own comment on why that's a strict superset).
+  const prevMyTurnRef = useRef<Map<string, boolean>>(new Map())
   useEffect(() => {
     const games = displayedData?.games ?? []
-    const regained = justRegainedTurn(prevDismissedRef.current, dismissed, games)
-    if (regained.length > 0) {
+    const gained = justGainedTurn(prevMyTurnRef.current, games)
+    if (gained.length > 0) {
       const byId = new Map(games.map(g => [g.id, g]))
-      for (const id of regained) {
+      for (const id of gained) {
         const game = byId.get(id)
         if (game) reportNotice('info', `🎲 Your turn: ${game.gameName}`)
       }
     }
-    prevDismissedRef.current = dismissed
-  }, [dismissed, displayedData])
+    prevMyTurnRef.current = new Map(games.map(g => [g.id, g.myTurn]))
+  }, [displayedData])
 
   const refresh = useCallback(() => triggerRefresh(), [triggerRefresh])
   // Set right before an explicit manual refresh and read (then cleared) by
