@@ -221,3 +221,18 @@ export function parseStoredOpened(raw: string | null): Opened {
 
 // A short glance away (alt-tab and back) isn't worth a refresh
 export const AWAY_REFRESH_MS = 3000
+
+// Which games just came off the dismissed set with their turn back on —
+// the one case worth an ambient "your turn again" notice, since the grid
+// itself gives no separate signal when an opponent replies fast enough
+// that a dimmed game flips straight back to active instead of staying
+// dimmed until its note-prompt grace runs out.
+export function justRegainedTurn(prevDismissed: Set<string>, dismissed: Set<string>, games: { id: string; myTurn: boolean }[]): string[] {
+  const byId = new Map(games.map(g => [g.id, g]))
+  const ids: string[] = []
+  for (const id of prevDismissed) {
+    if (dismissed.has(id)) continue
+    if (byId.get(id)?.myTurn) ids.push(id)
+  }
+  return ids
+}

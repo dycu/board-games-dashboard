@@ -20,8 +20,10 @@ const AUTO_DISMISS_MS = 20_000
 // existed. Collapsed, it just names the game and fades on its own if
 // ignored (or is dismissed outright); tapping it expands to the same note
 // field as before, now with no auto-dismiss once expanded, so actually
-// writing something never races the clock. Bottom-left, not bottom-right —
-// FetchProgress's own compact indicator already lives in that corner.
+// writing something never races the clock. The collapsed chip is a plain
+// (non-fixed) child of the shared NotificationTray (app/page.tsx), which
+// does the actual corner positioning; the expanded panel still positions
+// itself (see below, top not bottom).
 export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete }: {
   game: Game
   note?: string
@@ -111,7 +113,7 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
 
   if (!expanded) {
     return (
-      <div className="fixed bottom-3 left-3 z-50 flex items-start gap-1.5">
+      <div className="flex items-start gap-1.5">
         <button
           onClick={() => setExpanded(true)}
           // Explicit aria-label: the visible content below is the note
@@ -149,8 +151,9 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
     // Top, not bottom, once there's a keyboard to type into: an on-screen
     // keyboard (phone, and especially a tablet in landscape) eats the
     // bottom portion of the viewport, which would otherwise sit right
-    // behind the very field it's covering. The collapsed chip above has no
-    // such problem — nothing to type into yet — so it stays bottom-left.
+    // behind the very field it's covering. The collapsed chip has no such
+    // problem — nothing to type into yet — so it's free to live in the
+    // tray at the bottom instead.
     <div
       ref={panelRef}
       role="dialog"

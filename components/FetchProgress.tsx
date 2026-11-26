@@ -11,8 +11,11 @@ export default function FetchProgress({ platformStatuses, compact = false }: Pro
   const platforms = Object.keys(platformStatuses) as Platform[]
 
   if (compact) {
-    // Floats over the page, so a refresh never shifts the content: a thin bar
-    // along the top edge and a small note of what's still loading
+    // The thin bar along the top edge floats over the page on its own, so a
+    // refresh never shifts the content. The note of what's still loading is
+    // a plain (non-fixed) chip — it's rendered as a child of the shared
+    // NotificationTray (app/page.tsx), which does the actual corner
+    // positioning and stacks it with whatever else is showing.
     const done = platforms.filter(p => platformStatuses[p]?.state !== 'loading').length
     const loading = platforms.filter(p => (platformStatuses[p]?.state ?? 'loading') === 'loading')
     const failed = platforms.filter(p => platformStatuses[p]?.state === 'error')
@@ -22,7 +25,7 @@ export default function FetchProgress({ platformStatuses, compact = false }: Pro
         <div className="fixed top-0 left-0 right-0 h-0.5 z-50 pointer-events-none" role="progressbar" aria-label="Refreshing" aria-valuenow={pct}>
           <div className="h-full bg-[var(--accent)] transition-[width] duration-300" style={{ width: `${pct}%` }} />
         </div>
-        <div className="fixed bottom-3 right-3 z-50 pointer-events-none text-[11px] text-[var(--text-secondary)] bg-[var(--bg-surface)]/90 border border-[var(--border-default)] rounded-full px-2.5 py-1 shadow-sm">
+        <div className="pointer-events-none text-[11px] text-[var(--text-secondary)] bg-[var(--bg-surface)]/90 border border-[var(--border-default)] rounded-full px-2.5 py-1 shadow-sm">
           <span className="animate-pulse">⟳</span>{' '}
           {loading.length > 0 ? `Updating ${loading.map(p => PLATFORM_SHORT_LABELS[p]).join(', ')}` : 'Updating…'}
           {failed.length > 0 && <span className="text-red-500"> · {failed.map(p => PLATFORM_SHORT_LABELS[p]).join(', ')} failed</span>}

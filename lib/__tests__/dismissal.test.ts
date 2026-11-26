@@ -1,4 +1,4 @@
-import { presentAt, resolveOpened, judge, parseStoredOpened, nextNotePrompt, openedPlatforms, decideReturnRefresh, stillShownAsOpened, Opened, RETURN_GRACE_MS } from '../dismissal'
+import { presentAt, resolveOpened, judge, parseStoredOpened, nextNotePrompt, openedPlatforms, decideReturnRefresh, stillShownAsOpened, justRegainedTurn, Opened, RETURN_GRACE_MS } from '../dismissal'
 
 describe('presentAt', () => {
   it('counts a time after returning', () => {
@@ -188,6 +188,39 @@ describe('stillShownAsOpened', () => {
 
   it('stays opened for a game no longer in the live list — nothing says it is my turn again', () => {
     expect(stillShownAsOpened({ openedAt: 0, movedSeenAt: 100 }, undefined)).toBe(true)
+  })
+})
+
+describe('justRegainedTurn', () => {
+  it('names a game that left the dismissed set with its turn back on', () => {
+    const prev = new Set(['bga:1'])
+    const next = new Set<string>()
+    const games = [{ id: 'bga:1', myTurn: true }]
+    expect(justRegainedTurn(prev, next, games)).toEqual(['bga:1'])
+  })
+
+  it('ignores a game that left the dismissed set but is still not my turn', () => {
+    const prev = new Set(['bga:1'])
+    const next = new Set<string>()
+    const games = [{ id: 'bga:1', myTurn: false }]
+    expect(justRegainedTurn(prev, next, games)).toEqual([])
+  })
+
+  it('ignores a game that is still dismissed', () => {
+    const prev = new Set(['bga:1'])
+    const next = new Set(['bga:1'])
+    const games = [{ id: 'bga:1', myTurn: true }]
+    expect(justRegainedTurn(prev, next, games)).toEqual([])
+  })
+
+  it('ignores a game missing from the live list entirely', () => {
+    const prev = new Set(['bga:1'])
+    const next = new Set<string>()
+    expect(justRegainedTurn(prev, next, [])).toEqual([])
+  })
+
+  it('reports nothing when nothing was previously dismissed', () => {
+    expect(justRegainedTurn(new Set(), new Set(), [{ id: 'bga:1', myTurn: true }])).toEqual([])
   })
 })
 

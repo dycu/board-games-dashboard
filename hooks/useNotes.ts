@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
+import { reportNotice } from '@/lib/notify'
 
 // Notes show at once; the server's copy replaces them when the save returns
 export function useNotes() {
@@ -28,8 +29,12 @@ export function useNotes() {
       })
       const json = await res.json()
       if (res.ok && json.notes) setNotes(json.notes)
+      // keeps the optimistic note either way; the next load shows what was
+      // actually saved, but it would otherwise look saved for good until
+      // then, with no sign anything went wrong
+      else reportNotice('error', "Your note didn't save — try again")
     } catch {
-      // keeps the optimistic note; the next load shows what was saved
+      reportNotice('error', "Your note didn't save — try again")
     }
   }, [])
 
