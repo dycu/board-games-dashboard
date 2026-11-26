@@ -49,7 +49,18 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
   // first opens
   // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing to the game/note identity, not derivable without one
   useEffect(() => { setExpanded(false); setDraft(note ?? '') }, [note, game.id])
-  useEffect(() => { if (expanded) inputRef.current?.focus() }, [expanded, game.id])
+  // Plain .focus() alone leaves the cursor at the very start of an
+  // existing note (a browser default, not something either side chose),
+  // so typing right away inserts before it instead of continuing it —
+  // easy to miss with a mouse (a click into the field repositions it
+  // anyway) but not with a keyboard-only flow (Enter to open, then type).
+  useEffect(() => {
+    if (!expanded) return
+    const el = inputRef.current
+    if (!el) return
+    el.focus()
+    el.setSelectionRange(el.value.length, el.value.length)
+  }, [expanded, game.id])
 
   // Every way of closing (Escape, clicking outside, the Save button, the
   // collapsed chip's own dismiss, or it simply timing out) saves whatever's

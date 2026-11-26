@@ -52,6 +52,19 @@ describe('NotePromptPopup', () => {
     expect(screen.getByRole('textbox')).toHaveValue('take the north pass')
   })
 
+  // Plain .focus() alone leaves the cursor at the start of the existing
+  // text (a browser default), so typing right away — especially with no
+  // mouse click into the field to reposition it, e.g. right after Enter
+  // opened this same popup — inserted before the note instead of
+  // continuing it.
+  it('places the cursor at the end of an existing note once expanded, not the start', async () => {
+    render(<NotePromptPopup {...props({ note: 'take the north pass' })} />)
+    await expand()
+    const input = screen.getByRole('textbox') as HTMLTextAreaElement
+    expect(input.selectionStart).toBe(input.value.length)
+    expect(input.selectionEnd).toBe(input.value.length)
+  })
+
   it('saves what was typed on Enter or the Save button', async () => {
     const onSave = jest.fn()
     render(<NotePromptPopup {...props({ onSave })} />)
