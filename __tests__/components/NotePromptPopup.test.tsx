@@ -142,6 +142,18 @@ describe('NotePromptPopup', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
+  // Moving focus into the textarea as a side effect of this same keydown
+  // (above) makes the browser apply the key's own default action — insert
+  // a newline — to wherever focus just landed, not to whatever was
+  // focused when the key was actually pressed, unless that default action
+  // is prevented outright.
+  it('prevents the opening Enter\'s own default action, so it can\'t leak a newline into the textarea it just focused', () => {
+    render(<NotePromptPopup {...props()} />)
+    const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    window.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+  })
+
   it('does not expand on Enter while a text field elsewhere is focused — that keypress is theirs', () => {
     render(
       <>

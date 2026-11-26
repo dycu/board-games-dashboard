@@ -88,6 +88,12 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
       if (e.key !== 'Enter') return
       const target = e.target as HTMLElement | null
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+      // Without this, the same Enter press's own default action (insert a
+      // newline) lands in the textarea anyway: moving focus into it mid-
+      // keydown, below, makes the browser apply that default action to
+      // wherever focus ends up, not to whatever was focused when the key
+      // was actually pressed.
+      e.preventDefault()
       setExpanded(true)
     }
     window.addEventListener('keydown', onKey)
