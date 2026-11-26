@@ -156,7 +156,7 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
           // than usual, since this chip's whole point is to be found again
           // by its game, with or without an existing note.
           aria-label={`Note for ${game.gameName}`}
-          className="max-w-[min(calc(100vw-4.5rem),20rem)] text-left text-xs bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-default)] rounded-xl px-3 py-1.5 shadow-sm hover:border-[var(--accent)]">
+          className="max-w-[min(calc(100vw-4.5rem),20rem)] text-left text-xs bg-[var(--accent-tint)] text-[var(--text-primary)] border border-[var(--accent-border-hover)] rounded-xl px-3 py-1.5 shadow-sm hover:border-[var(--accent)]">
           {/* An existing note shown in full here (wrapping, not truncated —
               a long one should still be fully readable), not just "Note for
               X?" — the point is to let the current plan be judged still
@@ -174,7 +174,7 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
           onClick={save}
           aria-label="Dismiss note prompt"
           title="Dismiss"
-          className="shrink-0 text-[var(--icon-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-full w-6 h-6 flex items-center justify-center shadow-sm text-xs leading-none">
+          className="shrink-0 text-[var(--icon-muted)] hover:text-[var(--text-primary)] bg-[var(--accent-tint)] border border-[var(--accent-border-hover)] rounded-full w-6 h-6 flex items-center justify-center shadow-sm text-xs leading-none">
           ✕
         </button>
       </div>

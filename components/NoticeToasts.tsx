@@ -40,7 +40,7 @@ export default function NoticeToasts() {
           className={`flex items-center gap-2 max-w-[min(calc(100vw-4.5rem),20rem)] text-xs rounded-xl px-3 py-1.5 shadow-sm border ${
             n.kind === 'error'
               ? 'bg-red-50 text-red-700 border-red-200'
-              : 'bg-[var(--bg-surface)] text-[var(--text-primary)] border-[var(--border-default)]'
+              : 'bg-[var(--accent-tint)] text-[var(--text-primary)] border-[var(--accent-border-hover)]'
           }`}
         >
           <span className="flex-1">{n.message}</span>

@@ -43,7 +43,7 @@ export default function NewGamesPopup() {
         <button
           onClick={() => setExpanded(true)}
           aria-label={`${events.length} new ${events.length === 1 ? 'item' : 'items'} found`}
-          className="text-xs bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-default)] rounded-xl px-3 py-1.5 shadow-sm hover:border-[var(--accent)]"
+          className="text-xs bg-[var(--accent-tint)] text-[var(--text-primary)] border border-[var(--accent-border-hover)] rounded-xl px-3 py-1.5 shadow-sm hover:border-[var(--accent)]"
         >
           🆕 {events.length} new {events.length === 1 ? 'item' : 'items'}
         </button>
@@ -51,7 +51,7 @@ export default function NewGamesPopup() {
           onClick={dismiss}
           aria-label="Dismiss new games notice"
           title="Dismiss"
-          className="shrink-0 text-[var(--icon-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-full w-6 h-6 flex items-center justify-center shadow-sm text-xs leading-none"
+          className="shrink-0 text-[var(--icon-muted)] hover:text-[var(--text-primary)] bg-[var(--accent-tint)] border border-[var(--accent-border-hover)] rounded-full w-6 h-6 flex items-center justify-center shadow-sm text-xs leading-none"
         >
           ✕
         </button>

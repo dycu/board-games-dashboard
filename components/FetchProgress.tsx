@@ -25,7 +25,7 @@ export default function FetchProgress({ platformStatuses, compact = false }: Pro
         <div className="fixed top-0 left-0 right-0 h-0.5 z-50 pointer-events-none" role="progressbar" aria-label="Refreshing" aria-valuenow={pct}>
           <div className="h-full bg-[var(--accent)] transition-[width] duration-300" style={{ width: `${pct}%` }} />
         </div>
-        <div className="pointer-events-none text-[11px] text-[var(--text-secondary)] bg-[var(--bg-surface)]/90 border border-[var(--border-default)] rounded-full px-2.5 py-1 shadow-sm">
+        <div className="pointer-events-none text-[11px] text-[var(--text-secondary)] bg-[var(--accent-tint)]/90 border border-[var(--accent-border-hover)] rounded-full px-2.5 py-1 shadow-sm">
           <span className="animate-pulse">⟳</span>{' '}
           {loading.length > 0 ? `Updating ${loading.map(p => PLATFORM_SHORT_LABELS[p]).join(', ')}` : 'Updating…'}
           {failed.length > 0 && <span className="text-red-500"> · {failed.map(p => PLATFORM_SHORT_LABELS[p]).join(', ')} failed</span>}
