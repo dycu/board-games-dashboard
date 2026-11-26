@@ -44,11 +44,22 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
+  // Set right before the delete button below calls onDelete, so the
+  // `note` prop update that causes (useNotes clearing it) doesn't bounce
+  // through this same effect and collapse the very panel the deletion was
+  // made from. This effect's job is an *external* note change — a
+  // different game's prompt, or the note still arriving from useNotes'
+  // own initial load — not one this component just caused itself.
+  const justDeletedRef = useRef(false)
+
   // Resets to collapsed whenever the prompt switches to a different game,
   // and fills in the note if it's still loading (useNotes) when the popup
   // first opens
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing to the game/note identity, not derivable without one
-  useEffect(() => { setExpanded(false); setDraft(note ?? '') }, [note, game.id])
+  useEffect(() => {
+    if (justDeletedRef.current) { justDeletedRef.current = false; return }
+    setExpanded(false)
+    setDraft(note ?? '')
+  }, [note, game.id])
   // Plain .focus() alone leaves the cursor at the very start of an
   // existing note (a browser default, not something either side chose),
   // so typing right away inserts before it instead of continuing it —
@@ -143,7 +154,7 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
   // to walk away from the prompt entirely. Keeps the input focused (see
   // the delete button's onMouseDown below) so a replacement can be typed
   // right away, without the on-screen keyboard closing and reopening.
-  const remove = () => { onDelete(); setDraft(''); inputRef.current?.focus() }
+  const remove = () => { justDeletedRef.current = true; onDelete(); setDraft(''); inputRef.current?.focus() }
 
   if (!expanded) {
     return (

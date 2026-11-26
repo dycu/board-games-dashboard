@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import NotePromptPopup from '@/components/NotePromptPopup'
@@ -134,6 +135,26 @@ describe('NotePromptPopup', () => {
     expect(screen.getByRole('textbox')).toHaveValue('')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(onSave).not.toHaveBeenCalled()
+  })
+
+  // The isolated tests above pass a stub onDelete that never actually
+  // changes the `note` prop, so they can't catch this: in the real app
+  // (app/page.tsx), onDelete flows into useNotes and clears the saved
+  // note, which comes back down as `note` turning undefined — the same
+  // shape of change as switching to a different game's prompt entirely,
+  // which is supposed to collapse the panel. Without distinguishing the
+  // two, deleting a note from inside the very panel editing it closed
+  // that panel right back to the collapsed chip.
+  it('does not collapse when deleting actually clears the note prop, the way it does in the real app', async () => {
+    function Wrapper() {
+      const [note, setNote] = useState<string | undefined>('take the north pass')
+      return <NotePromptPopup {...props({ note, onDelete: () => setNote(undefined) })} />
+    }
+    render(<Wrapper />)
+    await expand()
+    await userEvent.click(screen.getByRole('button', { name: /delete the note/i }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('textbox')).toHaveValue('')
   })
 
   it('keeps the input focused after deleting, so a replacement can be typed right away', async () => {
