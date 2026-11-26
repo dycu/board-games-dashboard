@@ -1,7 +1,6 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Game, Platform, UserPrefs, GamesApiResponse, PLATFORM_LABELS, PLATFORM_SHORT_LABELS } from '@/lib/types'
-import { DepartedGame } from '@/hooks/useGamesData'
 import { sortAndFilter } from '@/lib/sort-filter'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import GameCard, { GameCardCompact, GameRow, GameItemProps, Priority, isOpponentSlow, openTarget } from './GameCard'
@@ -39,7 +38,6 @@ interface Props {
   lastError: string | null
   cachedAt: string | null
   onOpen: (id: string) => void
-  departedGames: DepartedGame[]
   notes: Record<string, string>
   onSaveNote: (id: string, text: string) => void
 }
@@ -97,7 +95,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefresh, onManualRefresh, isRefreshing, lastError, cachedAt, onOpen, departedGames, notes, onSaveNote: saveNote }: Props) {
+export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefresh, onManualRefresh, isRefreshing, lastError, cachedAt, onOpen, notes, onSaveNote: saveNote }: Props) {
   // Animates cards sliding into their new position instead of just jumping
   // there — on a sort change, a click (opening/dimming a card moves it),
   // or new data reordering things. One ref per section, since they're
@@ -358,12 +356,6 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     return () => { document.title = 'Board Games Dashboard' }
   }, [myTurnCount])
 
-  const [departedDismissed, setDepartedDismissed] = useState(false)
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- re-show the notice when new departures arrive
-    if (departedGames.length > 0) setDepartedDismissed(false)
-  }, [departedGames])
-
   const navRight = (
     <>
       <span className="hidden sm:inline">
@@ -462,30 +454,6 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
         {lastError && cachedAt && (
           <div className="mb-3 text-xs text-amber-600">
             Last refresh failed — showing cache from {timeAgo(cachedAt)}
-          </div>
-        )}
-
-        {departedGames.length > 0 && !departedDismissed && (
-          <div className="mb-3 flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
-            <span>↩</span>
-            <span>
-              {departedGames.length === 1 ? '1 game' : `${departedGames.length} games`} ended since last refresh:{' '}
-              {departedGames.map((g, i) => (
-                <span key={g.id}>
-                  {i > 0 && ', '}
-                  <a href={g.gameUrl} target={g.platform === 'bga' ? '_self' : '_blank'} rel="noopener noreferrer" className="underline hover:text-[var(--text-primary)]">
-                    {g.gameName}
-                  </a>
-                </span>
-              ))}
-            </span>
-            <button
-              onClick={() => setDepartedDismissed(true)}
-              className="ml-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] leading-none"
-              aria-label="Dismiss"
-            >
-              ×
-            </button>
           </div>
         )}
 

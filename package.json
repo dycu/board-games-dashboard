@@ -1,6 +1,6 @@
 {
   "name": "board-games-dashboard",
-  "version": "1.104.4",
+  "version": "1.105.0",
   "private": true,
   "scripts": {
     "dev": "next dev",

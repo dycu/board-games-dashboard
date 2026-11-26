@@ -43,7 +43,27 @@ export default function NoticeToasts() {
               : 'bg-[var(--accent-tint)] text-[var(--text-primary)] border-[var(--accent-border-hover)]'
           }`}
         >
-          <span className="flex-1">{n.message}</span>
+          <span className="flex-1">
+            {n.message}
+            {n.links && n.links.length > 0 && (
+              <>
+                {' '}
+                {n.links.map((link, i) => (
+                  <span key={link.url}>
+                    {i > 0 && ', '}
+                    <a
+                      href={link.url}
+                      target={link.external === false ? '_self' : '_blank'}
+                      rel="noopener noreferrer"
+                      className="underline hover:no-underline"
+                    >
+                      {link.label}
+                    </a>
+                  </span>
+                ))}
+              </>
+            )}
+          </span>
           <button
             onClick={() => dismissNotice(n.id)}
             aria-label="Dismiss notification"

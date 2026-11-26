@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useGamesData } from '@/hooks/useGamesData'
+import { useGamesData, formatDepartedMessage } from '@/hooks/useGamesData'
 import { usePrefs } from '@/hooks/usePrefs'
 import { useNotes } from '@/hooks/useNotes'
 import { isBackForwardNavigation } from '@/lib/navigation'
@@ -102,6 +102,16 @@ export default function DashboardPage() {
     }
     prevMyTurnRef.current = new Map(games.map(g => [g.id, g.myTurn]))
   }, [displayedData])
+
+  // A "✅ Finished: X" toast for whatever departedGames (useGamesData) found
+  // this fetch — it already resets to [] on a fetch with nothing new ended,
+  // so there's nothing to track across renders here the way the turn-gained
+  // notice above needs its own ref for.
+  useEffect(() => {
+    if (departedGames.length === 0) return
+    const { message, links } = formatDepartedMessage(departedGames)
+    reportNotice('info', message, links)
+  }, [departedGames])
 
   const refresh = useCallback(() => triggerRefresh(), [triggerRefresh])
   // Set right before an explicit manual refresh and read (then cleared) by
@@ -283,7 +293,6 @@ export default function DashboardPage() {
           lastError={lastError}
           cachedAt={cachedAt}
           onOpen={handleOpen}
-          departedGames={departedGames}
           notes={notes}
           onSaveNote={saveNote}
         />

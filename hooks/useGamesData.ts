@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Game, GamesApiResponse, Platform } from '@/lib/types'
+import { NoticeLink } from '@/lib/notify'
 
 const CACHE_KEY = 'games-cache'
 const PENDING_DEPARTURES_KEY = 'pending-departures'
@@ -86,6 +87,20 @@ export function resolveDepartures(
   const pendingIds = new Set(pending.map(g => g.id))
   const newlyMissing = computeDeparted(prev, next, errors).filter(g => !pendingIds.has(g.id))
   return { confirmed, pending: [...deferred, ...newlyMissing] }
+}
+
+// One toast for however many games ended in the same fetch, with each one
+// still a clickable link up to a point — same NAMED_LIMIT idea as
+// formatTurnGainedMessage (lib/dismissal.ts): a dozen links in one toast is
+// no more useful than a dozen separate toasts, so past the limit it's just
+// the count.
+const NAMED_LIMIT = 3
+export function formatDepartedMessage(departed: DepartedGame[]): { message: string; links?: NoticeLink[] } {
+  if (departed.length > NAMED_LIMIT) return { message: `✅ ${departed.length} games finished` }
+  return {
+    message: departed.length === 1 ? '✅ Finished:' : `✅ ${departed.length} games finished:`,
+    links: departed.map(g => ({ label: g.gameName, url: g.gameUrl, external: g.platform !== 'bga' })),
+  }
 }
 
 export type PlatformStatus =

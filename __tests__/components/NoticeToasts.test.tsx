@@ -48,6 +48,18 @@ describe('NoticeToasts', () => {
     jest.useRealTimers()
   })
 
+  it('shows a notice\'s links as clickable, each opening in the tab its platform calls for', () => {
+    render(<NoticeToasts />)
+    act(() => {
+      reportNotice('info', '✅ 2 games finished:', [
+        { label: 'Navegador', url: 'https://boardgamearena.com/table?id=1', external: false },
+        { label: 'Brass', url: 'https://yucata.de/game/1', external: true },
+      ])
+    })
+    expect(screen.getByRole('link', { name: 'Navegador' })).toHaveAttribute('target', '_self')
+    expect(screen.getByRole('link', { name: 'Brass' })).toHaveAttribute('target', '_blank')
+  })
+
   it('does not restart an already-waiting notice\'s timer when a new one arrives', () => {
     jest.useFakeTimers()
     render(<NoticeToasts />)
