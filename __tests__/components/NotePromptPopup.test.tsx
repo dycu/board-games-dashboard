@@ -136,6 +136,24 @@ describe('NotePromptPopup', () => {
     expect(screen.queryByRole('button', { name: /delete the note/i })).toBeNull()
   })
 
+  it('expands on Enter from anywhere on the page, not just a click on the chip', () => {
+    render(<NotePromptPopup {...props()} />)
+    fireEvent.keyDown(window, { key: 'Enter' })
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('does not expand on Enter while a text field elsewhere is focused — that keypress is theirs', () => {
+    render(
+      <>
+        <input aria-label="elsewhere" />
+        <NotePromptPopup {...props()} />
+      </>,
+    )
+    screen.getByLabelText('elsewhere').focus()
+    fireEvent.keyDown(screen.getByLabelText('elsewhere'), { key: 'Enter' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
   it('dismisses the collapsed chip outright with its own close button, saving the draft unchanged', async () => {
     const onSave = jest.fn()
     render(<NotePromptPopup {...props({ note: 'take the north pass', onSave })} />)

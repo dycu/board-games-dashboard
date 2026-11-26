@@ -77,6 +77,23 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
     }
   }, [expanded])
 
+  // On desktop, expanding shouldn't require reaching for the mouse: Enter
+  // opens the chip from wherever focus happens to be, the same as clicking
+  // it, as long as that isn't itself a field being typed into (a filter
+  // box elsewhere on the page, say) — that keypress belongs to whatever's
+  // actually focused, not to this chip sitting quietly in the corner.
+  useEffect(() => {
+    if (expanded) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter') return
+      const target = e.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+      setExpanded(true)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [expanded])
+
   // The collapsed chip fades on its own if ignored, timed from `shownAt`
   // rather than "now" — see that prop's own comment. Re-checked (and its
   // timer re-armed for whatever's actually left) the moment the tab regains
