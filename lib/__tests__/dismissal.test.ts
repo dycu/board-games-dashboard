@@ -1,4 +1,4 @@
-import { presentAt, resolveOpened, judge, parseStoredOpened, nextNotePrompt, openedPlatforms, decideReturnRefresh, stillShownAsOpened, justGainedTurn, Opened, RETURN_GRACE_MS } from '../dismissal'
+import { presentAt, resolveOpened, judge, parseStoredOpened, nextNotePrompt, openedPlatforms, decideReturnRefresh, stillShownAsOpened, justGainedTurn, formatTurnGainedMessage, Opened, RETURN_GRACE_MS } from '../dismissal'
 
 describe('presentAt', () => {
   it('counts a time after returning', () => {
@@ -219,6 +219,20 @@ describe('justGainedTurn', () => {
     const prev = new Map([['bga:1', false], ['bga:2', false], ['bga:3', true]])
     const games = [{ id: 'bga:1', myTurn: true }, { id: 'bga:2', myTurn: true }, { id: 'bga:3', myTurn: true }]
     expect(justGainedTurn(prev, games)).toEqual(['bga:1', 'bga:2'])
+  })
+})
+
+describe('formatTurnGainedMessage', () => {
+  it('names a single game', () => {
+    expect(formatTurnGainedMessage(['Navegador'])).toBe('🎲 Your turn: Navegador')
+  })
+
+  it('names a few games, still one message', () => {
+    expect(formatTurnGainedMessage(['Navegador', 'Brass', 'Gaia Project'])).toBe('🎲 Your turn: Navegador, Brass, Gaia Project')
+  })
+
+  it('switches to just a count once there are too many to list — returning after a long absence can flip a dozen at once', () => {
+    expect(formatTurnGainedMessage(['Navegador', 'Brass', 'Gaia Project', 'Hansa'])).toBe('🎲 Your turn in 4 games')
   })
 })
 

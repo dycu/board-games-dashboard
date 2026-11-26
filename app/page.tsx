@@ -5,7 +5,7 @@ import { usePrefs } from '@/hooks/usePrefs'
 import { useNotes } from '@/hooks/useNotes'
 import { isBackForwardNavigation } from '@/lib/navigation'
 import { Platform } from '@/lib/types'
-import { Presence, Opened, resolveOpened, readStoredOpened, writeStoredOpened, storeOpenedNow, nextNotePrompt, decideReturnRefresh, stillShownAsOpened, justGainedTurn, RETURN_GRACE_MS, AWAY_REFRESH_MS } from '@/lib/dismissal'
+import { Presence, Opened, resolveOpened, readStoredOpened, writeStoredOpened, storeOpenedNow, nextNotePrompt, decideReturnRefresh, stillShownAsOpened, justGainedTurn, formatTurnGainedMessage, RETURN_GRACE_MS, AWAY_REFRESH_MS } from '@/lib/dismissal'
 import { reportNotice } from '@/lib/notify'
 import GameGrid from '@/components/GameGrid'
 import FetchProgress from '@/components/FetchProgress'
@@ -88,17 +88,17 @@ export default function DashboardPage() {
   // A small "🎲 Your turn: X" toast whenever any active game's turn comes
   // back around — an opponent's move landing, whether or not the game was
   // ever opened in this session (not just the games that were dismissed —
-  // see justGainedTurn's own comment on why that's a strict superset).
+  // see justGainedTurn's own comment on why that's a strict superset). One
+  // notice for however many games came around in this same fetch, not one
+  // each — see formatTurnGainedMessage's own comment on why.
   const prevMyTurnRef = useRef<Map<string, boolean>>(new Map())
   useEffect(() => {
     const games = displayedData?.games ?? []
     const gained = justGainedTurn(prevMyTurnRef.current, games)
     if (gained.length > 0) {
       const byId = new Map(games.map(g => [g.id, g]))
-      for (const id of gained) {
-        const game = byId.get(id)
-        if (game) reportNotice('info', `🎲 Your turn: ${game.gameName}`)
-      }
+      const names = gained.map(id => byId.get(id)?.gameName).filter((n): n is string => n !== undefined)
+      if (names.length > 0) reportNotice('info', formatTurnGainedMessage(names))
     }
     prevMyTurnRef.current = new Map(games.map(g => [g.id, g.myTurn]))
   }, [displayedData])

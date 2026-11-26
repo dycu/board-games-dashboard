@@ -235,3 +235,15 @@ export const AWAY_REFRESH_MS = 3000
 export function justGainedTurn(prevMyTurn: Map<string, boolean>, games: { id: string; myTurn: boolean }[]): string[] {
   return games.filter(g => g.myTurn && prevMyTurn.get(g.id) === false).map(g => g.id)
 }
+
+// One notice for however many games justGainedTurn names at once, not one
+// each — coming back after a long absence can flip a dozen games' turns in
+// the same fetch, and a dozen separate toasts stacking up is worse than
+// the silence this whole mechanism was meant to fix. Named individually up
+// to a point (still useful at a glance); past that, just the count — a
+// wall of names is no more readable than a wall of toasts.
+const NAMED_LIMIT = 3
+export function formatTurnGainedMessage(gameNames: string[]): string {
+  if (gameNames.length <= NAMED_LIMIT) return `🎲 Your turn: ${gameNames.join(', ')}`
+  return `🎲 Your turn in ${gameNames.length} games`
+}
