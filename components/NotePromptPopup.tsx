@@ -13,17 +13,20 @@ const AUTO_DISMISS_MS = 20_000
 // for next round is still fresh, and the one moment that's reliably true
 // regardless of whether the game opened in this tab or a new one.
 //
-// A small corner chip, not a full-screen blocking dialog: most of the time
-// there's nothing to actually write, and forcing a decision every single
-// time — even a one-click dismissal — trained a "make it go away" reflex
-// rather than an actual pause to think, and was the whole reason this
-// existed. Collapsed, it just names the game and fades on its own if
-// ignored (or is dismissed outright); tapping it expands to the same note
-// field as before, now with no auto-dismiss once expanded, so actually
-// writing something never races the clock. The collapsed chip is a plain
-// (non-fixed) child of the shared NotificationTray (app/page.tsx), which
-// does the actual corner positioning; the expanded panel still positions
-// itself (see below, top not bottom).
+// Not a full-screen blocking dialog: most of the time there's nothing to
+// actually write, and forcing a decision every single time — even a
+// one-click dismissal — trained a "make it go away" reflex rather than an
+// actual pause to think, and was the whole reason this existed. But not a
+// corner toast either, unlike the rest of the dashboard's ambient notices
+// (NotificationTray) — this is the one notice that actually asks for a
+// decision (even "nothing to add" is one), where the others are pure FYI,
+// and a decision point that's easy to miss defeats its own purpose. That's
+// the standard toast/snackbar (passive, transient, corner) vs. banner
+// (needs a decision, stays until it gets one, full-width/top) split —
+// collapsed, this renders as a banner pushing the page content down, not
+// a floating overlay; tapping it expands to the same note field as
+// before, now with no auto-dismiss once expanded, so actually writing
+// something never races the clock.
 export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete }: {
   game: Game
   note?: string
@@ -158,80 +161,82 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
 
   if (!expanded) {
     return (
-      <div className="flex items-start gap-1.5">
-        <button
-          onClick={() => setExpanded(true)}
-          // Explicit aria-label: the visible content below is the note
-          // itself once there is one, which would otherwise become the
-          // accessible name in its place — a stable one matters more here
-          // than usual, since this chip's whole point is to be found again
-          // by its game, with or without an existing note.
-          aria-label={`Note for ${game.gameName}`}
-          className="max-w-[min(calc(100vw-4.5rem),20rem)] text-left text-xs bg-[var(--accent-tint)] text-[var(--text-primary)] border border-[var(--accent-border-hover)] rounded-xl px-3 py-1.5 shadow-sm hover:border-[var(--accent)]">
-          {/* An existing note shown in full here (wrapping, not truncated —
-              a long one should still be fully readable), not just "Note for
-              X?" — the point is to let the current plan be judged still
-              fine at a glance, without having to expand just to check. */}
-          {note ? (
-            <>
-              <div className="font-medium">📝 {game.gameName}</div>
-              <div className="italic text-[var(--text-secondary)] whitespace-normal break-words">{note}</div>
-            </>
-          ) : (
-            <>📝 Note for {game.gameName}?</>
-          )}
-        </button>
-        <button
-          onClick={save}
-          aria-label="Dismiss note prompt"
-          title="Dismiss"
-          className="shrink-0 text-[var(--icon-muted)] hover:text-[var(--text-primary)] bg-[var(--accent-tint)] border border-[var(--accent-border-hover)] rounded-full w-6 h-6 flex items-center justify-center shadow-sm text-xs leading-none">
-          ✕
-        </button>
+      <div className="w-full bg-[var(--accent-tint)] border-b border-[var(--accent-border-hover)]">
+        <div className="flex items-center gap-3 px-3 sm:px-5 py-2">
+          <button
+            onClick={() => setExpanded(true)}
+            // Explicit aria-label: the visible content below is the note
+            // itself once there is one, which would otherwise become the
+            // accessible name in its place — a stable one matters more here
+            // than usual, since this banner's whole point is to be found
+            // again by its game, with or without an existing note.
+            aria-label={`Note for ${game.gameName}`}
+            className="flex-1 min-w-0 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-left text-sm">
+            {/* An existing note shown in full here (wrapping, not truncated
+                — a long one should still be fully readable), not just "Note
+                for X?" — the point is to let the current plan be judged
+                still fine at a glance, without having to expand just to
+                check. */}
+            <span className="font-medium text-[var(--text-primary)]">
+              📝 {note ? game.gameName : `Note for ${game.gameName}?`}
+            </span>
+            {note && <span className="italic text-[var(--text-secondary)] break-words">{note}</span>}
+            <span className="text-[var(--accent)] text-xs font-medium">{note ? 'Edit ›' : 'Add a note ›'}</span>
+          </button>
+          <button
+            onClick={save}
+            aria-label="Dismiss note prompt"
+            title="Dismiss"
+            className="shrink-0 text-[var(--icon-muted)] hover:text-[var(--text-primary)] text-sm leading-none px-1">
+            ✕
+          </button>
+        </div>
       </div>
     )
   }
 
   return (
-    // Top, not bottom, once there's a keyboard to type into: an on-screen
-    // keyboard (phone, and especially a tablet in landscape) eats the
-    // bottom portion of the viewport, which would otherwise sit right
-    // behind the very field it's covering. The collapsed chip has no such
-    // problem — nothing to type into yet — so it's free to live in the
-    // tray at the bottom instead.
-    <div
-      ref={panelRef}
-      role="dialog"
-      aria-labelledby="note-prompt-title"
-      className="fixed top-3 left-3 z-50 w-[calc(100vw-1.5rem)] max-w-sm bg-[var(--bg-surface)] rounded-lg shadow-xl border border-[var(--border-default)] p-4"
-    >
-      <h2 id="note-prompt-title" className="text-sm font-semibold text-[var(--text-primary)] mb-1">{game.gameName}</h2>
-      <p className="text-xs text-[var(--text-tertiary)] mb-3">Plan for next round?</p>
-      <textarea
-        ref={inputRef}
-        value={draft}
-        maxLength={300}
-        rows={3}
-        onChange={e => setDraft(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save() } }}
-        placeholder="Note for this game…"
-        aria-label={`Note for ${game.gameName}`}
-        className="w-full text-sm bg-[var(--bg-surface)] text-[var(--text-primary)] px-2.5 py-1.5 rounded border border-[var(--accent)] mb-3 resize-none"
-      />
-      <div className="flex items-center justify-between gap-2">
-        {note ? (
-          <button
-            onClick={remove}
-            onMouseDown={e => e.preventDefault()}
-            aria-label={`Delete the note on ${game.gameName}`}
-            title="Delete note"
-            className="text-xs text-[var(--icon-muted)] hover:text-red-500">
-            ✕
+    // Centered under the top banner above, not left-aligned — visually
+    // "expanding from" where the banner sat, same reason the banner itself
+    // sits at the top rather than a corner: an on-screen keyboard (phone,
+    // and especially a tablet in landscape) eats the bottom portion of the
+    // viewport, which would otherwise sit right behind the very field it's
+    // covering.
+    <div className="fixed top-0 left-0 right-0 z-50 flex justify-center px-3 pt-3">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-labelledby="note-prompt-title"
+        className="w-full max-w-sm bg-[var(--bg-surface)] rounded-lg shadow-xl border border-[var(--border-default)] p-4"
+      >
+        <h2 id="note-prompt-title" className="text-sm font-semibold text-[var(--text-primary)] mb-1">{game.gameName}</h2>
+        <p className="text-xs text-[var(--text-tertiary)] mb-3">Plan for next round?</p>
+        <textarea
+          ref={inputRef}
+          value={draft}
+          maxLength={300}
+          rows={3}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save() } }}
+          placeholder="Note for this game…"
+          aria-label={`Note for ${game.gameName}`}
+          className="w-full text-sm bg-[var(--bg-surface)] text-[var(--text-primary)] px-2.5 py-1.5 rounded border border-[var(--accent)] mb-3 resize-none"
+        />
+        <div className="flex items-center justify-between gap-2">
+          {note ? (
+            <button
+              onClick={remove}
+              onMouseDown={e => e.preventDefault()}
+              aria-label={`Delete the note on ${game.gameName}`}
+              title="Delete note"
+              className="text-xs text-[var(--icon-muted)] hover:text-red-500">
+              ✕
+            </button>
+          ) : <span />}
+          <button onClick={save} className="text-xs font-medium px-3 py-1.5 rounded-md bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]">
+            Save
           </button>
-        ) : <span />}
-        <button onClick={save} className="text-xs font-medium px-3 py-1.5 rounded-md bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]">
-          Save
-        </button>
+        </div>
       </div>
     </div>
   )

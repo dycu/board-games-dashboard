@@ -263,20 +263,24 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
+      {/* A banner, not a tray toast — see NotePromptPopup's own comment on
+          why this one notice needs a decision and the rest don't. In normal
+          flow (not fixed), so it pushes the page down instead of floating
+          over it, same as any other banner. */}
+      {promptGame && (
+        <NotePromptPopup
+          game={promptGame}
+          note={notes[promptGame.id]}
+          shownAt={opened[promptGame.id]?.movedSeenAt}
+          onSave={text => { saveNote(promptGame.id, text); dismissNotePrompt(promptGame.id) }}
+          onDelete={() => saveNote(promptGame.id, '')}
+        />
+      )}
       <NotificationTray>
         {showCompactProgress && (
           <FetchProgress platformStatuses={platformStatuses} compact />
         )}
         <NewGamesPopup />
-        {promptGame && (
-          <NotePromptPopup
-            game={promptGame}
-            note={notes[promptGame.id]}
-            shownAt={opened[promptGame.id]?.movedSeenAt}
-            onSave={text => { saveNote(promptGame.id, text); dismissNotePrompt(promptGame.id) }}
-            onDelete={() => saveNote(promptGame.id, '')}
-          />
-        )}
         <NoticeToasts />
       </NotificationTray>
       {showFullProgress ? (
