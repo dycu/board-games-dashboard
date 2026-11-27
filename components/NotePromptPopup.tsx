@@ -27,7 +27,7 @@ const AUTO_DISMISS_MS = 20_000
 // a floating overlay; tapping it expands to the same note field as
 // before, now with no auto-dismiss once expanded, so actually writing
 // something never races the clock.
-export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete }: {
+export default function NotePromptPopup({ game, note, shownAt, onSave }: {
   game: Game
   note?: string
   // When this prompt actually became due (Unix ms) — lib/dismissal.ts's
@@ -39,30 +39,25 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
   // navigation and back (BGA) — both left a long-stale chip waiting
   // indefinitely for a tick that was never coming.
   shownAt?: number
+  // Saving empty text deletes the note (useNotes) — that's how Delete works
   onSave: (text: string) => void
-  onDelete: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [draft, setDraft] = useState(note ?? '')
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
-  // Set right before the delete button below calls onDelete, so the
-  // `note` prop update that causes (useNotes clearing it) doesn't bounce
-  // through this same effect and collapse the very panel the deletion was
-  // made from. This effect's job is an *external* note change — a
-  // different game's prompt, or the note still arriving from useNotes'
-  // own initial load — not one this component just caused itself.
-  const justDeletedRef = useRef(false)
-
   // Resets to collapsed whenever the prompt switches to a different game,
   // and fills in the note if it's still loading (useNotes) when the popup
-  // first opens
-  useEffect(() => {
-    if (justDeletedRef.current) { justDeletedRef.current = false; return }
+  // first opens. Done while rendering (React's "adjust state when a prop
+  // changes" pattern) rather than in an effect.
+  const resetKey = `${game.id}\u0000${note ?? ''}`
+  const [lastResetKey, setLastResetKey] = useState(resetKey)
+  if (resetKey !== lastResetKey) {
+    setLastResetKey(resetKey)
     setExpanded(false)
     setDraft(note ?? '')
-  }, [note, game.id])
+  }
   // Plain .focus() alone leaves the cursor at the very start of an
   // existing note (a browser default, not something either side chose),
   // so typing right away inserts before it instead of continuing it —
@@ -152,12 +147,14 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
     }
   }, [expanded, shownAt, game.id])
 
-  // Just clears the saved note, without also closing the popup the way
-  // Save does — deleting an old plan is a reason to write a fresh one, not
-  // to walk away from the prompt entirely. Keeps the input focused (see
-  // the delete button's onMouseDown below) so a replacement can be typed
-  // right away, without the on-screen keyboard closing and reopening.
-  const remove = () => { justDeletedRef.current = true; onDelete(); setDraft(''); inputRef.current?.focus() }
+  // Two separate buttons, same as the editor in the game-page note banner
+  // (game-notes-banner userscript): Delete removes the note and closes —
+  // saving empty text is what deletes it, and saving is also what marks the
+  // prompt handled. Clear only empties the field, saving nothing, and keeps
+  // the cursor in it (see its onMouseDown) so a fresh plan can be typed right
+  // away without the on-screen keyboard closing and reopening.
+  const remove = () => { onSave(''); setExpanded(false) }
+  const clear = () => { setDraft(''); inputRef.current?.focus() }
 
   if (!expanded) {
     return (
@@ -238,18 +235,26 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
           aria-label={`Note for ${game.gameName}`}
           className="w-full text-sm bg-[var(--bg-surface)] text-[var(--text-primary)] px-2.5 py-1.5 rounded border border-[var(--accent)] mb-3 resize-none"
         />
-        <div className="flex items-center justify-between gap-2">
-          {note ? (
+        <div className="flex items-center gap-3">
+          {note && (
             <button
               onClick={remove}
-              onMouseDown={e => e.preventDefault()}
               aria-label={`Delete the note on ${game.gameName}`}
-              title="Delete note"
+              title="Delete the note and close"
               className="text-xs text-[var(--text-tertiary)] hover:text-red-500">
               Delete
             </button>
-          ) : <span />}
-          <button onClick={save} className="text-xs font-medium px-3 py-1.5 rounded-md bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]">
+          )}
+          {draft && (
+            <button
+              onClick={clear}
+              onMouseDown={e => e.preventDefault()}
+              title="Empty the field to write a new note (nothing is saved yet)"
+              className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)]">
+              Clear
+            </button>
+          )}
+          <button onClick={save} className="ml-auto text-xs font-medium px-3 py-1.5 rounded-md bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]">
             Save
           </button>
         </div>

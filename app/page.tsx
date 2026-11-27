@@ -273,7 +273,6 @@ export default function DashboardPage() {
           note={notes[promptGame.id]}
           shownAt={opened[promptGame.id]?.movedSeenAt}
           onSave={text => { saveNote(promptGame.id, text); dismissNotePrompt(promptGame.id) }}
-          onDelete={() => saveNote(promptGame.id, '')}
         />
       )}
       <NotificationTray>

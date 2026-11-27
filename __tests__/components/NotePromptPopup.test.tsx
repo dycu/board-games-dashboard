@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import NotePromptPopup from '@/components/NotePromptPopup'
@@ -18,7 +17,7 @@ const game: Game = {
 }
 
 const props = (over: Partial<Parameters<typeof NotePromptPopup>[0]> = {}) =>
-  ({ game, onSave: () => {}, onDelete: () => {}, ...over })
+  ({ game, onSave: () => {}, ...over })
 
 async function expand() {
   await userEvent.click(screen.getByRole('button', { name: /Note for Navegador/ }))
@@ -119,49 +118,35 @@ describe('NotePromptPopup', () => {
     expect(onSave).not.toHaveBeenCalled()
   })
 
-  it('deletes the existing note with its own button, without requiring the text to be cleared first', async () => {
-    const onDelete = jest.fn()
-    render(<NotePromptPopup {...props({ note: 'take the north pass', onDelete })} />)
-    await expand()
-    await userEvent.click(screen.getByRole('button', { name: /delete the note/i }))
-    expect(onDelete).toHaveBeenCalledTimes(1)
-  })
-
-  it('clears the input on delete, but does not close the popup — unlike Save', async () => {
+  // Delete removes the note and closes; Clear only empties the field to
+  // write a new one. Same two buttons as the editor in the game-page note
+  // banner (game-notes-banner userscript).
+  it('Delete removes the note and closes the editor, without needing the text cleared first', async () => {
     const onSave = jest.fn()
     render(<NotePromptPopup {...props({ note: 'take the north pass', onSave })} />)
     await expand()
     await userEvent.click(screen.getByRole('button', { name: /delete the note/i }))
+    expect(onSave).toHaveBeenCalledWith('')
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('Clear empties the field but keeps the editor open and focused, saving nothing', async () => {
+    const onSave = jest.fn()
+    render(<NotePromptPopup {...props({ note: 'take the north pass', onSave })} />)
+    await expand()
+    await userEvent.click(screen.getByRole('button', { name: 'Clear' }))
     expect(screen.getByRole('textbox')).toHaveValue('')
+    expect(screen.getByRole('textbox')).toHaveFocus()
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(onSave).not.toHaveBeenCalled()
+    await userEvent.type(screen.getByRole('textbox'), 'new plan{Enter}')
+    expect(onSave).toHaveBeenCalledWith('new plan')
   })
 
-  // The isolated tests above pass a stub onDelete that never actually
-  // changes the `note` prop, so they can't catch this: in the real app
-  // (app/page.tsx), onDelete flows into useNotes and clears the saved
-  // note, which comes back down as `note` turning undefined — the same
-  // shape of change as switching to a different game's prompt entirely,
-  // which is supposed to collapse the panel. Without distinguishing the
-  // two, deleting a note from inside the very panel editing it closed
-  // that panel right back to the collapsed chip.
-  it('does not collapse when deleting actually clears the note prop, the way it does in the real app', async () => {
-    function Wrapper() {
-      const [note, setNote] = useState<string | undefined>('take the north pass')
-      return <NotePromptPopup {...props({ note, onDelete: () => setNote(undefined) })} />
-    }
-    render(<Wrapper />)
+  it('offers no Clear button while the field is already empty', async () => {
+    render(<NotePromptPopup {...props()} />)
     await expand()
-    await userEvent.click(screen.getByRole('button', { name: /delete the note/i }))
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByRole('textbox')).toHaveValue('')
-  })
-
-  it('keeps the input focused after deleting, so a replacement can be typed right away', async () => {
-    render(<NotePromptPopup {...props({ note: 'take the north pass' })} />)
-    await expand()
-    await userEvent.click(screen.getByRole('button', { name: /delete the note/i }))
-    expect(screen.getByRole('textbox')).toHaveFocus()
+    expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull()
   })
 
   it('offers no delete button when there is no existing note to delete', async () => {
@@ -267,14 +252,12 @@ describe('NotePromptPopup', () => {
   // ✕ in the corner closes without saving, deleting is a labelled button.
   it('closes the editor without saving with the ✕ in its corner, back to the banner', async () => {
     const onSave = jest.fn()
-    const onDelete = jest.fn()
-    render(<NotePromptPopup {...props({ note: 'take the north pass', onSave, onDelete })} />)
+    render(<NotePromptPopup {...props({ note: 'take the north pass', onSave })} />)
     await expand()
     await userEvent.type(screen.getByRole('textbox'), ' and abandon this')
     await userEvent.click(screen.getByRole('button', { name: 'Close without saving' }))
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(onSave).not.toHaveBeenCalled()
-    expect(onDelete).not.toHaveBeenCalled()
     // back to the collapsed banner, still showing the unchanged note
     expect(screen.getByRole('button', { name: /Note for Navegador/ })).toHaveTextContent('take the north pass')
     await expand()
