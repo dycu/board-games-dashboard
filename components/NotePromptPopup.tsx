@@ -209,7 +209,23 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
         aria-labelledby="note-prompt-title"
         className="w-full max-w-sm bg-[var(--bg-surface)] rounded-lg shadow-xl border border-[var(--border-default)] p-4"
       >
-        <h2 id="note-prompt-title" className="text-sm font-semibold text-[var(--text-primary)] mb-1">{game.gameName}</h2>
+        <div className="flex items-start gap-2 mb-1">
+          <h2 id="note-prompt-title" className="flex-1 text-sm font-semibold text-[var(--text-primary)]">{game.gameName}</h2>
+          {/* Closes without saving: the typed text is dropped and the banner
+              collapses back, note unchanged — the one way out that doesn't
+              save (Escape, clicking outside and Save all do). If the banner's
+              own auto-dismiss window has already run out by then, collapsing
+              lets it fade right away, still without changing the note. Same
+              as the editor in the game-page note banner (game-notes-banner
+              userscript). */}
+          <button
+            onClick={() => { setDraft(note ?? ''); setExpanded(false) }}
+            aria-label="Close without saving"
+            title="Close without saving"
+            className="shrink-0 text-sm leading-none p-0.5 text-[var(--icon-muted)] hover:text-[var(--text-primary)]">
+            ✕
+          </button>
+        </div>
         <p className="text-xs text-[var(--text-tertiary)] mb-3">Plan for next round?</p>
         <textarea
           ref={inputRef}
@@ -229,8 +245,8 @@ export default function NotePromptPopup({ game, note, shownAt, onSave, onDelete 
               onMouseDown={e => e.preventDefault()}
               aria-label={`Delete the note on ${game.gameName}`}
               title="Delete note"
-              className="text-xs text-[var(--icon-muted)] hover:text-red-500">
-              ✕
+              className="text-xs text-[var(--text-tertiary)] hover:text-red-500">
+              Delete
             </button>
           ) : <span />}
           <button onClick={save} className="text-xs font-medium px-3 py-1.5 rounded-md bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]">

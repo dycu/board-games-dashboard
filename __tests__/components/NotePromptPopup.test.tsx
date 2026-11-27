@@ -262,4 +262,28 @@ describe('NotePromptPopup', () => {
     expect(onSave).toHaveBeenCalledWith('')
     jest.useRealTimers()
   })
+
+  // Same editor as the note banner on game pages (game-notes-banner userscript):
+  // ✕ in the corner closes without saving, deleting is a labelled button.
+  it('closes the editor without saving with the ✕ in its corner, back to the banner', async () => {
+    const onSave = jest.fn()
+    const onDelete = jest.fn()
+    render(<NotePromptPopup {...props({ note: 'take the north pass', onSave, onDelete })} />)
+    await expand()
+    await userEvent.type(screen.getByRole('textbox'), ' and abandon this')
+    await userEvent.click(screen.getByRole('button', { name: 'Close without saving' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(onSave).not.toHaveBeenCalled()
+    expect(onDelete).not.toHaveBeenCalled()
+    // back to the collapsed banner, still showing the unchanged note
+    expect(screen.getByRole('button', { name: /Note for Navegador/ })).toHaveTextContent('take the north pass')
+    await expand()
+    expect(screen.getByRole('textbox')).toHaveValue('take the north pass')
+  })
+
+  it('labels the delete button "Delete" rather than a bare ✕', async () => {
+    render(<NotePromptPopup {...props({ note: 'take the north pass' })} />)
+    await expand()
+    expect(screen.getByRole('button', { name: /delete the note/i })).toHaveTextContent('Delete')
+  })
 })
