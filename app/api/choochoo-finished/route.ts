@@ -1,6 +1,7 @@
 import { request as httpsRequest } from 'https'
 import type { FinishedGame } from '@/lib/types'
 import { formatTimeAgo, choochooGameType } from '@/lib/connectors/utils'
+import { resolveEndedTimes } from '@/lib/choochoo/endedAt'
 
 export const dynamic = 'force-dynamic'
 
@@ -78,11 +79,24 @@ export async function GET() {
     pages++
   } while (cursor && pages < 5) // cap at 5 pages (100 games)
 
-  // The game list API has no date field; use turnStartTime from detail if ever needed.
-  // For now use the game's updatedAt if present, otherwise fall back gracefully.
+  // The game list API has no date field, so each game's finish time comes
+  // from its own detail's turnStartTime (cached in KV — see
+  // lib/choochoo/endedAt). updatedAt/endedAt are kept as fallbacks in case
+  // the list ever starts sending them.
+  const endedTimes = await resolveEndedTimes(
+    allGames.map(g => Number(g.id)).filter(id => Number.isFinite(id) && id > 0),
+    async id => {
+      const res = await req('GET', `/api/games/${id}`, { ...base, Cookie: authCookie })
+      if (res.status !== 200) return null
+      const json = JSON.parse(res.body)
+      return json?.game ?? json
+    },
+  )
+
   const games: FinishedGame[] = allGames.map((g: any): FinishedGame => {
     const gameId = g.id ?? 0
-    const completedAt = g.updatedAt ? new Date(g.updatedAt) : g.endedAt ? new Date(g.endedAt) : new Date(0)
+    const completedAt = endedTimes.get(Number(gameId))
+      ?? (g.updatedAt ? new Date(g.updatedAt) : g.endedAt ? new Date(g.endedAt) : new Date(0))
     return {
       id: `choochoo:${gameId}`,
       platform: 'choochoo',

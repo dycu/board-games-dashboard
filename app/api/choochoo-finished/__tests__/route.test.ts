@@ -6,6 +6,13 @@ jest.mock('https', () => ({
   request: jest.fn(),
 }))
 
+// The per-game finish times (lib/choochoo/endedAt) are tested on their own;
+// here they're whatever the test says
+const mockEndedTimes = new Map<number, Date>()
+jest.mock('@/lib/choochoo/endedAt', () => ({
+  resolveEndedTimes: jest.fn(async () => mockEndedTimes),
+}))
+
 import { GET } from '../route'
 import { request as mockRequest } from 'https'
 const mockedRequest = mockRequest as jest.MockedFunction<typeof mockRequest>
@@ -33,6 +40,7 @@ function makeHttpsResponse(body: string, cookies: string[] = [], statusCode = 20
 describe('GET /api/choochoo-finished', () => {
   const OLD_ENV = process.env
   beforeEach(() => {
+    mockEndedTimes.clear()
     process.env = { ...OLD_ENV, CHOOCHOO_USERNAME: 'user', CHOOCHOO_PASSWORD: 'pass' }
     mockedRequest.mockReset()
   })
@@ -66,6 +74,24 @@ describe('GET /api/choochoo-finished', () => {
       completedAgo: expect.any(String),
     })
     expect(new Date(json.games[0].completedAt)).toBeInstanceOf(Date)
+  })
+
+  it('dates each game by its last turn start, not the epoch, when the list gives no date', async () => {
+    const xsrfBody = JSON.stringify({ xsrfToken: 'tok123' })
+    const loginBody = JSON.stringify({ user: { id: 99 } })
+    // Real list entries have no date field at all
+    const gamesBody = JSON.stringify({ games: [{ id: 3443, name: 'Rust Belt', playerIds: [99] }, { id: 3444, name: 'Other', playerIds: [99] }], nextPageCursor: null })
+    mockedRequest
+      .mockImplementationOnce(makeHttpsResponse(xsrfBody, ['XSRF-TOKEN=tok123; Path=/']) as any)
+      .mockImplementationOnce(makeHttpsResponse(loginBody, ['session=abc; Path=/']) as any)
+      .mockImplementationOnce(makeHttpsResponse(gamesBody) as any)
+    mockEndedTimes.set(3443, new Date('2026-10-25T15:40:07.000Z'))
+
+    const json = await (await GET()).json()
+    expect(json.games[0].completedAt).toBe('2026-10-25T15:40:07.000Z')
+    expect(json.games[0].completedAgo).not.toBe('unknown')
+    // no time found for this one: still listed, just undated as before
+    expect(json.games[1].completedAt).toBe('1970-01-01T00:00:00.000Z')
   })
 
   it('returns empty games when credentials missing', async () => {
