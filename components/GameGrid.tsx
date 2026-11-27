@@ -14,11 +14,9 @@ import FilterToolbar from './FilterToolbar'
 import PlatformFilterChips from './PlatformFilterChips'
 import TagFilterChips from './TagFilterChips'
 import TopNav from './TopNav'
-import ReadNotePopup from './ReadNotePopup'
 import TodayMovesPopup from './TodayMovesPopup'
 import InviteAgainButton from './InviteAgainButton'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
-import { useNoteConfirmedOpen } from '@/hooks/useNoteConfirmedOpen'
 import { storeOpenedNow } from '@/lib/dismissal'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 
@@ -226,7 +224,6 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
     markOpenedInStorage(id)
     setTimeout(() => openGame(id), 0)
   }
-  const nextNoteConfirm = useNoteConfirmedOpen(next, next ? openTarget(next) : '_blank', next ? notes[next.id] : undefined, openNext)
 
   // With few games going, suggest the top of "Next to play" that isn't already running
   const backlog = useBacklog()
@@ -476,16 +473,13 @@ export default function GameGrid({ data, prefs, onPrefsChange, dismissed, onRefr
                   href={next.gameUrl}
                   target={openTarget(next)}
                   rel="noopener noreferrer"
-                  onClick={nextNoteConfirm.onClick}
-                  onAuxClick={nextNoteConfirm.onAuxClick}
+                  onClick={openNext}
+                  onAuxClick={openNext}
                   title={`Open ${next.gameName}`}
                   className="min-w-0 max-w-[70%] flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-md bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]">
                   <span className="truncate">Next: {next.gameName}</span>
                   <span className="shrink-0">▶</span>
                 </a>
-              )}
-              {nextNoteConfirm.pendingTarget && next && notes[next.id] && (
-                <ReadNotePopup gameName={next.gameName} note={notes[next.id]} onConfirm={nextNoteConfirm.confirm} onCancel={nextNoteConfirm.cancel} />
               )}
               {myTurnGames.length === 0 && (
                 // Where Next would be, the same size

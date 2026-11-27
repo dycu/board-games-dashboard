@@ -166,51 +166,18 @@ describe('GameCard', () => {
     expect(onSaveNote).toHaveBeenCalledWith('bga:1', 'go for trains')
   })
 
-  describe('opening a game that has a note', () => {
-    beforeEach(() => jest.spyOn(window, 'open').mockImplementation(() => null))
-    afterEach(() => jest.restoreAllMocks())
-
-    it('holds off navigating and shows the note instead of opening right away', async () => {
-      const onOpen = jest.fn()
-      render(<GameCard {...props({ note: 'go for trains', onOpen })} />)
-      const link = screen.getByRole('link', { name: 'Open Wingspan' })
-      link.addEventListener('click', e => e.preventDefault())
-      await userEvent.click(link)
-      expect(onOpen).not.toHaveBeenCalled()
-      expect(screen.getByRole('dialog')).toHaveTextContent('go for trains')
-    })
-
-    it('opens the game once the note is confirmed', async () => {
-      const onOpen = jest.fn()
-      render(<GameCard {...props({ note: 'go for trains', onOpen })} />)
-      const link = screen.getByRole('link', { name: 'Open Wingspan' })
-      link.addEventListener('click', e => e.preventDefault())
-      await userEvent.click(link)
-      await userEvent.click(screen.getByRole('button', { name: /play/i }))
-      expect(window.open).toHaveBeenCalledWith(game.gameUrl, '_self', 'noopener,noreferrer')
-      expect(onOpen).toHaveBeenCalledTimes(1)
-    })
-
-    it('never opens the game when the note prompt is cancelled', async () => {
-      const onOpen = jest.fn()
-      render(<GameCard {...props({ note: 'go for trains', onOpen })} />)
-      const link = screen.getByRole('link', { name: 'Open Wingspan' })
-      link.addEventListener('click', e => e.preventDefault())
-      await userEvent.click(link)
-      await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
-      expect(window.open).not.toHaveBeenCalled()
-      expect(onOpen).not.toHaveBeenCalled()
-      expect(screen.queryByRole('dialog')).toBeNull()
-    })
-
-    it('still forces a new tab on confirm after a middle-click, even though BGA otherwise opens in this tab', async () => {
-      const onOpen = jest.fn()
-      render(<GameCard {...props({ note: 'go for trains', onOpen })} />)
-      const link = screen.getByRole('link', { name: 'Open Wingspan' })
-      fireEvent(link, new MouseEvent('auxclick', { bubbles: true, button: 1 }))
-      await userEvent.click(screen.getByRole('button', { name: /play/i }))
-      expect(window.open).toHaveBeenCalledWith(game.gameUrl, '_blank', 'noopener,noreferrer')
-    })
+  // The note is shown on the game page itself now (game-notes-banner
+  // userscript), so the dashboard no longer stops on a popup first.
+  it('opens a game that has a note straight away, without a popup', async () => {
+    const onOpen = jest.fn()
+    render(<GameCard {...props({ note: 'go for trains', onOpen })} />)
+    const link = screen.getByRole('link', { name: 'Open Wingspan' })
+    let navigated = false
+    link.addEventListener('click', e => { navigated = !e.defaultPrevented; e.preventDefault() })
+    await userEvent.click(link)
+    expect(navigated).toBe(true)
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('lets a long list of player names wrap instead of cutting it off', () => {

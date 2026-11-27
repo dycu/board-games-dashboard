@@ -5,12 +5,10 @@ import { BacklogList, SHORT_LIST_LABELS } from '@/lib/backlog/list'
 import { BADGE_COLORS } from '@/lib/platform-colors'
 import { formatTimeRemaining } from '@/lib/connectors/utils'
 import { deadlineSoon } from '@/lib/sort-filter'
-import { useNoteConfirmedOpen } from '@/hooks/useNoteConfirmedOpen'
 import HistoryLink from './HistoryLink'
 import HoldTooltip from './HoldTooltip'
 import PlayerHoverCard from './PlayerHoverCard'
 import ProgressBar from './ProgressBar'
-import ReadNotePopup from './ReadNotePopup'
 import TableMovesPopup from './TableMovesPopup'
 
 // Pin (always first in its section) and sink (always last) are opposite
@@ -56,25 +54,21 @@ export function isOpponentSlow(game: Game, opponentSlowDays: number, now: number
 
 // The whole card/row is the link: an invisible layer over it, with the
 // buttons raised above it so they stay clickable
-function CoverLink({ game, onOpen, note }: { game: Game; onOpen: () => void; note?: string }) {
-  const target = openTarget(game)
-  const { onClick, onAuxClick, pendingTarget, confirm, cancel } = useNoteConfirmedOpen(game, target, note, onOpen)
+// (Opening used to stop first on a popup showing the game's note — removed
+// in favour of the note banner the game-notes-banner userscript shows on the
+// game page itself; last version with the popup: tag v1.106.0-read-note-popup.)
+function CoverLink({ game, onOpen }: { game: Game; onOpen: () => void }) {
   return (
-    <>
-      <a
-        href={game.gameUrl}
-        target={target}
-        rel="noopener noreferrer"
-        aria-label={`Open ${game.gameName}`}
-        onClick={onClick}
-        onAuxClick={onAuxClick}
-        onContextMenu={onOpen}
-        className="absolute inset-0 rounded-[inherit] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
-      />
-      {pendingTarget && note && (
-        <ReadNotePopup gameName={game.gameName} note={note} onConfirm={confirm} onCancel={cancel} />
-      )}
-    </>
+    <a
+      href={game.gameUrl}
+      target={openTarget(game)}
+      rel="noopener noreferrer"
+      aria-label={`Open ${game.gameName}`}
+      onClick={onOpen}
+      onAuxClick={onOpen}
+      onContextMenu={onOpen}
+      className="absolute inset-0 rounded-[inherit] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+    />
   )
 }
 
@@ -418,7 +412,7 @@ export default function GameCard({ game, priority, onCyclePriority, onOpen, oppo
     <div className={`relative rounded-lg border p-3.5 flex flex-col gap-2 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:border-[var(--accent-border-hover)]
       ${highlight && !opened ? 'bg-[var(--accent-tint)]' : 'bg-[var(--bg-surface)]'}
       ${opened ? 'opacity-55 hover:opacity-100 border-[var(--border-default)]' : soon !== null ? 'border-[var(--border-default)] border-l-[3px] border-l-red-500' : 'border-[var(--border-default)] border-l-[3px] border-l-[var(--accent)]'}`}>
-      <CoverLink game={game} onOpen={onOpen} note={note} />
+      <CoverLink game={game} onOpen={onOpen} />
       <div className="flex items-center justify-between gap-2">
         {/* flex-wrap: a long tag name (or several) can outgrow what's left
             of the row next to the other badges — wrapping onto a second
@@ -486,7 +480,7 @@ export function GameCardCompact({ game, priority, onCyclePriority, onOpen, oppon
         ${inactive ? 'bg-transparent border border-[var(--border-default)] text-[var(--text-tertiary)]' : 'bg-[var(--accent)] text-white'}`}>
         {rank}
       </span>
-      <CoverLink game={game} onOpen={onOpen} note={note} />
+      <CoverLink game={game} onOpen={onOpen} />
       {/* flex-wrap, not a straight justify-between: every badge here is
           shrink-0 (a pill's text truncating mid-word reads as broken, worse
           than a clipped card edge would), so with no wrap the left group's
@@ -551,7 +545,7 @@ export function GameRow({ game, priority, onCyclePriority, onOpen, opponentSlowD
   return (
     <div className={`relative flex flex-wrap items-center gap-2 px-3 py-2 rounded-md border hover:border-[var(--accent-border-hover)] transition-colors
       ${slow ? 'bg-amber-50/40' : 'bg-[var(--bg-surface)]'} ${slow ? 'border-amber-200' : 'border-[var(--border-subtle)]'} ${opened ? 'opacity-55 hover:opacity-100' : ''}`}>
-      <CoverLink game={game} onOpen={onOpen} note={note} />
+      <CoverLink game={game} onOpen={onOpen} />
       <Badge game={game} small />
       <MoveCountBadge game={game} small />
       <BacklogBadge lists={backlogLists} small />
